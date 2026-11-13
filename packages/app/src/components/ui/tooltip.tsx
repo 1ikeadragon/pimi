@@ -27,7 +27,7 @@ import { FadeIn, FadeOut } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { FloatingSurface } from "@/components/ui/floating";
-import { useRetainedPanelActive } from "@/components/retained-panel";
+import { useRetainedPanelActiveWhile } from "@/components/retained-panel";
 import { isNative, isWeb } from "@/constants/platform";
 import { getOverlayRoot, OVERLAY_Z } from "@/lib/overlay-root";
 
@@ -257,7 +257,8 @@ export function Tooltip({
   });
 
   const isCompact = useIsCompactFormFactor();
-  const active = useRetainedPanelActive();
+  // Only an open tooltip needs to know its panel went inactive; a closed one cannot be hovered.
+  const active = useRetainedPanelActiveWhile(isOpen);
   const opensOnPress = isNative || isCompact;
   const enabled = active && (opensOnPress ? enabledOnMobile : enabledOnDesktop);
 

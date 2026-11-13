@@ -3,7 +3,7 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import Animated, { useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { Upload } from "lucide-react-native";
 import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { Theme } from "@/styles/theme";
 import { useFileDropContext } from "./context";
 

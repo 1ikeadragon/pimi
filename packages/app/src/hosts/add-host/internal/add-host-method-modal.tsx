@@ -1,6 +1,6 @@
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { useCallback, useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { QrCode, Link2, ClipboardPaste, Terminal } from "lucide-react-native";

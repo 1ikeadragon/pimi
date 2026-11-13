@@ -2,7 +2,7 @@ import React, { createContext, useContext, useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 import { View, Text, Pressable } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { X } from "lucide-react-native";
 import type { ToolCallDetail } from "@pimi/protocol/agent-types";

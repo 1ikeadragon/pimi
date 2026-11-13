@@ -1,6 +1,7 @@
 // Pimi Android navigation for remote-capable app views. Apache-2.0.
 import { usePathname } from "expo-router";
-import { BriefcaseBusiness, CircleGauge, LayoutGrid, ListTodo } from "lucide-react-native";
+import { BriefcaseBusiness, LayoutGrid, ListTodo } from "lucide-react-native";
+import { UsageIcon } from "@/usage/icon";
 import { useCallback } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -60,7 +61,7 @@ export function PimiMobileNavigation({ onNavigate }: { onNavigate?: () => void }
         variant="compact"
       />
       <SidebarHeaderRow
-        icon={CircleGauge}
+        icon={UsageIcon}
         label="Usage"
         onPress={openUsage}
         isActive={pathname === PIMI_USAGE_ROUTE}

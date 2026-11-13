@@ -4,7 +4,6 @@ import { router, usePathname } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
-  CircleGauge,
   Columns3,
   FileDiff,
   IdCard,
@@ -20,7 +19,7 @@ import {
   SquarePen,
   X,
 } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { create } from "zustand";
 import type { PimiActivitySection } from "@pimi/protocol/pimi-task";
 import { getDesktopHost, usesPimiMacTitlebar } from "@/desktop/host";
@@ -44,9 +43,11 @@ import {
   PIMI_AGENT_GRID_ROUTE,
 } from "@/navigation/pimi-agent-grid";
 import { closePimiReview, openPimiReview, PIMI_REVIEW_ROUTE } from "@/navigation/pimi-review";
-import { closePimiUsage, openPimiUsage, PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
+import { closePimiUsage, PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
 import { closePimiLibrary, PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
 import { SidebarHeaderRow, type SidebarRowIcon } from "./sidebar-header-row";
+import { UsageIcon } from "@/usage/icon";
+import { UsagePopover } from "@/usage/popover";
 import { usageHoverDetails } from "@/usage/sidebar-item";
 
 export interface PimiSidebarControls {
@@ -382,13 +383,17 @@ export function PimiWorkspaceNavigation({
           ),
         )}
         <AutomationsRailButton active={!section && inAutomations} />
-        <SidebarIcon
-          icon={CircleGauge}
-          label="Usage"
-          onPress={openPimiUsage}
-          active={!section && inUsage}
-          tooltipContent={usageHoverDetails}
-        />
+        <UsagePopover>
+          {(toggle) => (
+            <SidebarIcon
+              icon={UsageIcon}
+              label="Usage"
+              onPress={toggle}
+              active={!section && inUsage}
+              tooltipContent={usageHoverDetails}
+            />
+          )}
+        </UsagePopover>
       </View>
     );
   }

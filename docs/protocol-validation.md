@@ -10,6 +10,8 @@ The reason is mobile performance. A captured 353 KB provider snapshot cost about
 
 Keep one generated function per message type. zod-aot inlines every nested schema into the function it compiles, so compiling `WSOutboundMessageSchema` as a whole produced one 11 MB function. On V8 (daemon clients, plugin hosts, the CLI, and Electron), the Maglev tier compiled that function once it was hot, allocating about 800 MB and stalling for seconds, and compiled it again after each deoptimization. Hermes has no JIT, so mobile never showed it. A generated function must stay under 1 MB.
 
+A generated validator is a boolean fast path that returns a valid message as is, then a slow path that rebuilds the message while collecting issues. The slow path was 80% of the generated file. For a validator whose slow path never builds output (no defaults, no copied objects), the generator replaces the slow path with a call to the runtime Zod schema from the metadata module, so Zod reports the issues for an invalid message. A validator that applies defaults keeps its slow path, because a valid message can miss the fast path. Issue lists for invalid messages can therefore differ in detail from what the compiler emits (Zod also reports `unrecognized_keys` on strict objects); success results are identical. The generator also writes issue paths as array literals instead of `.concat` chains. What is left is mostly the validators for large messages with defaults, which inline every nested schema once per union branch: getting under 2 MB needs the compiler to emit shared helpers for repeated sub-schemas.
+
 Generated validators preserve unknown keys where Zod object parsing strips them. The client dispatch path uses known `type` and payload fields, so this passthrough behavior is accepted for inbound messages. The wire format is unchanged.
 
 Provider model normalization is a parser-side compatibility shim in the client consumers that need it. Newer daemons normalize at the provider registry source.
@@ -33,6 +35,7 @@ zod-aot is exact-pinned and young enough that compiler patches are treated as pa
 - current sequential item routing must accept `tool_call`-like status branches
 - generated runtime imports must keep `.js` extensions for packaged Node ESM
 - the generated WebSocket envelope accepts a minimal valid message and rejects a corrupted one
+- a validator whose slow path was replaced by the runtime schema still rejects a corrupted message, and a message that needs a default still gets it
 
 ## Schema Purity
 

@@ -47,7 +47,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { FileDiff } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
@@ -131,7 +131,8 @@ import {
   getHostRuntimeStore,
   useHostRuntimeClient,
   useHostRuntimeIsConnected,
-  useHostRuntimeSnapshot,
+  useHostRuntimeConnectionStatus,
+  useHostRuntimeLastError,
   useHosts,
 } from "@/runtime/host-runtime";
 import { prefetchProvidersSnapshot } from "@/hooks/use-providers-snapshot";
@@ -781,22 +782,23 @@ function useResolvedWorkspaceRouteState(input: {
     () => hosts.find((entry) => entry.serverId === input.serverId) ?? null,
     [hosts, input.serverId],
   );
-  const hostSnapshot = useHostRuntimeSnapshot(input.serverId);
+  const connectionStatus = useHostRuntimeConnectionStatus(input.serverId);
+  const lastError = useHostRuntimeLastError(input.serverId);
   const hostName = useMemo(() => getHostDisplayName(host, input.serverId), [host, input.serverId]);
   return useMemo(
     () =>
       resolveWorkspaceRouteState({
         hostName,
-        connectionStatus: hostSnapshot?.connectionStatus ?? "connecting",
-        lastError: hostSnapshot?.lastError ?? null,
+        connectionStatus,
+        lastError,
         workspace: input.workspace,
         hasHydratedWorkspaces: input.hasHydratedWorkspaces,
         recovery: input.recovery,
       }),
     [
       hostName,
-      hostSnapshot?.connectionStatus,
-      hostSnapshot?.lastError,
+      connectionStatus,
+      lastError,
       input.workspace,
       input.hasHydratedWorkspaces,
       input.recovery,
@@ -3590,6 +3592,7 @@ function WorkspaceScreenContent({
           actionsActive={isRouteFocused && (!isMobile || workspacePanelActive)}
           tabSwitcher={tabSwitcher}
           onHidePane={actions.pane?.hide}
+          onClosePane={actions.pane?.close}
           isLoading={isWorkspaceHeaderLoading}
           title={editorTitle ?? workspaceHeaderTitle}
           subtitle={editorTitle ? "" : workspaceHeaderSubtitle}
@@ -3834,10 +3837,14 @@ function WorkspaceScreenContent({
   );
 
   const [workspaceViewportWidth, setWorkspaceViewportWidth] = useState(0);
-  const measureWorkspaceWidth = useCallback(
-    (event: LayoutChangeEvent) => setWorkspaceViewportWidth(event.nativeEvent.layout.width),
-    [],
-  );
+  const measureWorkspaceWidth = useCallback((event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    // A retained, hidden workspace reports zero. Keeping the last width means it does not
+    // re-render when it hides, and the layout event on activation corrects any stale value.
+    if (width > 0) {
+      setWorkspaceViewportWidth(width);
+    }
+  }, []);
   const sharedExplorer = useMemo(() => {
     if (!workspaceLayout || !explorerSidebarPaneId || !persistenceKey) return null;
     const explorerPane = findPaneById(workspaceLayout.root, explorerSidebarPaneId);

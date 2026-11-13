@@ -8,7 +8,14 @@ import { useHasHydratedWorkspaces } from "@/stores/session-store-hooks";
 import { useDirectoryDemand } from "@/hooks/use-directory-demand";
 import { useWorkspaceLayoutStoreHydrated } from "@/stores/workspace-layout-store";
 import { useSessionStore } from "@/stores/session-store";
-import { getHostRuntimeStore, useHostRuntimeSnapshot, useHosts } from "@/runtime/host-runtime";
+import {
+  getHostRuntimeStore,
+  useHostRuntimeClient,
+  useHostRuntimeConnectionStatus,
+  useHostRuntimeLastError,
+  useHostRuntimeSnapshotValue,
+  useHosts,
+} from "@/runtime/host-runtime";
 import { buildHostRootRoute, buildSettingsHostRoute } from "@/utils/host-routes";
 import { toErrorMessage } from "@/utils/error-messages";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
@@ -31,9 +38,13 @@ function HostAgentReadyRouteContent() {
   const serverId = typeof params.serverId === "string" ? params.serverId : "";
   const agentId = typeof params.agentId === "string" ? params.agentId : "";
   const hosts = useHosts();
-  const runtimeSnapshot = useHostRuntimeSnapshot(serverId);
-  const client = runtimeSnapshot?.client ?? null;
-  const connectionStatus = runtimeSnapshot?.connectionStatus ?? "connecting";
+  const client = useHostRuntimeClient(serverId);
+  const connectionStatus = useHostRuntimeConnectionStatus(serverId);
+  const clientGeneration = useHostRuntimeSnapshotValue(
+    serverId,
+    (snapshot) => snapshot?.clientGeneration ?? 0,
+  );
+  const lastHostError = useHostRuntimeLastError(serverId);
   const hostName = hosts.find((host) => host.serverId === serverId)?.label ?? serverId;
   const agentWorkspaceId = useSessionStore((state) => {
     if (!serverId || !agentId) {
@@ -51,7 +62,7 @@ function HostAgentReadyRouteContent() {
     serverId && agentId && client && connectionStatus === "online" && !agentWorkspaceId,
   );
   const lookupQuery = useFetchQuery({
-    queryKey: ["agentRouteResolution", serverId, agentId, runtimeSnapshot?.clientGeneration ?? 0],
+    queryKey: ["agentRouteResolution", serverId, agentId, clientGeneration],
     queryFn: async () => {
       if (!client) {
         throw new Error("Target host client is unavailable");
@@ -153,7 +164,7 @@ function HostAgentReadyRouteContent() {
       <AgentRouteResolutionView
         resolution={resolution}
         hostName={hostName}
-        lastHostError={runtimeSnapshot?.lastError ?? null}
+        lastHostError={lastHostError}
         onRetry={handleRetry}
         onManageHost={handleManageHost}
         onBack={handleBack}

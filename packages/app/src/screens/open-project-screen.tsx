@@ -1,11 +1,11 @@
 import { useHosts, useHostRuntimeLastError } from "@/runtime/host-runtime";
+import { UsageIcon } from "@/usage/icon";
 import { useCallback, useEffect, useState, type ComponentType } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";
 import {
-  CircleGauge,
   FolderOpen,
   Inbox,
   LayoutGrid,
@@ -133,7 +133,7 @@ export function OpenProjectScreen() {
             ) : null}
             {pimi ? (
               <HomeTile
-                icon={CircleGauge}
+                icon={UsageIcon}
                 title="Usage"
                 description="See context, tokens, and provider limits."
                 onPress={openPimiUsage}

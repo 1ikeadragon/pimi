@@ -14,7 +14,7 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet as RNStyleSheet, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { invariant } from "@/utils/invariant";

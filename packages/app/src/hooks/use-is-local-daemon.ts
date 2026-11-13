@@ -2,6 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { getDesktopDaemonStatus, shouldUseDesktopDaemon } from "@/desktop/daemon/desktop-daemon";
 
 const DESKTOP_DAEMON_SERVER_ID_QUERY_KEY = ["desktop-daemon-server-id"] as const;
+// A setup with no local daemon never resolves an id, so the poll backs off from 1 s to 30 s.
+const SERVER_ID_POLL_BASE_MS = 1000;
+const SERVER_ID_POLL_MAX_MS = 30_000;
 
 interface DesktopDaemonServerIdResult {
   serverId: string | null;
@@ -24,7 +27,13 @@ function useLocalDaemonServerIdQuery() {
     enabled: isDesktopApp,
     staleTime: Infinity,
     gcTime: Infinity,
-    refetchInterval: (activeQuery) => (activeQuery.state.data?.serverId ? false : 1000),
+    refetchInterval: (activeQuery) =>
+      activeQuery.state.data?.serverId
+        ? false
+        : Math.min(
+            SERVER_ID_POLL_MAX_MS,
+            SERVER_ID_POLL_BASE_MS * 2 ** activeQuery.state.dataUpdateCount,
+          ),
     refetchOnMount: false,
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,

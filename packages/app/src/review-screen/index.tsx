@@ -5,7 +5,7 @@
 // the shared selection and desk focus; every pane is a slot owned by one stream (see each file's
 // header). Add behaviour in the slot, not here.
 import { useCallback, useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { PanelRight } from "lucide-react-native";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import { Text, View, type LayoutChangeEvent } from "react-native";

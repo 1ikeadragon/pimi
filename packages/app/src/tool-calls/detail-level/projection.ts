@@ -69,6 +69,7 @@ export function projectToolCallDetailLevel(input: {
     return {
       tail: visibleToolCallItems(input.tail),
       head: visibleToolCallItems(input.head),
+      liveRun: null,
       groupsByHostId: EMPTY_TOOL_CALL_GROUPS,
       historyGroupUpdatesByHostId: EMPTY_TOOL_CALL_GROUPS,
     };

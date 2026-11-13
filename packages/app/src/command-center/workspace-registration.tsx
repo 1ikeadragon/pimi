@@ -1,6 +1,6 @@
 import { usesDesktopBindings } from "@/keyboard";
 import { useCallback, useMemo, type ReactElement } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import {
   ArrowDownToLine,
   ArrowLeft,

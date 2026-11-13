@@ -142,6 +142,21 @@ history replay. The pending approval UI can hide that tool from presentation, bu
 must retain its position. Creating a new history card on rejection places it after the prompt that
 rejected it; changing steer-event ordering would also put new assistant output before that prompt.
 
+## Opening an unloaded chat
+
+A chat that is not loaded answers its first tail page from `pimi-timeline.db` and the stored agent
+record, under the stored epoch and seqs, then loads in the background; the open rules are in
+[data-model.md](data-model.md#chat-timelines-and-search). The load opens the same stored copy, so
+its timeline continues those seqs and no replacement is sent. Anything that needs the loaded agent
+(older pages, catch-up with a cursor, compaction summaries, a send) waits on that one load. If the
+copy stops qualifying between the page and the load, the load rebuilds from the provider under a
+new epoch and the client's next fetch resets.
+
+The same rule answers two read-only lists for an unloaded chat: provider subagents are `[]` (a copy
+with subagents never opens from storage), and slash commands come from the last read for that
+provider and folder, read again when a commands or skills directory changes, and refreshed in the background after 60 s. The first list per provider and folder
+after a daemon start still waits on a live provider process.
+
 ## Provider child history
 
 Child transcripts use the same projected-page reconciliation as the main conversation. The client

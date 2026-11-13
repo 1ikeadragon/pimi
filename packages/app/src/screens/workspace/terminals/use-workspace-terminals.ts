@@ -4,8 +4,9 @@ import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import type { TerminalProfile } from "@pimi/protocol/messages";
 import { resolveTerminalProfileLaunch } from "@pimi/protocol/terminal-profiles";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useReplicaQuery } from "@/data/query";
+import { useStableEvent } from "@/hooks/use-stable-event";
 import { workspaceTerminalsPushRoute } from "@/data/push-router";
 import {
   buildTerminalsQueryKey,
@@ -107,7 +108,8 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
   );
 
   useEffect(() => {
-    setPendingScriptTerminalIds(new Map());
+    // An empty map is already the reset state; a new one would re-render the screen for nothing.
+    setPendingScriptTerminalIds((current) => (current.size === 0 ? current : new Map()));
   }, [normalizedServerId, normalizedWorkspaceId]);
 
   const dataUpdatedAt = query.dataUpdatedAt;
@@ -213,35 +215,26 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
     pendingCreateInput,
   ]);
 
-  const createTerminal = useCallback(
-    (createInput: PendingTerminalCreateInput) => {
-      if (createMutation.isPending || pendingCreateInput) {
-        return;
-      }
+  // A stable identity: `createMutation` is a new object every render, so a memoized callback
+  // would change on every render and re-render every header and menu that receives it.
+  const createTerminal = useStableEvent((createInput: PendingTerminalCreateInput) => {
+    if (createMutation.isPending || pendingCreateInput) {
+      return;
+    }
 
-      if (canCreateNow) {
-        createMutation.mutate(createInput);
-        return;
-      }
+    if (canCreateNow) {
+      createMutation.mutate(createInput);
+      return;
+    }
 
-      if (hasHydratedWorkspaces && isMissingWorkspaceDirectory) {
-        onWorkspacePathUnavailable();
-        return;
-      }
+    if (hasHydratedWorkspaces && isMissingWorkspaceDirectory) {
+      onWorkspacePathUnavailable();
+      return;
+    }
 
-      setPendingCreateInput(createInput);
-      onTerminalCreateQueued();
-    },
-    [
-      canCreateNow,
-      createMutation,
-      hasHydratedWorkspaces,
-      isMissingWorkspaceDirectory,
-      onTerminalCreateQueued,
-      onWorkspacePathUnavailable,
-      pendingCreateInput,
-    ],
-  );
+    setPendingCreateInput(createInput);
+    onTerminalCreateQueued();
+  });
 
   const handleScriptTerminalStarted = useCallback(
     (terminalId: string) => {

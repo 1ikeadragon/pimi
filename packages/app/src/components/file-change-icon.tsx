@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { withUnistyles } from "react-native-unistyles";
 import { SquareDot, SquareMinus, SquarePlus } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { Theme } from "@/styles/theme";
 
 const ThemedSquarePlus = withUnistyles(SquarePlus);

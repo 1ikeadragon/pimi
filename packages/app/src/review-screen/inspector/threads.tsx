@@ -1,7 +1,7 @@
 // Pimi. Apache-2.0.
 // Stream S4: review threads as rows inside a card. Shared by the Overview card and the inspector.
 import { useCallback, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronDown, ChevronRight } from "lucide-react-native";

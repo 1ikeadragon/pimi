@@ -5,7 +5,7 @@ import {
 } from "@/keyboard";
 import { usePluginShortcutBindings } from "@/keyboard/use-plugin-shortcut-bindings";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { View, Text, type PressableStateCallbackType } from "react-native";
 import { useIsFocused } from "expo-router/react-navigation";
 import { MoreHorizontal, Pencil, Undo2, X } from "lucide-react-native";

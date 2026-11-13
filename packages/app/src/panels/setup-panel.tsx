@@ -3,7 +3,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ChevronRight, CircleAlert, SquareTerminal } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Pressable, type PressableStateCallbackType, ScrollView, Text, View } from "react-native";
 import { invariant } from "@/utils/invariant";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";

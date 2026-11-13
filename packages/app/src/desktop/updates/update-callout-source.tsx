@@ -1,6 +1,6 @@
 import { Gift } from "lucide-react-native";
 import { type ReactNode, useEffect, useRef } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useUnistyles } from "react-native-unistyles";
 import {
   type SidebarCalloutAction,

@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { ImportSessionSheet } from "@/components/import-session-sheet";
 import { useHostChooser } from "@/hosts/host-chooser";
 import { useHostRuntimeClient } from "@/runtime/host-runtime";

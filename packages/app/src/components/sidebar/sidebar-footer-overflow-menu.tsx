@@ -1,14 +1,6 @@
 import { useCallback, useMemo, useState, type ReactElement } from "react";
-import { useTranslation } from "react-i18next";
-import {
-  ChevronUp,
-  CircleGauge,
-  CircleHelp,
-  FolderPlus,
-  Plus,
-  Server,
-  Settings,
-} from "lucide-react-native";
+import { useTranslation } from "@/i18n/use-translation";
+import { ChevronUp, CircleHelp, FolderPlus, Plus, Server, Settings } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
 import { HostStatusDotSlot } from "@/components/hosts/host-picker";
 import type { SidebarFooterAction } from "@/components/sidebar-footer-layout";
@@ -27,18 +19,19 @@ import { useHosts } from "@/runtime/host-runtime";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { orderHostsLocalFirst } from "@/types/host-connection";
 import { useOpenSidebarUsage } from "@/usage";
+import { UsageIcon } from "@/usage/icon";
 import { SidebarFooterMenuTrigger } from "./sidebar-footer-menu-trigger";
 import { SidebarHelpMenuItems } from "./sidebar-help-menu";
 
 const mutedIconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const ThemedFolderPlus = withUnistyles(FolderPlus);
-const ThemedCircleGauge = withUnistyles(CircleGauge);
+const ThemedUsageIcon = withUnistyles(UsageIcon);
 const ThemedServer = withUnistyles(Server);
 const ThemedCircleHelp = withUnistyles(CircleHelp);
 const ThemedSettings = withUnistyles(Settings);
 const ThemedPlus = withUnistyles(Plus);
 const addProjectLeading = <ThemedFolderPlus size={ICON_SIZE.sm} uniProps={mutedIconMapping} />;
-const usageLeading = <ThemedCircleGauge size={ICON_SIZE.sm} uniProps={mutedIconMapping} />;
+const usageLeading = <ThemedUsageIcon size={ICON_SIZE.sm} uniProps={mutedIconMapping} />;
 const hostsLeading = <ThemedServer size={ICON_SIZE.sm} uniProps={mutedIconMapping} />;
 const helpLeading = <ThemedCircleHelp size={ICON_SIZE.sm} uniProps={mutedIconMapping} />;
 const settingsLeading = <ThemedSettings size={ICON_SIZE.sm} uniProps={mutedIconMapping} />;

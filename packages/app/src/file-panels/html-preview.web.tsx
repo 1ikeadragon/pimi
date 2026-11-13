@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { readHtmlPreviewHeight, withPreviewCsp, type HtmlPreviewEmbed } from "./html-preview-csp";
 
 // `allow-scripts` alone: the file gets an opaque origin, so a plan page can run

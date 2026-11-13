@@ -32,6 +32,8 @@ export interface WorkspaceCompactHeaderActions {
     toggleMaximized?: () => void;
     /** Attack mode's holding pane: hides the pane and keeps its tabs. Absent on every other pane. */
     hide?: () => void;
+    /** Closes the pane's active tab. Offered on desktop, where a narrow pane has no tab row to close from. */
+    close?: () => void;
     maximized: boolean;
   };
   closeAbove: (key: string) => Promise<void> | void;

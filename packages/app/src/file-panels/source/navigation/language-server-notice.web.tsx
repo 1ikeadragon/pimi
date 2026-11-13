@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { Text, View } from "react-native";
 import { router, type Href } from "expo-router";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/toast-api-context";

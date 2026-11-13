@@ -6,7 +6,7 @@ import { useCallback, useMemo } from "react";
 import { Text, View } from "react-native";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { DiffStat } from "@/components/diff-stat";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { StatusBadge } from "@/components/ui/status-badge";

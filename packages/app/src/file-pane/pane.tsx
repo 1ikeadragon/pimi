@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { PluginFile, PluginFilePanelParams, PluginTab } from "@pimi/plugin/client";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Button } from "@/components/ui/button";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useFileHandle, useFileHandleSnapshot } from "@/file-panels/file";

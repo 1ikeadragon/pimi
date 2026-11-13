@@ -6,7 +6,7 @@ import { useCallback, useMemo, useState } from "react";
 import { FlatList, Text, View } from "react-native";
 import { RefreshCw } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { SearchField } from "@/components/ui/search-field";

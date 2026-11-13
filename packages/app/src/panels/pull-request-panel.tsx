@@ -4,7 +4,7 @@ import {
   usePullRequestPanelDescriptor,
 } from "./pull-request/descriptor";
 import { Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { invariant } from "@/utils/invariant";
 import { usePaneContext } from "@/panels/pane-context";
 import { definePanel } from "@/panels/panel-registry";

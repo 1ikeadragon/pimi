@@ -2318,6 +2318,9 @@ class ClaudeContextUsageState {
   }
 }
 
+/** Longest a streamed tool call's partial input waits before it is parsed again. */
+const TOOL_INPUT_PARSE_WINDOW_MS = 100;
+
 class ClaudeAgentSession implements AgentSession {
   readonly provider = "claude" as const;
   readonly capabilities = CLAUDE_CAPABILITIES;
@@ -2359,6 +2362,8 @@ class ClaudeAgentSession implements AgentSession {
   private toolUseCache = new Map<string, ToolUseCacheEntry>();
   private toolUseIndexToId = new Map<number, string>();
   private toolUseInputBuffers = new Map<string, string>();
+  private readonly toolInputParseTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly toolInputLastParse = new Map<string, number>();
   private subagentHandbackIds = new Set<string>();
   private pendingPermissions = new Map<string, PendingPermission>();
   private activeForegroundTurnId: string | null = null;
@@ -3107,6 +3112,7 @@ class ClaudeAgentSession implements AgentSession {
   }
 
   async close(): Promise<void> {
+    for (const toolId of this.toolUseInputBuffers.keys()) this.dropToolInputBuffer(toolId);
     this.logger.trace(
       {
         agentId: this.agentId,
@@ -6416,6 +6422,14 @@ class ClaudeAgentSession implements AgentSession {
     return undefined;
   }
 
+  private dropToolInputBuffer(toolId: string): void {
+    const timer = this.toolInputParseTimers.get(toolId);
+    if (timer) clearTimeout(timer);
+    this.toolInputParseTimers.delete(toolId);
+    this.toolInputLastParse.delete(toolId);
+    this.toolUseInputBuffers.delete(toolId);
+  }
+
   private updatePartialEventToolState(event: SDKPartialAssistantMessage["event"]): boolean {
     if (event.type === "content_block_start") {
       const block = isClaudeContentChunk(event.content_block) ? event.content_block : null;
@@ -6425,7 +6439,7 @@ class ClaudeAgentSession implements AgentSession {
         typeof block.id === "string"
       ) {
         this.toolUseIndexToId.set(event.index, block.id);
-        this.toolUseInputBuffers.delete(block.id);
+        this.dropToolInputBuffer(block.id);
       }
       return false;
     }
@@ -6442,7 +6456,8 @@ class ClaudeAgentSession implements AgentSession {
       const toolId = this.toolUseIndexToId.get(event.index);
       if (toolId) {
         this.toolUseIndexToId.delete(event.index);
-        this.toolUseInputBuffers.delete(toolId);
+        this.flushToolInputParse(toolId);
+        this.dropToolInputBuffer(toolId);
       }
     }
     return false;
@@ -6521,8 +6536,41 @@ class ClaudeAgentSession implements AgentSession {
     if (!toolId) {
       return;
     }
-    const buffer = (this.toolUseInputBuffers.get(toolId) ?? "") + partialJson;
-    this.toolUseInputBuffers.set(toolId, buffer);
+    this.toolUseInputBuffers.set(
+      toolId,
+      (this.toolUseInputBuffers.get(toolId) ?? "") + partialJson,
+    );
+    // Every delta appends to the buffer, but the buffer is parsed at most once per window:
+    // parsing the whole input per delta is quadratic for a large Write or Edit.
+    if (this.toolInputParseTimers.has(toolId)) return;
+    const wait =
+      TOOL_INPUT_PARSE_WINDOW_MS - (Date.now() - (this.toolInputLastParse.get(toolId) ?? 0));
+    if (wait <= 0) {
+      this.parseToolInputBuffer(toolId);
+      return;
+    }
+    const timer = setTimeout(() => {
+      this.toolInputParseTimers.delete(toolId);
+      this.parseToolInputBuffer(toolId);
+    }, wait);
+    timer.unref?.();
+    this.toolInputParseTimers.set(toolId, timer);
+  }
+
+  /** Parse what is buffered now, so the window's last delta is never left unparsed. */
+  private flushToolInputParse(toolId: string): void {
+    const timer = this.toolInputParseTimers.get(toolId);
+    if (timer) {
+      clearTimeout(timer);
+      this.toolInputParseTimers.delete(toolId);
+    }
+    this.parseToolInputBuffer(toolId);
+  }
+
+  private parseToolInputBuffer(toolId: string): void {
+    const buffer = this.toolUseInputBuffers.get(toolId);
+    if (buffer === undefined) return;
+    this.toolInputLastParse.set(toolId, Date.now());
     const entry = this.toolUseCache.get(toolId);
     const parsed = parsePartialJsonObject(buffer);
     if (!entry || !parsed) {

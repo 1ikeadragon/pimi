@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet } from "react-native-unistyles";
 import type { MutableDaemonConfigPatch, PimiModelFeature } from "@pimi/protocol/messages";
 import { SettingsCard, SettingsRow } from "@/components/settings";

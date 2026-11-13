@@ -2,7 +2,7 @@
 import { useCallback, useMemo } from "react";
 import { FolderOpen } from "lucide-react-native";
 import { Text } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { LocalSpeechModel } from "@pimi/protocol/speech/rpc-schemas";
 import {
   SettingsCard,

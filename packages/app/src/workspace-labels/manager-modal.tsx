@@ -31,7 +31,7 @@ import {
   type WorkspaceLabelManagerDraft,
 } from "@/workspace-labels";
 import { WorkspaceLabelDot, WorkspaceLabelSwatchRow } from "./swatch";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 
 /** The size the host pill's own glyphs use, so the row's trailing mark matches the controls above it. */
 const EDIT_ICON_SIZE = 14;

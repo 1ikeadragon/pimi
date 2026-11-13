@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { AutocompleteOption, AutocompleteStatus } from "@/components/ui/autocomplete";
 import { findHighlightRanges } from "@/components/ui/highlighted-text-segments";
 import {

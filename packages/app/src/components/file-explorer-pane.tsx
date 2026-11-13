@@ -10,7 +10,7 @@ import {
 } from "react";
 import { overridable, Slot } from "@/extension-points";
 import { useQuery } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import {
   FlatList,
   ListRenderItemInfo,

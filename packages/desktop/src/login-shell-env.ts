@@ -2,11 +2,11 @@
 // https://github.com/microsoft/vscode/blob/main/src/vs/platform/shell/node/shellEnv.ts
 // Licensed under the MIT License.
 
-import type { SpawnSyncReturns } from "node:child_process";
-import { spawnSync as defaultSpawnSync } from "node:child_process";
+import { spawn as defaultSpawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { userInfo as defaultUserInfo } from "node:os";
 import { basename } from "node:path";
+import type { IpcMain } from "electron";
 import defaultLog from "electron-log/main";
 
 const DEFAULT_RESOLVE_TIMEOUT_MS = 30_000;
@@ -21,7 +21,7 @@ interface LoginShellEnvDependencies {
   logger?: LoginShellEnvLogger;
   now?: () => number;
   platform?: NodeJS.Platform;
-  spawnSync?: typeof defaultSpawnSync;
+  spawn?: typeof defaultSpawn;
   userInfo?: typeof defaultUserInfo;
 }
 
@@ -68,6 +68,14 @@ interface ShellEnvAttempt {
   shellArgs: string[];
 }
 
+interface ShellRunResult {
+  status: number | null;
+  signal: NodeJS.Signals | null;
+  stdout: string;
+  stderr: string;
+  error?: Error;
+}
+
 interface ShellEnvCommand {
   command: string;
   attempts: ShellEnvAttempt[];
@@ -87,7 +95,7 @@ interface AttemptTimeoutInput {
 }
 
 interface ThrowIfShellFailedInput {
-  result: SpawnSyncReturns<string>;
+  result: ShellRunResult;
   regex: RegExp;
   shell: string;
   attempt: ShellEnvAttempt;
@@ -155,7 +163,7 @@ function errorCode(error: unknown): string | null {
   return error instanceof Error ? ((error as NodeJS.ErrnoException).code ?? null) : null;
 }
 
-function shellFailureReason(result: SpawnSyncReturns<string>): string {
+function shellFailureReason(result: ShellRunResult): string {
   if (errorCode(result.error) === "ETIMEDOUT") return "timeout";
   return result.error ? "spawn-error" : "signal";
 }
@@ -276,7 +284,77 @@ function shellEnvCommand({ shell, mark }: { shell: string; mark: string }): Shel
   };
 }
 
-function shellEnvForAttempt({
+/** Runs the shell without blocking the main process; kills it when the attempt times out. */
+function runShell({
+  deps,
+  shell,
+  args,
+  argv0,
+  env,
+  timeoutMs,
+}: {
+  deps: Required<LoginShellEnvDependencies>;
+  shell: string;
+  args: string[];
+  argv0: string | undefined;
+  env: NodeJS.ProcessEnv;
+  timeoutMs: number;
+}): Promise<ShellRunResult> {
+  return new Promise((resolve) => {
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    const finish = (result: Omit<ShellRunResult, "stdout" | "stderr">) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      // oxlint-disable-next-line promise/no-multiple-resolved -- `settled` makes this run once.
+      resolve({ ...result, stdout, stderr });
+    };
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let child: ReturnType<typeof defaultSpawn>;
+    try {
+      child = deps.spawn(shell, args, {
+        argv0,
+        windowsHide: true,
+        env,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (error) {
+      finish({
+        status: null,
+        signal: null,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+      return;
+    }
+
+    timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      finish({
+        status: null,
+        signal: "SIGKILL",
+        error: Object.assign(new Error(`login shell timed out after ${timeoutMs}ms`), {
+          code: "ETIMEDOUT",
+        }),
+      });
+    }, timeoutMs);
+
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr?.on("data", (chunk: string) => {
+      if (stderr.length < STDERR_LOG_LIMIT * 4) stderr += chunk;
+    });
+    child.on("error", (error) => finish({ status: null, signal: null, error }));
+    child.on("close", (status, signal) => finish({ status, signal }));
+  });
+}
+
+async function shellEnvForAttempt({
   deps,
   shellEnv,
   shell,
@@ -284,17 +362,18 @@ function shellEnvForAttempt({
   regex,
   attempt,
   timeoutMs,
-}: ShellEnvForAttemptInput): Record<string, string> {
-  const result = deps.spawnSync(shell, [...attempt.shellArgs, command], {
+}: ShellEnvForAttemptInput): Promise<Record<string, string>> {
+  const result = await runShell({
+    deps,
+    shell,
+    args: [...attempt.shellArgs, command],
     argv0: attempt.argv0,
-    encoding: "utf8",
-    timeout: timeoutMs,
-    windowsHide: true,
     env: {
       ...shellEnv,
       ELECTRON_RUN_AS_NODE: "1",
       ELECTRON_NO_ATTACH_CONSOLE: "1",
     },
+    timeoutMs,
   });
 
   throwIfShellFailed({ result, regex, shell, attempt });
@@ -391,7 +470,10 @@ function restoreElectronEnv({ env, savedRunAsNode, savedNoAttach }: RestoreElect
   delete env.XDG_RUNTIME_DIR;
 }
 
-function resolveShellEnv({ deps, timeoutMs }: ResolveShellEnvInput): ResolvedShellEnv {
+async function resolveShellEnv({
+  deps,
+  timeoutMs,
+}: ResolveShellEnvInput): Promise<ResolvedShellEnv> {
   if (deps.platform === "win32") {
     throw new ShellEnvError("login shell env is not resolved on Windows", { reason: "win32" });
   }
@@ -438,7 +520,7 @@ function resolveShellEnv({ deps, timeoutMs }: ResolveShellEnvInput): ResolvedShe
     const attemptStartedAt = deps.now();
 
     try {
-      const env = shellEnvForAttempt({
+      const env = await shellEnvForAttempt({
         deps,
         shellEnv,
         shell,
@@ -490,19 +572,22 @@ function resolveShellEnv({ deps, timeoutMs }: ResolveShellEnvInput): ResolvedShe
 
 /**
  * On macOS/Linux, Electron inherits a minimal environment when launched from
- * Finder/Dock. Spawn the user's login shell and capture its full environment
+ * Finder/Dock. Asynchronously spawn the user's login shell and capture its full environment
  * via Node's JSON.stringify(process.env), so the daemon and all child processes
  * see the same tools and variables as a normal terminal session.
  *
+ * The returned promise never rejects. Callers start it at process start and await it before
+ * anything that spawns a child, so the window does not wait on the user's shell rc files.
+ *
  * Approach borrowed from VS Code (src/vs/platform/shell/node/shellEnv.ts).
  */
-export function inheritLoginShellEnv(input: LoginShellEnvDependencies = {}): void {
+export async function inheritLoginShellEnv(input: LoginShellEnvDependencies = {}): Promise<void> {
   const deps: Required<LoginShellEnvDependencies> = {
     env: input.env ?? process.env,
     logger: input.logger ?? defaultLog,
     now: input.now ?? Date.now,
     platform: input.platform ?? process.platform,
-    spawnSync: input.spawnSync ?? defaultSpawnSync,
+    spawn: input.spawn ?? defaultSpawn,
     userInfo: input.userInfo ?? defaultUserInfo,
   };
   const beforePath = pathEnv(deps.env);
@@ -510,7 +595,7 @@ export function inheritLoginShellEnv(input: LoginShellEnvDependencies = {}): voi
   const timeoutMs = timeoutMsFromEnv(deps.env);
 
   try {
-    const { env, attemptKind } = resolveShellEnv({ deps, timeoutMs });
+    const { env, attemptKind } = await resolveShellEnv({ deps, timeoutMs });
     Object.assign(deps.env, env);
     deps.logger.info("[login-shell-env] applied", {
       attemptKind,
@@ -540,4 +625,19 @@ export function inheritLoginShellEnv(input: LoginShellEnvDependencies = {}): voi
     });
     // Keep inherited environment if shell lookup fails.
   }
+}
+
+/**
+ * Makes every IPC handler registered after this call wait for `ready` before it runs. Handlers
+ * spawn the daemon, terminals and editors with `process.env`, which must hold the login-shell
+ * `PATH` first. The renderer needs hundreds of milliseconds to boot, so the wait only shows when
+ * the user's shell is slow.
+ */
+export function deferIpcHandlersUntil(ipc: Pick<IpcMain, "handle">, ready: Promise<void>): void {
+  const handle = ipc.handle.bind(ipc);
+  ipc.handle = (channel, listener) =>
+    handle(channel, async (event, ...args) => {
+      await ready;
+      return listener(event, ...args);
+    });
 }

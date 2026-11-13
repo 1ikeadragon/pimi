@@ -1,8 +1,19 @@
 diff --git a/node_modules/react-native-unistyles/lib/commonjs/web/registry.js b/node_modules/react-native-unistyles/lib/commonjs/web/registry.js
-index 120ff60..d1ff102 100644
+index 120ff60..cb0e05c 100644
 --- a/node_modules/react-native-unistyles/lib/commonjs/web/registry.js
 +++ b/node_modules/react-native-unistyles/lib/commonjs/web/registry.js
-@@ -10,6 +10,17 @@ class UnistylesRegistry {
+@@ -6,10 +6,30 @@ Object.defineProperty(exports, "__esModule", {
+ exports.UnistylesRegistry = void 0;
+ var _css = require("./css");
+ var _utils = require("./utils");
++const collectLiveClasses = () => {
++  const classes = new Set();
++  document.querySelectorAll('[class]').forEach(element => {
++    element.getAttribute('class')?.split(' ').forEach(className => classes.add(className));
++  });
++  return classes;
++};
+ class UnistylesRegistry {
    stylesheets = new Map();
    stylesCache = new Set();
    stylesCounter = new Map();
@@ -17,10 +28,12 @@ index 120ff60..d1ff102 100644
 +    }
 +    this.decrementAndMaybeCleanup(hash);
 +  });
++  pendingCleanups = new Map();
++  cleanupScheduled = false;
    disposeListenersMap = new Map();
    dependenciesMap = new Map();
    constructor(services) {
-@@ -50,26 +61,48 @@ class UnistylesRegistry {
+@@ -50,26 +70,87 @@ class UnistylesRegistry {
      this.disposeListenersMap.set(stylesheet, dispose);
    };
    connect = (ref, hash) => {
@@ -67,26 +80,65 @@ index 120ff60..d1ff102 100644
 +    if (next > 0) {
 +      this.stylesCounter.set(hash, next);
 +      return Promise.resolve(false);
-     }
--    return Promise.resolve(false);
++    }
 +    this.stylesCounter.delete(hash);
 +    // Move this to the end of the event loop so the element is removed from the DOM
-+    return Promise.resolve().then(() => {
-+      // Check if element is still in the DOM
++    const pending = this.pendingCleanups.get(hash);
++    if (pending) {
++      return pending.promise;
++    }
++    let resolve = () => {};
++    const promise = new Promise(resolvePromise => {
++      resolve = resolvePromise;
++    });
++    this.pendingCleanups.set(hash, {
++      promise,
++      resolve
++    });
++    if (!this.cleanupScheduled) {
++      this.cleanupScheduled = true;
++      queueMicrotask(this.runPendingCleanups);
++    }
++    return promise;
++  };
++
++  // Unmounting a screen releases hundreds of styles in one go. One querySelector per style scans
++  // the document each time, so a large batch reads the classes in use once instead.
++  runPendingCleanups = () => {
++    const batch = this.pendingCleanups;
++    this.pendingCleanups = new Map();
++    this.cleanupScheduled = false;
++    let liveClasses = null;
++    for (const [hash, {
++      resolve
++    }] of batch) {
++      // New connect raced in during the microtask
 +      if ((this.stylesCounter.get(hash) ?? 0) > 0) {
-+        return false;
++        resolve(false);
++        continue;
 +      }
-+      if (document.querySelector(`.${hash}`)) {
-+        return false;
++
++      // Check if element is still in the DOM
++      let inDocument;
++      if (batch.size <= 4 || hash.includes(' ')) {
++        inDocument = document.querySelector(`.${hash}`) !== null;
++      } else {
++        liveClasses ??= collectLiveClasses();
++        inDocument = liveClasses.has(hash);
++      }
++      if (inDocument) {
++        resolve(false);
++        continue;
 +      }
 +      this.css.remove(hash);
 +      this.stylesCache.delete(hash);
-+      return true;
-+    });
++      resolve(true);
+     }
+-    return Promise.resolve(false);
    };
    add = (value, forChild) => {
      const generatedHash = (0, _utils.generateHash)(value);
-@@ -91,7 +124,10 @@ class UnistylesRegistry {
+@@ -91,7 +172,10 @@ class UnistylesRegistry {
      this.css.add(hash, value);
    };
    reset = () => {
@@ -98,10 +150,21 @@ index 120ff60..d1ff102 100644
      this.dependenciesMap.clear();
      this.disposeListenersMap.clear();
 diff --git a/node_modules/react-native-unistyles/lib/module/web/registry.js b/node_modules/react-native-unistyles/lib/module/web/registry.js
-index 6362f43..8e769f8 100644
+index 6362f43..04da283 100644
 --- a/node_modules/react-native-unistyles/lib/module/web/registry.js
 +++ b/node_modules/react-native-unistyles/lib/module/web/registry.js
-@@ -6,6 +6,17 @@ export class UnistylesRegistry {
+@@ -2,10 +2,30 @@
+ 
+ import { CSSState } from './css';
+ import { error, extractUnistyleDependencies, generateHash } from './utils';
++const collectLiveClasses = () => {
++  const classes = new Set();
++  document.querySelectorAll('[class]').forEach(element => {
++    element.getAttribute('class')?.split(' ').forEach(className => classes.add(className));
++  });
++  return classes;
++};
+ export class UnistylesRegistry {
    stylesheets = new Map();
    stylesCache = new Set();
    stylesCounter = new Map();
@@ -116,10 +179,12 @@ index 6362f43..8e769f8 100644
 +    }
 +    this.decrementAndMaybeCleanup(hash);
 +  });
++  pendingCleanups = new Map();
++  cleanupScheduled = false;
    disposeListenersMap = new Map();
    dependenciesMap = new Map();
    constructor(services) {
-@@ -46,26 +57,48 @@ export class UnistylesRegistry {
+@@ -46,26 +66,87 @@ export class UnistylesRegistry {
      this.disposeListenersMap.set(stylesheet, dispose);
    };
    connect = (ref, hash) => {
@@ -166,26 +231,65 @@ index 6362f43..8e769f8 100644
 +    if (next > 0) {
 +      this.stylesCounter.set(hash, next);
 +      return Promise.resolve(false);
-     }
--    return Promise.resolve(false);
++    }
 +    this.stylesCounter.delete(hash);
 +    // Move this to the end of the event loop so the element is removed from the DOM
-+    return Promise.resolve().then(() => {
-+      // Check if element is still in the DOM
++    const pending = this.pendingCleanups.get(hash);
++    if (pending) {
++      return pending.promise;
++    }
++    let resolve = () => {};
++    const promise = new Promise(resolvePromise => {
++      resolve = resolvePromise;
++    });
++    this.pendingCleanups.set(hash, {
++      promise,
++      resolve
++    });
++    if (!this.cleanupScheduled) {
++      this.cleanupScheduled = true;
++      queueMicrotask(this.runPendingCleanups);
++    }
++    return promise;
++  };
++
++  // Unmounting a screen releases hundreds of styles in one go. One querySelector per style scans
++  // the document each time, so a large batch reads the classes in use once instead.
++  runPendingCleanups = () => {
++    const batch = this.pendingCleanups;
++    this.pendingCleanups = new Map();
++    this.cleanupScheduled = false;
++    let liveClasses = null;
++    for (const [hash, {
++      resolve
++    }] of batch) {
++      // New connect raced in during the microtask
 +      if ((this.stylesCounter.get(hash) ?? 0) > 0) {
-+        return false;
++        resolve(false);
++        continue;
 +      }
-+      if (document.querySelector(`.${hash}`)) {
-+        return false;
++
++      // Check if element is still in the DOM
++      let inDocument;
++      if (batch.size <= 4 || hash.includes(' ')) {
++        inDocument = document.querySelector(`.${hash}`) !== null;
++      } else {
++        liveClasses ??= collectLiveClasses();
++        inDocument = liveClasses.has(hash);
++      }
++      if (inDocument) {
++        resolve(false);
++        continue;
 +      }
 +      this.css.remove(hash);
 +      this.stylesCache.delete(hash);
-+      return true;
-+    });
++      resolve(true);
+     }
+-    return Promise.resolve(false);
    };
    add = (value, forChild) => {
      const generatedHash = generateHash(value);
-@@ -87,7 +120,10 @@ export class UnistylesRegistry {
+@@ -87,7 +168,10 @@ export class UnistylesRegistry {
      this.css.add(hash, value);
    };
    reset = () => {
@@ -197,10 +301,26 @@ index 6362f43..8e769f8 100644
      this.dependenciesMap.clear();
      this.disposeListenersMap.clear();
 diff --git a/node_modules/react-native-unistyles/src/web/registry.ts b/node_modules/react-native-unistyles/src/web/registry.ts
-index 39e0d9d..a21ba95 100644
+index 39e0d9d..2b91d58 100644
 --- a/node_modules/react-native-unistyles/src/web/registry.ts
 +++ b/node_modules/react-native-unistyles/src/web/registry.ts
-@@ -9,7 +9,24 @@ import { error, extractUnistyleDependencies, generateHash } from './utils'
+@@ -6,10 +6,42 @@ import type { UnistylesServices } from './types'
+ import { CSSState } from './css'
+ import { error, extractUnistyleDependencies, generateHash } from './utils'
+ 
++const collectLiveClasses = () => {
++    const classes = new Set<string>()
++
++    document.querySelectorAll('[class]').forEach((element) => {
++        element
++            .getAttribute('class')
++            ?.split(' ')
++            .forEach((className) => classes.add(className))
++    })
++
++    return classes
++}
++
  export class UnistylesRegistry {
      private readonly stylesheets = new Map<StyleSheetWithSuperPowers<StyleSheet>, StyleSheet>()
      private readonly stylesCache = new Set<string>()
@@ -223,10 +343,12 @@ index 39e0d9d..a21ba95 100644
 +
 +                  this.decrementAndMaybeCleanup(hash)
 +              })
++    private pendingCleanups = new Map<string, { promise: Promise<boolean>; resolve: (removed: boolean) => void }>()
++    private cleanupScheduled = false
      private readonly disposeListenersMap = new Map<object, VoidFunction>()
      private readonly dependenciesMap = new Map<StyleSheetWithSuperPowers<StyleSheet>, Set<UnistyleDependency>>()
      readonly css: CSSState
-@@ -78,33 +95,61 @@ export class UnistylesRegistry {
+@@ -78,33 +110,102 @@ export class UnistylesRegistry {
      }
  
      connect = (ref: HTMLElement, hash: string) => {
@@ -252,11 +374,29 @@ index 39e0d9d..a21ba95 100644
      remove = (ref: HTMLElement, hash: string) => {
 -        const stylesCounter = this.stylesCounter.get(hash) ?? new Set()
 +        const token = this.finalizerTokens.get(ref)?.get(hash)?.pop()
- 
--        stylesCounter.delete(ref)
++
 +        if (token) {
 +            this.finalizationRegistry?.unregister(token)
 +        }
++
++        return this.decrementAndMaybeCleanup(hash)
++    }
++
++    private decrementAndMaybeCleanup = (hash: string): Promise<boolean> => {
++        const next = (this.stylesCounter.get(hash) ?? 0) - 1
++
++        if (next > 0) {
++            this.stylesCounter.set(hash, next)
++
++            return Promise.resolve(false)
++        }
++
++        // Drop the empty bucket from the Map
++        this.stylesCounter.delete(hash)
+ 
+-        stylesCounter.delete(ref)
++        // Move this to the end of the event loop so the element is removed from the DOM
++        const pending = this.pendingCleanups.get(hash)
  
 -        if (stylesCounter.size === 0) {
 -            // Move this to the end of the event loop so the element is removed from the DOM
@@ -265,47 +405,70 @@ index 39e0d9d..a21ba95 100644
 -                if (document.querySelector(`.${hash}`)) {
 -                    return false
 -                }
-+        return this.decrementAndMaybeCleanup(hash)
-+    }
++        if (pending) {
++            return pending.promise
++        }
 +
-+    private decrementAndMaybeCleanup = (hash: string): Promise<boolean> => {
-+        const next = (this.stylesCounter.get(hash) ?? 0) - 1
++        let resolve: (removed: boolean) => void = () => {}
++        const promise = new Promise<boolean>((resolvePromise) => {
++            resolve = resolvePromise
++        })
  
 -                this.css.remove(hash)
 -                this.stylesCache.delete(hash)
-+        if (next > 0) {
-+            this.stylesCounter.set(hash, next)
++        this.pendingCleanups.set(hash, { promise, resolve })
  
 -                return true
 -            })
-+            return Promise.resolve(false)
++        if (!this.cleanupScheduled) {
++            this.cleanupScheduled = true
++            queueMicrotask(this.runPendingCleanups)
          }
  
 -        return Promise.resolve(false)
-+        // Drop the empty bucket from the Map
-+        this.stylesCounter.delete(hash)
++        return promise
++    }
 +
-+        // Move this to the end of the event loop so the element is removed from the DOM
-+        return Promise.resolve().then(() => {
++    // Unmounting a screen releases hundreds of styles in one go. One querySelector per style scans
++    // the document each time, so a large batch reads the classes in use once instead.
++    private runPendingCleanups = () => {
++        const batch = this.pendingCleanups
++
++        this.pendingCleanups = new Map()
++        this.cleanupScheduled = false
++
++        let liveClasses: Set<string> | null = null
++
++        for (const [hash, { resolve }] of batch) {
 +            // New connect raced in during the microtask
 +            if ((this.stylesCounter.get(hash) ?? 0) > 0) {
-+                return false
++                resolve(false)
++                continue
 +            }
 +
 +            // Check if element is still in the DOM
-+            if (document.querySelector(`.${hash}`)) {
-+                return false
++            let inDocument: boolean
++
++            if (batch.size <= 4 || hash.includes(' ')) {
++                inDocument = document.querySelector(`.${hash}`) !== null
++            } else {
++                liveClasses ??= collectLiveClasses()
++                inDocument = liveClasses.has(hash)
++            }
++
++            if (inDocument) {
++                resolve(false)
++                continue
 +            }
 +
 +            this.css.remove(hash)
 +            this.stylesCache.delete(hash)
-+
-+            return true
-+        })
++            resolve(true)
++        }
      }
  
      add = (value: UnistylesValues, forChild?: boolean) => {
-@@ -126,7 +171,11 @@ export class UnistylesRegistry {
+@@ -126,7 +227,11 @@ export class UnistylesRegistry {
      }
  
      reset = () => {
@@ -330,11 +493,24 @@ index 195954b..c4ac28c 100644
  
      defaultConfig {
 diff --git a/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.tsx b/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.tsx
+index e347b7a..39f6022 100644
 --- a/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.tsx
 +++ b/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.tsx
-@@ -28,13 +28,14 @@
+@@ -4,7 +4,7 @@ import type { UnistylesValues } from '../../types'
+ import type { Mappings } from './types'
+ 
+ import { deepMergeObjects } from '../../utils'
+-import { getClassName } from '../getClassname'
++import { getClassName, useFlushStyles } from '../getClassname'
+ import { useProxifiedUnistyles } from '../useProxifiedUnistyles'
+ import { maybeWarnAboutMultipleUnistyles } from '../warn'
+ 
+@@ -27,14 +27,17 @@ export const withUnistyles = <TComponent, TMappings extends GenericComponentProp
+     }
  
      return forwardRef<GenericComponentRef<TComponent>, PropsWithUnistyles>((props, ref) => {
++        useFlushStyles()
++
          const narrowedProps = props as PropsWithUnistyles & UnistyleStyles
 +        const { uniProps, ...componentProps } = narrowedProps
          const styleClassNames = getClassName(narrowedProps.style, true)
@@ -349,7 +525,7 @@ diff --git a/node_modules/react-native-unistyles/src/core/withUnistyles/withUnis
              : {}
  
          const emptyStyles = narrowedProps.style
-@@ -46,7 +47,7 @@
+@@ -46,7 +49,7 @@ export const withUnistyles = <TComponent, TMappings extends GenericComponentProp
              : undefined
  
          const combinedProps = {
@@ -359,9 +535,10 @@ diff --git a/node_modules/react-native-unistyles/src/core/withUnistyles/withUnis
                  ? {
                        // Override default component styles with undefined values to reset them
 diff --git a/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.native.tsx b/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.native.tsx
+index 27723c0..8ab111a 100644
 --- a/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.native.tsx
 +++ b/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.native.tsx
-@@ -63,6 +63,7 @@
+@@ -63,6 +63,7 @@ export const withUnistyles = <TComponent, TMappings extends GenericComponentProp
  
      return forwardRef<GenericComponentRef<TComponent>, PropsWithUnistyles>((props, ref) => {
          const narrowedProps = props as PropsWithUnistyles & UnistyleStyles
@@ -369,7 +546,7 @@ diff --git a/node_modules/react-native-unistyles/src/core/withUnistyles/withUnis
          const NativeComponent = Component as ComponentType
  
          // @ts-ignore we don't know the type of the component
-@@ -89,15 +90,15 @@
+@@ -89,15 +90,15 @@ export const withUnistyles = <TComponent, TMappings extends GenericComponentProp
          }, [narrowedProps.style, narrowedProps.contentContainerStyle])
  
          const { key: mappingsKey, ...mappingsProps } = mappings ? mappings(proxifiedTheme, proxifiedRuntime) : {}
@@ -389,17 +566,29 @@ diff --git a/node_modules/react-native-unistyles/src/core/withUnistyles/withUnis
                  ? {
                        style: styleSecrets.styles,
 diff --git a/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.js b/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.js
+index 5904a73..3ba63de 100644
 --- a/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.js
 +++ b/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.js
-@@ -13,6 +13,7 @@
+@@ -2,7 +2,7 @@
+ 
+ import React, { forwardRef } from 'react';
+ import { deepMergeObjects } from '../../utils';
+-import { getClassName } from '../getClassname';
++import { getClassName, useFlushStyles } from '../getClassname';
+ import { useProxifiedUnistyles } from '../useProxifiedUnistyles';
+ import { maybeWarnAboutMultipleUnistyles } from '../warn';
+ 
+@@ -12,7 +12,9 @@ import { maybeWarnAboutMultipleUnistyles } from '../warn';
+ import { jsx as _jsx } from "react/jsx-runtime";
  export const withUnistyles = (Component, mappings) => {
    return /*#__PURE__*/forwardRef((props, ref) => {
++    useFlushStyles();
      const narrowedProps = props;
 +    const { uniProps, ...componentProps } = narrowedProps;
      const styleClassNames = getClassName(narrowedProps.style, true);
      const contentContainerStyleClassNames = getClassName(narrowedProps.contentContainerStyle);
      const {
-@@ -26,10 +27,10 @@
+@@ -26,10 +28,10 @@ export const withUnistyles = (Component, mappings) => {
      const {
        key: uniPropsKey,
        ...unistyleProps
@@ -413,9 +602,10 @@ diff --git a/node_modules/react-native-unistyles/lib/module/core/withUnistyles/w
          // Override default component styles with undefined values to reset them
          style: emptyStyles
 diff --git a/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.native.js b/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.native.js
+index b89343e..00cde6a 100644
 --- a/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.native.js
 +++ b/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.native.js
-@@ -27,6 +27,7 @@
+@@ -27,6 +27,7 @@ export const withUnistyles = (Component, mappings) => {
    };
    return /*#__PURE__*/forwardRef((props, ref) => {
      const narrowedProps = props;
@@ -423,7 +613,7 @@ diff --git a/node_modules/react-native-unistyles/lib/module/core/withUnistyles/w
      const NativeComponent = Component;
  
      // @ts-ignore we don't know the type of the component
-@@ -57,11 +58,11 @@
+@@ -57,11 +58,11 @@ export const withUnistyles = (Component, mappings) => {
      const {
        key: uniPropsKey,
        ...unistyleProps
@@ -438,17 +628,20 @@ diff --git a/node_modules/react-native-unistyles/lib/module/core/withUnistyles/w
          style: styleSecrets.styles
        } : {}),
 diff --git a/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.js b/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.js
+index 5a0d049..38a2075 100644
 --- a/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.js
 +++ b/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.js
-@@ -18,6 +18,7 @@
+@@ -17,7 +17,9 @@ function _interopRequireWildcard(e, t) { if ("function" == typeof WeakMap) var r
+ 
  const withUnistyles = (Component, mappings) => {
    return /*#__PURE__*/(0, _react.forwardRef)((props, ref) => {
++    (0, _getClassname.useFlushStyles)();
      const narrowedProps = props;
 +    const { uniProps, ...componentProps } = narrowedProps;
      const styleClassNames = (0, _getClassname.getClassName)(narrowedProps.style, true);
      const contentContainerStyleClassNames = (0, _getClassname.getClassName)(narrowedProps.contentContainerStyle);
      const {
-@@ -31,10 +32,10 @@
+@@ -31,10 +33,10 @@ const withUnistyles = (Component, mappings) => {
      const {
        key: uniPropsKey,
        ...unistyleProps
@@ -462,9 +655,10 @@ diff --git a/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles
          // Override default component styles with undefined values to reset them
          style: emptyStyles
 diff --git a/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.native.js b/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.native.js
+index abaa2ee..000d8e3 100644
 --- a/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.native.js
 +++ b/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.native.js
-@@ -32,6 +32,7 @@
+@@ -32,6 +32,7 @@ const withUnistyles = (Component, mappings) => {
    };
    return /*#__PURE__*/(0, _react.forwardRef)((props, ref) => {
      const narrowedProps = props;
@@ -472,7 +666,7 @@ diff --git a/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles
      const NativeComponent = Component;
  
      // @ts-ignore we don't know the type of the component
-@@ -62,11 +63,11 @@
+@@ -62,11 +63,11 @@ const withUnistyles = (Component, mappings) => {
      const {
        key: uniPropsKey,
        ...unistyleProps
@@ -538,7 +732,9 @@ diff --git a/node_modules/react-native-unistyles/src/web/runtime.ts b/node_modul
 index a16dac0..6519858 100644
 --- a/node_modules/react-native-unistyles/src/web/runtime.ts
 +++ b/node_modules/react-native-unistyles/src/web/runtime.ts
-@@ -41,8 +41,16 @@ export class UnistylesRuntime {
+@@ -39,10 +39,18 @@ export class UnistylesRuntime {
+     }
+ 
      get colorScheme() {
 +        // Read the scheme through fresh lists, never through lightMedia/darkMedia. Chromium defers
 +        // MediaQueryList change events while the document is hidden and drops the pending event
@@ -714,7 +910,7 @@ index 01026dc..3786ec4 100644
  
  #if REACT_NATIVE_VERSION_MINOR >= 81
 -        std::unordered_map<Tag, folly::dynamic> tagToProps;
-+        // Pimi backport of https://github.com/jpudysz/react-native-unistyles/pull/1357.
++        // Paseo backport of https://github.com/jpudysz/react-native-unistyles/pull/1357.
 +        // UIManager::updateShadowTree commits a root cloned before the commit, so when a
 +        // window-size commit (rotation, keyboard) lands in between, the retried Unistyles
 +        // commit puts the previous layout constraints back and the app stays laid out for
@@ -761,3 +957,825 @@ index 01026dc..3786ec4 100644
  #else
          const auto& shadowTreeRegistry = UIManagerBinding::getBinding(rt)->getUIManager().getShadowTreeRegistry();
  
+diff --git a/node_modules/react-native-unistyles/lib/commonjs/components/native/Pressable.js b/node_modules/react-native-unistyles/lib/commonjs/components/native/Pressable.js
+index 6edb373..6eecb75 100644
+--- a/node_modules/react-native-unistyles/lib/commonjs/components/native/Pressable.js
++++ b/node_modules/react-native-unistyles/lib/commonjs/components/native/Pressable.js
+@@ -7,6 +7,7 @@ exports.Pressable = void 0;
+ var _react = _interopRequireWildcard(require("react"));
+ var _reactNative = require("react-native");
+ var _core = require("../../core");
++var _getClassname = require("../../core/getClassname");
+ var _specs = require("../../specs");
+ var _utils = require("../../web/utils");
+ var _jsxRuntime = require("react/jsx-runtime");
+@@ -15,6 +16,7 @@ const Pressable = exports.Pressable = /*#__PURE__*/(0, _react.forwardRef)(({
+   style,
+   ...props
+ }, forwardedRef) => {
++  (0, _getClassname.useFlushStyles)();
+   const scopedTheme = _specs.UnistylesShadowRegistry.getScopedTheme();
+   let storedRef = null;
+   let classNames = undefined;
+diff --git a/node_modules/react-native-unistyles/lib/commonjs/core/createUnistylesElement.js b/node_modules/react-native-unistyles/lib/commonjs/core/createUnistylesElement.js
+index 454e990..aed78a9 100644
+--- a/node_modules/react-native-unistyles/lib/commonjs/core/createUnistylesElement.js
++++ b/node_modules/react-native-unistyles/lib/commonjs/core/createUnistylesElement.js
+@@ -29,6 +29,7 @@ const buildUnistylesProps = (Component, props, forwardedRef) => {
+ };
+ const createUnistylesElement = Component => {
+   const UnistylesComponent = props => {
++    (0, _getClassname.useFlushStyles)();
+     return /*#__PURE__*/(0, _jsxRuntime.jsx)(Component, {
+       ...props,
+       ...buildUnistylesProps(Component, props, props.ref)
+diff --git a/node_modules/react-native-unistyles/lib/commonjs/core/getClassname.js b/node_modules/react-native-unistyles/lib/commonjs/core/getClassname.js
+index a3f3fa5..d0aeb98 100644
+--- a/node_modules/react-native-unistyles/lib/commonjs/core/getClassname.js
++++ b/node_modules/react-native-unistyles/lib/commonjs/core/getClassname.js
+@@ -3,7 +3,8 @@
+ Object.defineProperty(exports, "__esModule", {
+   value: true
+ });
+-exports.getClassName = void 0;
++exports.useFlushStyles = exports.getClassName = void 0;
++var _react = require("react");
+ var unistyles = _interopRequireWildcard(require("../web/services"));
+ var _utils = require("../web/utils");
+ function _interopRequireWildcard(e, t) { if ("function" == typeof WeakMap) var r = new WeakMap(), n = new WeakMap(); return (_interopRequireWildcard = function (e, t) { if (!t && e && e.__esModule) return e; var o, i, f = { __proto__: null, default: e }; if (null === e || "object" != typeof e && "function" != typeof e) return f; if (o = t ? n : r) { if (o.has(e)) return o.get(e); o.set(e, f); } for (const t in e) "default" !== t && {}.hasOwnProperty.call(e, t) && ((i = (o = Object.defineProperty) && Object.getOwnPropertyDescriptor(e, t)) && (i.get || i.set) ? o(f, t, i) : f[t] = e[t]); return f; })(e, t); }
+@@ -25,4 +26,12 @@ const getClassName = (unistyle, forChild) => {
+   }, animatedStyles] : undefined;
+ };
+ exports.getClassName = getClassName;
++const flushStyles = () => unistyles.services.registry.css.flush();
++
++// Style rules added during render reach the sheet in the commit's insertion phase, which runs
++// before every layout effect, so a component that measures itself on mount sees its styles.
++const useFlushStyles = () => {
++  (0, _react.useInsertionEffect)(flushStyles);
++};
++exports.useFlushStyles = useFlushStyles;
+ //# sourceMappingURL=getClassname.js.map
+\ No newline at end of file
+diff --git a/node_modules/react-native-unistyles/lib/commonjs/web/css/state.js b/node_modules/react-native-unistyles/lib/commonjs/web/css/state.js
+index 7c7214e..37862a5 100644
+--- a/node_modules/react-native-unistyles/lib/commonjs/web/css/state.js
++++ b/node_modules/react-native-unistyles/lib/commonjs/web/css/state.js
+@@ -16,11 +16,34 @@ const safeGetMap = (map, key) => {
+   }
+   return nextLevelMap;
+ };
++const MARKER_PREFIX = '.__ug';
++const PENDING_SEPARATOR = '\u0000';
++const STALE_FLUSH_DELAY_MS = 2000;
++const STALE_RULE_LIMIT = 4000;
++const buildRule = (className, properties) => {
++  let rule = `.${className}{`;
++  for (const [propertyKey, value] of properties) {
++    if (value === undefined) {
++      continue;
++    }
++    rule += `${(0, _utils.hyphenate)(propertyKey)}:${value};`;
++  }
++  return `${rule}}`;
++};
+ class CSSState {
+   mainMap = new Map();
+   mqMap = new Map();
+   styleTag = null;
+   themesCSS = new Map();
++  recreateQueued = false;
++  staleFlushTimer = null;
++  staleRemovals = 0;
++  // Rules reach the sheet through the CSSOM unless something forces a full rewrite, because a
++  // rewrite restyles the whole document. The first flush, a new media query group, a theme
++  // change and any CSSOM error all rebuild the sheet from the maps, which stay the source of truth.
++  needsFullRebuild = true;
++  pendingRules = new Set();
++  groupIndex = new Map();
+   constructor(services) {
+     this.services = services;
+     if ((0, _utils.isServer)()) {
+@@ -46,14 +69,119 @@ class CSSState {
+     const secondLevelMap = safeGetMap(firstLevelMap, mediaQuery);
+     const thirdLevelMap = safeGetMap(secondLevelMap, className);
+     thirdLevelMap.set(propertyKey, value);
++    if (isMq) {
++      this.needsFullRebuild = true;
++      return;
++    }
++    this.pendingRules.add(`${mediaQuery}${PENDING_SEPARATOR}${className}`);
+   };
+   add = (hash, values) => {
+     (0, _core.convertToCSS)(hash, (0, _convert.convertUnistyles)(values, this.services.runtime), this);
+-    this.recreate();
++    this.queueRecreate();
++  };
++
++  // Rewriting the tag costs O(total CSS) and makes the browser restyle the whole document, so
++  // adds are coalesced. Components flush from an insertion effect, which runs before any layout
++  // effect can measure an element that uses a new class; the microtask covers adds that no
++  // component commit follows.
++  queueRecreate = () => {
++    if (this.recreateQueued) {
++      return;
++    }
++    this.recreateQueued = true;
++    queueMicrotask(this.flush);
++  };
++  flush = () => {
++    if (!this.recreateQueued) {
++      return;
++    }
++    if (this.needsFullRebuild || !this.appendPendingRules()) {
++      this.recreate();
++      return;
++    }
++    this.recreateQueued = false;
++  };
++
++  // Insert the rules added since the last flush at the end of their group, which is where the
++  // full rewrite would have put them, so the cascade order is unchanged. Each group carries an
++  // empty marker rule (`.__ugN`) that locates it in the sheet.
++  appendPendingRules = () => {
++    const sheet = this.styleTag?.sheet;
++    if (!sheet) {
++      return false;
++    }
++    const targets = new Map();
++    for (let index = 0; index < sheet.cssRules.length; index++) {
++      const rule = sheet.cssRules[index];
++      const selector = rule.selectorText;
++      const first = rule.cssRules?.[0];
++      const marker = typeof selector === 'string' ? selector : first?.selectorText;
++      if (typeof marker === 'string' && marker.startsWith(MARKER_PREFIX)) {
++        targets.set(Number(marker.slice(MARKER_PREFIX.length)), {
++          index,
++          rule: typeof selector === 'string' ? null : rule
++        });
++      }
++    }
++    try {
++      for (const key of this.pendingRules) {
++        const separatorIndex = key.indexOf(PENDING_SEPARATOR);
++        const mediaQuery = key.slice(0, separatorIndex);
++        const className = key.slice(separatorIndex + 1);
++        const properties = this.mainMap.get(mediaQuery)?.get(className);
++        const groupNumber = this.groupIndex.get(mediaQuery);
++        const target = groupNumber === undefined ? undefined : targets.get(groupNumber);
++        if (!target) {
++          return false;
++        }
++        if (!properties) {
++          continue;
++        }
++        if (target.rule) {
++          target.rule.insertRule(buildRule(className, properties), target.rule.cssRules.length);
++          continue;
++        }
++        const insertAt = target.index;
++        sheet.insertRule(buildRule(className, properties), insertAt);
++        targets.forEach(other => {
++          if (other.index >= insertAt) {
++            other.index += 1;
++          }
++        });
++      }
++    } catch {
++      return false;
++    }
++    this.pendingRules.clear();
++    return true;
++  };
++
++  // A removed class has no element left, so its rule is harmless until the next rewrite. The
++  // rewrite waits for a quiet moment, or for enough dead rules to matter.
++  scheduleStaleFlush = () => {
++    this.staleRemovals += 1;
++    if (this.staleFlushTimer !== null) {
++      clearTimeout(this.staleFlushTimer);
++    }
++    if (this.staleRemovals > STALE_RULE_LIMIT) {
++      this.staleFlushTimer = null;
++      this.needsFullRebuild = true;
++      this.queueRecreate();
++      return;
++    }
++    this.staleFlushTimer = setTimeout(this.recreate, STALE_FLUSH_DELAY_MS);
+   };
+   recreate = () => {
++    this.recreateQueued = false;
++    this.needsFullRebuild = false;
++    this.staleRemovals = 0;
++    this.pendingRules.clear();
++    if (this.staleFlushTimer !== null) {
++      clearTimeout(this.staleFlushTimer);
++      this.staleFlushTimer = null;
++    }
+     if (this.styleTag) {
+-      this.styleTag.innerText = this.getStyles();
++      this.styleTag.innerText = this.getMarkedStyles();
+     }
+   };
+   addTheme = (theme, values) => {
+@@ -79,7 +207,33 @@ class CSSState {
+     this.mqMap.forEach(styles => {
+       styles.delete(hash);
+     });
+-    this.recreate();
++    this.scheduleStaleFlush();
++  };
++  // Same output as getStyles, plus an empty marker rule per group.
++  getMarkedStyles = () => {
++    let styles = Array.from(this.themesCSS.values()).join('');
++    let groupNumber = 0;
++    this.groupIndex.clear();
++    for (const [mediaQuery, secondLevelMap] of this.mainMap) {
++      this.groupIndex.set(mediaQuery, groupNumber);
++      if (mediaQuery) {
++        styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`;
++      }
++      for (const [className, thirdLevelMap] of secondLevelMap) {
++        styles += buildRule(className, thirdLevelMap);
++      }
++      styles += mediaQuery ? '}' : `${MARKER_PREFIX}${groupNumber}{}`;
++      groupNumber += 1;
++    }
++    for (const [mediaQuery, secondLevelMap] of this.mqMap) {
++      styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`;
++      for (const [className, thirdLevelMap] of secondLevelMap) {
++        styles += buildRule(className, thirdLevelMap);
++      }
++      styles += '}';
++      groupNumber += 1;
++    }
++    return styles;
+   };
+   getStyles = () => {
+     let styles = Array.from(this.themesCSS.entries()).reduce((acc, [, themeCss]) => {
+diff --git a/node_modules/react-native-unistyles/lib/module/components/native/Pressable.js b/node_modules/react-native-unistyles/lib/module/components/native/Pressable.js
+index 2df3099..694456a 100644
+--- a/node_modules/react-native-unistyles/lib/module/components/native/Pressable.js
++++ b/node_modules/react-native-unistyles/lib/module/components/native/Pressable.js
+@@ -3,6 +3,7 @@
+ import React, { forwardRef } from 'react';
+ import { Pressable as NativePressableReactNative } from 'react-native';
+ import { getClassName } from '../../core';
++import { useFlushStyles } from '../../core/getClassname';
+ import { UnistylesShadowRegistry } from '../../specs';
+ import { isServer } from '../../web/utils';
+ import { jsx as _jsx } from "react/jsx-runtime";
+@@ -10,6 +11,7 @@ export const Pressable = /*#__PURE__*/forwardRef(({
+   style,
+   ...props
+ }, forwardedRef) => {
++  useFlushStyles();
+   const scopedTheme = UnistylesShadowRegistry.getScopedTheme();
+   let storedRef = null;
+   let classNames = undefined;
+diff --git a/node_modules/react-native-unistyles/lib/module/core/createUnistylesElement.js b/node_modules/react-native-unistyles/lib/module/core/createUnistylesElement.js
+index 355d7a1..d701475 100644
+--- a/node_modules/react-native-unistyles/lib/module/core/createUnistylesElement.js
++++ b/node_modules/react-native-unistyles/lib/module/core/createUnistylesElement.js
+@@ -4,7 +4,7 @@ import React from 'react';
+ import { copyComponentProperties } from '../utils';
+ import { isServer } from '../web/utils';
+ import { createUnistylesRef } from '../web/utils/createUnistylesRef';
+-import { getClassName } from './getClassname';
++import { getClassName, useFlushStyles } from './getClassname';
+ import { maybeWarnAboutMultipleUnistyles } from './warn';
+ import { jsx as _jsx } from "react/jsx-runtime";
+ const STYLE_PROPS = ['contentContainerStyle', 'columnWrapperStyle'];
+@@ -24,6 +24,7 @@ const buildUnistylesProps = (Component, props, forwardedRef) => {
+ };
+ export const createUnistylesElement = Component => {
+   const UnistylesComponent = props => {
++    useFlushStyles();
+     return /*#__PURE__*/_jsx(Component, {
+       ...props,
+       ...buildUnistylesProps(Component, props, props.ref)
+diff --git a/node_modules/react-native-unistyles/lib/module/core/getClassname.js b/node_modules/react-native-unistyles/lib/module/core/getClassname.js
+index 48429df..3075742 100644
+--- a/node_modules/react-native-unistyles/lib/module/core/getClassname.js
++++ b/node_modules/react-native-unistyles/lib/module/core/getClassname.js
+@@ -1,5 +1,6 @@
+ "use strict";
+ 
++import { useInsertionEffect } from 'react';
+ import * as unistyles from '../web/services';
+ import { checkForAnimated } from '../web/utils';
+ export const getClassName = (unistyle, forChild) => {
+@@ -19,4 +20,11 @@ export const getClassName = (unistyle, forChild) => {
+     injectedClassName
+   }, animatedStyles] : undefined;
+ };
++const flushStyles = () => unistyles.services.registry.css.flush();
++
++// Style rules added during render reach the sheet in the commit's insertion phase, which runs
++// before every layout effect, so a component that measures itself on mount sees its styles.
++export const useFlushStyles = () => {
++  useInsertionEffect(flushStyles);
++};
+ //# sourceMappingURL=getClassname.js.map
+\ No newline at end of file
+diff --git a/node_modules/react-native-unistyles/lib/module/web/css/state.js b/node_modules/react-native-unistyles/lib/module/web/css/state.js
+index 88e02b3..dbe1d5d 100644
+--- a/node_modules/react-native-unistyles/lib/module/web/css/state.js
++++ b/node_modules/react-native-unistyles/lib/module/web/css/state.js
+@@ -12,11 +12,34 @@ const safeGetMap = (map, key) => {
+   }
+   return nextLevelMap;
+ };
++const MARKER_PREFIX = '.__ug';
++const PENDING_SEPARATOR = '\u0000';
++const STALE_FLUSH_DELAY_MS = 2000;
++const STALE_RULE_LIMIT = 4000;
++const buildRule = (className, properties) => {
++  let rule = `.${className}{`;
++  for (const [propertyKey, value] of properties) {
++    if (value === undefined) {
++      continue;
++    }
++    rule += `${hyphenate(propertyKey)}:${value};`;
++  }
++  return `${rule}}`;
++};
+ export class CSSState {
+   mainMap = new Map();
+   mqMap = new Map();
+   styleTag = null;
+   themesCSS = new Map();
++  recreateQueued = false;
++  staleFlushTimer = null;
++  staleRemovals = 0;
++  // Rules reach the sheet through the CSSOM unless something forces a full rewrite, because a
++  // rewrite restyles the whole document. The first flush, a new media query group, a theme
++  // change and any CSSOM error all rebuild the sheet from the maps, which stay the source of truth.
++  needsFullRebuild = true;
++  pendingRules = new Set();
++  groupIndex = new Map();
+   constructor(services) {
+     this.services = services;
+     if (isServer()) {
+@@ -42,14 +65,119 @@ export class CSSState {
+     const secondLevelMap = safeGetMap(firstLevelMap, mediaQuery);
+     const thirdLevelMap = safeGetMap(secondLevelMap, className);
+     thirdLevelMap.set(propertyKey, value);
++    if (isMq) {
++      this.needsFullRebuild = true;
++      return;
++    }
++    this.pendingRules.add(`${mediaQuery}${PENDING_SEPARATOR}${className}`);
+   };
+   add = (hash, values) => {
+     convertToCSS(hash, convertUnistyles(values, this.services.runtime), this);
+-    this.recreate();
++    this.queueRecreate();
++  };
++
++  // Rewriting the tag costs O(total CSS) and makes the browser restyle the whole document, so
++  // adds are coalesced. Components flush from an insertion effect, which runs before any layout
++  // effect can measure an element that uses a new class; the microtask covers adds that no
++  // component commit follows.
++  queueRecreate = () => {
++    if (this.recreateQueued) {
++      return;
++    }
++    this.recreateQueued = true;
++    queueMicrotask(this.flush);
++  };
++  flush = () => {
++    if (!this.recreateQueued) {
++      return;
++    }
++    if (this.needsFullRebuild || !this.appendPendingRules()) {
++      this.recreate();
++      return;
++    }
++    this.recreateQueued = false;
++  };
++
++  // Insert the rules added since the last flush at the end of their group, which is where the
++  // full rewrite would have put them, so the cascade order is unchanged. Each group carries an
++  // empty marker rule (`.__ugN`) that locates it in the sheet.
++  appendPendingRules = () => {
++    const sheet = this.styleTag?.sheet;
++    if (!sheet) {
++      return false;
++    }
++    const targets = new Map();
++    for (let index = 0; index < sheet.cssRules.length; index++) {
++      const rule = sheet.cssRules[index];
++      const selector = rule.selectorText;
++      const first = rule.cssRules?.[0];
++      const marker = typeof selector === 'string' ? selector : first?.selectorText;
++      if (typeof marker === 'string' && marker.startsWith(MARKER_PREFIX)) {
++        targets.set(Number(marker.slice(MARKER_PREFIX.length)), {
++          index,
++          rule: typeof selector === 'string' ? null : rule
++        });
++      }
++    }
++    try {
++      for (const key of this.pendingRules) {
++        const separatorIndex = key.indexOf(PENDING_SEPARATOR);
++        const mediaQuery = key.slice(0, separatorIndex);
++        const className = key.slice(separatorIndex + 1);
++        const properties = this.mainMap.get(mediaQuery)?.get(className);
++        const groupNumber = this.groupIndex.get(mediaQuery);
++        const target = groupNumber === undefined ? undefined : targets.get(groupNumber);
++        if (!target) {
++          return false;
++        }
++        if (!properties) {
++          continue;
++        }
++        if (target.rule) {
++          target.rule.insertRule(buildRule(className, properties), target.rule.cssRules.length);
++          continue;
++        }
++        const insertAt = target.index;
++        sheet.insertRule(buildRule(className, properties), insertAt);
++        targets.forEach(other => {
++          if (other.index >= insertAt) {
++            other.index += 1;
++          }
++        });
++      }
++    } catch {
++      return false;
++    }
++    this.pendingRules.clear();
++    return true;
++  };
++
++  // A removed class has no element left, so its rule is harmless until the next rewrite. The
++  // rewrite waits for a quiet moment, or for enough dead rules to matter.
++  scheduleStaleFlush = () => {
++    this.staleRemovals += 1;
++    if (this.staleFlushTimer !== null) {
++      clearTimeout(this.staleFlushTimer);
++    }
++    if (this.staleRemovals > STALE_RULE_LIMIT) {
++      this.staleFlushTimer = null;
++      this.needsFullRebuild = true;
++      this.queueRecreate();
++      return;
++    }
++    this.staleFlushTimer = setTimeout(this.recreate, STALE_FLUSH_DELAY_MS);
+   };
+   recreate = () => {
++    this.recreateQueued = false;
++    this.needsFullRebuild = false;
++    this.staleRemovals = 0;
++    this.pendingRules.clear();
++    if (this.staleFlushTimer !== null) {
++      clearTimeout(this.staleFlushTimer);
++      this.staleFlushTimer = null;
++    }
+     if (this.styleTag) {
+-      this.styleTag.innerText = this.getStyles();
++      this.styleTag.innerText = this.getMarkedStyles();
+     }
+   };
+   addTheme = (theme, values) => {
+@@ -75,7 +203,33 @@ export class CSSState {
+     this.mqMap.forEach(styles => {
+       styles.delete(hash);
+     });
+-    this.recreate();
++    this.scheduleStaleFlush();
++  };
++  // Same output as getStyles, plus an empty marker rule per group.
++  getMarkedStyles = () => {
++    let styles = Array.from(this.themesCSS.values()).join('');
++    let groupNumber = 0;
++    this.groupIndex.clear();
++    for (const [mediaQuery, secondLevelMap] of this.mainMap) {
++      this.groupIndex.set(mediaQuery, groupNumber);
++      if (mediaQuery) {
++        styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`;
++      }
++      for (const [className, thirdLevelMap] of secondLevelMap) {
++        styles += buildRule(className, thirdLevelMap);
++      }
++      styles += mediaQuery ? '}' : `${MARKER_PREFIX}${groupNumber}{}`;
++      groupNumber += 1;
++    }
++    for (const [mediaQuery, secondLevelMap] of this.mqMap) {
++      styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`;
++      for (const [className, thirdLevelMap] of secondLevelMap) {
++        styles += buildRule(className, thirdLevelMap);
++      }
++      styles += '}';
++      groupNumber += 1;
++    }
++    return styles;
+   };
+   getStyles = () => {
+     let styles = Array.from(this.themesCSS.entries()).reduce((acc, [, themeCss]) => {
+diff --git a/node_modules/react-native-unistyles/src/components/native/Pressable.tsx b/node_modules/react-native-unistyles/src/components/native/Pressable.tsx
+index 62e3918..612332b 100644
+--- a/node_modules/react-native-unistyles/src/components/native/Pressable.tsx
++++ b/node_modules/react-native-unistyles/src/components/native/Pressable.tsx
+@@ -6,6 +6,7 @@ import { Pressable as NativePressableReactNative } from 'react-native'
+ import type { UnistylesValues } from '../../types'
+ 
+ import { getClassName } from '../../core'
++import { useFlushStyles } from '../../core/getClassname'
+ import { UnistylesShadowRegistry } from '../../specs'
+ import { isServer } from '../../web/utils'
+ 
+@@ -24,6 +25,8 @@ type PressableProps = Props & {
+ }
+ 
+ export const Pressable = forwardRef<View, PressableProps>(({ style, ...props }, forwardedRef) => {
++    useFlushStyles()
++
+     const scopedTheme = UnistylesShadowRegistry.getScopedTheme()
+     let storedRef: HTMLElement | null = null
+     let classNames: ReturnType<typeof getClassName> | undefined = undefined
+diff --git a/node_modules/react-native-unistyles/src/core/createUnistylesElement.tsx b/node_modules/react-native-unistyles/src/core/createUnistylesElement.tsx
+index 55fd2fc..78256c5 100644
+--- a/node_modules/react-native-unistyles/src/core/createUnistylesElement.tsx
++++ b/node_modules/react-native-unistyles/src/core/createUnistylesElement.tsx
+@@ -7,7 +7,7 @@ import type { UnistylesValues } from '../types'
+ import { copyComponentProperties } from '../utils'
+ import { isServer } from '../web/utils'
+ import { createUnistylesRef } from '../web/utils/createUnistylesRef'
+-import { getClassName } from './getClassname'
++import { getClassName, useFlushStyles } from './getClassname'
+ import { maybeWarnAboutMultipleUnistyles } from './warn'
+ 
+ const STYLE_PROPS = ['contentContainerStyle', 'columnWrapperStyle'] as const
+@@ -39,6 +39,8 @@ const buildUnistylesProps = (Component: any, props: ComponentProps, forwardedRef
+ 
+ export const createUnistylesElement = (Component: any) => {
+     const UnistylesComponent = (props: any) => {
++        useFlushStyles()
++
+         return <Component {...props} {...buildUnistylesProps(Component, props, props.ref)} />
+     }
+ 
+diff --git a/node_modules/react-native-unistyles/src/core/getClassname.ts b/node_modules/react-native-unistyles/src/core/getClassname.ts
+index 2dfab35..285bef5 100644
+--- a/node_modules/react-native-unistyles/src/core/getClassname.ts
++++ b/node_modules/react-native-unistyles/src/core/getClassname.ts
+@@ -1,3 +1,5 @@
++import { useInsertionEffect } from 'react'
++
+ import type { UnistylesValues } from '../types'
+ 
+ import * as unistyles from '../web/services'
+@@ -16,3 +18,11 @@ export const getClassName = (unistyle: UnistylesValues | undefined | Array<Unist
+ 
+     return hash ? ([{ $$css: true, hash, injectedClassName }, animatedStyles] as const) : undefined
+ }
++
++const flushStyles = () => unistyles.services.registry.css.flush()
++
++// Style rules added during render reach the sheet in the commit's insertion phase, which runs
++// before every layout effect, so a component that measures itself on mount sees its styles.
++export const useFlushStyles = () => {
++    useInsertionEffect(flushStyles)
++}
+diff --git a/node_modules/react-native-unistyles/src/web/css/state.ts b/node_modules/react-native-unistyles/src/web/css/state.ts
+index a0eea57..c66eca8 100644
+--- a/node_modules/react-native-unistyles/src/web/css/state.ts
++++ b/node_modules/react-native-unistyles/src/web/css/state.ts
+@@ -29,11 +29,39 @@ const safeGetMap = (map: Map<string, Map<string, any>>, key: string) => {
+     return nextLevelMap
+ }
+ 
++const MARKER_PREFIX = '.__ug'
++const PENDING_SEPARATOR = '\u0000'
++const STALE_FLUSH_DELAY_MS = 2000
++const STALE_RULE_LIMIT = 4000
++
++const buildRule = (className: string, properties: Map<string, any>) => {
++    let rule = `.${className}{`
++
++    for (const [propertyKey, value] of properties) {
++        if (value === undefined) {
++            continue
++        }
++
++        rule += `${hyphenate(propertyKey)}:${value};`
++    }
++
++    return `${rule}}`
++}
++
+ export class CSSState {
+     mainMap: MapType = new Map()
+     mqMap: MapType = new Map()
+     private styleTag: HTMLStyleElement | null = null
+     private themesCSS = new Map<string, string>()
++    private recreateQueued = false
++    private staleFlushTimer: ReturnType<typeof setTimeout> | null = null
++    private staleRemovals = 0
++    // Rules reach the sheet through the CSSOM unless something forces a full rewrite, because a
++    // rewrite restyles the whole document. The first flush, a new media query group, a theme
++    // change and any CSSOM error all rebuild the sheet from the maps, which stay the source of truth.
++    private needsFullRebuild = true
++    private pendingRules = new Set<string>()
++    private groupIndex = new Map<string, number>()
+ 
+     constructor(private services: UnistylesServices) {
+         if (isServer()) {
+@@ -59,16 +87,148 @@ export class CSSState {
+         const thirdLevelMap = safeGetMap(secondLevelMap, className)
+ 
+         thirdLevelMap.set(propertyKey, value)
++
++        if (isMq) {
++            this.needsFullRebuild = true
++
++            return
++        }
++
++        this.pendingRules.add(`${mediaQuery}${PENDING_SEPARATOR}${className}`)
+     }
+ 
+     add = (hash: string, values: UnistylesValues) => {
+         convertToCSS(hash, convertUnistyles(values, this.services.runtime), this)
+-        this.recreate()
++        this.queueRecreate()
++    }
++
++    // Rewriting the tag costs O(total CSS) and makes the browser restyle the whole document, so
++    // adds are coalesced. Components flush from an insertion effect, which runs before any layout
++    // effect can measure an element that uses a new class; the microtask covers adds that no
++    // component commit follows.
++    private queueRecreate = () => {
++        if (this.recreateQueued) {
++            return
++        }
++
++        this.recreateQueued = true
++        queueMicrotask(this.flush)
++    }
++
++    flush = () => {
++        if (!this.recreateQueued) {
++            return
++        }
++
++        if (this.needsFullRebuild || !this.appendPendingRules()) {
++            this.recreate()
++
++            return
++        }
++
++        this.recreateQueued = false
++    }
++
++    // Insert the rules added since the last flush at the end of their group, which is where the
++    // full rewrite would have put them, so the cascade order is unchanged. Each group carries an
++    // empty marker rule (`.__ugN`) that locates it in the sheet.
++    private appendPendingRules = () => {
++        const sheet = this.styleTag?.sheet
++
++        if (!sheet) {
++            return false
++        }
++
++        const targets = new Map<number, { index: number; rule: CSSGroupingRule | null }>()
++
++        for (let index = 0; index < sheet.cssRules.length; index++) {
++            const rule = sheet.cssRules[index] as CSSRule
++            const selector = (rule as CSSStyleRule).selectorText
++            const first = (rule as CSSGroupingRule).cssRules?.[0] as CSSStyleRule | undefined
++            const marker = typeof selector === 'string' ? selector : first?.selectorText
++
++            if (typeof marker === 'string' && marker.startsWith(MARKER_PREFIX)) {
++                targets.set(Number(marker.slice(MARKER_PREFIX.length)), {
++                    index,
++                    rule: typeof selector === 'string' ? null : (rule as CSSGroupingRule),
++                })
++            }
++        }
++
++        try {
++            for (const key of this.pendingRules) {
++                const separatorIndex = key.indexOf(PENDING_SEPARATOR)
++                const mediaQuery = key.slice(0, separatorIndex)
++                const className = key.slice(separatorIndex + 1)
++                const properties = this.mainMap.get(mediaQuery)?.get(className)
++                const groupNumber = this.groupIndex.get(mediaQuery)
++                const target = groupNumber === undefined ? undefined : targets.get(groupNumber)
++
++                if (!target) {
++                    return false
++                }
++
++                if (!properties) {
++                    continue
++                }
++
++                if (target.rule) {
++                    target.rule.insertRule(buildRule(className, properties), target.rule.cssRules.length)
++
++                    continue
++                }
++
++                const insertAt = target.index
++
++                sheet.insertRule(buildRule(className, properties), insertAt)
++                targets.forEach((other) => {
++                    if (other.index >= insertAt) {
++                        other.index += 1
++                    }
++                })
++            }
++        } catch {
++            return false
++        }
++
++        this.pendingRules.clear()
++
++        return true
++    }
++
++    // A removed class has no element left, so its rule is harmless until the next rewrite. The
++    // rewrite waits for a quiet moment, or for enough dead rules to matter.
++    private scheduleStaleFlush = () => {
++        this.staleRemovals += 1
++
++        if (this.staleFlushTimer !== null) {
++            clearTimeout(this.staleFlushTimer)
++        }
++
++        if (this.staleRemovals > STALE_RULE_LIMIT) {
++            this.staleFlushTimer = null
++            this.needsFullRebuild = true
++            this.queueRecreate()
++
++            return
++        }
++
++        this.staleFlushTimer = setTimeout(this.recreate, STALE_FLUSH_DELAY_MS)
+     }
+ 
+     recreate = () => {
++        this.recreateQueued = false
++        this.needsFullRebuild = false
++        this.staleRemovals = 0
++        this.pendingRules.clear()
++
++        if (this.staleFlushTimer !== null) {
++            clearTimeout(this.staleFlushTimer)
++            this.staleFlushTimer = null
++        }
++
+         if (this.styleTag) {
+-            this.styleTag.innerText = this.getStyles()
++            this.styleTag.innerText = this.getMarkedStyles()
+         }
+     }
+ 
+@@ -103,7 +263,43 @@ export class CSSState {
+         this.mqMap.forEach((styles) => {
+             styles.delete(hash)
+         })
+-        this.recreate()
++        this.scheduleStaleFlush()
++    }
++
++    // Same output as getStyles, plus an empty marker rule per group.
++    private getMarkedStyles = () => {
++        let styles = Array.from(this.themesCSS.values()).join('')
++        let groupNumber = 0
++
++        this.groupIndex.clear()
++
++        for (const [mediaQuery, secondLevelMap] of this.mainMap) {
++            this.groupIndex.set(mediaQuery, groupNumber)
++
++            if (mediaQuery) {
++                styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`
++            }
++
++            for (const [className, thirdLevelMap] of secondLevelMap) {
++                styles += buildRule(className, thirdLevelMap)
++            }
++
++            styles += mediaQuery ? '}' : `${MARKER_PREFIX}${groupNumber}{}`
++            groupNumber += 1
++        }
++
++        for (const [mediaQuery, secondLevelMap] of this.mqMap) {
++            styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`
++
++            for (const [className, thirdLevelMap] of secondLevelMap) {
++                styles += buildRule(className, thirdLevelMap)
++            }
++
++            styles += '}'
++            groupNumber += 1
++        }
++
++        return styles
+     }
+ 
+     getStyles = () => {

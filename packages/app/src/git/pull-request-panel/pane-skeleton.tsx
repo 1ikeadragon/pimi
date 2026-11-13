@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { PaneContentToolbar } from "@/components/ui/pane-content-toolbar";
 import { SkeletonPulse, useSkeletonPulse } from "@/components/ui/skeleton";
 import { PrActivitySkeleton } from "./activity-skeleton";

@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
 import { useMemo } from "react";
 import { invariant } from "@/utils/invariant";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { FilePane } from "@/file-pane/pane";
 import { usePaneContext } from "@/panels/pane-context";
 import { definePanel } from "@/panels/panel-registry";

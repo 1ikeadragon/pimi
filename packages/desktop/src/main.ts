@@ -7,7 +7,7 @@ import log from "electron-log/main";
 log.transports.console.level = "info";
 log.initialize({ spyRendererConsole: true });
 
-import { inheritLoginShellEnv } from "./login-shell-env.js";
+import { deferIpcHandlersUntil, inheritLoginShellEnv } from "./login-shell-env.js";
 import {
   flushDesktopNetworkLog,
   getDesktopNetworkActivity,
@@ -1273,11 +1273,14 @@ async function runCliPassthroughIfRequested(): Promise<boolean> {
   return true;
 }
 
-async function bootstrap(): Promise<void> {
+async function bootstrap(loginShellEnvReady: Promise<void>): Promise<void> {
   if (!setupSingleInstanceLock()) {
     return;
   }
 
+  // The window must not wait on the user's shell. Handlers registered below spawn children with
+  // process.env, so they wait for the login-shell PATH instead.
+  deferIpcHandlersUntil(ipcMain, loginShellEnvReady);
   await app.whenReady();
   try {
     // The upgrade replaced the build that launched the old daemon but did not stop it.
@@ -1355,7 +1358,7 @@ async function bootstrap(): Promise<void> {
   registerDaemonManager(observePimiWorkspaces);
   registerWindowManager({ mode: DESKTOP_WINDOW_CHROME_MODE });
   registerPimiWorkspaceNavigation();
-  observePimiWorkspaces();
+  void loginShellEnvReady.then(observePimiWorkspaces);
   registerDialogHandlers();
   registerNotificationHandlers();
   const openExternalUrl = createExternalUrlOpener({ open: shell.openExternal });

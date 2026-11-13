@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import * as Clipboard from "expo-clipboard";
 import { useMutation } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
-import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
+import { useHostRuntimeSnapshotValue } from "@/runtime/host-runtime";
 import { useToast } from "@/contexts/toast-api-context";
 import {
   resolveWorkspaceScriptLink,
@@ -58,7 +58,10 @@ export function useWorkspaceScriptActions({
 }: UseWorkspaceScriptActionsInput): WorkspaceScriptActions {
   const { t } = useTranslation();
   const toast = useToast();
-  const activeConnection = useHostRuntimeSnapshot(serverId)?.activeConnection ?? null;
+  const activeConnection = useHostRuntimeSnapshotValue(
+    serverId,
+    (snapshot) => snapshot?.activeConnection ?? null,
+  );
   const preferredRouteKind = useWorkspaceServiceRoutePreferencesStore(
     (state) => state.byServerId[serverId] ?? null,
   );

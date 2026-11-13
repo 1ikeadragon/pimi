@@ -16,7 +16,7 @@ import React, {
   type ComponentProps,
   type ReactNode,
 } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import {
   View,
   Text,
@@ -76,6 +76,7 @@ import { useSessionStore } from "@/stores/session-store";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { resolveProviderLabel } from "@/utils/provider-definitions";
 import { resolveWorkingStatus } from "./working-status";
+import { useLiveRun } from "./use-live-run";
 import { useRevealedText } from "@/hooks/use-revealed-text";
 import { useFileExplorerActions } from "@/hooks/use-file-explorer-actions";
 import { useLoadOlderAgentHistory } from "@/hooks/use-load-older-agent-history";
@@ -93,6 +94,8 @@ import {
 import { ToolCallSheetProvider } from "@/components/tool-call-sheet";
 import { createStreamPresentation } from "./presentation";
 import { OverviewToolCallGroupView } from "@/tool-calls/detail-level/overview/view";
+import { LiveToolCallSteps } from "@/tool-calls/detail-level/overview/live-steps";
+import type { GroupableItem } from "@/tool-calls/detail-level/grouping";
 import { IndentRail } from "@/components/indent-rail";
 import { TurnSummaryLine } from "./turn-collapse/summary-line";
 import { type AgentStreamRenderModel, buildAgentStreamRenderModel } from "./model";
@@ -1005,6 +1008,33 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const getToolCallGroup = useStableEvent((hostId: string) =>
       presentation.groupsByHostId.get(hostId),
     );
+    // The per-call rows of an opened run: a group row and the working status line show the same.
+    const renderRunCalls = useCallback(
+      (calls: readonly GroupableItem[]) =>
+        calls.map((call, index) => (
+          <React.Fragment key={call.id}>
+            {call.kind === "thought" ? (
+              // Reasoning is grouped only while Expand thinking is off, so an opened
+              // group shows each thought as a closed row like any other call.
+              <ThoughtSlot
+                itemId={call.id}
+                text={call.text}
+                status={call.status}
+                isLastInSequence={index === calls.length - 1}
+                defaultExpanded={false}
+                standalone={calls.length === 1}
+                onInlineDetailsExpandedChangeByItemId={setInlineDetailsExpanded}
+              />
+            ) : (
+              renderSingleToolCallItem(call, index === calls.length - 1, {
+                maxDetailHeight: calls.length > 1 ? GROUPED_TOOL_CALL_DETAIL_MAX_HEIGHT : undefined,
+                standalone: calls.length === 1,
+              })
+            )}
+          </React.Fragment>
+        )),
+      [renderSingleToolCallItem, setInlineDetailsExpanded],
+    );
     const renderToolCallItem = useCallback(
       (
         layoutItem: StreamLayoutItem,
@@ -1024,37 +1054,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             isLastInSequence={layoutItem.isLastInToolSequence}
             onExpandedChange={setToolCallGroupExpanded}
           >
-            {expanded
-              ? group.run.calls.map((call, index) => (
-                  <React.Fragment key={call.id}>
-                    {call.kind === "thought" ? (
-                      // Reasoning is grouped only while Expand thinking is off, so an opened
-                      // group shows each thought as a closed row like any other call.
-                      <ThoughtSlot
-                        itemId={call.id}
-                        text={call.text}
-                        status={call.status}
-                        isLastInSequence={index === group.run.calls.length - 1}
-                        defaultExpanded={false}
-                        standalone={false}
-                        onInlineDetailsExpandedChangeByItemId={setInlineDetailsExpanded}
-                      />
-                    ) : (
-                      renderSingleToolCallItem(call, index === group.run.calls.length - 1, {
-                        maxDetailHeight: GROUPED_TOOL_CALL_DETAIL_MAX_HEIGHT,
-                        standalone: false,
-                      })
-                    )}
-                  </React.Fragment>
-                ))
-              : null}
+            {expanded ? renderRunCalls(group.run.calls) : null}
           </OverviewToolCallGroupView>
         );
       },
       [
         expandedToolCallGroups,
         renderThoughtItem,
-        setInlineDetailsExpanded,
+        renderRunCalls,
         getToolCallGroup,
         renderSingleToolCallItem,
         setToolCallGroupExpanded,
@@ -1178,7 +1185,12 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       cwd: context.cwd,
     });
     const providerLabel = resolveProviderLabel(context.provider ?? "", providerEntries);
-    const { kind: workingKind, label: workingLabel } = useMemo(
+    const {
+      kind: workingKind,
+      label: workingLabel,
+      specific: workingSpecific,
+      urgent: workingUrgent,
+    } = useMemo(
       () =>
         resolveWorkingStatus({
           isCancelling: effectiveTurnPresentation.isCancelling,
@@ -1204,13 +1216,56 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         t,
       ],
     );
+    const live = useLiveRun({
+      run: presentation.liveRun,
+      expandedGroups: expandedToolCallGroups,
+      expansion: toolCallExpansion,
+    });
+    const { liveRun, liveExpanded, summary: liveSummary, toggle: toggleLiveSteps } = live;
+    const liveStepsNode = useMemo(
+      () =>
+        liveRun && (liveExpanded || isMobile) ? (
+          <LiveToolCallSteps
+            run={liveRun}
+            expanded={liveExpanded}
+            isCompact={isMobile}
+            onClose={live.close}
+          >
+            {liveExpanded ? renderRunCalls(liveRun.calls) : null}
+          </LiveToolCallSteps>
+        ) : null,
+      [live.close, isMobile, liveExpanded, liveRun, renderRunCalls],
+    );
+    const turnFooterStatus = useMemo(
+      () => ({
+        kind: workingKind,
+        label: workingLabel,
+        specific: workingSpecific,
+        urgent: workingUrgent,
+        stepCount: liveSummary.stepCount,
+        failedCount: liveSummary.failedCount,
+        canExpand: liveRun !== null,
+        expanded: liveExpanded,
+        onToggleSteps: toggleLiveSteps,
+      }),
+      [
+        liveExpanded,
+        liveRun,
+        liveSummary,
+        toggleLiveSteps,
+        workingKind,
+        workingLabel,
+        workingSpecific,
+        workingUrgent,
+      ],
+    );
     const turnFooterNode = useMemo(
       () =>
         isTurnActive || bottomTurnFooterHost ? (
           <TurnFooter
             isRunning={isTurnActive}
-            workingKind={workingKind}
-            workingLabel={workingLabel}
+            status={turnFooterStatus}
+            liveSteps={liveStepsNode}
             inFlightTurnStartedAt={baseRenderModel.turnTiming.runningStartedAt}
             host={bottomTurnFooterHost}
             strategy={streamRenderStrategy}
@@ -1223,8 +1278,8 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         handleForkInFlightTurn,
         readOnly,
         isTurnActive,
-        workingKind,
-        workingLabel,
+        turnFooterStatus,
+        liveStepsNode,
         baseRenderModel.turnTiming.runningStartedAt,
         bottomTurnFooterHost,
         streamRenderStrategy,

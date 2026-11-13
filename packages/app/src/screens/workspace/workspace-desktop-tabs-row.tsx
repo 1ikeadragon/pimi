@@ -31,7 +31,7 @@ import {
 } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import Animated from "react-native-reanimated";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { SortableInlineList } from "@/components/sortable-inline-list";
 import type {
   DraggableListDragHandleProps,
@@ -486,6 +486,8 @@ export interface WorkspaceDesktopTabRowItem {
   isActive: boolean;
   isCloseHovered: boolean;
   isClosingTab: boolean;
+  /** False when closing the tab does nothing, e.g. the last visible pane's New launcher. */
+  canClose?: boolean;
 }
 
 interface ResolvedWorkspaceDesktopTabRowItem extends WorkspaceDesktopTabRowItem {
@@ -1348,7 +1350,9 @@ function ResolvedWorkspaceDesktopTabsRow({
       isActive,
     }: DraggableRenderItemInfo<ResolvedWorkspaceDesktopTabRowItem>) => {
       const shouldShowCloseButton =
-        layout.closeButtonPolicy === "all" && item.presentation.showCloseButton;
+        layout.closeButtonPolicy === "all" &&
+        item.presentation.showCloseButton &&
+        item.canClose !== false;
       const layoutItem = layout.items[index] ?? null;
       const resolvedTabWidth = layoutItem?.width ?? 150;
       const showLabel = layoutItem?.showLabel ?? true;

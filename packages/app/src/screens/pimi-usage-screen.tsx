@@ -3,7 +3,7 @@ import { useIsFocused } from "expo-router/react-navigation";
 import { useLocalSearchParams } from "expo-router";
 import { X } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { ScrollView, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { MenuHeader } from "@/components/headers/menu-header";
@@ -16,27 +16,36 @@ import { useHostUsageWithControls, type UsageHostSelection } from "@/usage/contr
 import { useUsageDisplay } from "@/usage/display";
 import { useUsageHostSelection } from "@/usage/hosts";
 import { PimiRecapUsage } from "@/usage/pimi-recap-usage";
+import { UsageOverview } from "@/usage/overview";
 import { PimiSessionUsage } from "@/usage/pimi-session-usage";
 import { UsageBody, UsageMessage } from "@/usage/usage-section";
 import { isPimiAndroid } from "@/utils/pimi-mobile";
 
-type UsageTab = "sessions" | "limits" | "recap";
-const tabs: SegmentedControlOption<UsageTab>[] = [
-  { value: "limits", label: "Provider limits" },
-  { value: "sessions", label: "Sessions" },
-  { value: "recap", label: "Recap" },
-];
+type UsageTab = "overview" | "limits" | "sessions" | "recap";
 const PIMI_BACKGROUND = { "pimi-background": "" };
-const close = (
-  <ToolbarButton label="Close Usage" onPress={closePimiUsage}>
-    <DensityIcon icon={X} size="sm" color="foregroundMuted" />
-  </ToolbarButton>
-);
 
 export function PimiUsageScreen() {
   const focused = useIsFocused();
   const covered = usePimiWorkspaceSection() !== null;
-  const [tab, setTab] = useState<UsageTab>("limits");
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<UsageTab>("overview");
+  const tabs = useMemo<SegmentedControlOption<UsageTab>[]>(
+    () => [
+      { value: "overview", label: t("usageOverview.tabs.overview") },
+      { value: "limits", label: t("usageOverview.tabs.limits") },
+      { value: "sessions", label: t("usageOverview.tabs.chats") },
+      { value: "recap", label: t("usageOverview.tabs.recap") },
+    ],
+    [t],
+  );
+  const close = useMemo(
+    () => (
+      <ToolbarButton label={t("usageOverview.close")} onPress={closePimiUsage}>
+        <DensityIcon icon={X} size="sm" color="foregroundMuted" />
+      </ToolbarButton>
+    ),
+    [t],
+  );
   const {
     tab: requestedTab,
     session,
@@ -49,10 +58,14 @@ export function PimiUsageScreen() {
     agentId?: string;
   }>();
   useEffect(() => {
-    if (requestedTab === "sessions" || (requestedTab === "recap" && !isPimiAndroid())) {
+    if (
+      requestedTab === "sessions" ||
+      requestedTab === "limits" ||
+      (requestedTab === "recap" && !isPimiAndroid())
+    ) {
       setTab(requestedTab);
     } else {
-      setTab("limits");
+      setTab("overview");
     }
   }, [requestedTab, session, serverId, agentId]);
   const visibleTabs = isPimiAndroid() ? tabs.filter((option) => option.value !== "recap") : tabs;
@@ -60,7 +73,7 @@ export function PimiUsageScreen() {
   if (!focused || covered) return <View style={styles.screen} />;
   return (
     <View style={styles.screen} dataSet={PIMI_BACKGROUND} testID="pimi-usage">
-      <MenuHeader title="Usage" rightContent={close} inPimiTitlebar />
+      <MenuHeader title={t("usageOverview.title")} rightContent={close} inPimiTitlebar />
       <View style={styles.toolbar}>
         <SegmentedControl options={visibleTabs} value={tab} onValueChange={setTab} />
       </View>
@@ -73,9 +86,26 @@ export function PimiUsageScreen() {
           }
         />
       )}
+      {tab === "overview" && <OverviewTab />}
       {tab === "limits" && <ProviderLimits />}
       {tab === "recap" && <PimiRecapUsage />}
     </View>
+  );
+}
+
+function OverviewTab() {
+  const { t } = useTranslation();
+  const { serverId } = useUsageHostSelection();
+  return (
+    <ScrollView style={styles.scroll}>
+      <View style={styles.limits} testID="pimi-usage-overview">
+        {serverId ? (
+          <UsageOverview key={serverId} serverId={serverId} />
+        ) : (
+          <UsageMessage text={t("providerUsage.noHosts")} />
+        )}
+      </View>
+    </ScrollView>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { PanelTopOpen } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { rememberChatVisual, type ChatVisual } from "@/chat-visuals/store";
 import { Button } from "@/components/ui/button";
 import { useOptionalPaneContext } from "@/panels/pane-context";

@@ -3,7 +3,7 @@
 // as the Overview cards, so a thread or failing check reads the same in both places.
 import type { TFunction } from "i18next";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";

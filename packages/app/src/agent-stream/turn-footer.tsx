@@ -1,5 +1,5 @@
-import React, { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Text, View } from "react-native";
+import React, { memo, useCallback, useMemo, type ReactNode } from "react";
+import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { SPACING } from "@/styles/theme";
 import type { TurnTiming } from "@/timeline/turn-time";
@@ -9,25 +9,19 @@ import {
   type StreamStrategy,
 } from "./strategy";
 import { resolveAssistantTurnForkBoundary, type AssistantTurnForkBoundary } from "./turn-boundary";
-import {
-  AssistantTurnFooter,
-  LiveElapsed,
-  STREAM_METADATA_FONT_SIZE,
-  type AssistantForkTarget,
-} from "@/components/message";
+import { AssistantTurnFooter, type AssistantForkTarget } from "@/components/message";
 import type { TurnFooterHost } from "./layout";
-import { AssistantForkMenu } from "@/components/assistant-fork-menu";
-import { WorkingPimi } from "@/components/working-pimi";
-import type { WorkingStatusKind } from "./working-status";
-import { useRetainedPanelActive } from "@/components/retained-panel";
+import {
+  STATUS_LINE_HEIGHT,
+  WorkingStatusLine,
+  type WorkingStatusLineProps,
+} from "./working-status-line";
 
-// A short turn should not flash a timer; show elapsed time only once it is worth reading.
-const ELAPSED_VISIBLE_AFTER_MS = 5000;
 export const TURN_FOOTER_BOTTOM_SPACING = SPACING[8];
 // Every footer variant (running, completed with Copy, completed with only its duration) gets
 // this content height, so a turn ending swaps the footer's controls without moving the rows
 // above it.
-const TURN_FOOTER_CONTENT_HEIGHT = 24;
+const TURN_FOOTER_CONTENT_HEIGHT = STATUS_LINE_HEIGHT;
 
 export type TurnContentStrategy = StreamStrategy;
 export type AssistantTurnForkHandler = (input: {
@@ -46,11 +40,16 @@ export type AssistantTurnForkHandler = (input: {
  */
 export type InFlightTurnForkHandler = (target: AssistantForkTarget) => Promise<void> | void;
 
+export type TurnFooterStatus = Omit<
+  WorkingStatusLineProps,
+  "inFlightTurnStartedAt" | "onForkInFlightTurn"
+>;
+
 export const TurnFooter = memo(function TurnFooter({
   isRunning,
   inFlightTurnStartedAt,
-  workingKind,
-  workingLabel,
+  status,
+  liveSteps,
   host,
   strategy,
   onForkAssistantTurn,
@@ -58,8 +57,9 @@ export const TurnFooter = memo(function TurnFooter({
 }: {
   isRunning: boolean;
   inFlightTurnStartedAt: Date | null;
-  workingKind: WorkingStatusKind;
-  workingLabel: string;
+  status: TurnFooterStatus;
+  /** The open steps of the live run, rendered above the status line. */
+  liveSteps: ReactNode;
   host: TurnFooterHost | null;
   strategy: TurnContentStrategy;
   onForkAssistantTurn?: AssistantTurnForkHandler;
@@ -68,12 +68,14 @@ export const TurnFooter = memo(function TurnFooter({
   if (isRunning) {
     return (
       <TurnFooterRow>
-        <RunningTurnFooter
-          inFlightTurnStartedAt={inFlightTurnStartedAt}
-          workingKind={workingKind}
-          workingLabel={workingLabel}
-          onForkInFlightTurn={onForkInFlightTurn}
-        />
+        {liveSteps}
+        <View style={stylesheet.turnFooterSlot} testID="turn-working-indicator">
+          <WorkingStatusLine
+            {...status}
+            inFlightTurnStartedAt={inFlightTurnStartedAt}
+            onForkInFlightTurn={onForkInFlightTurn}
+          />
+        </View>
       </TurnFooterRow>
     );
   }
@@ -116,86 +118,6 @@ export const CompletedTurnFooterRow = memo(function CompletedTurnFooterRow({
     </TurnFooterRow>
   );
 });
-
-function DelayedElapsed({ startedAt, active }: { startedAt: Date; active: boolean }) {
-  const startedAtMs = startedAt.getTime();
-  const [visible, setVisible] = useState(
-    () => Date.now() - startedAtMs >= ELAPSED_VISIBLE_AFTER_MS,
-  );
-  useEffect(() => {
-    const remaining = ELAPSED_VISIBLE_AFTER_MS - (Date.now() - startedAtMs);
-    if (remaining <= 0) {
-      setVisible(true);
-      return;
-    }
-    setVisible(false);
-    const handle = setTimeout(() => setVisible(true), remaining);
-    return () => clearTimeout(handle);
-  }, [startedAtMs]);
-  if (!visible) {
-    return null;
-  }
-  return (
-    <LiveElapsed
-      startedAt={startedAt}
-      active={active}
-      style={stylesheet.workingElapsed}
-      testID="turn-working-elapsed"
-    />
-  );
-}
-
-const WorkingIndicator = memo(function WorkingIndicator({
-  inFlightTurnStartedAt = null,
-  workingKind,
-  workingLabel,
-  onForkInFlightTurn,
-}: {
-  inFlightTurnStartedAt?: Date | null;
-  workingKind: WorkingStatusKind;
-  workingLabel: string;
-  onForkInFlightTurn?: InFlightTurnForkHandler;
-}) {
-  const active = useRetainedPanelActive();
-  return (
-    <View style={stylesheet.turnFooterContent}>
-      <View style={stylesheet.workingLoader}>
-        <WorkingPimi size={18} waiting={workingKind === "waiting"} />
-      </View>
-      <Text style={stylesheet.workingLabel} numberOfLines={1} testID="turn-working-label">
-        {workingLabel}
-      </Text>
-      {/* Match the completed-turn footer: actions precede timing metadata. */}
-      {onForkInFlightTurn ? <AssistantForkMenu onFork={onForkInFlightTurn} /> : null}
-      {inFlightTurnStartedAt ? (
-        <DelayedElapsed startedAt={inFlightTurnStartedAt} active={active} />
-      ) : null}
-    </View>
-  );
-});
-
-function RunningTurnFooter({
-  inFlightTurnStartedAt,
-  workingKind,
-  workingLabel,
-  onForkInFlightTurn,
-}: {
-  inFlightTurnStartedAt: Date | null;
-  workingKind: WorkingStatusKind;
-  workingLabel: string;
-  onForkInFlightTurn?: InFlightTurnForkHandler;
-}) {
-  return (
-    <View style={stylesheet.turnFooterSlot} testID="turn-working-indicator">
-      <WorkingIndicator
-        inFlightTurnStartedAt={inFlightTurnStartedAt}
-        workingKind={workingKind}
-        workingLabel={workingLabel}
-        onForkInFlightTurn={onForkInFlightTurn}
-      />
-    </View>
-  );
-}
 
 function CompletedTurnFooter({
   strategy,
@@ -274,26 +196,5 @@ const stylesheet = StyleSheet.create((theme) => ({
     maxWidth: "100%",
     height: TURN_FOOTER_CONTENT_HEIGHT + TURN_FOOTER_BOTTOM_SPACING,
     paddingBottom: TURN_FOOTER_BOTTOM_SPACING,
-  },
-  turnFooterContent: {
-    height: TURN_FOOTER_CONTENT_HEIGHT,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    flexShrink: 1,
-    gap: theme.spacing[3],
-  },
-  workingElapsed: {
-    color: theme.colors.foregroundMuted,
-    fontSize: STREAM_METADATA_FONT_SIZE,
-    fontVariant: ["tabular-nums"],
-  },
-  workingLabel: {
-    color: theme.colors.foregroundMuted,
-    fontSize: STREAM_METADATA_FONT_SIZE,
-    flexShrink: 1,
-  },
-  workingLoader: {
-    marginLeft: -2,
   },
 }));

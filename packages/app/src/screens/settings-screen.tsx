@@ -1,5 +1,6 @@
 import { useHardwareKeyboardPresent } from "@/keyboard";
 import { overridable, Slot } from "@/extension-points";
+import { UsageIcon } from "@/usage/icon";
 import { useAddHost } from "@/hosts/add-host";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
@@ -15,7 +16,7 @@ import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router/react-navigation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { TFunction } from "i18next";
 import { Buffer } from "buffer";
 import {
@@ -26,7 +27,6 @@ import {
   Network,
   Bot,
   Boxes,
-  Gauge,
   Keyboard,
   Stethoscope,
   Activity,
@@ -230,7 +230,7 @@ const HOST_SECTION_ICONS: Record<HostSectionSlug, SettingsIcon> = {
   voice: Mic,
   workspaces: FolderGit2,
   providers: Boxes,
-  usage: Gauge,
+  usage: UsageIcon,
   terminals: SquareTerminal,
   editor: Code2,
   plugins: Blocks,

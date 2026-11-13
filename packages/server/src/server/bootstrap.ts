@@ -156,6 +156,8 @@ import { AgentStorage } from "./agent/agent-storage.js";
 import { MessageReceipts } from "./message-receipts/index.js";
 import { CreationService } from "./creation/index.js";
 import { openPimiDatabase, openPimiTimelineDatabase } from "./db/pimi-db.js";
+import { UsageReader } from "./usage/aggregate.js";
+import { UsageScanner } from "./usage/scanner.js";
 import { importCarriedTimelines } from "./agent/carried-timeline.js";
 import { SqliteTimelineStore } from "./agent/sqlite-timeline-store.js";
 import { TimelineIndexer } from "./agent/timeline-search/indexer.js";
@@ -1048,6 +1050,10 @@ export async function createPimiDaemon(
   }
 
   const pimiDatabase = await openPimiDatabase({ pimiHome: config.pimiHome, logger });
+  const usageLedger = {
+    reader: new UsageReader(pimiDatabase),
+    scanner: new UsageScanner({ database: pimiDatabase, logger }),
+  };
   const agentStorage = new AgentStorage(pimiDatabase, config.agentStoragePath, logger);
   const agentImages = new FileAgentImageStore(
     pimiDatabase,
@@ -2115,6 +2121,7 @@ export async function createPimiDaemon(
               orchestrationSkills,
               workspaceLabelService,
               finishSubscriptions,
+              usageLedger,
             );
             pluginRuntime.bindPimiSessionHost(wsServer);
             await pluginRuntime.start();
@@ -2171,6 +2178,7 @@ export async function createPimiDaemon(
       // model loading doesn't block the server from accepting connections.
       speechService.start();
       scriptHealthMonitor.start();
+      usageLedger.scanner.start();
     } catch (error) {
       localCredential = null;
       await deleteLocalCredential(config.pimiHome);
@@ -2202,6 +2210,7 @@ export async function createPimiDaemon(
     workspaceReconciliation.dispose();
     closeAllCodeNavigation();
     scriptHealthMonitor.stop();
+    usageLedger.scanner.stop();
     unsubscribeIdleRuntimeCleanup();
     await idleRuntimeCleanup.close();
     // Freeze both ingress and registration before taking the agent closure snapshot.

@@ -23,6 +23,8 @@ export interface ToolCallRun {
 
 export interface GroupedHistory<TGroup> {
   tail: StreamItem[];
+  /** `tail` without the host of the trailing pending run; the tail itself when nothing is pending. */
+  tailBeforePending: StreamItem[];
   groupsByHostId: Map<string, TGroup>;
   pendingCalls: readonly GroupableItem[];
 }
@@ -30,6 +32,11 @@ export interface GroupedHistory<TGroup> {
 export interface GroupedToolCalls<TGroup> {
   tail: StreamItem[];
   head: StreamItem[];
+  /**
+   * The unsealed trailing run of an active turn. It has no row: the working status line owns it
+   * until it seals, when it lands in the timeline as the host the sealed history would have had.
+   */
+  liveRun: ToolCallRun | null;
   groupsByHostId: ToolCallGroupLookup<TGroup>;
   historyGroupUpdatesByHostId: ToolCallGroupLookup<TGroup>;
 }
@@ -154,6 +161,7 @@ export function prepareGroupedHistory<TGroup>(input: {
     else output.push(item);
   }
 
+  const tailBeforePending = pending.length > 0 ? [...output] : null;
   appendRun({
     calls: pending,
     isSealed: true,
@@ -162,8 +170,10 @@ export function prepareGroupedHistory<TGroup>(input: {
     buildGroup: input.buildGroup,
   });
 
+  const tail = groups.size > 0 ? output : input.tail;
   return {
-    tail: groups.size > 0 ? output : input.tail,
+    tail,
+    tailBeforePending: tailBeforePending ?? tail,
     groupsByHostId: groups,
     pendingCalls: pending,
   };
@@ -218,12 +228,24 @@ export function groupLiveToolCalls<TGroup>(input: {
   // signal. The lifecycle state continues to keep completed calls live between
   // sequential tool updates.
   const trailingRunIsActive = input.isTurnActive || pending.some(isRunning);
-  flush(!trailingRunIsActive);
+  // The status line only exists while the turn is active, so only then may it own the run.
+  let liveRun: ToolCallRun | null = null;
+  let tail = input.history.tail;
+  if (input.isTurnActive && pending.length > 0) {
+    liveRun = createRun(pending, false);
+    if (hostPlacement === "history") tail = input.history.tailBeforePending;
+    pending = [];
+    hostPlacement = null;
+    pendingIncludesHead = false;
+  } else {
+    flush(!trailingRunIsActive);
+  }
 
-  if (liveGroups.size === 0) {
+  if (liveGroups.size === 0 && !liveRun) {
     return {
       tail: input.history.tail,
       head: input.head,
+      liveRun: null,
       groupsByHostId: input.history.groupsByHostId,
       historyGroupUpdatesByHostId: EMPTY_GROUPS,
     };
@@ -240,8 +262,9 @@ export function groupLiveToolCalls<TGroup>(input: {
     }
   }
   return {
-    tail: input.history.tail,
+    tail,
     head,
+    liveRun,
     groupsByHostId,
     historyGroupUpdatesByHostId: historyGroupUpdatesByHostId ?? EMPTY_GROUPS,
   };

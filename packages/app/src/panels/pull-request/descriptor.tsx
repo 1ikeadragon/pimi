@@ -1,6 +1,6 @@
 import { GitPullRequest } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { formatPrTabLabel } from "@/git/pull-request-panel/tab-label";
 import type { PanelPresentation } from "@/panels/panel-registry";
 import { useWorkspaceDirectory } from "@/stores/session-store-hooks";

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigation } from "expo-router/react-navigation";
 import { StyleSheet, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
@@ -157,16 +157,18 @@ function WorkspaceDeck() {
     );
   }, []);
 
-  const reconciliationNow = Date.now();
+  // Render derives which workspaces stay mounted from the active selection alone. Its clock is
+  // null: reading Date.now() here would make every render a new input. The effect below stamps
+  // newly inactive entries and expires old ones with a real clock.
   const nextRetainedSelections = useMemo(
     () =>
       reconcileRetainedWorkspaceSelections({
         currentEntries: retainedSelections,
         activeSelection,
-        now: reconciliationNow,
+        now: null,
         maxMountedWorkspaces: resolveWorkspaceDeckRetentionLimit({ isNative }),
       }),
-    [activeSelection, reconciliationNow, retainedSelections],
+    [activeSelection, retainedSelections],
   );
   const renderedSelections = useMemo(
     () =>
@@ -180,17 +182,28 @@ function WorkspaceDeck() {
     [activeSelection, renderedSelections],
   );
 
-  useLayoutEffect(() => {
-    if (!areRetainedWorkspaceSelectionListsEqual(retainedSelections, nextRetainedSelections)) {
-      setRetainedSelections(nextRetainedSelections);
-    }
-  }, [nextRetainedSelections, retainedSelections]);
+  // Adopt the derived list during render so a switch commits once instead of committing and then
+  // re-committing from an effect.
+  if (!areRetainedWorkspaceSelectionListsEqual(retainedSelections, nextRetainedSelections)) {
+    setRetainedSelections(nextRetainedSelections);
+  }
 
   useEffect(() => {
-    const expirationDelay = getNextWorkspaceDeckExpirationDelay({
-      entries: nextRetainedSelections,
+    const now = Date.now();
+    const stamped = reconcileRetainedWorkspaceSelections({
+      currentEntries: retainedSelections,
       activeSelection,
-      now: reconciliationNow,
+      now,
+      maxMountedWorkspaces: resolveWorkspaceDeckRetentionLimit({ isNative }),
+    });
+    if (!areRetainedWorkspaceSelectionListsEqual(retainedSelections, stamped)) {
+      setRetainedSelections(stamped);
+      return;
+    }
+    const expirationDelay = getNextWorkspaceDeckExpirationDelay({
+      entries: retainedSelections,
+      activeSelection,
+      now,
     });
     if (expirationDelay === null) {
       return;
@@ -206,7 +219,7 @@ function WorkspaceDeck() {
       );
     }, expirationDelay + 1);
     return () => clearTimeout(timeout);
-  }, [activeSelection, nextRetainedSelections, reconciliationNow]);
+  }, [activeSelection, retainedSelections]);
 
   return (
     <RenderProfile id="WorkspaceDeck">
@@ -226,7 +239,7 @@ function WorkspaceDeck() {
   );
 }
 
-function WorkspaceDeckEntry({
+const WorkspaceDeckEntry = memo(function WorkspaceDeckEntry({
   selection,
   active,
   onUnmountInactive,
@@ -265,7 +278,7 @@ function WorkspaceDeckEntry({
       />
     </RetainedPanel>
   );
-}
+});
 
 const styles = StyleSheet.create({
   deck: {

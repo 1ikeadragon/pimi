@@ -61,6 +61,7 @@ import {
   createDefaultLayout,
   DEFAULT_PANE_ID,
   selectExplorerSidebarPaneId,
+  canDismissPaneInLayout,
   useWorkspaceLayoutStore,
   type SplitNode,
   type SplitPane,
@@ -612,6 +613,29 @@ function SplitNodeView({
   );
 }
 
+/**
+ * The last visible pane keeps its New launcher when its final tab closes, so closing that tab does
+ * nothing. Asks the same rule the layout enforces, so its close controls can stay out of the way.
+ */
+function useIsLoneLauncher(input: {
+  paneId: string;
+  workspaceKey: string;
+  paneTabs: WorkspaceTabDescriptor[];
+}): boolean {
+  const { paneId, workspaceKey, paneTabs } = input;
+  const paneCannotBeDismissed = useWorkspaceLayoutStore((state) => {
+    const workspaceLayout = state.layoutByWorkspace[workspaceKey];
+    return workspaceLayout
+      ? !canDismissPaneInLayout(
+          workspaceLayout,
+          paneId,
+          selectExplorerSidebarPaneId(state, workspaceKey),
+        )
+      : false;
+  });
+  return paneCannotBeDismissed && paneTabs.length === 1 && paneTabs[0]?.target.kind === "new_tab";
+}
+
 const SplitPaneView = memo(function SplitPaneView({
   pane,
   uiTabs,
@@ -663,6 +687,11 @@ const SplitPaneView = memo(function SplitPaneView({
     [pane, uiTabs],
   );
   const paneTabs = useMemo(() => paneState.tabs.map((tab) => tab.descriptor), [paneState.tabs]);
+  const isLoneLauncher = useIsLoneLauncher({
+    paneId: pane.id,
+    workspaceKey: `${normalizedServerId}:${normalizedWorkspaceId}`,
+    paneTabs,
+  });
   const activeTabDescriptor = paneState.activeTab?.descriptor ?? null;
   const desktopTabRowItems = useMemo<WorkspaceDesktopTabRowItem[]>(
     () =>
@@ -671,8 +700,9 @@ const SplitPaneView = memo(function SplitPaneView({
         isActive: tab.key === activeTabDescriptor?.key,
         isCloseHovered: hoveredCloseTabKey === tab.key,
         isClosingTab: closingTabIds.has(tab.tabId),
+        canClose: !isLoneLauncher,
       })),
-    [activeTabDescriptor?.key, closingTabIds, hoveredCloseTabKey, paneTabs],
+    [activeTabDescriptor?.key, closingTabIds, hoveredCloseTabKey, isLoneLauncher, paneTabs],
   );
 
   useEffect(() => {
@@ -757,6 +787,14 @@ const SplitPaneView = memo(function SplitPaneView({
         : undefined,
     [workbenchMode, paneId, setAttackHoldingPaneHidden, paneWorkspaceKey],
   );
+  const activeTabId = activeTabDescriptor?.tabId ?? null;
+  // A narrow pane swaps its tab row for the compact header, which has no inline close. Desktop
+  // gets an X there that closes the active tab, as the tab row's X would.
+  const handleClosePane = useMemo(
+    () =>
+      isNative || !activeTabId || isLoneLauncher ? undefined : () => void onCloseTab(activeTabId),
+    [activeTabId, isLoneLauncher, onCloseTab],
+  );
   const compactHeaderActions = useMemo(
     () => ({
       pane: {
@@ -766,6 +804,7 @@ const SplitPaneView = memo(function SplitPaneView({
         toggleMaximized:
           workspaceHasMultiplePanes && !focusModeEnabled ? handleTogglePaneMaximized : undefined,
         hide: handleHidePane,
+        close: handleClosePane,
         maximized: paneId === maximizedPaneId,
       },
       closeAbove: handleCloseTabsToLeft,
@@ -780,6 +819,7 @@ const SplitPaneView = memo(function SplitPaneView({
       workspaceHasMultiplePanes,
       handleTogglePaneMaximized,
       handleHidePane,
+      handleClosePane,
       maximizedPaneId,
       handleCloseTabsToLeft,
       handleCloseTabsToRight,

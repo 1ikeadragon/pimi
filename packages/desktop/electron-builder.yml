@@ -66,9 +66,6 @@ files:
   - "!node_modules/@pimi/*/dist/**/test-fixtures/**"
   - "!node_modules/@pimi/*/dist/**/*.fixture.js"
   - "!node_modules/@pimi/server/dist/server/server/agent/providers/pi/extensions/*-fixture-test.js"
-  - "!node_modules/@pimi/server/dist/server/server/agent/providers/claude/test-rewind-claude-sdk.js"
-  - "!node_modules/@pimi/server/dist/server/server/agent/providers/opencode/test-server-manager.js"
-  - "!node_modules/@pimi/server/dist/server/server/agent/rewind/test-rewind-session.js"
 asarUnpack:
   - dist/daemon/node-entrypoint-runner.js
   - node_modules/@pimi/server/dist/server/terminal/shell-integration/**/*
