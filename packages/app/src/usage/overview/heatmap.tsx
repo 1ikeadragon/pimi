@@ -8,10 +8,13 @@ import { formatTokens, timezoneOffsetMinutes } from "./format";
 const DAY_MS = 86_400_000;
 const CELL = 12;
 const GAP = 3;
-const PITCH = CELL + GAP;
+const TARGET_CELL = 18;
+const MIN_CELL = 8;
+const MAX_CELL = 28;
 const LABEL_COLUMN = 30;
 const MIN_WEEKS = 8;
 const MAX_WEEKS = 53;
+const COMFORT_WEEKS = 26;
 const LEVELS = 4;
 const LEGEND_LEVELS = [0, 1, 2, 3, 4] as const;
 const WEEKDAY_LABEL_ROWS = [1, 3, 5];
@@ -77,15 +80,24 @@ function buildWeeks(rows: readonly UsageBreakdownRow[], weeks: number): Week[] {
   return columns;
 }
 
-/** Weeks that fit the width, but no more than the history needs. */
-function weeksToShow(width: number, firstDay: string | null): number {
-  const fit = Math.floor((width - LABEL_COLUMN + GAP) / PITCH);
+/**
+ * Columns and cell size that fill the width: as many weeks as fit at the target size (at least the
+ * history), then the cell grows to use the leftover space.
+ */
+function gridSize(width: number, firstDay: string | null): { weeks: number; cell: number } {
+  const available = Math.max(width - LABEL_COLUMN, 0);
   const todayMs = Date.parse(`${dayKey(Date.now() + timezoneOffsetMinutes() * 60_000)}T00:00:00Z`);
   const needed =
     firstDay === null
       ? MIN_WEEKS
       : Math.ceil((todayMs - Date.parse(`${firstDay}T00:00:00Z`)) / (7 * DAY_MS)) + 1;
-  return Math.max(4, Math.min(fit, MAX_WEEKS, Math.max(needed, MIN_WEEKS)));
+  const fit = Math.floor((available + GAP) / (TARGET_CELL + GAP));
+  const weeks = Math.max(
+    MIN_WEEKS,
+    Math.min(MAX_WEEKS, Math.max(Math.min(fit, COMFORT_WEEKS), needed)),
+  );
+  const cell = Math.floor((available + GAP) / weeks) - GAP;
+  return { weeks, cell: Math.max(MIN_CELL, Math.min(MAX_CELL, cell)) };
 }
 
 /** Day grid coloured by tokens, built from plain views so it follows the theme in both modes. */
@@ -106,7 +118,10 @@ export function UsageHeatmap({ rows }: { rows: readonly UsageBreakdownRow[] }) {
     [rows],
   );
   const levelStyles = [styles.level0, styles.level1, styles.level2, styles.level3, styles.level4];
-  const weeks = weeksToShow(width, firstDay);
+  const { weeks, cell: cellSize } = gridSize(width, firstDay);
+  const cellStyle = { width: cellSize, height: cellSize };
+  const slotStyle = { width: cellSize, height: cellSize + GAP };
+  const rowStyle = { height: cellSize };
   const columns = useMemo(() => buildWeeks(rows, weeks), [rows, weeks]);
   const monthLabels = useMemo(() => {
     const format = new Intl.DateTimeFormat(locale, {
@@ -135,7 +150,7 @@ export function UsageHeatmap({ rows }: { rows: readonly UsageBreakdownRow[] }) {
         <View style={styles.labelColumn} />
         <View style={styles.grid}>
           {columns.map((column, index) => (
-            <View key={column.cells[0].day} style={styles.monthSlot}>
+            <View key={column.cells[0].day} style={[styles.monthSlot, slotStyle]}>
               {monthLabels[index] ? (
                 <Text style={styles.monthLabel}>{monthLabels[index]}</Text>
               ) : null}
@@ -146,7 +161,7 @@ export function UsageHeatmap({ rows }: { rows: readonly UsageBreakdownRow[] }) {
       <View style={styles.row}>
         <View style={styles.labelColumn}>
           {Array.from({ length: 7 }, (_, weekday) => (
-            <View key={weekday} style={styles.weekdaySlot}>
+            <View key={weekday} style={[styles.weekdaySlot, rowStyle]}>
               {WEEKDAY_LABEL_ROWS.includes(weekday) ? (
                 <Text style={styles.monthText} numberOfLines={1}>
                   {weekdayLabels[WEEKDAY_LABEL_ROWS.indexOf(weekday)]}
@@ -161,7 +176,11 @@ export function UsageHeatmap({ rows }: { rows: readonly UsageBreakdownRow[] }) {
               {column.cells.map((cell) => (
                 <View
                   key={cell.day}
-                  style={[styles.cell, cell.future ? styles.future : levelStyles[cell.level]]}
+                  style={[
+                    styles.cell,
+                    cellStyle,
+                    cell.future ? styles.future : levelStyles[cell.level],
+                  ]}
                   accessibilityLabel={
                     cell.future
                       ? undefined
@@ -210,7 +229,7 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 10,
     position: "absolute",
     left: 0,
-    width: PITCH * MONTH_LABEL_MIN_COLUMNS,
+    width: MAX_CELL * MONTH_LABEL_MIN_COLUMNS,
   },
   cell: { width: CELL, height: CELL, borderRadius: 2 },
   future: { backgroundColor: "transparent" },

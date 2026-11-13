@@ -73,6 +73,8 @@ export function usageBreakdownQueryOptions(input: UsageBreakdownInput) {
       return unwrap(error, breakdown);
     },
     dataShape: "value" as const,
+    // Switching range or provider keeps the previous numbers on screen until the new ones land.
+    holdPreviousData: true,
     staleTimeMs: HISTORY_STALE_MS,
     retry: false,
   };

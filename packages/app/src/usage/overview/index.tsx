@@ -171,7 +171,7 @@ export function UsageOverview({ serverId }: { serverId: string }) {
   }
   const stale = rescanning || breakdown.scanning;
   return (
-    <View style={stale ? styles.stale : undefined} testID="usage-overview">
+    <View testID="usage-overview">
       <View style={styles.stack}>
         <OverviewControls
           state={state}
@@ -328,7 +328,6 @@ function ToolRows({ rows }: { rows: readonly UsageBreakdownRow[] }) {
 
 const styles = StyleSheet.create((theme) => ({
   stack: { gap: theme.spacing[6] },
-  stale: { opacity: 0.6 },
   controls: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: theme.spacing[3] },
   columns: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing[6] },
   column: { flexGrow: 1, flexShrink: 1, flexBasis: 420, minWidth: 0, maxWidth: "100%" },
