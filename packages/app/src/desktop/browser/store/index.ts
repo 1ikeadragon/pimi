@@ -31,6 +31,13 @@ interface BrowserStoreState extends BrowserIndexState {
   updateBrowser: (browserId: string, patch: BrowserRecordPatch) => void;
   setBrowserViewport: (browserId: string, viewport: BrowserViewport) => void;
   removeBrowser: (browserId: string) => void;
+  /**
+   * Asks a browser pane to arm its annotate selector once the page has loaded. Not persisted: a
+   * request is a moment, and a reload must not re-arm. The value is the request time.
+   */
+  annotateRequestByBrowserId: Record<string, number>;
+  requestAnnotate: (browserId: string) => void;
+  clearAnnotateRequest: (browserId: string) => void;
 }
 
 function createBrowserId(): string {
@@ -48,6 +55,7 @@ export const useBrowserStore = create<BrowserStoreState>()(
   persist(
     (set) => ({
       browsersById: {},
+      annotateRequestByBrowserId: {},
       createBrowser: (input) => {
         const browserId = createBrowserId();
         const record = createBrowserRecord({
@@ -74,6 +82,20 @@ export const useBrowserStore = create<BrowserStoreState>()(
       },
       removeBrowser: (browserId) => {
         set((state) => removeBrowserFromIndex(state, browserId));
+      },
+      requestAnnotate: (browserId) => {
+        set((state) => ({
+          annotateRequestByBrowserId: {
+            ...state.annotateRequestByBrowserId,
+            [browserId]: Date.now(),
+          },
+        }));
+      },
+      clearAnnotateRequest: (browserId) => {
+        set((state) => {
+          const { [browserId]: _cleared, ...rest } = state.annotateRequestByBrowserId;
+          return { annotateRequestByBrowserId: rest };
+        });
       },
     }),
     {

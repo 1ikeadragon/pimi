@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import type { Readable } from "node:stream";
-import { validatePort, validateSshHost } from "@pimi/protocol/ssh-transport";
+import { sshAuthModeArgs, validatePort, validateSshHost } from "@pimi/protocol/ssh-transport";
+import { prepareSshAuth, sshTooOldForPasswords } from "./askpass.js";
 import { RemoteSshError, errorFromRemoteScript, errorFromSshStderr } from "./errors.js";
 
 export interface SshTarget {
@@ -33,13 +34,16 @@ export function sshConfigArgs(env: NodeJS.ProcessEnv = process.env): string[] {
 }
 
 /** Always the system ssh: it applies ~/.ssh/config, ProxyJump, keys and the agent. */
-export function buildSshExecArgs(target: SshTarget, remoteCommand: string): string[] {
+export function buildSshExecArgs(
+  target: SshTarget,
+  remoteCommand: string,
+  interactive: boolean,
+): string[] {
   const host = validateSshHost(target.host);
   const args = [
     ...sshConfigArgs(),
     "-T",
-    "-o",
-    "BatchMode=yes",
+    ...sshAuthModeArgs(interactive),
     "-o",
     "ConnectTimeout=10",
     "-o",
@@ -69,15 +73,17 @@ export function remoteScriptCommand(script: string, args: string[]): string {
   return `sh -c 'sh -c "$(printf %s ${encoded} | base64 -d)" sh ${args.join(" ")}'`;
 }
 
-export function runSsh(
+export async function runSsh(
   target: SshTarget,
   remoteCommand: string,
   options: SshRunOptions = {},
 ): Promise<SshRunResult> {
+  const auth = await prepareSshAuth(target);
   return new Promise((resolve, reject) => {
-    const child = spawn("ssh", buildSshExecArgs(target, remoteCommand), {
+    const child = spawn("ssh", buildSshExecArgs(target, remoteCommand, auth.interactive), {
       stdio: [options.stdin ? "pipe" : "ignore", "pipe", "pipe"],
       windowsHide: true,
+      env: { ...process.env, ...auth.env },
     });
     let stdout = "";
     let stderr = "";
@@ -94,19 +100,25 @@ export function runSsh(
       child.kill();
       finish(() => reject(new RemoteSshError("CANCELLED", "Cancelled.")));
     };
-    const timer = options.timeoutMs
-      ? setTimeout(() => {
-          child.kill();
-          finish(() =>
-            reject(
-              new RemoteSshError(
-                "SSH_TIMEOUT",
-                `The SSH connection to ${target.host} timed out. Check the network or VPN and try again.`,
-              ),
+    // The timeout does not run while a sign-in prompt waits for the user.
+    let timer: NodeJS.Timeout | undefined;
+    const armTimer = () => {
+      clearTimeout(timer);
+      if (!options.timeoutMs) return;
+      timer = setTimeout(() => {
+        child.kill();
+        finish(() =>
+          reject(
+            new RemoteSshError(
+              "SSH_TIMEOUT",
+              `The SSH connection to ${target.host} timed out. Check the network or VPN and try again.`,
             ),
-          );
-        }, options.timeoutMs)
-      : undefined;
+          ),
+        );
+      }, options.timeoutMs);
+    };
+    armTimer();
+    auth.attach(child, { onPromptOpen: () => clearTimeout(timer), onPromptClose: armTimer });
     if (options.signal?.aborted) onAbort();
     options.signal?.addEventListener("abort", onAbort, { once: true });
 
@@ -138,7 +150,15 @@ export function runSsh(
         ),
       );
     });
-    child.on("close", (code) => finish(() => resolve({ code, stdout, stderr })));
+    child.on("close", (code) =>
+      finish(() => {
+        if (auth.wasCancelled()) {
+          reject(new RemoteSshError("SSH_AUTH_CANCELLED", "Sign-in cancelled."));
+          return;
+        }
+        resolve({ code, stdout, stderr });
+      }),
+    );
     if (options.stdin && child.stdin) {
       child.stdin.on("error", () => undefined);
       options.stdin.on("error", (error) => {
@@ -169,7 +189,11 @@ export async function runRemoteScript(
   });
   const failure = /^PIMI_ERROR (\S+) ?(.*)$/mu.exec(result.stdout);
   if (failure) throw errorFromRemoteScript(failure[1] ?? "", failure[2] ?? "");
-  if (result.code !== 0) throw errorFromSshStderr(target.host, result.stderr, result.code);
+  if (result.code !== 0) {
+    throw errorFromSshStderr(target.host, result.stderr, result.code, {
+      sshTooOldForPasswords: await sshTooOldForPasswords(),
+    });
+  }
   return result.stdout;
 }
 

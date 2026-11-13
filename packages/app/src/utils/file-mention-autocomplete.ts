@@ -1,3 +1,4 @@
+import { CHIP_CHARACTER_CLASS } from "@/composer/chips/model";
 export interface FileMentionRange {
   start: number;
   end: number;
@@ -15,7 +16,7 @@ interface ApplyFileMentionReplacementInput {
   relativePath: string;
 }
 
-const INVALID_MENTION_QUERY_CHARS = /[\s\n\r\t"'<>]/;
+const INVALID_MENTION_QUERY_CHARS = new RegExp(`[\\s\\n\\r\\t"'<>${CHIP_CHARACTER_CLASS}]`);
 
 export function findActiveFileMention(input: FindActiveFileMentionInput): FileMentionRange | null {
   const clampedCursor = Math.max(0, Math.min(input.cursorIndex, input.text.length));

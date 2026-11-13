@@ -493,7 +493,7 @@ Return complete text snapshots. Pimi owns the composer menu, picker, pills, draf
 
 Requires Pimi 0.17.31 or later; set `"requirements": { "pimi": ">=0.17.31" }`. `client.composer.active()` returns the chat composer the user last used on the plugin's host, or `null`. It has `getText`, `getSelection`, `replaceText`, `insertText`, `setSelection`, `focus`, `subscribe`, `onKeyDown`, and `attachments` (`list`, `add`, `remove`, `update`, `subscribe`). Only annotations are visible through `attachments`. `onKeyDown` fires on web and desktop only.
 
-`client.addAttachmentRenderer({ kind: "annotation", Component })` replaces the default pill. The component gets `attachment`, `composer`, `openSource()`, `disabled`, and the usual `theme`, `host`, `layout`, and owns remove and editing itself. Pimi falls back to the default pill when it throws or the plugin is disabled. Start from `plugin-examples/annotation-chips`.
+Annotations are one chip character each in `getText()` (`isComposerChipChar`, `getPlainText()`); `attachments.add(input, { at })` places the chip and each annotation reports `position` and `ref`. `client.addAttachmentRenderer({ kind: "annotation", Component })` replaces the default chip. The component gets `attachment`, `composer`, `openSource()`, `disabled`, `placement` (`"inline"` or `"tray"`), and the usual `theme` and `host` plus `layout.lineHeight`, and owns remove and editing itself. Pimi falls back to the default pill when it throws or the plugin is disabled. Start from `plugin-examples/annotation-chips`.
 
 ```ts
 const composer = client.composer.active();

@@ -191,6 +191,11 @@ function pimiActionInstructions(input: {
       'When the user asks for another agent, a worker, a second opinion, or another provider or model to do or answer something ("ask another agent", "use opencode to", "split this between two agents"), or for parallel workers, call create_agent once per worker, even one on your own provider, with a focused initialPrompt. Pimi shows each as a card the user can open; your built-in subagent tool (Task or Agent) and an agent CLI run from a shell (claude, codex, opencode, gemini) show the user nothing, so never use either for a worker the user asked for or to get another model\'s answer. Keep the built-in subagent tool for your own lookups. Follow up with send_agent_prompt, and report here when the completion notification arrives.',
     );
   }
+  if (isPimiToolEnabled(policy, "browser_show")) {
+    instructions.push(
+      "When the user asks to see, open, or look at a web page or link, or you want them to look at one (for example a dev server you started), call browser_show with the URL. Pimi opens it in a browser tab beside this chat where the user can annotate elements back to you. It only shows the page; you get no content from it. Keep the link in your reply too.",
+    );
+  }
   return instructions;
 }
 

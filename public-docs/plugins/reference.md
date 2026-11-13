@@ -1984,10 +1984,24 @@ attachments.subscribe(() => render(attachments.list()));
 
 An annotation has `id`, `quote`, `note`, and a `source`: a file range (`workspaceId`, `path`, 1-based
 lines and columns, `endColumn` one past the last character) or a chat message (`agentId`, `messageId`,
-`role`). `list()` returns the same array until the contents change, so it works as a
+`role`). Each annotation also has `position`, the offset of its chip in `composer.getText()` (null until the
+composer has placed it), and `ref`, its 1-based place in text order. `list()` returns annotations in
+text order, and the same array until the contents or a chip's position change, so it works as a
 `useSyncExternalStore` snapshot. `add` throws when the quote or note is longer than Pimi's annotation
 limit. `update` changes `quote` and `note` only. Reads reflect the last render, so an `add` and a
 `remove` of the new ID in the same tick returns `false`.
+
+`attachments.add(input, { at })` puts the chip at the caret (`"caret"`, the default), the end of the
+text (`"end"`), or a UTF-16 offset. `add` also throws when the draft already holds 32 annotations.
+
+### Chips in the text
+
+Each annotation is exactly one character in `composer.getText()`, so offsets and selections stay on a
+flat string. `isComposerChipChar(char)` (exported from `@pimi/plugin/client`) recognises it, and
+`composer.getPlainText()` returns the text without chips. Replacing the text without a chip
+character removes its annotation, and a chip character that matches no annotation is dropped. The
+character never reaches the agent: Pimi sends `[annotation N]` in the text and the annotation bodies
+after it.
 
 ### Composer keys {#composer-keys}
 
@@ -2026,18 +2040,19 @@ export default function contribute(client: PluginClientContext) {
 }
 ```
 
-The component replaces the default pill and its hover card, so it owns remove and any editing.
-Props are `attachment`, `index`, `composer` (the handle for the composer holding it), `disabled` (the
+The component replaces the default chip and its hover card, so it owns remove and any editing.
+Props are `attachment`, `index`, `placement` (`"inline"` in the composer's text on web and desktop,
+`"tray"` on native), `composer` (the handle for the composer holding it), `disabled` (the
 composer is submitting), `openSource()` (goes to the annotated file or chat text, and does nothing on
-compact layouts and native), plus `theme`, `host`, and `layout`. Pimi mounts it like a timeline
+compact layouts and native), plus `theme`, `host`, and `layout`, whose `lineHeight` is the height of a
+line of the composer's text: an inline chip should be no taller. Pimi mounts it like a timeline
 renderer, under the plugin's runtime providers and an error boundary. When the component throws, or
 the plugin is disabled or removed, Pimi shows the default pill. The renderer applies to attachments in
 the composer only; a sent message keeps its own annotation pill.
 
-The renderer works on every platform because it is React Native UI in the composer tray; the
-`onKeyDown` shortcut is the only web and desktop limit. See
+The renderer works on every platform because it is React Native UI. See
 [`plugin-examples/annotation-chips`](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/annotation-chips),
-which pairs a chip renderer with Backspace-removes-the-newest-annotation.
+which draws a placement-aware chip.
 
 ## Button descriptor
 

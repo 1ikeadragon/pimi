@@ -8,6 +8,7 @@ import {
 } from "@pimi/protocol/ssh-transport";
 import { BrowserWindow } from "electron";
 import { ensureRemoteDaemonForDesktop } from "./remote-ssh/desktop.js";
+import { prepareSshAuth } from "./remote-ssh/askpass.js";
 import { sshConfigArgs } from "./remote-ssh/ssh-exec.js";
 import { WebSocket, type RawData } from "ws";
 
@@ -174,14 +175,17 @@ function parseOpenTransportSessionInput(value: unknown): OpenTransportSessionInp
   };
 }
 
-export function buildSshArgs(target: SshTransportTarget): string[] {
+export function buildSshArgs(target: SshTransportTarget, interactive: boolean): string[] {
   return [
     ...sshConfigArgs(),
-    ...buildSshTunnelArgs({
-      host: target.host,
-      ...(target.sshPort !== undefined ? { sshPort: target.sshPort } : {}),
-      daemonPort: target.daemonPort ?? DEFAULT_SSH_DAEMON_PORT,
-    }),
+    ...buildSshTunnelArgs(
+      {
+        host: target.host,
+        ...(target.sshPort !== undefined ? { sshPort: target.sshPort } : {}),
+        daemonPort: target.daemonPort ?? DEFAULT_SSH_DAEMON_PORT,
+      },
+      { interactive },
+    ),
   ];
 }
 
@@ -218,38 +222,54 @@ function createSshProxy(target: SshTransportTarget): Promise<TransportEndpoint> 
     child = null;
   }
 
+  async function startTunnel(acceptedSocket: Socket): Promise<void> {
+    let auth: Awaited<ReturnType<typeof prepareSshAuth>>;
+    try {
+      auth = await prepareSshAuth(target);
+    } catch (error) {
+      failure = getErrorMessage(error);
+      acceptedSocket.destroy();
+      return;
+    }
+    if (acceptedSocket.destroyed) return;
+    const spawned = spawn("ssh", buildSshArgs(target, auth.interactive), {
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+      env: { ...process.env, ...auth.env },
+    });
+    child = spawned;
+    auth.attach(spawned);
+    spawned.stderr.on("data", (chunk: Buffer | string) => {
+      stderr = `${stderr}${chunk.toString()}`.slice(-SSH_STDERR_LIMIT);
+    });
+    spawned.on("error", (error) => {
+      failure = error.message;
+      acceptedSocket.destroy(error);
+    });
+    spawned.on("exit", (code, signal) => {
+      if (auth.wasCancelled()) {
+        failure = "Sign-in cancelled.";
+      } else if (code !== 0 || signal) {
+        failure = formatSshFailure(stderr, code, signal);
+      }
+      acceptedSocket.destroy(failure ? new Error(failure) : undefined);
+    });
+    acceptedSocket.pipe(spawned.stdin);
+    spawned.stdout.pipe(acceptedSocket);
+  }
+
   return new Promise((resolve, reject) => {
     server = createServer((acceptedSocket) => {
       socket = acceptedSocket;
       server?.close();
       server = null;
-
-      child = spawn("ssh", buildSshArgs(target), {
-        stdio: ["pipe", "pipe", "pipe"],
-        windowsHide: true,
-      });
-      child.stderr.on("data", (chunk: Buffer | string) => {
-        stderr = `${stderr}${chunk.toString()}`.slice(-SSH_STDERR_LIMIT);
-      });
-      child.on("error", (error) => {
-        failure = error.message;
-        acceptedSocket.destroy(error);
-      });
-      child.on("exit", (code, signal) => {
-        if (code !== 0 || signal) {
-          failure = formatSshFailure(stderr, code, signal);
-        }
-        acceptedSocket.destroy(failure ? new Error(failure) : undefined);
-      });
-
       acceptedSocket.on("error", () => undefined);
       acceptedSocket.on("close", () => {
         if (child && !child.killed) {
           child.kill();
         }
       });
-      acceptedSocket.pipe(child.stdin);
-      child.stdout.pipe(acceptedSocket);
+      void startTunnel(acceptedSocket);
     });
     server.once("error", (error) => {
       close();

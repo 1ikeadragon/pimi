@@ -1,4 +1,11 @@
-import type { AnnotationAttachment } from "@/annotations/model";
+import type { AnnotationAttachment, NewAnnotation } from "@/annotations/model";
+import {
+  AnnotationLimitError,
+  annotationsOf,
+  lowestFreeSlot,
+  reconcileAfterTextChange,
+} from "@/composer/chips/model";
+import { generateMessageId } from "@/types/stream";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -44,17 +51,21 @@ interface DraftStoreActions {
   getDraftInput: (draftKey: string) => DraftInput | undefined;
   hydrateDraftInput: (input: { draftKey: string }) => Promise<DraftInput | undefined>;
   saveDraftInput: (input: { draftKey: string; draft: DraftInput }) => void;
-  editDraftText: (input: { draftKey: string; text: string }) => void;
+  /** Returns the text the draft now holds: chips the edit left dangling or doubled are rewritten. */
+  editDraftText: (input: { draftKey: string; text: string }) => string;
   markDraftLifecycle: (input: { draftKey: string; lifecycle: DraftLifecycleState }) => void;
   clearDraftInput: (input: {
     draftKey: string;
     lifecycle?: Exclude<DraftLifecycleState, "active">;
   }) => void;
-  /** Adds the annotation without taking focus: its note editor opens at the source first. */
+  /**
+   * Adds the annotation without taking focus: its note editor opens at the source first. The draft
+   * assigns its chip slot; the composer places the chip in the text.
+   */
   attachAnnotation: (input: {
     draftKey: string;
-    attachment: AnnotationAttachment;
-  }) => Promise<void>;
+    attachment: NewAnnotation;
+  }) => Promise<AnnotationAttachment>;
   requestComposerFocus: (input: { draftKey: string }) => void;
   attachWorkspaceFile: (input: {
     draftKey: string;
@@ -67,6 +78,8 @@ interface DraftStoreActions {
 
 interface DraftStoreRuntimeState {
   attachmentFocusRequestByDraftKey: Record<string, number>;
+  /** Annotations whose chip the user deleted, until undo brings it back or the draft is cleared. */
+  detachedAnnotationsByDraftKey: Record<string, AnnotationAttachment[]>;
 }
 
 type DraftStore = DraftStoreState & DraftStoreRuntimeState & DraftStoreActions;
@@ -204,6 +217,9 @@ function collectQueuedMessageAttachmentIds(
         if (attachment.kind === "image") {
           referencedIds.add(attachment.metadata.id);
         }
+        if (attachment.kind === "annotation" && attachment.screenshot) {
+          referencedIds.add(attachment.screenshot.id);
+        }
       }
     }
   }
@@ -263,6 +279,7 @@ export const useDraftStore = create<DraftStore>()(
       drafts: {},
       createModalDraft: null,
       attachmentFocusRequestByDraftKey: {},
+      detachedAnnotationsByDraftKey: {},
 
       getDraftInput: (draftKey) => {
         const record = get().drafts[draftKey];
@@ -326,11 +343,48 @@ export const useDraftStore = create<DraftStore>()(
       },
 
       editDraftText: ({ draftKey, text }) => {
-        set((state) => {
-          const previous = state.drafts[draftKey];
-          const next = editDraftRecordText(previous, text, Date.now());
-          return next === previous ? state : { drafts: { ...state.drafts, [draftKey]: next } };
+        const previous = get().drafts[draftKey];
+        const active = previous?.lifecycle === "active" ? previous : undefined;
+        const currentAnnotations = annotationsOf(active?.input.attachments ?? []);
+        const detached = get().detachedAnnotationsByDraftKey[draftKey] ?? [];
+        const change = reconcileAfterTextChange({
+          prevText: active?.input.text ?? "",
+          nextText: text,
+          annotations: currentAnnotations,
+          detached,
+          newId: generateMessageId,
         });
+        const annotationsChanged =
+          change.annotations.length !== currentAnnotations.length ||
+          change.annotations.some((annotation, index) => annotation !== currentAnnotations[index]);
+        const detachedChanged =
+          change.detached.length !== detached.length ||
+          change.detached.some((annotation, index) => annotation !== detached[index]);
+        const edited = editDraftRecordText(previous, change.text, Date.now());
+        let next = edited;
+        if (active && annotationsChanged) {
+          const attachments = [
+            ...edited.input.attachments.filter((attachment) => attachment.kind !== "annotation"),
+            ...change.annotations,
+          ];
+          next = {
+            ...edited,
+            input: { text: edited.input.text, attachments },
+            lifecycle: change.text.length > 0 || attachments.length > 0 ? "active" : "abandoned",
+          };
+        }
+        set((state) => ({
+          drafts: next === previous ? state.drafts : { ...state.drafts, [draftKey]: next },
+          ...(detachedChanged
+            ? {
+                detachedAnnotationsByDraftKey: {
+                  ...state.detachedAnnotationsByDraftKey,
+                  [draftKey]: change.detached,
+                },
+              }
+            : {}),
+        }));
+        return change.text;
       },
 
       markDraftLifecycle: ({ draftKey, lifecycle }) => {
@@ -355,6 +409,12 @@ export const useDraftStore = create<DraftStore>()(
       },
 
       clearDraftInput: ({ draftKey, lifecycle }) => {
+        if (get().detachedAnnotationsByDraftKey[draftKey]) {
+          set((state) => {
+            const { [draftKey]: _stashed, ...rest } = state.detachedAnnotationsByDraftKey;
+            return { detachedAnnotationsByDraftKey: rest };
+          });
+        }
         set((state) => {
           const existing = state.drafts[draftKey];
           if (!existing) {
@@ -383,26 +443,25 @@ export const useDraftStore = create<DraftStore>()(
 
       attachAnnotation: async ({ draftKey, attachment }) => {
         await get().hydrateDraftInput({ draftKey });
-        set((state) => {
-          const existing = state.drafts[draftKey];
-          const draft = toDraftInputIfReady(existing) ?? {
-            text: "",
-            attachments: [],
-          };
-          return {
-            drafts: {
-              ...state.drafts,
-              [draftKey]: createDraftRecord({
-                draft: {
-                  ...draft,
-                  attachments: [...draft.attachments, attachment],
-                },
-                lifecycle: "active",
-                previousVersion: existing?.version,
-              }),
-            },
-          };
-        });
+        const existing = get().drafts[draftKey];
+        const draft = toDraftInputIfReady(existing) ?? { text: "", attachments: [] };
+        const stashed = get().detachedAnnotationsByDraftKey[draftKey] ?? [];
+        const slot = lowestFreeSlot(
+          [...annotationsOf(draft.attachments), ...stashed].map((annotation) => annotation.slot),
+        );
+        if (slot === null) throw new AnnotationLimitError();
+        const placed: AnnotationAttachment = { ...attachment, slot };
+        set((state) => ({
+          drafts: {
+            ...state.drafts,
+            [draftKey]: createDraftRecord({
+              draft: { ...draft, attachments: [...draft.attachments, placed] },
+              lifecycle: "active",
+              previousVersion: existing?.version,
+            }),
+          },
+        }));
+        return placed;
       },
 
       requestComposerFocus: ({ draftKey }) => {

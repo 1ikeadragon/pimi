@@ -37,6 +37,10 @@ import { Button } from "@/components/ui/button";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/contexts/toast-context";
+import { ANNOTATION_CHARACTER_LIMIT, type NewAnnotation } from "@/annotations/model";
+import { AnnotationLimitError } from "@/composer/chips/model";
+import { useDraftStore } from "@/stores/draft-store";
+import { generateMessageId } from "@/types/stream";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,10 +49,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   buildWorkspaceAttachmentScopeKey,
-  useWorkspaceAttachments,
+  useWorkspaceAttachmentsForScopes,
   useWorkspaceAttachmentsStore,
 } from "@/attachments/workspace-attachments-store";
 import type { AttachmentMetadata, BrowserElementAttachment } from "@/attachments/types";
+import {
+  resolveBrowserAnnotationDraftKey,
+  resolveBrowserAnnotationScopeKey,
+  useBrowserAnnotationTarget,
+} from "@/desktop/browser/annotation-target";
+import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { persistAttachmentFromDataUrl } from "@/attachments/service";
 import { WORKSPACE_SECONDARY_HEADER_HEIGHT } from "@/constants/layout";
 import { getOverlayRoot } from "@/lib/overlay-root";
@@ -77,6 +87,7 @@ import {
   createElementSelectorController,
   type BrowserElementSelection,
   type ElementSelectorOutcome,
+  type ElementSelectorStartResult,
 } from "./element-selector.electron";
 import { useBrowserFind } from "./find.electron";
 
@@ -159,6 +170,8 @@ function formatDevicePresetLabel(preset: DeviceSizePreset, responsiveLabel: stri
 }
 
 const ERR_ABORTED = -3;
+const ANNOTATE_REQUEST_TIMEOUT_MS = 20_000;
+const ANNOTATE_RETRY_MS = 300;
 const ALLOWED_BROWSER_PROTOCOLS = new Set(["http:", "https:"]);
 
 function truncateText(value: string, maxLength: number): string {
@@ -294,6 +307,27 @@ function buildBrowserElementAttachment(
   };
 }
 
+/** An element annotation for a chat's draft: its description as the quote, the comment as the note. */
+function buildBrowserElementAnnotation(
+  selection: BrowserElementSelection,
+  annotation: BrowserElementAnnotation,
+  screenshot?: AttachmentMetadata,
+): NewAnnotation {
+  return {
+    kind: "annotation",
+    id: generateMessageId(),
+    source: {
+      kind: "browser",
+      url: selection.url.slice(0, 2048),
+      selector: selection.selector.slice(0, 2048),
+      tag: selection.tag.slice(0, 64),
+    },
+    quote: truncateText(formatElementAttachment(selection), ANNOTATION_CHARACTER_LIMIT),
+    note: annotation.comment.trim().slice(0, 8000),
+    ...(screenshot ? { screenshot } : {}),
+  };
+}
+
 function buildBrowserAttachmentScopeKey(input: {
   cwd: string | null;
   serverId: string;
@@ -340,6 +374,7 @@ function buildAnnotationMarkerScript(markers: readonly BrowserAnnotationMarker[]
       var markers = ${payload};
       if (window.__pimiAnnotationMarkers) { window.__pimiAnnotationMarkers.update(markers); return true; }
       var host = document.createElement('div');
+      host.setAttribute('data-pimi-annotation-markers', '');
       host.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;z-index:2147483646;pointer-events:none;';
       (document.body || document.documentElement).appendChild(host);
       var badges = [];
@@ -584,6 +619,7 @@ function rememberResolvedBrowserWebviewSize(browserId: string, webview: HTMLElem
 // eslint-disable-next-line complexity
 export function BrowserPane({
   browserId,
+  tabId,
   serverId,
   workspaceId,
   cwd,
@@ -591,6 +627,7 @@ export function BrowserPane({
   onFocusPane,
 }: {
   browserId: string;
+  tabId: string;
   serverId: string;
   workspaceId: string;
   cwd: string | null;
@@ -645,7 +682,26 @@ export function BrowserPane({
     () => buildBrowserAttachmentScopeKey({ cwd, serverId, workspaceId }),
     [cwd, serverId, workspaceId],
   );
-  const workspaceAttachments = useWorkspaceAttachments(workspaceAttachmentScopeKey ?? "");
+  const workspaceKey = useMemo(
+    () => buildWorkspaceTabPersistenceKey({ serverId, workspaceId }),
+    [serverId, workspaceId],
+  );
+  const annotationTarget = useBrowserAnnotationTarget({
+    serverId,
+    workspaceKey,
+    tabId,
+    browserId,
+    workspaceScopeKey: workspaceAttachmentScopeKey,
+  });
+  // The chat's own scope first, like its composer, so marker numbers match the pills it shows.
+  const markerScopeKeys = useMemo(
+    () =>
+      [...new Set([annotationTarget.scopeKey, workspaceAttachmentScopeKey])].filter(
+        (key): key is string => Boolean(key),
+      ),
+    [annotationTarget.scopeKey, workspaceAttachmentScopeKey],
+  );
+  const workspaceAttachments = useWorkspaceAttachmentsForScopes(markerScopeKeys);
   const setWorkspaceAttachments = useWorkspaceAttachmentsStore(
     (state) => state.setWorkspaceAttachments,
   );
@@ -1073,15 +1129,41 @@ export function BrowserPane({
       annotation: BrowserElementAnnotation,
       screenshot?: AttachmentMetadata,
     ) => {
-      if (!workspaceAttachmentScopeKey) {
+      // The target chat is resolved now: the user may have moved between chats while the card was open.
+      const draftKey = resolveBrowserAnnotationDraftKey({
+        serverId,
+        workspaceKey,
+        tabId,
+        browserId,
+        workspaceScopeKey: workspaceAttachmentScopeKey,
+      });
+      if (draftKey) {
+        useDraftStore
+          .getState()
+          .attachAnnotation({
+            draftKey,
+            attachment: buildBrowserElementAnnotation(selection, annotation, screenshot),
+          })
+          .catch((error: unknown) => {
+            if (!(error instanceof AnnotationLimitError)) throw error;
+            toastRef.current.error(error.message);
+          });
+        return;
+      }
+      const scopeKey = resolveBrowserAnnotationScopeKey({
+        serverId,
+        workspaceKey,
+        tabId,
+        browserId,
+        workspaceScopeKey: workspaceAttachmentScopeKey,
+      });
+      if (!scopeKey) {
         return;
       }
       // Read the store now: submit awaits the screenshot, so the render-time list can be stale.
-      const current =
-        useWorkspaceAttachmentsStore.getState().attachmentsByScope[workspaceAttachmentScopeKey] ??
-        [];
+      const current = useWorkspaceAttachmentsStore.getState().attachmentsByScope[scopeKey] ?? [];
       setWorkspaceAttachments({
-        scopeKey: workspaceAttachmentScopeKey,
+        scopeKey,
         attachments: [
           ...current,
           {
@@ -1091,7 +1173,14 @@ export function BrowserPane({
         ],
       });
     },
-    [setWorkspaceAttachments, workspaceAttachmentScopeKey],
+    [
+      browserId,
+      serverId,
+      setWorkspaceAttachments,
+      tabId,
+      workspaceAttachmentScopeKey,
+      workspaceKey,
+    ],
   );
 
   const captureElementScreenshot = useCallback(
@@ -1228,17 +1317,15 @@ export function BrowserPane({
     [handleSelectorResult, showSelectorFailure],
   );
 
-  const startElementSelector = useCallback(
-    (mode: "annotate" | "screenshot") => {
+  const beginElementSelector = useCallback(
+    (mode: "annotate" | "screenshot"): ElementSelectorStartResult => {
       if (mode === "annotate" && !workspaceAttachmentScopeKey) {
-        showSelectorFailure("unavailable");
-        return;
+        return "unavailable";
       }
       const webview = webviewRef.current;
       const controller = selectorControllerRef.current;
       if (!webview || !controller) {
-        showSelectorFailure("unavailable");
-        return;
+        return "unavailable";
       }
 
       const startResult = controller.start({
@@ -1247,21 +1334,73 @@ export function BrowserPane({
         onFinish: handleElementSelectorOutcome,
       });
       if (startResult !== "started") {
-        showSelectorFailure(startResult);
-        return;
+        return startResult;
       }
 
       pendingScreenshotRef.current = undefined;
       setPendingSelection(null);
       setSelectorMode(mode);
+      return "started";
     },
-    [handleElementSelectorOutcome, showSelectorFailure, workspaceAttachmentScopeKey],
+    [handleElementSelectorOutcome, workspaceAttachmentScopeKey],
+  );
+
+  const startElementSelector = useCallback(
+    (mode: "annotate" | "screenshot") => {
+      const result = beginElementSelector(mode);
+      if (result !== "started") {
+        showSelectorFailure(result);
+      }
+    },
+    [beginElementSelector, showSelectorFailure],
   );
 
   const cancelElementSelector = useCallback(() => {
     selectorControllerRef.current?.cancel();
     setSelectorMode(null);
   }, []);
+
+  // /annotate and the palette ask for the selector before the page is ready. Arm it once the
+  // pane is shown and the page has loaded, retrying while it loads and giving up after a while.
+  const annotateRequest = useBrowserStore((state) => state.annotateRequestByBrowserId[browserId]);
+  const clearAnnotateRequest = useBrowserStore((state) => state.clearAnnotateRequest);
+  const [annotatePollTick, setAnnotatePollTick] = useState(0);
+  const browserIsLoading = browser?.isLoading ?? false;
+  const browserLastError = browser?.lastError ?? null;
+  useEffect(() => {
+    if (annotateRequest === undefined || !isPresented) {
+      return;
+    }
+    const giveUp = () => {
+      clearAnnotateRequest(browserId);
+      showSelectorFailure("unavailable");
+    };
+    if (browserLastError || Date.now() - annotateRequest > ANNOTATE_REQUEST_TIMEOUT_MS) {
+      giveUp();
+      return;
+    }
+    const result = browserIsLoading ? "loading" : beginElementSelector("annotate");
+    if (result === "started") {
+      clearAnnotateRequest(browserId);
+      return;
+    }
+    if (result === "unavailable") {
+      giveUp();
+      return;
+    }
+    const retry = setTimeout(() => setAnnotatePollTick((tick) => tick + 1), ANNOTATE_RETRY_MS);
+    return () => clearTimeout(retry);
+  }, [
+    annotatePollTick,
+    annotateRequest,
+    beginElementSelector,
+    browserId,
+    browserIsLoading,
+    browserLastError,
+    clearAnnotateRequest,
+    isPresented,
+    showSelectorFailure,
+  ]);
 
   const currentPageUrl = browser?.url ?? null;
   const annotationMarkers = useMemo<BrowserAnnotationMarker[]>(() => {
@@ -1563,6 +1702,7 @@ export function BrowserPane({
           <BrowserElementAnnotationCard
             anchor={webviewClipRef.current}
             selection={pendingSelection}
+            chatLabel={annotationTarget.chatLabel}
             onSubmit={submitAnnotation}
             onCancel={cancelAnnotation}
           />
@@ -1575,11 +1715,13 @@ export function BrowserPane({
 function BrowserElementAnnotationCard({
   anchor,
   selection,
+  chatLabel,
   onSubmit,
   onCancel,
 }: {
   anchor: HTMLElement | null;
   selection: BrowserElementSelection;
+  chatLabel: string | null;
   onSubmit: (annotation: BrowserElementAnnotation) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -1639,6 +1781,11 @@ function BrowserElementAnnotationCard({
         <Text numberOfLines={1} style={styles.annotationElement}>
           {elementLabel}
         </Text>
+        {chatLabel ? (
+          <Text numberOfLines={1} style={styles.annotationElement}>
+            {t("workspace.browser.annotate.target", { chat: chatLabel })}
+          </Text>
+        ) : null}
         <ThemedAnnotationInput
           accessibilityLabel={t("workspace.browser.annotate.placeholder")}
           autoFocus

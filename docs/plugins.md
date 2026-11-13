@@ -766,11 +766,13 @@ draws. The author contract lives in the
 - **Key handlers run after an open autocomplete and before sent-message recall.** They use the
   composer's existing `onKeyPress` path, which only exists on web and desktop. Native has no
   hardware key events there, so `onKeyDown` never fires.
-- **Out of scope: inline chips.** The composer is a plain text field with an attachment tray above
-  it. Chips inside the text would need a rich editor model: a document tree where an annotation is
-  an inline node, a mapping between that tree and the plain text the agent receives, caret and
-  selection that skip atomic nodes, IME and paste handling, and a draft format that stores the
-  tree. The text API's offsets would then name positions in that model.
+- **Annotations are characters in the text.** The composer text holds one Private Use Area code unit
+  per annotation, so `getText()` offsets, selections and `replaceText` keep working on a flat
+  string. `getPlainText()` strips them and `isComposerChipChar` recognises them. Dropping one in a
+  `replaceText` removes its annotation; `attachments.add(input, { at })` places the new chip. On web
+  the editor draws each chip inline (a renderer with `placement: "inline"`); native shows a circled
+  numeral in the text and the chip in the tray. A plugin renderer replaces the whole chip: Pimi does
+  not wrap it with its own focus, hover card or removal. See `docs/composer-editor.md`.
 
 ## Contribute settings
 

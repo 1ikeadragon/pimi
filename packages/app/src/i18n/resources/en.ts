@@ -1,16 +1,10 @@
 export const en = {
   remoteDev: {
     title: "Remote dev machine (SSH)",
-    optionHint: "Pimi installs and starts its daemon over ssh.",
-    helper:
-      "Enter the machine as user@host. Pimi connects with your system ssh (your ~/.ssh/config, keys and agent), installs its daemon there when needed, and starts it. No passwords or keys are stored.",
     hostLabel: "SSH host",
-    hostPlaceholder: "user@devbox",
-    invalidTarget:
-      "Enter the machine as user@host, a name from your ~/.ssh/config, or ssh://user@host.",
+    hostPlaceholder: "user@host",
+    invalidTarget: "Enter user@host.",
     systemdTitle: "Keep the daemon running with systemd",
-    systemdHint:
-      "Uses a systemd --user service when the machine has one. Otherwise Pimi starts the daemon with nohup.",
     docsLink: "How remote SSH works",
     setupStopped: "Setup stopped",
     steps: {
@@ -23,19 +17,16 @@ export const en = {
       connected: "Connected",
     },
     settingsRowTitle: "Connect a remote dev machine",
-    settingsRowHint:
-      "Enter user@devbox. Pimi installs and starts its daemon over ssh, then runs agents, terminals and git on that machine.",
+    settingsRowHint: "Runs agents, terminals and git on that machine.",
     commandTitle: "Connect a remote dev machine (SSH)",
     onboarding: {
       label: "Where to work",
       title: "Where should your agents run?",
-      description:
-        "Use this computer, or connect a remote dev machine over SSH. Pimi installs and starts its daemon on the remote for you.",
+      description: "Use this computer or a remote machine.",
       localTitle: "Use this computer",
-      localHint: "Agents run here, on your own files. Nothing to install.",
-      remoteTitle: "Connect a remote dev machine over SSH",
-      remoteHint:
-        "Enter user@devbox. Pimi installs its daemon there over ssh and runs agents, terminals and git on that machine.",
+      localHint: "Agents run here, on your files.",
+      remoteTitle: "Connect a remote dev machine",
+      remoteHint: "Agents run there. Pimi sets it up over SSH.",
     },
     upgrade: {
       title: "Upgrade Pimi on {{host}}?",
@@ -47,6 +38,13 @@ export const en = {
       later: "Later",
       now: "Upgrade now",
       failed: "The upgrade failed.",
+    },
+    auth: {
+      title: "Sign in to {{host}}",
+      inputLabel: "Password or code",
+      retry: "That did not work. Try again.",
+      submit: "Continue",
+      cancel: "Cancel",
     },
   },
   harnessUpdates: {
@@ -419,6 +417,32 @@ export const en = {
       settingOff: "Off",
     },
   },
+  chips: {
+    yourMessage: "Your message",
+    assistantMessage: "Assistant message",
+    annotation: "Annotation, {{source}}",
+    annotationWithNote: "Annotation, {{source}}, note: {{note}}",
+    goToCode: "Go to annotated code",
+    goToText: "Go to annotated text",
+    editNote: "Edit note",
+    removeAnnotation: "Remove annotation",
+    sheetTitle: "Annotation",
+    noteLabel: "Note",
+    notePlaceholder: "Add a note (optional)",
+    noteHint: "Enter saves. Shift+Enter adds a line.",
+    noteTooLong: "Shorten your note to {{limit}} characters or fewer",
+    unreachableChat: "Could not open the annotated chat",
+    unreachableFile: "Could not open the annotated file",
+    unsavedLayout: "Save your changes before switching layouts.",
+    limitReached: "A message can carry at most {{count}} annotations",
+    announceAdded: "Annotation added",
+    announceRemoved: "Annotation removed",
+    openContext: "Open context attachment",
+    removeContext: "Remove context attachment",
+    openChatHistory: "Open chat history attachment",
+    removeChatHistory: "Remove chat history attachment",
+    chatHistory: "Chat history",
+  },
   composer: {
     placeholders: {
       desktop: "Message the agent, tag @files, or use /commands and /skills",
@@ -500,6 +524,8 @@ export const en = {
     clientCommands: {
       archiveAgent: "Archive the current agent",
       freshDraft: "Archive this agent and start a fresh draft",
+      openBrowser: "Open a web page in the Pimi browser",
+      annotatePage: "Annotate a web page in the Pimi browser",
     },
     github: {
       searching: "Searching...",
@@ -969,6 +995,7 @@ export const en = {
         placeholder: "Message to the agent about this element…",
         submit: "Attach",
         cancel: "Cancel",
+        target: "Attaches to: {{chat}}",
       },
       devices: {
         label: "Device size",
@@ -1035,6 +1062,7 @@ export const en = {
         preparingTerminal: "Preparing terminal tab",
         preparingTerminalTooltip: "Preparing terminal...",
         newBrowser: "New browser",
+        annotatePage: "Annotate web page",
         maximizePane: "Maximize pane",
         restorePane: "Restore pane",
         closePane: "Close pane",
@@ -2208,7 +2236,7 @@ export const en = {
       },
       remoteSsh: {
         title: "Remote dev machine (SSH)",
-        description: "Pimi installs and starts its daemon over ssh.",
+        description: "Pimi sets it up over SSH.",
       },
       scanQr: {
         title: "Scan QR code",
@@ -2262,13 +2290,6 @@ export const en = {
       },
     },
     remoteSsh: {
-      title: "Remote SSH",
-      helper: "Connect to a Pimi daemon running on the remote host.",
-      fields: {
-        target: "SSH host",
-        password: "Daemon password",
-        optional: "Optional",
-      },
       passwordVisibility: {
         show: "Show password",
         hide: "Hide password",
@@ -2280,7 +2301,6 @@ export const en = {
       },
       errors: {
         targetRequired: "SSH host is required",
-        invalidTarget: "Enter a valid ssh:// host",
         failedToConnect: "Unable to connect over SSH. {{detail}}",
       },
     },
@@ -3091,6 +3111,10 @@ export const en = {
           pullRequests: {
             label: "Clicking a pull request in the Explorer sidebar",
             description: "Open pull request details beside Changes",
+          },
+          webLinks: {
+            label: "Clicking a web link in an agent chat",
+            description: "Open web links from chat beside the conversation",
           },
           serviceUrls: {
             label: "Clicking a script's service URL",

@@ -5,11 +5,13 @@ import {
   type ComposerEditingSession,
 } from "./editing-session";
 import type { ComposerTextSource } from "./text-source";
+import { z } from "zod";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { useStore } from "zustand";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
+  AccessibilityInfo,
   View,
   Pressable,
   ScrollView,
@@ -162,9 +164,29 @@ import type {
 } from "@/attachments/types";
 import type { SelectedFile } from "@/attachments/selected-file";
 import { composerWorkspaceAttachment } from "@/composer/attachments/workspace";
+import type { AttachmentUpdater } from "@/composer/draft/input-draft-core";
+import {
+  annotationChipLabel,
+  AnnotationAttachmentSchema,
+  type AnnotationAttachment,
+} from "@/annotations/model";
+import {
+  annotationsOf,
+  CHIP_CHARACTERS,
+  chipChar,
+  chipPositions,
+  chipSlot,
+  chipsOnly,
+  restoreSentChips,
+  stripChips,
+  lowestFreeSlot,
+  reconcileAfterAttachmentsChange,
+  chipPreviewText,
+} from "@/composer/chips/model";
+import type { ComposerEditorChips } from "@/components/ui/chip-text-editor/types";
+import { generateMessageId as generateAnnotationId } from "@/types/stream";
 import { useWorkspaceAttachmentsForScopes } from "@/attachments/workspace-attachments-store";
 import { droppedItemsToSelectedFiles } from "@/composer/attachments/drop";
-import { getFileTypeLabel } from "@/attachments/file-types";
 import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
 import {
   AttachmentFrame,
@@ -191,11 +213,14 @@ import {
   type ComposerController,
 } from "@/plugins";
 import { SlashCommandCenterActions } from "@/command-center/slash-registration";
-import { resolveClientSlashCommand, type ClientSlashCommand } from "@/client-slash-commands";
+import {
+  resolveClientSlashCommand,
+  type ClientSlashCommand,
+  type ResolvedClientSlashCommand,
+} from "@/client-slash-commands";
 import {
   appendWorkspaceFileAttachment,
   getWorkspaceFileAttachmentKey,
-  getWorkspaceFileAttachmentSubtitle,
 } from "@/attachments/workspace-file";
 import {
   resolveWorkspaceFileDrop,
@@ -212,10 +237,6 @@ const composerImageAttachmentPersister: Pick<
 };
 
 type QueuedMessage = QueuedComposerMessage;
-
-type AttachmentListUpdater =
-  | UserComposerAttachment[]
-  | ((prev: UserComposerAttachment[]) => UserComposerAttachment[]);
 
 const EMPTY_ATTACHMENT_SCOPE_KEYS: readonly string[] = [];
 
@@ -393,6 +414,63 @@ interface RenderAttachmentTrayArgs {
   };
 }
 
+// The chip heights from components/ui/chip, which a plugin renderer must fit.
+const INLINE_CHIP_LINE_HEIGHT = 20;
+const TRAY_CHIP_LINE_HEIGHT = 24;
+
+const InlineAnnotationChip = memo(function InlineAnnotationChip({
+  serverId,
+  controller,
+  annotation,
+  index,
+  disabled,
+  onRemoveSlot,
+  onChangeNote,
+  onFocusComposer,
+}: {
+  serverId: string;
+  controller: ComposerController;
+  annotation: AnnotationAttachment;
+  index: number;
+  disabled: boolean;
+  onRemoveSlot: (slot: number) => void;
+  onChangeNote: (id: string, note: string) => void;
+  onFocusComposer: () => void;
+}) {
+  const remove = useCallback(() => onRemoveSlot(annotation.slot), [annotation.slot, onRemoveSlot]);
+  return (
+    <PluginAnnotationAttachment
+      serverId={serverId}
+      controller={controller}
+      attachment={annotation}
+      placement="inline"
+      lineHeight={INLINE_CHIP_LINE_HEIGHT}
+      disabled={disabled}
+      index={index}
+      onRemove={remove}
+      onChangeNote={onChangeNote}
+      onFocusComposer={onFocusComposer}
+    />
+  );
+});
+
+const CopiedChipsSchema = z.object({
+  text: z.string(),
+  annotations: z.array(AnnotationAttachmentSchema),
+});
+
+function parseCopiedChips(payload: string): z.infer<typeof CopiedChipsSchema> | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(payload);
+  } catch (error) {
+    if (error instanceof SyntaxError) return null;
+    throw error;
+  }
+  const parsed = CopiedChipsSchema.safeParse(json);
+  return parsed.success ? parsed.data : null;
+}
+
 function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | null {
   const {
     serverId,
@@ -406,30 +484,30 @@ function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | nu
     focusInput,
     labels,
   } = args;
-  if (selectedAttachments.length === 0 && pendingFiles.length === 0) return null;
+  // Where the editor draws chips inline, annotations live in the text and not in the tray.
+  const inTray = (attachment: ComposerAttachment) => !(isWeb && attachment.kind === "annotation");
+  if (!selectedAttachments.some(inTray) && pendingFiles.length === 0) return null;
   return (
     <View style={styles.attachmentTray} testID="composer-attachment-tray">
       {selectedAttachments.map((attachment, index) =>
-        renderComposerAttachmentPill({
-          serverId,
-          pluginComposer,
-          attachment,
-          index,
-          disabled: isComposerLocked,
-          onOpen: handleOpenAttachment,
-          onRemove: handleRemoveAttachment,
-          onChangeAnnotationNote: handleChangeAnnotationNote,
-          onFocusInput: focusInput,
-          labels,
-        }),
+        !inTray(attachment)
+          ? null
+          : renderComposerAttachmentPill({
+              serverId,
+              pluginComposer,
+              attachment,
+              index,
+              disabled: isComposerLocked,
+              onOpen: handleOpenAttachment,
+              onRemove: handleRemoveAttachment,
+              onChangeAnnotationNote: handleChangeAnnotationNote,
+              onFocusInput: focusInput,
+              labels,
+            }),
       )}
       {pendingFiles.map(({ id, file }) => (
         <AttachmentFrame key={id} testID="composer-pending-file-attachment">
-          <AttachmentLabel
-            icon={pendingFilePillIcon}
-            title={file.fileName}
-            subtitle={getFileTypeLabel(file.fileName) ?? ""}
-          />
+          <AttachmentLabel icon={pendingFilePillIcon} title={file.fileName} />
         </AttachmentFrame>
       ))}
     </View>
@@ -507,6 +585,8 @@ function renderComposerAttachmentPill(args: RenderComposerAttachmentPillArgs): R
         serverId={args.serverId}
         controller={args.pluginComposer}
         attachment={attachment}
+        placement="tray"
+        lineHeight={TRAY_CHIP_LINE_HEIGHT}
         disabled={disabled}
         index={index}
         onRemove={onRemove}
@@ -863,7 +943,7 @@ function QueuedMessageRow({
   return (
     <View style={[styles.queueItem, glyph ? styles.compactQueueItem : null]}>
       <Text style={styles.queueText} numberOfLines={2} ellipsizeMode="tail">
-        {item.text}
+        {chipPreviewText(item.text, annotationsOf(item.attachments))}
       </Text>
       <View style={[styles.queueActions, glyph ? styles.compactQueueActions : null]}>
         <QueueActionButton
@@ -925,6 +1005,7 @@ function ImageAttachmentPill({
       openAccessibilityLabel={openLabel}
       removeAccessibilityLabel={removeLabel}
       disabled={disabled}
+      kind="thumbnail"
     >
       <AttachmentThumbnail metadata={attachment.metadata} />
     </AttachmentPill>
@@ -957,7 +1038,6 @@ function GithubAttachmentPill({
   const presentation = getForgePresentation(item.forge ?? "github");
   const isChangeRequest = item.kind === "change_request";
   const kindLabel = isChangeRequest ? presentation.changeRequestAbbrev : "issue";
-  const subtitleKind = isChangeRequest ? presentation.changeRequestAbbrev : "Issue";
   const numberPrefix = isChangeRequest ? presentation.numberPrefix : presentation.issueNumberPrefix;
   const handleOpen = useCallback(() => {
     onOpen(attachment);
@@ -977,7 +1057,6 @@ function GithubAttachmentPill({
       <AttachmentLabel
         icon={isChangeRequest ? githubPrPillIcon : githubIssuePillIcon}
         title={item.title}
-        subtitle={`${subtitleKind} ${numberPrefix}${item.number}`}
       />
     </AttachmentPill>
   );
@@ -998,7 +1077,6 @@ function FileAttachmentPill({
   onRemove,
   removeLabel,
 }: FileAttachmentPillProps) {
-  const { t } = useTranslation();
   const handleRemove = useCallback(() => {
     onRemove(index);
   }, [onRemove, index]);
@@ -1012,11 +1090,7 @@ function FileAttachmentPill({
       removeAccessibilityLabel={removeLabel}
       disabled={disabled}
     >
-      <AttachmentLabel
-        icon={filePillIcon}
-        title={fileName}
-        subtitle={getFileTypeLabel(fileName) ?? t("message.attachments.file")}
-      />
+      <AttachmentLabel icon={filePillIcon} title={fileName} />
     </AttachmentPill>
   );
 }
@@ -1039,21 +1113,21 @@ function WorkspaceFileAttachmentPill({
   const handleRemove = useCallback(() => {
     onRemove(index);
   }, [index, onRemove]);
-  const fileName = attachment.path.split("/").pop() ?? attachment.path;
+  const baseName = attachment.path.split("/").pop() ?? attachment.path;
+  const fileName =
+    attachment.selection.kind === "line_range"
+      ? `${baseName}:${attachment.selection.startLine}–${attachment.selection.endLine}`
+      : baseName;
   return (
     <AttachmentPill
       testID="composer-workspace-file-attachment-pill"
       onOpen={noopCallback}
       onRemove={handleRemove}
-      openAccessibilityLabel={fileName}
+      openAccessibilityLabel={attachment.path}
       removeAccessibilityLabel={removeLabel}
       disabled={disabled}
     >
-      <AttachmentLabel
-        icon={filePillIcon}
-        title={fileName}
-        subtitle={getWorkspaceFileAttachmentSubtitle(attachment)}
-      />
+      <AttachmentLabel icon={filePillIcon} title={fileName} />
     </AttachmentPill>
   );
 }
@@ -1105,7 +1179,7 @@ interface ComposerProps {
   workspaceId?: string | null;
   isPaneFocused: boolean;
   onSubmitMessage?: (payload: MessagePayload) => Promise<void>;
-  onClientSlashCommand?: (command: ClientSlashCommand) => Promise<void>;
+  onClientSlashCommand?: (command: ClientSlashCommand, args: string) => Promise<void>;
   /** When true, the submit button is enabled even without text or images (e.g. external attachment selected). */
   hasExternalContent?: boolean;
   /** When true, the composer can submit even with no text or attachments. */
@@ -1128,7 +1202,7 @@ interface ComposerProps {
   attachments: UserComposerAttachment[];
   attachmentScopeKeys?: readonly string[];
   onOpenWorkspaceAttachment?: (attachment: WorkspaceComposerAttachment) => void;
-  onChangeAttachments: (updater: AttachmentListUpdater) => void;
+  onChangeAttachments: (updater: AttachmentUpdater) => void;
   onForgeChangeRequestDetected?: () => void;
   onForgeChangeRequestAutoAttach?: (item: ForgeSearchItem) => void;
   cwd: string;
@@ -1642,9 +1716,28 @@ function ComposerContentImpl({
   });
 
   const runClientSlashCommand = useCallback(
-    (command: ClientSlashCommand): boolean => {
+    ({ command, args: typedArgs }: ResolvedClientSlashCommand): boolean => {
       if (command.execution !== "immediate" || !onClientSlashCommand) {
         return false;
+      }
+      const args = stripChips(typedArgs);
+
+      setSendError(null);
+      setIsProcessing(true);
+      if (command.keepsAttachments) {
+        // The input is cleared only once the command succeeded, so a bad argument leaves the
+        // text and its pending attachments for the user to fix.
+        void onClientSlashCommand(command, args)
+          // Chips stay: they keep their place among the attachments the command did not take.
+          .then(() => replaceUserInput(chipsOnly(messageInputRef.current?.getText() ?? "")))
+          .catch((error) => {
+            console.error("[Composer] Failed to run client slash command:", error);
+            setSendError(error instanceof Error ? error.message : String(error));
+          })
+          .finally(() => {
+            setIsProcessing(false);
+          });
+        return true;
       }
 
       if (blurOnSubmit) {
@@ -1654,9 +1747,7 @@ function ComposerContentImpl({
       replaceUserInput("");
       setSelectedAttachments([]);
       resetSuppression();
-      setSendError(null);
-      setIsProcessing(true);
-      void onClientSlashCommand(command)
+      void onClientSlashCommand(command, args)
         .catch((error) => {
           console.error("[Composer] Failed to run client slash command:", error);
           setSendError(error instanceof Error ? error.message : String(error));
@@ -1674,6 +1765,19 @@ function ComposerContentImpl({
       setSelectedAttachments,
       replaceUserInput,
     ],
+  );
+
+  // A selection from autocomplete or the palette carries no arguments; a command that takes
+  // some is inserted for the user to complete instead.
+  const runClientSlashCommandFromMenu = useCallback(
+    (command: ClientSlashCommand): boolean => {
+      const blockedByAttachments =
+        !command.keepsAttachments && buildOutgoingAttachments(attachments).length > 0;
+      return !command.acceptsArgs && !blockedByAttachments
+        ? runClientSlashCommand({ command, args: "" })
+        : false;
+    },
+    [attachments, buildOutgoingAttachments, runClientSlashCommand],
   );
 
   const runPluginClientSlashCommand = useCallback(
@@ -2122,6 +2226,109 @@ function ComposerContentImpl({
     [setSelectedAttachments],
   );
 
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
+  const removeChip = useCallback((slot: number) => {
+    const input = messageInputRef.current;
+    if (!input) return;
+    const { text, selection } = input.getInputSnapshot();
+    const index = text.indexOf(chipChar(slot));
+    if (index < 0) return;
+    const caret = selection.start > index ? selection.start - 1 : selection.start;
+    input.replaceText(text.slice(0, index) + text.slice(index + 1), { start: caret, end: caret });
+  }, []);
+  const chips = useMemo<ComposerEditorChips | undefined>(() => {
+    if (!isWeb || inputMode !== "chat") return undefined;
+    const annotations = annotationsOf(attachments);
+    return {
+      render: (slot) => {
+        const annotation = annotations.find((candidate) => candidate.slot === slot);
+        if (!annotation) return null;
+        return (
+          <InlineAnnotationChip
+            serverId={serverId}
+            controller={pluginComposer}
+            annotation={annotation}
+            index={annotations.indexOf(annotation)}
+            disabled={isComposerLocked}
+            onRemoveSlot={removeChip}
+            onChangeNote={handleChangeAnnotationNote}
+            onFocusComposer={focusInput}
+          />
+        );
+      },
+      plainText: (slot) => {
+        const annotation = annotations.find((candidate) => candidate.slot === slot);
+        return annotation ? `[${annotationChipLabel(annotation)}]` : "";
+      },
+      copy: (text) => {
+        const slots = new Set(chipPositions(text).map((chip) => chip.slot));
+        return JSON.stringify({
+          text,
+          annotations: annotations.filter((annotation) => slots.has(annotation.slot)),
+        });
+      },
+      paste: (payload) => {
+        const parsed = parseCopiedChips(payload);
+        if (!parsed) return null;
+        const newSlotFor = new Map<number, number>();
+        setSelectedAttachments((current, { reservedSlots }) => {
+          const used = new Set([...annotationsOf(current).map((a) => a.slot), ...reservedSlots]);
+          const clones: AnnotationAttachment[] = [];
+          for (const annotation of parsed.annotations) {
+            const slot = lowestFreeSlot(used);
+            if (slot === null) break;
+            used.add(slot);
+            newSlotFor.set(annotation.slot, slot);
+            clones.push({ ...annotation, id: generateAnnotationId(), slot });
+          }
+          return [...current, ...clones];
+        });
+        return parsed.text.replace(CHIP_CHARACTERS, (char) => {
+          const slot = newSlotFor.get(chipSlot(char));
+          return slot === undefined ? "" : chipChar(slot);
+        });
+      },
+    };
+  }, [
+    attachments,
+    focusInput,
+    handleChangeAnnotationNote,
+    inputMode,
+    isComposerLocked,
+    pluginComposer,
+    removeChip,
+    serverId,
+    setSelectedAttachments,
+  ]);
+
+  // The editor owns the text; this keeps its chips and the draft's annotations in step. Run again
+  // when the draft's text is replaced, since a hydrated draft may predate its chips.
+  useEffect(() => {
+    const input = messageInputRef.current;
+    if (!isWeb || !input) return;
+    const { text, selection } = input.getInputSnapshot();
+    const placement = reconcileAfterAttachmentsChange({
+      text,
+      caret: selection.end,
+      annotations: annotationsOf(attachments),
+    });
+    if (placement) {
+      input.replaceText(placement.text, { start: placement.caret, end: placement.caret });
+    }
+  }, [attachments, textReplacement.key]);
+
+  const annotationCount = annotationsOf(attachments).length;
+  const previousAnnotationCount = useRef(annotationCount);
+  useEffect(() => {
+    const previous = previousAnnotationCount.current;
+    previousAnnotationCount.current = annotationCount;
+    if (annotationCount === previous) return;
+    AccessibilityInfo.announceForAccessibility(
+      t(annotationCount > previous ? "chips.announceAdded" : "chips.announceRemoved"),
+    );
+  }, [annotationCount, t]);
+
   const handleOpenAttachment = useCallback(
     (attachment: ComposerAttachment) => {
       openComposerAttachment({
@@ -2263,6 +2470,35 @@ function ComposerContentImpl({
   const hasSendableContent = hasText || selectedAttachments.length > 0;
 
   // An open autocomplete owns the arrows; otherwise they may recall sent messages.
+  // A recalled message comes back with its annotations as chips.
+  const showRecalled = useCallback(
+    (sentText: string) => {
+      const message = readLoadedSentMessages().find((candidate) => candidate.text === sentText);
+      // The text being replaced takes its chips with it; their annotations go too, so the sync
+      // above does not mistake them for annotations still waiting for a chip.
+      const replaced = new Set(
+        chipPositions(messageInputRef.current?.getText() ?? "").map((chip) => chip.slot),
+      );
+      let restoredText = sentText;
+      setSelectedAttachments((current, { reservedSlots }) => {
+        const kept = current.filter(
+          (attachment) => attachment.kind !== "annotation" || !replaced.has(attachment.slot),
+        );
+        const restored = restoreSentChips({
+          text: sentText,
+          attachments: message?.attachments ?? [],
+          reserved: [...annotationsOf(kept).map((annotation) => annotation.slot), ...reservedSlots],
+          newId: generateAnnotationId,
+        });
+        restoredText = restored.text;
+        return [...kept, ...restored.annotations];
+      });
+      replaceUserInput(restoredText);
+      recall.setShown(restoredText);
+    },
+    [readLoadedSentMessages, recall, replaceUserInput, setSelectedAttachments],
+  );
+
   const handleCommandKeyPress = useCallback(
     (event: ComposerKeyPressEvent) => {
       if (autocompleteRef.current?.onKeyPress(event)) return true;
@@ -2279,10 +2515,10 @@ function ComposerContentImpl({
       const recalled = recall.handleKeyPress(event, readLoadedSentMessages);
       if (recalled === null) return false;
       event.preventDefault();
-      if (recalled.kind === "show") replaceUserInput(recalled.text);
+      if (recalled.kind === "show") showRecalled(recalled.text);
       return true;
     },
-    [pluginComposer, readLoadedSentMessages, recall, replaceUserInput],
+    [pluginComposer, readLoadedSentMessages, recall, showRecalled],
   );
 
   // An Up pressed ahead of an older page shows its message once the page arrives.
@@ -2292,9 +2528,9 @@ function ComposerContentImpl({
         const input = messageInputRef.current?.getInputSnapshot();
         if (!input) return;
         const recalledText = recall.resume(input, readLoadedSentMessages);
-        if (recalledText !== null) replaceUserInput(recalledText);
+        if (recalledText !== null) showRecalled(recalledText);
       }),
-    [readLoadedSentMessages, recall, replaceUserInput, sentMessageHistory],
+    [readLoadedSentMessages, recall, showRecalled, sentMessageHistory],
   );
 
   const cancelButtonStyle = useCallback(
@@ -2680,8 +2916,7 @@ function ComposerContentImpl({
       serverId,
       agentId,
       draft: commandDraft,
-      canExecuteClientSlashCommand: buildOutgoingAttachments(attachments).length === 0,
-      onClientSlashCommand: runClientSlashCommand,
+      onClientSlashCommand: runClientSlashCommandFromMenu,
       pluginClientSlashCommands,
     }),
     [
@@ -2689,9 +2924,7 @@ function ComposerContentImpl({
       serverId,
       agentId,
       commandDraft,
-      buildOutgoingAttachments,
-      attachments,
-      runClientSlashCommand,
+      runClientSlashCommandFromMenu,
       pluginClientSlashCommands,
     ],
   );
@@ -2776,7 +3009,7 @@ function ComposerContentImpl({
                   serverId={serverId}
                   agentId={agentId}
                   editingSession={editingSession}
-                  runClient={runClientSlashCommand}
+                  runClient={runClientSlashCommandFromMenu}
                 />
               ) : null}
               {/* MessageInput handles everything: text, dictation, attachments, all buttons */}
@@ -2797,6 +3030,7 @@ function ComposerContentImpl({
                   isSubmitLoading={isSubmitLoadingVisible}
                   preserveHeightOnSubmit={submitBehavior === "preserve-and-lock"}
                   attachments={selectedAttachments}
+                  chips={chips}
                   cwd={cwd}
                   attachmentMenuItems={attachmentMenuItems}
                   onAttachButtonRef={handleAttachButtonRef}

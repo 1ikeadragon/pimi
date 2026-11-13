@@ -95,12 +95,3 @@ export function workspaceFileAttachmentToAgentAttachment(
     text: `Workspace file: ${attachment.path}${lines}`,
   };
 }
-
-export function getWorkspaceFileAttachmentSubtitle(
-  attachment: WorkspaceFileComposerAttachment,
-): string {
-  if (attachment.selection.kind === "whole_file") {
-    return attachment.path;
-  }
-  return `${attachment.path} · ${attachment.selection.startLine}-${attachment.selection.endLine}`;
-}

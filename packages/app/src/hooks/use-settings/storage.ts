@@ -124,6 +124,7 @@ export interface OpenInSidePanePreferences {
   chatFiles: boolean;
   diffFiles: boolean;
   subagents: boolean;
+  webLinks: boolean;
 }
 
 export const DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES: OpenInSidePanePreferences = {
@@ -132,6 +133,7 @@ export const DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES: OpenInSidePanePreferences = 
   chatFiles: false,
   diffFiles: false,
   subagents: false,
+  webLinks: true,
 };
 
 export interface Settings extends AppSettings {
@@ -261,6 +263,7 @@ const StoredAppSettingsSchema = z
         chatFiles: z.boolean().catch(false),
         diffFiles: z.boolean().catch(false),
         subagents: z.boolean().catch(false),
+        webLinks: z.boolean().catch(true),
       })
       .catch(DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES),
     pullRequestOpenLocation: z.enum(["main", "side", "explorer"]).catch("explorer"),

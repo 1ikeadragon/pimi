@@ -20,6 +20,7 @@ export interface WorkspaceCommandCenterLabels {
   newAgent: string;
   newTerminal: string;
   newBrowser: string;
+  annotateBrowser: string;
   splitRight: string;
   splitDown: string;
   changes: string;
@@ -563,6 +564,14 @@ function buildCreationContributions(
         keywords: ["browser", "web", "preview"],
         icon: source.icons.newBrowser,
         action: { id: "workspace.browser.new", scope: "workspace" },
+      }),
+      buildQueryAction(source, {
+        id: "tab:annotate-browser",
+        rank: 4,
+        title: source.labels.annotateBrowser,
+        keywords: ["annotate", "browser", "web", "element", "page"],
+        icon: source.icons.newBrowser,
+        action: { id: "workspace.browser.annotate", scope: "workspace" },
       }),
     );
   }

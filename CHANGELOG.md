@@ -2,6 +2,12 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## Unreleased
+
+- Annotations are now chips inside the composer text. Add one from a file or chat selection and it lands at your caret; Backspace removes it, undo brings it back with its note, and copy, cut and paste move chips. The agent receives `[annotation N]` in your message and the annotation bodies after it, and sent messages show the chips inline. Up-arrow recall and rewind restore them. On native the text shows a circled numeral and the chip sits in the tray.
+- Attachments and annotations are drawn as compact chips instead of 48px pills. Annotations get a hover card with the source, quote and note.
+- Plugins: `composer.getText()` holds one chip character per annotation (`isComposerChipChar`, `getPlainText()`); annotations report `position` and `ref`, `attachments.add` takes `{ at }`, and attachment renderers receive `placement` and `layout.lineHeight`.
+
 ## 0.17.36 - 2026-11-13
 
 - Fixed: removing the local host left the app unable to start the daemon, with no way to recover. The daemon management setting is now auto-restored when no hosts are configured.

@@ -60,13 +60,29 @@ export function parseSshTransportUri(value: string): SshTransportTarget {
   };
 }
 
-export function buildSshTunnelArgs(target: SshTransportTarget): string[] {
+/**
+ * ssh never prompts in batch mode. The desktop passes `interactive` once it has an askpass program
+ * to answer ssh's prompts; the CLI and daemon-side callers stay in batch mode.
+ */
+export function sshAuthModeArgs(interactive: boolean): string[] {
+  return interactive
+    ? ["-o", "BatchMode=no", "-o", "NumberOfPasswordPrompts=3"]
+    : ["-o", "BatchMode=yes"];
+}
+
+export interface SshTunnelArgsOptions {
+  interactive?: boolean;
+}
+
+export function buildSshTunnelArgs(
+  target: SshTransportTarget,
+  options: SshTunnelArgsOptions = {},
+): string[] {
   const host = validateSshHost(target.host);
   const daemonPort = validatePort(target.daemonPort, "Daemon port");
   const args = [
     "-T",
-    "-o",
-    "BatchMode=yes",
+    ...sshAuthModeArgs(options.interactive === true),
     "-o",
     "ConnectTimeout=10",
     "-o",

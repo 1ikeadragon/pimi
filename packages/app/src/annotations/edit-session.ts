@@ -1,4 +1,4 @@
-import type { AnnotationAttachment } from "./model";
+import type { AnnotationAttachment, AnnotationCapture } from "./model";
 
 /** One open note editor: the annotation being edited and where its changes go. */
 export interface AnnotationEditSession {
@@ -36,7 +36,7 @@ export function openAnnotationAtSource(session: AnnotationEditSession): boolean 
 }
 
 /** Scrolls a surface to the annotation's source and marks it, when that surface shows it. */
-type AnnotationRevealer = (attachment: AnnotationAttachment) => boolean;
+type AnnotationRevealer = (attachment: AnnotationCapture) => boolean;
 
 const revealers = new Set<AnnotationRevealer>();
 
@@ -49,7 +49,7 @@ export function registerAnnotationRevealer(revealer: AnnotationRevealer): () => 
 }
 
 /** False when no open chat can go to this annotation's source; the caller edits the note instead. */
-export function revealAnnotationSource(attachment: AnnotationAttachment): boolean {
+export function revealAnnotationSource(attachment: AnnotationCapture): boolean {
   for (const revealer of revealers) {
     if (revealer(attachment)) return true;
   }

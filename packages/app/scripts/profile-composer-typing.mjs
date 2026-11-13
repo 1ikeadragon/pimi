@@ -132,12 +132,8 @@ async function openComposer(page) {
   const input = page.locator("[data-composer-input]").filter({ visible: true }).first();
   await input.waitFor({ state: "visible", timeout: 60_000 });
   await input.focus();
-  await input.evaluate((element) => {
-    if (!(element instanceof HTMLTextAreaElement)) {
-      throw new Error("The visible composer input is not a textarea");
-    }
-    element.setSelectionRange(element.value.length, element.value.length);
-  });
+  // The composer is a CodeMirror editor, so its caret moves with the keyboard.
+  await page.keyboard.press("Meta+ArrowDown");
   return input;
 }
 
@@ -170,15 +166,18 @@ async function installTypingProbe(page, target) {
             (candidate) => candidate.getClientRects().length > 0,
           )
         : document.querySelector('textarea[aria-label="Plain textarea benchmark"]');
-    if (!(element instanceof HTMLTextAreaElement)) {
+    if (!(element instanceof HTMLElement)) {
       throw new Error(`Typing target ${probeTarget} was not found`);
     }
+    // The composer is contenteditable; the control is a textarea.
+    const readText = () =>
+      element instanceof HTMLTextAreaElement ? element.value : (element.textContent ?? "");
     const composerRoot = element.closest('[data-testid="message-input-root"]');
     const readLayout = () => ({
       inputHeight: element.getBoundingClientRect().height,
       composerHeight: composerRoot?.getBoundingClientRect().height ?? null,
-      valueLength: element.value.length,
-      lineCount: element.value.split("\n").length,
+      valueLength: readText().length,
+      lineCount: readText().split("\n").length,
     });
 
     let sequence = 0;
@@ -490,9 +489,13 @@ async function waitForMeasurement(page, expectedKeys) {
 async function measureTarget(page, input, target, originalText) {
   await input.fill(originalText);
   await input.focus();
-  await input.evaluate((element) => {
-    element.setSelectionRange(element.value.length, element.value.length);
-  });
+  if (target === "composer") {
+    await page.keyboard.press("Meta+ArrowDown");
+  } else {
+    await input.evaluate((element) => {
+      element.setSelectionRange(element.value.length, element.value.length);
+    });
+  }
   await page.evaluate(
     () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
   );
@@ -578,9 +581,7 @@ async function measureTarget(page, input, target, originalText) {
 async function warmTarget(page, input, originalText) {
   await input.fill(originalText);
   await input.focus();
-  await input.evaluate((element) => {
-    element.setSelectionRange(element.value.length, element.value.length);
-  });
+  await page.keyboard.press("Meta+ArrowDown");
   await page.keyboard.type("warmupwarmupwarmupwarmupwarmup", { delay: 5 });
   await input.fill(originalText);
   await page.evaluate(

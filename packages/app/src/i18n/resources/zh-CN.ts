@@ -3,53 +3,50 @@ import { pluginSettings } from "./plugin-settings";
 
 export const zhCN: TranslationResources = {
   remoteDev: {
-    title: "Remote dev machine (SSH)",
-    optionHint: "Pimi installs and starts its daemon over ssh.",
-    helper:
-      "Enter the machine as user@host. Pimi connects with your system ssh (your ~/.ssh/config, keys and agent), installs its daemon there when needed, and starts it. No passwords or keys are stored.",
-    hostLabel: "SSH host",
-    hostPlaceholder: "user@devbox",
-    invalidTarget:
-      "Enter the machine as user@host, a name from your ~/.ssh/config, or ssh://user@host.",
-    systemdTitle: "Keep the daemon running with systemd",
-    systemdHint:
-      "Uses a systemd --user service when the machine has one. Otherwise Pimi starts the daemon with nohup.",
-    docsLink: "How remote SSH works",
-    setupStopped: "Setup stopped",
+    title: "远程开发机 (SSH)",
+    hostLabel: "SSH 主机",
+    hostPlaceholder: "user@host",
+    invalidTarget: "请输入 user@host。",
+    systemdTitle: "通过 systemd 保持守护进程运行",
+    docsLink: "远程 SSH 的工作方式",
+    setupStopped: "设置已停止",
     steps: {
-      connecting: "Connecting",
-      checking: "Checking the machine",
-      installing: "Installing",
-      installingVersion: "Installing v{{version}}",
-      alreadyInstalled: "(already installed)",
-      starting: "Starting the daemon",
-      connected: "Connected",
+      connecting: "正在连接",
+      checking: "正在检查机器",
+      installing: "正在安装",
+      installingVersion: "正在安装 v{{version}}",
+      alreadyInstalled: "（已安装）",
+      starting: "正在启动守护进程",
+      connected: "已连接",
     },
-    settingsRowTitle: "Connect a remote dev machine",
-    settingsRowHint:
-      "Enter user@devbox. Pimi installs and starts its daemon over ssh, then runs agents, terminals and git on that machine.",
-    commandTitle: "Connect a remote dev machine (SSH)",
+    settingsRowTitle: "连接远程开发机",
+    settingsRowHint: "在那台机器上运行 Agent、终端和 git。",
+    commandTitle: "连接远程开发机 (SSH)",
     onboarding: {
-      label: "Where to work",
-      title: "Where should your agents run?",
-      description:
-        "Use this computer, or connect a remote dev machine over SSH. Pimi installs and starts its daemon on the remote for you.",
-      localTitle: "Use this computer",
-      localHint: "Agents run here, on your own files. Nothing to install.",
-      remoteTitle: "Connect a remote dev machine over SSH",
-      remoteHint:
-        "Enter user@devbox. Pimi installs its daemon there over ssh and runs agents, terminals and git on that machine.",
+      label: "工作位置",
+      title: "Agent 应该在哪里运行？",
+      description: "使用这台电脑或远程机器。",
+      localTitle: "使用这台电脑",
+      localHint: "Agent 在这里基于你的文件运行。",
+      remoteTitle: "连接远程开发机",
+      remoteHint: "Agent 在那里运行。Pimi 通过 SSH 完成设置。",
     },
     upgrade: {
-      title: "Upgrade Pimi on {{host}}?",
+      title: "要升级 {{host}} 上的 Pimi 吗？",
       message:
-        "{{host}} runs Pimi {{running}}, this app is {{desktop}}. Upgrading restarts the daemon there. {{work}}",
-      workBusy:
-        "It has {{agents}} running agents and {{terminals}} open terminals that would stop.",
-      workUnknown: "Pimi could not tell whether agents or terminals are running.",
-      later: "Later",
-      now: "Upgrade now",
-      failed: "The upgrade failed.",
+        "{{host}} 运行的是 Pimi {{running}}，此应用是 {{desktop}}。升级会重启那里的守护进程。{{work}}",
+      workBusy: "有 {{agents}} 个正在运行的 Agent 和 {{terminals}} 个打开的终端将被停止。",
+      workUnknown: "Pimi 无法确定是否有 Agent 或终端正在运行。",
+      later: "稍后",
+      now: "立即升级",
+      failed: "升级失败。",
+    },
+    auth: {
+      title: "登录 {{host}}",
+      inputLabel: "密码或验证码",
+      retry: "未成功，请重试。",
+      submit: "继续",
+      cancel: "取消",
     },
   },
   harnessUpdates: {
@@ -421,6 +418,32 @@ export const zhCN: TranslationResources = {
       settingOff: "关",
     },
   },
+  chips: {
+    yourMessage: "你的消息",
+    assistantMessage: "助手消息",
+    annotation: "批注，{{source}}",
+    annotationWithNote: "批注，{{source}}，备注：{{note}}",
+    goToCode: "转到批注的代码",
+    goToText: "转到批注的文本",
+    editNote: "编辑备注",
+    removeAnnotation: "移除批注",
+    sheetTitle: "批注",
+    noteLabel: "备注",
+    notePlaceholder: "添加备注（可选）",
+    noteHint: "按 Enter 保存，按 Shift+Enter 换行。",
+    noteTooLong: "请将备注缩短到 {{limit}} 个字符以内",
+    unreachableChat: "无法打开被批注的聊天",
+    unreachableFile: "无法打开被批注的文件",
+    unsavedLayout: "切换布局前请先保存更改。",
+    limitReached: "一条消息最多可携带 {{count}} 条批注",
+    announceAdded: "已添加批注",
+    announceRemoved: "已移除批注",
+    openContext: "打开上下文附件",
+    removeContext: "移除上下文附件",
+    openChatHistory: "打开聊天记录附件",
+    removeChatHistory: "移除聊天记录附件",
+    chatHistory: "聊天记录",
+  },
   composer: {
     placeholders: {
       desktop: "给 Agent 发消息，标记 @files，或使用 /commands 和 /skills",
@@ -502,6 +525,8 @@ export const zhCN: TranslationResources = {
     clientCommands: {
       archiveAgent: "归档当前 Agent",
       freshDraft: "归档此 Agent 并开始新的草稿",
+      openBrowser: "在 Pimi 浏览器中打开网页",
+      annotatePage: "在 Pimi 浏览器中标注网页",
     },
     github: {
       searching: "正在搜索...",
@@ -970,6 +995,7 @@ export const zhCN: TranslationResources = {
         placeholder: "给智能体关于此元素的留言…",
         submit: "附加",
         cancel: "取消",
+        target: "附加到：{{chat}}",
       },
       devices: {
         label: "设备尺寸",
@@ -1036,6 +1062,7 @@ export const zhCN: TranslationResources = {
         preparingTerminal: "正在准备 Terminal 标签",
         preparingTerminalTooltip: "正在准备 Terminal...",
         newBrowser: "新建浏览器",
+        annotatePage: "标注网页",
         maximizePane: "最大化窗格",
         restorePane: "还原窗格",
         closePane: "关闭窗格",
@@ -2150,7 +2177,7 @@ export const zhCN: TranslationResources = {
       },
       remoteSsh: {
         title: "远程 SSH",
-        description: "通过桌面 SSH 客户端连接。",
+        description: "Pimi 通过 SSH 完成设置。",
       },
       scanQr: {
         title: "扫描二维码",
@@ -2203,13 +2230,6 @@ export const zhCN: TranslationResources = {
       },
     },
     remoteSsh: {
-      title: "远程 SSH",
-      helper: "连接到远程主机上运行的 Pimi 守护进程。",
-      fields: {
-        target: "SSH 主机",
-        password: "守护进程密码",
-        optional: "可选",
-      },
       passwordVisibility: {
         show: "显示密码",
         hide: "隐藏密码",
@@ -2221,7 +2241,6 @@ export const zhCN: TranslationResources = {
       },
       errors: {
         targetRequired: "SSH 主机为必填项",
-        invalidTarget: "请输入有效的 ssh:// 主机",
         failedToConnect: "无法通过 SSH 连接。{{detail}}",
       },
     },

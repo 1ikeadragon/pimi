@@ -234,6 +234,7 @@ export function useWorkspaceCommandCenterActions(): void {
           newAgent: t("workspace.tabs.actions.newAgent"),
           newTerminal: t("workspace.tabs.actions.newTerminal"),
           newBrowser: t("workspace.tabs.actions.newBrowser"),
+          annotateBrowser: t("workspace.tabs.actions.annotatePage"),
           splitRight: t("workspace.tabs.actions.splitRight"),
           splitDown: t("workspace.tabs.actions.splitDown"),
           changes: t("workspace.tabs.actions.changes"),

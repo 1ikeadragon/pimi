@@ -24,7 +24,7 @@ import { useWorkspaceSetupStore } from "@/stores/workspace-setup-store";
 import { normalizeAgentSnapshot } from "@/utils/agent-snapshots";
 import { encodeImages } from "@/utils/encode-images";
 import { toErrorMessage } from "@/utils/error-messages";
-import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
+import { prepareComposerSubmission } from "@/composer/attachments/submit";
 import type { CreateAgentRequestOptions, DaemonClient } from "@pimi/client/internal/daemon-client";
 import { projectIconPlaceholderLabelFromDisplayName } from "@/utils/project-display-name";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
@@ -309,13 +309,13 @@ export function WorkspaceSetupDialog() {
           throw new Error(t("workspaceSetup.errors.selectModel"));
         }
 
-        const wirePayload = splitComposerAttachmentsForSubmit(attachments);
+        const wirePayload = prepareComposerSubmission({ text, attachments });
         const encodedImages = await encodeImages(wirePayload.images);
         if (!pendingWorkspaceSetup) throw new Error(t("workspaceSetup.errors.pendingRequired"));
         let createdAgent: AgentSnapshotPayload | undefined;
         const { workspaceId: _workspaceId, ...agentInput } = buildCreateAgentOptions({
           composerState,
-          text,
+          text: wirePayload.text,
           attachments: wirePayload.attachments,
           encodedImages: encodedImages ?? null,
           workspaceDirectory: cwd,

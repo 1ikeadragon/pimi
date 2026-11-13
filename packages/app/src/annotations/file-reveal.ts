@@ -5,7 +5,8 @@ import { createWorkspaceFileTabTarget } from "@/workspace/file-open";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { openPreferredWorkspaceTarget } from "@/workspace-tabs/open-beside";
 import { revealAnnotationSource } from "./edit-session";
-import type { AnnotationAttachment } from "./model";
+import { i18n } from "@/i18n/i18next";
+import type { AnnotationCapture } from "./model";
 
 /** The file loads and its editor mounts over several frames; a missing file never mounts one. */
 const EDITOR_TIMEOUT_MS = 5000;
@@ -14,9 +15,9 @@ const FIRST_ATTEMPT_FRAME = 2;
 
 export type FileRevealNotice = "unreachable" | "unsaved";
 
-export const FILE_REVEAL_NOTICE: Record<FileRevealNotice, string> = {
-  unreachable: "Could not open the annotated file",
-  unsaved: "Save your changes before switching layouts.",
+export const FILE_REVEAL_NOTICE: Record<FileRevealNotice, () => string> = {
+  unreachable: () => i18n.t("chips.unreachableFile"),
+  unsaved: () => i18n.t("chips.unsavedLayout"),
 };
 
 let current: (() => void) | null = null;
@@ -27,7 +28,7 @@ let current: (() => void) | null = null;
  * `onNotice` reports a layout that cannot switch or a file whose editor never appears.
  */
 export function goToFileAnnotation(input: {
-  attachment: AnnotationAttachment;
+  attachment: AnnotationCapture;
   preferences: OpenInSidePanePreferences;
   onNotice(notice: FileRevealNotice): void;
 }): void {

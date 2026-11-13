@@ -9,6 +9,7 @@ export const BrowserAutomationErrorCodeSchema = z.enum([
   "screenshot_no_frame",
   "browser_denied",
   "browser_unsupported",
+  "browser_not_visible",
   "browser_stale_ref",
   "browser_unknown_error",
 ]);
@@ -23,6 +24,7 @@ const BROWSER_AUTOMATION_WAIT_CONDITION_MESSAGE =
 export const BROWSER_AUTOMATION_COMMAND_NAMES = [
   "list_tabs",
   "new_tab",
+  "show_tab",
   "snapshot",
   "click",
   "fill",
@@ -82,6 +84,17 @@ export const BrowserAutomationNewTabCommandSchema = z.object({
     })
     .strict()
     .default({}),
+});
+
+export const BrowserAutomationShowTabCommandSchema = z.object({
+  command: z.literal("show_tab"),
+  args: z
+    .object({
+      url: BrowserAutomationHttpUrlSchema.max(8192),
+      /** Fails with browser_not_visible instead of opening when the workspace is not on screen. */
+      requireVisible: z.boolean(),
+    })
+    .strict(),
 });
 
 export const BrowserAutomationSnapshotCommandSchema = z.object({
@@ -240,6 +253,7 @@ export const BrowserAutomationCloseTabCommandSchema = z.object({
 export const BrowserAutomationCommandSchema = z.discriminatedUnion("command", [
   BrowserAutomationListTabsCommandSchema,
   BrowserAutomationNewTabCommandSchema,
+  BrowserAutomationShowTabCommandSchema,
   BrowserAutomationSnapshotCommandSchema,
   BrowserAutomationClickCommandSchema,
   BrowserAutomationFillCommandSchema,
@@ -283,6 +297,16 @@ export const BrowserAutomationNewTabResultSchema = z.object({
   browserId: BrowserAutomationBrowserIdSchema,
   workspaceId: z.string().min(1),
   url: z.string().min(1),
+});
+
+export const BrowserAutomationShowTabResultSchema = z.object({
+  command: z.literal("show_tab"),
+  browserId: BrowserAutomationBrowserIdSchema,
+  workspaceId: z.string().min(1),
+  url: z.string().min(1),
+  /** True when the workspace holding the tab is on screen in the answering window. */
+  visible: z.boolean(),
+  reused: z.boolean(),
 });
 
 export const BrowserAutomationSnapshotStatsSchema = z
@@ -464,6 +488,7 @@ export const BrowserAutomationCloseTabResultSchema = z.object({
 export const BrowserAutomationResultSchema = z.discriminatedUnion("command", [
   BrowserAutomationListTabsResultSchema,
   BrowserAutomationNewTabResultSchema,
+  BrowserAutomationShowTabResultSchema,
   BrowserAutomationSnapshotResultSchema,
   BrowserAutomationClickResultSchema,
   BrowserAutomationFillResultSchema,

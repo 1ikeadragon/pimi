@@ -85,3 +85,16 @@ export function areAttachmentsEqual(input: {
     return JSON.stringify(attachment) === JSON.stringify(other);
   });
 }
+
+/** What an attachment update can see beyond the list it edits. */
+export interface AttachmentUpdateContext {
+  /** Chip slots the draft holds for annotations the user deleted: undo may still bring them back. */
+  reservedSlots: readonly number[];
+}
+
+export type AttachmentUpdater =
+  | UserComposerAttachment[]
+  | ((
+      prev: UserComposerAttachment[],
+      context: AttachmentUpdateContext,
+    ) => UserComposerAttachment[]);

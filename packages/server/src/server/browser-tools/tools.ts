@@ -35,6 +35,9 @@ export interface RegisterBrowserToolsOptions {
 const HTTP_URL_ONLY_MESSAGE = "URL must use http/https only";
 const WORKSPACE_CONTEXT_MESSAGE =
   "This browser tool needs a workspace. Start the agent from a Pimi workspace before calling browser_new_tab or browser_list_tabs.";
+const SHOW_WORKSPACE_CONTEXT_MESSAGE =
+  "browser_show needs a workspace and this agent has none. Give the user the link in your reply instead.";
+const SHOW_URL_MAX_LENGTH = 8192;
 const URL_WHITESPACE_PATTERN = /\s/;
 const NON_HTTP_EXPLICIT_SCHEME_PATTERN = /^(?!https?:\/\/)[a-z][a-z0-9+.-]*:\/\//i;
 
@@ -52,6 +55,14 @@ const BrowserHttpUrlInputSchema = z
     }
     return normalized;
   });
+// Mirrors openReportWeb in the desktop app: a link with credentials is never put in front of the user.
+const BrowserShowUrlInputSchema = BrowserHttpUrlInputSchema.refine(
+  (value) => value.length <= SHOW_URL_MAX_LENGTH,
+  `URL must be at most ${SHOW_URL_MAX_LENGTH} characters`,
+).refine((value) => {
+  const url = new URL(value);
+  return !url.username && !url.password;
+}, "URL must not contain a username or password");
 const BrowserRefInputSchema = z.string().regex(/^@e\d+$/);
 const BrowserClickButtonInputSchema = z.enum(["left", "right", "middle"]);
 const BrowserClickModifierInputSchema = z.enum(["Alt", "Control", "Meta", "Shift"]);
@@ -67,7 +78,7 @@ const BrowserWaitInputSchema = z
   });
 
 // Tabs an Attack run's agents drive may only open the run's hosts. The daemon refuses a bad
-// new_tab or navigate here and audits it; the desktop app enforces the same list on links,
+// new_tab, show_tab or navigate here and audits it; the desktop app enforces the same list on links,
 // redirects and scripts (`attackGuard` rides along on every command).
 function confineAttackAgents(options: RegisterBrowserToolsOptions): RegisterBrowserToolsOptions {
   const { attack, broker } = options;
@@ -78,7 +89,9 @@ function confineAttackAgents(options: RegisterBrowserToolsOptions): RegisterBrow
       if (!attackGuard) return broker.execute(input);
       const { command } = input;
       const url =
-        command.command === "navigate" || command.command === "new_tab"
+        command.command === "navigate" ||
+        command.command === "new_tab" ||
+        command.command === "show_tab"
           ? command.args.url
           : undefined;
       if (url) {
@@ -738,6 +751,77 @@ export function registerBrowserTools(unconfined: RegisterBrowserToolsOptions): v
       return browserToolResult({ payload, context: { ...context, browserId } });
     },
   );
+}
+
+/**
+ * `browser_show` stays available when the full browser tools are off: it only puts a page in front
+ * of the user and hands the agent nothing back, so it needs no opt-in.
+ */
+export function registerBrowserShowTool(unconfined: RegisterBrowserToolsOptions): void {
+  const options = confineAttackAgents(unconfined);
+  options.registerTool(
+    "browser_show",
+    {
+      title: "Show web page to user",
+      description:
+        "Open a URL in a visible Pimi browser tab beside the chat so the user can look at it and annotate elements back to you. Use it when the user asks to see or open a page or link, or when you want them to look at a page such as a local dev server. It only shows the page: it returns no page content and cannot click, type, or screenshot. http/https only; a scheme-less host is treated as http.",
+      inputSchema: { url: BrowserShowUrlInputSchema },
+    },
+    async ({ url }) => {
+      const context = resolveBrowserToolContext(options);
+      if (!context.workspaceId) {
+        return {
+          content: [{ type: "text", text: SHOW_WORKSPACE_CONTEXT_MESSAGE }],
+          structuredContent: { ok: false, shown: false, url, reason: "no_workspace" },
+          isError: true,
+        };
+      }
+      const payload = await options.broker.execute({
+        agentId: context.agentId,
+        cwd: context.cwd,
+        workspaceId: context.workspaceId,
+        command: { command: "show_tab", args: { url, requireVisible: false } },
+      });
+      return browserShowResult({ payload, url, context });
+    },
+  );
+}
+
+function browserShowResult(params: {
+  payload: BrowserToolsResponsePayload;
+  url: string;
+  context: { agentId?: string; cwd?: string; workspaceId?: string };
+}): PimiToolResult {
+  const { payload, url, context } = params;
+  if (payload.ok && payload.result.command === "show_tab") {
+    const { browserId, visible, reused } = payload.result;
+    const text = visible
+      ? `Opened ${payload.result.url} in a Pimi browser tab next to the chat.`
+      : `Opened ${payload.result.url} in the workspace's tabs, but that workspace is not on screen in the desktop app. Also give the user the link.`;
+    return {
+      content: [{ type: "text", text }],
+      structuredContent: {
+        ok: true,
+        shown: true,
+        visible,
+        reused,
+        url: payload.result.url,
+        browserId,
+      },
+    };
+  }
+  if (!payload.ok && payload.error.code === "browser_no_host") {
+    return {
+      content: [
+        {
+          type: "text",
+          text: "No Pimi desktop app is connected (the user may be on mobile or web). Give the user the URL as a Markdown link.",
+        },
+      ],
+      structuredContent: { ok: false, shown: false, url, reason: "no_desktop" },
+    };
+  }
+  return browserToolResult({ payload, context });
 }
 
 function resolveBrowserToolContext(options: RegisterBrowserToolsOptions): {

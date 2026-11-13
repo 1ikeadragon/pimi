@@ -41,12 +41,14 @@ import {
   resolveComposerTrackTailClearance,
 } from "@/composer/pill-styles";
 import { getActiveMessageSubmissions } from "@/composer/submission/model";
+import { annotationsOf, type RestoredChips } from "@/composer/chips/model";
 import { RewindComposerRestoreProvider } from "@/components/rewind/composer-restore";
 import { useAgentDescriptor } from "@/agent-presentation";
 import { useToastHost, type ToastApi, type ToastState } from "@/components/toast-host";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
 import {
   useHasProviderHandoff,
+  buildAgentWorkspaceAttachmentScopeKey,
   useWorkspaceAttachmentScopeKey,
 } from "@/attachments/workspace-attachments-store";
 import { COMPACT_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
@@ -107,6 +109,7 @@ import { getInitDeferred, getInitKey } from "@/utils/agent-initialization";
 import { derivePendingPermissionKey, normalizeAgentSnapshot } from "@/utils/agent-snapshots";
 import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";
 import { buildDraftAgentSetup, type ClientSlashCommand } from "@/client-slash-commands";
+import { openBrowserFromSlashCommand } from "@/desktop/browser/open-url";
 
 interface ChatAgentStateShape {
   serverId: string | null;
@@ -338,6 +341,10 @@ function resolveConversationAgentId(target: ConversationTarget): string | undefi
  * Drafts and agents render through one chain so the timeline stays mounted when the draft's
  * first prompt creates the agent and the tab retargets. The agent gates are idle for a draft.
  */
+function slotOf(annotation: { slot: number }): number {
+  return annotation.slot;
+}
+
 export function AgentConversationPanel() {
   const { serverId, workspaceId, target, openFileInWorkspace } = usePaneContext();
   const { isInteractive } = usePaneFocus();
@@ -1257,10 +1264,25 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
     </ChatSurface>
   );
 
+  const setDraftAttachments = agentInputDraft.setAttachments;
+  const restoreRewoundChips = useCallback(
+    (restore: (reservedSlots: readonly number[]) => RestoredChips): RestoredChips => {
+      let restored: RestoredChips = { text: "", annotations: [] };
+      setDraftAttachments((current, { reservedSlots }) => {
+        const held = annotationsOf(current).map(slotOf);
+        restored = restore([...held, ...reservedSlots]);
+        return [...current, ...restored.annotations];
+      });
+      return restored;
+    },
+    [setDraftAttachments],
+  );
+
   const content = (
     <RewindComposerRestoreProvider
       textSource={agentInputDraft.textSource}
       setText={agentInputDraft.replaceText}
+      restoreChips={restoreRewoundChips}
       onRewindComplete={handleRewindComplete}
     >
       <View style={styles.root}>
@@ -1603,6 +1625,7 @@ function ActiveAgentComposer({
   onComposerHeightChange: (height: number) => void;
   onMessageSent: () => void;
 }) {
+  const { t } = useTranslation();
   const isCompactFormFactor = useIsCompactFormFactor();
   const { onLayout: onInputAreaLayout, isBelow: isCompactComposerLayout } = useContainerWidthBelow(
     COMPACT_CONTENT_WIDTH,
@@ -1620,9 +1643,13 @@ function ActiveAgentComposer({
     cwd,
     workspaceId,
   });
+  // Browser annotations land in the chat they were made for; everything else is workspace-wide.
   const attachmentScopeKeys = useMemo(
-    () => [workspaceAttachmentScopeKey],
-    [workspaceAttachmentScopeKey],
+    () => [
+      buildAgentWorkspaceAttachmentScopeKey({ serverId, agentId }),
+      workspaceAttachmentScopeKey,
+    ],
+    [agentId, serverId, workspaceAttachmentScopeKey],
   );
   const handleOpenWorkspaceAttachment = useCallback(
     (attachment: WorkspaceComposerAttachment) => {
@@ -1639,7 +1666,17 @@ function ActiveAgentComposer({
   );
 
   const handleClientSlashCommand = useCallback(
-    async (command: ClientSlashCommand) => {
+    async (command: ClientSlashCommand, args: string) => {
+      if (command.kind === "open-browser" || command.kind === "annotate-page") {
+        openBrowserFromSlashCommand({
+          workspaceKey: buildWorkspaceTabPersistenceKey({ serverId, workspaceId }),
+          tabId,
+          args,
+          annotate: command.kind === "annotate-page",
+          invalidUrlMessage: t("workspace.browser.errors.invalidUrl"),
+        });
+        return;
+      }
       const agent = resolveChatAgentFromSession(useSessionStore.getState(), serverId, agentId);
       if (!agent) {
         throw new Error("Agent not found");
@@ -1670,6 +1707,7 @@ function ActiveAgentComposer({
       hideWorkspaceAgent,
       retargetCurrentTab,
       serverId,
+      t,
       tabId,
       unpinWorkspaceAgent,
       workspaceId,

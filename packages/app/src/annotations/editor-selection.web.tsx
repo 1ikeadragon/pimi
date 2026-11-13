@@ -1,3 +1,4 @@
+import { AnnotationLimitError } from "@/composer/chips/model";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { StateEffect, StateField, type EditorState, type Extension } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet, type ViewUpdate } from "@codemirror/view";
@@ -8,12 +9,7 @@ import {
   type AnnotationEditorOutcome,
   type AnnotationEditSession,
 } from "./edit-session";
-import {
-  ANNOTATION_CHARACTER_LIMIT,
-  type AnnotationAttachment,
-  type AnnotationCapture,
-  type AnnotationSource,
-} from "./model";
+import { ANNOTATION_CHARACTER_LIMIT, type AnnotationCapture, type AnnotationSource } from "./model";
 import {
   ANNOTATION_MARK_CLASS,
   ANNOTATION_PULSE_MARK_CLASS,
@@ -371,7 +367,7 @@ export function EditorAnnotationSelection({
   useEffect(() => registerAnnotationSource(openEditor), [openEditor]);
 
   const revealSource = useCallback(
-    (attachment: AnnotationAttachment): boolean => {
+    (attachment: AnnotationCapture): boolean => {
       const { source, quote } = attachment;
       if (!view || !view.dom.isConnected || source.kind !== "file") return false;
       const sameFile =
@@ -410,7 +406,12 @@ export function EditorAnnotationSelection({
         range,
       );
     } catch (error) {
-      if (!(error instanceof AnnotationTargetUnavailableError)) throw error;
+      if (
+        !(
+          error instanceof AnnotationTargetUnavailableError || error instanceof AnnotationLimitError
+        )
+      )
+        throw error;
       toast.error(error.message);
     }
   }, [surface, target, toast, startEditing]);

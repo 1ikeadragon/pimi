@@ -1,16 +1,17 @@
 # Annotation chips plugin example
 
 Draws each composer annotation as a compact chip: `file.ts:12-18`, the first words of the quote,
-and a remove button. Clicking the label goes to the annotated source. Backspace with the caret at
-the start of the draft removes the newest annotation.
+and a remove button. Clicking the label goes to the annotated source.
 
-It uses three composer contributions:
+Annotations are chips inside the composer's text on web and desktop, and in the attachment tray on
+native. The chip reads `placement` and `layout.lineHeight` to fit the line it sits in.
 
-- `client.addAttachmentRenderer({ kind: "annotation", Component })` replaces the default pill and
-  hover card. Pimi shows the default pill again when this component throws or the plugin is off.
+It uses two composer contributions:
+
+- `client.addAttachmentRenderer({ kind: "annotation", Component })` replaces the default chip and
+  hover card. Pimi shows the default chip again when this component throws or the plugin is off.
 - `client.composer.active()` returns the composer the user last used on this host. The chip removes
-  itself through `composer.attachments.remove(id)`.
-- `composer.onKeyDown` backs the Backspace shortcut. Key events exist on web and desktop only, so
-  native keeps the chips and the remove button without the shortcut.
+  itself through `composer.attachments.remove(id)`, which also removes its character from the text.
 
-The plugin has no server entry. It declares `>=0.17.31`, the first version with the composer API.
+Backspace removes a chip natively now that it is a character in the text, so the plugin carries no
+key handler. The plugin has no server entry. It declares `>=0.17.37` for `placement`.

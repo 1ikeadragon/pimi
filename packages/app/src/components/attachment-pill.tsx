@@ -1,24 +1,17 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { Image, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
+import { Image, Pressable, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { X } from "lucide-react-native";
 import { isNative } from "@/constants/platform";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
+import { ChipRemovalContext, InlineChip } from "@/components/ui/chip/inline-chip";
 import type { Theme } from "@/styles/theme";
 
 // Every attachment pill body — image thumbnail or labelled — renders at this
 // height so mixed attachment trays line up.
 const ATTACHMENT_CONTENT_HEIGHT = 48;
-
-/** A second press target inside the pill, after its body. */
-interface AttachmentPillAction {
-  icon: ReactNode;
-  onPress: () => void;
-  accessibilityLabel: string;
-  testID?: string;
-}
 
 interface AttachmentPillProps {
   onOpen: () => void;
@@ -27,7 +20,10 @@ interface AttachmentPillProps {
   removeAccessibilityLabel: string;
   disabled?: boolean;
   testID?: string;
-  action?: AttachmentPillAction;
+  /** Images keep a floating remove button over their thumbnail; everything else is a chip. */
+  kind?: "chip" | "thumbnail";
+  /** Set by a host that already tracks hover, so the pill does not track it twice. */
+  hovered?: boolean;
   children: ReactNode;
 }
 
@@ -38,15 +34,15 @@ export function AttachmentPill({
   removeAccessibilityLabel,
   disabled = false,
   testID,
-  action,
+  kind = "chip",
+  hovered,
   children,
 }: AttachmentPillProps) {
   const isCompact = useIsCompactFormFactor();
   const [isBodyHovered, setIsBodyHovered] = useState(false);
   const [isCloseHovered, setIsCloseHovered] = useState(false);
-  const [isActionHovered, setIsActionHovered] = useState(false);
-  const alwaysShow = isNative || isCompact;
-  const showRemove = alwaysShow || isBodyHovered || isCloseHovered || isActionHovered;
+  const isHovered = hovered ?? isBodyHovered;
+  const showRemove = isNative || isCompact || isHovered || isCloseHovered;
   const closeButtonStyle = useMemo(
     () => [styles.closeButton, !showRemove && styles.closeButtonHidden],
     [showRemove],
@@ -55,8 +51,15 @@ export function AttachmentPill({
   const handleBodyHoverOut = useCallback(() => setIsBodyHovered(false), []);
   const handleCloseHoverIn = useCallback(() => setIsCloseHovered(true), []);
   const handleCloseHoverOut = useCallback(() => setIsCloseHovered(false), []);
-  const handleActionHoverIn = useCallback(() => setIsActionHovered(true), []);
-  const handleActionHoverOut = useCallback(() => setIsActionHovered(false), []);
+  const removal = useMemo(
+    () => ({
+      hovered: isHovered,
+      disabled,
+      label: removeAccessibilityLabel,
+      onRemove,
+    }),
+    [disabled, isHovered, onRemove, removeAccessibilityLabel],
+  );
   const body = (
     <Pressable
       testID={testID}
@@ -66,32 +69,17 @@ export function AttachmentPill({
       onHoverOut={handleBodyHoverOut}
       accessibilityRole="button"
       accessibilityLabel={openAccessibilityLabel}
-      style={action ? undefined : styles.frame}
+      style={kind === "thumbnail" ? styles.frame : undefined}
     >
       {children}
     </Pressable>
   );
+  if (kind === "chip") {
+    return <ChipRemovalContext.Provider value={removal}>{body}</ChipRemovalContext.Provider>;
+  }
   return (
     <View style={styles.wrapper}>
-      {action ? (
-        <View style={styles.frameWithAction}>
-          {body}
-          <Pressable
-            testID={action.testID}
-            onPress={action.onPress}
-            disabled={disabled}
-            onHoverIn={handleActionHoverIn}
-            onHoverOut={handleActionHoverOut}
-            accessibilityRole="button"
-            accessibilityLabel={action.accessibilityLabel}
-            style={actionButtonStyle}
-          >
-            {action.icon}
-          </Pressable>
-        </View>
-      ) : (
-        body
-      )}
+      {body}
       <Pressable
         onPress={onRemove}
         disabled={disabled}
@@ -115,7 +103,7 @@ interface AttachmentFrameProps {
   children: ReactNode;
 }
 
-/** Bare attachment frame for read-only surfaces (sent messages) — no remove button. */
+/** Press target for a chip on read-only surfaces (sent messages) — no remove button. */
 export function AttachmentFrame({
   onPress,
   accessibilityLabel,
@@ -123,11 +111,7 @@ export function AttachmentFrame({
   children,
 }: AttachmentFrameProps) {
   if (!onPress) {
-    return (
-      <View testID={testID} style={styles.frame}>
-        {children}
-      </View>
-    );
+    return <View testID={testID}>{children}</View>;
   }
   return (
     <Pressable
@@ -135,7 +119,6 @@ export function AttachmentFrame({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={styles.frame}
     >
       {children}
     </Pressable>
@@ -143,26 +126,13 @@ export function AttachmentFrame({
 }
 
 interface AttachmentLabelProps {
-  icon?: ReactNode;
+  icon: ReactNode;
   title: string;
-  subtitle: string;
 }
 
-/** Two-line labelled pill body: attachment name over its type. */
-export function AttachmentLabel({ icon, title, subtitle }: AttachmentLabelProps) {
-  return (
-    <View style={styles.labelBody}>
-      {icon ? <View style={styles.labelIcon}>{icon}</View> : null}
-      <View style={styles.labelTextColumn}>
-        <Text style={styles.labelTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={styles.labelSubtitle} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      </View>
-    </View>
-  );
+/** The chip body for an attachment that is named rather than pictured. */
+export function AttachmentLabel({ icon, title }: AttachmentLabelProps) {
+  return <InlineChip icon={icon} label={title} size="tray" />;
 }
 
 /** Square image preview pill body. */
@@ -173,10 +143,6 @@ export function AttachmentThumbnail({ metadata }: { metadata: AttachmentMetadata
     return <View style={styles.thumbnailPlaceholder} />;
   }
   return <Image source={source} style={styles.thumbnail} />;
-}
-
-function actionButtonStyle({ hovered }: PressableStateCallbackType & { hovered?: boolean }) {
-  return [styles.actionButton, hovered && styles.actionButtonHovered];
 }
 
 const ThemedX = withUnistyles(X);
@@ -191,51 +157,6 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.borderAccent,
     overflow: "hidden",
-  },
-  frameWithAction: {
-    flexDirection: "row",
-    borderRadius: theme.borderRadius.md,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.borderAccent,
-    overflow: "hidden",
-  },
-  actionButton: {
-    width: 32,
-    height: ATTACHMENT_CONTENT_HEIGHT,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.surface1,
-    borderLeftWidth: theme.borderWidth[1],
-    borderLeftColor: theme.colors.border,
-  },
-  actionButtonHovered: {
-    backgroundColor: theme.colors.surface2,
-  },
-  labelBody: {
-    height: ATTACHMENT_CONTENT_HEIGHT,
-    maxWidth: 260,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-    paddingHorizontal: theme.spacing[3],
-    backgroundColor: theme.colors.surface1,
-  },
-  labelIcon: {
-    width: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  labelTextColumn: {
-    minWidth: 0,
-    flexShrink: 1,
-  },
-  labelTitle: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-  },
-  labelSubtitle: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
   },
   thumbnail: {
     width: ATTACHMENT_CONTENT_HEIGHT,

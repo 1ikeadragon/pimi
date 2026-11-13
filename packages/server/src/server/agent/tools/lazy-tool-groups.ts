@@ -19,6 +19,7 @@ const DEFAULT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "recall_global_memory",
   "propose_pimi_task",
   "suggest_pimi_review",
+  "browser_show",
 ]);
 
 const LOADER_TOOL_NAME = "pimi_tools";

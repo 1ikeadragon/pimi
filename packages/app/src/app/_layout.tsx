@@ -48,6 +48,7 @@ import { QuittingOverlay } from "@/components/quitting-overlay";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { ChangelogHost } from "@/changelog";
 import { OnboardingHost, useIsSetupDecisionPending } from "@/onboarding";
+import { RemoteSshAuthHost } from "@/hosts/remote-ssh-auth-host";
 import { RemoteSshUpgradeHost } from "@/hosts/remote-ssh-upgrade-host";
 import { AppDiagnosticHost } from "@/components/app-diagnostic-host";
 import { AppearanceStyleBoundary } from "@/components/appearance-style-boundary";
@@ -600,6 +601,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
           font size. */}
       <OnboardingHost />
       <RemoteSshUpgradeHost />
+      <RemoteSshAuthHost />
     </View>
   );
 
