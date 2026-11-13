@@ -74,6 +74,36 @@ export function AnnotationSheet({
   );
 }
 
+/** A sent annotation on a compact or touch layout: its source, quote and note, to read. */
+export function AnnotationReadSheet({
+  annotation,
+  onClose,
+}: {
+  annotation: Pick<AnnotationAttachment, "source" | "quote" | "note">;
+  onClose(): void;
+}) {
+  const { t } = useTranslation();
+  const header = useMemo(() => ({ title: t("chips.sheetTitle") }), [t]);
+  const note = annotation.note.trim();
+  return (
+    <AdaptiveModalSheet visible testID="annotation-read-sheet" header={header} onClose={onClose}>
+      <View style={styles.body}>
+        <Text selectable style={styles.source}>
+          {annotationSourceLabel(annotation.source, t)}
+        </Text>
+        <Text selectable style={styles.quote}>
+          {annotation.quote}
+        </Text>
+        {note ? (
+          <Text selectable style={styles.note}>
+            {note}
+          </Text>
+        ) : null}
+      </View>
+    </AdaptiveModalSheet>
+  );
+}
+
 const styles = StyleSheet.create((theme) => ({
   body: { gap: theme.spacing[3] },
   source: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
@@ -86,6 +116,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.md,
   },
   input: { minHeight: 100, textAlignVertical: "top" },
+  note: { color: theme.colors.foreground, fontSize: theme.fontSize.base },
   error: { color: theme.colors.destructive, fontSize: theme.fontSize.sm },
   actions: {
     flex: 1,

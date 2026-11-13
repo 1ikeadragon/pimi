@@ -1,4 +1,6 @@
 import { UserMessageText } from "@/components/user-message-text";
+import { placedChipRefs } from "@/components/user-message-text/runs";
+import type { AnnotationAttachmentMetadata } from "@pimi/protocol/messages";
 import { useDisclosureHold } from "@/agent-stream/disclosure";
 import { MessagePreview, MessageSender } from "@/components/user-message";
 import { useStableEvent } from "@/hooks/use-stable-event";
@@ -437,7 +439,32 @@ export const UserMessage = memo(function UserMessage({
     );
   }, [attachments, resolvedSlots, sentImages]);
   const hasImages = standaloneItems.length > 0;
-  const hasAttachments = attachments.length > 0;
+  // An annotation whose marker is in the text is drawn there; the rest stay in the row above.
+  const annotationsByRef = useMemo(() => {
+    const byRef = new Map<number, AnnotationAttachmentMetadata>();
+    for (const attachment of attachments) {
+      if (attachment.type === "text" && attachment.annotation?.ref !== undefined)
+        byRef.set(attachment.annotation.ref, attachment.annotation);
+    }
+    return byRef;
+  }, [attachments]);
+  const inlineRefs = useMemo(
+    () => placedChipRefs(message, annotationsByRef),
+    [annotationsByRef, message],
+  );
+  const rowAttachments = useMemo(
+    () =>
+      attachments.filter(
+        (attachment) =>
+          !(
+            attachment.type === "text" &&
+            attachment.annotation?.ref !== undefined &&
+            inlineRefs.has(attachment.annotation.ref)
+          ),
+      ),
+    [attachments, inlineRefs],
+  );
+  const hasAttachments = rowAttachments.length > 0;
   const showTrailingRow = !isPending && hasText && (isCompact || isNative || isHovered);
   const formattedTimestamp = useMemo(
     () => formatMessageTimestamp(new Date(timestamp)),
@@ -507,7 +534,7 @@ export const UserMessage = memo(function UserMessage({
             ) : null}
             {hasAttachments ? (
               <View style={attachmentPreviewContainerStyle}>
-                {attachments.map((attachment, index) => {
+                {rowAttachments.map((attachment, index) => {
                   if (isBrowserElementAttachment(attachment)) {
                     const shot = attachment.browserElement.screenshotIndex;
                     return (
@@ -540,6 +567,7 @@ export const UserMessage = memo(function UserMessage({
             {hasText ? (
               <UserMessageText
                 message={message}
+                annotations={annotationsByRef}
                 style={userMessageStylesheet.text}
                 dataSet={MESSAGE_TEXT_DATASET}
               />
