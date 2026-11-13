@@ -3704,6 +3704,13 @@ export const ptBR: TranslationResources = {
         removeErrorMessage: "Não foi possível remover a conexão",
         timeout: "Timeout",
       },
+      agentAccess: {
+        title: "Agentes deste computador podem iniciar agentes aqui",
+        hint: "Agentes executados neste computador podem criar e gerenciar agentes neste host. Eles têm acesso total a ele.",
+        statusReady: "Pronto para agentes deste computador",
+        statusWaiting: "Aguardando a conexão do host",
+        statusError: "Indisponível para agentes: {{message}}",
+      },
       pairDevices: {
         title: "Parear dispositivos",
         rowTitle: "Parear um dispositivo",

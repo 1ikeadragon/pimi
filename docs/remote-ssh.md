@@ -25,7 +25,17 @@ The desktop runs ssh with `SSH_ASKPASS_REQUIRE=force`, so ssh calls Pimi's askpa
 - Cancelling kills that ssh at once (ssh would otherwise send empty passwords) and stops background reconnects from prompting again for that machine. Adding it or upgrading it again, or restarting the app, prompts again.
 - The Windows askpass must stay an exe. Win32-OpenSSH starts it with the server-controlled prompt on the command line, which a `.cmd` or script would hand to `cmd.exe`.
 
-`SSH_ASKPASS_REQUIRE` needs OpenSSH 8.4. On an older ssh the desktop keeps `BatchMode=yes` and the sign-in error says so. The CLI and daemon-side `ssh://` hosts stay in batch mode.
+`SSH_ASKPASS_REQUIRE` needs OpenSSH 8.4. On an older ssh the desktop keeps `BatchMode=yes` and the sign-in error says so. Hosts added in the app never use the daemon's own `ssh://` support, which stays in batch mode like the CLI.
+
+## Agent endpoint socket
+
+Agents on this computer can start agents on a saved SSH host through the local daemon. The daemon has no ssh credentials or prompt channel, so it cannot use an `ssh://` connection to such a host. The desktop opens a local socket instead, and the daemon registers that socket as the host's connection.
+
+- IPC `remote_ssh_agent_endpoint` returns `unix://<PIMI_HOME>/run/ssh-<hash>.sock` (macOS; `/tmp/pimi-<uid>-<home hash>/` when `PIMI_HOME` is too deep for a socket path), or `pipe://\\.\pipe\pimi-ssh-<hash>` (Windows). It is idempotent per host, SSH port and daemon port. `remote_ssh_agent_endpoint_close` closes one.
+- Every connection to the socket starts one `ssh -W` tunnel through the same auth path as the app's own connection, so keys, the agent, cached answers and prompts in the app all apply. `run/` is mode 0700 and the socket 0600.
+- The listener lives as long as the app. Quitting closes all of them and unlinks the files; a stale file left by a crash is replaced on the next open.
+- This path never installs, upgrades or starts the remote daemon, because the daemon retries every few seconds and each retry would run a probe. The app's own connection to that host does that on every connect. Until it has, the endpoint tunnels to a closed port and the daemon sees the host as offline.
+- A socket path over 100 bytes is refused (macOS `sun_path` is 104). Use a shorter `PIMI_HOME` if you hit it.
 
 ## Requirements
 

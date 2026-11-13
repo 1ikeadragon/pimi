@@ -29,7 +29,7 @@ import { z } from "zod";
 import { ensureValidJson } from "../../json-utils.js";
 import type { Logger } from "pino";
 
-import type { AgentMode, AgentProvider, AgentSessionConfig } from "../agent-sdk-types.js";
+import type { AgentProvider, AgentSessionConfig } from "../agent-sdk-types.js";
 import type { AgentManager, ManagedAgent } from "../agent-manager.js";
 import {
   ActiveTurnBehaviorSchema,
@@ -96,6 +96,7 @@ import {
 } from "@pimi/protocol/automation/types";
 import { HeartbeatSchema, type HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
 import type { Cadence } from "@pimi/protocol/schedule/cadence";
+import { LIST_MODELS_LIMIT, limitModelList, toProviderSummary } from "./provider-listing.js";
 import type { ProviderSnapshotManager } from "../provider-snapshot-manager.js";
 import {
   AgentModelSchema,
@@ -157,7 +158,6 @@ import { isPimiToolEnabled } from "../pimi-tool-policy.js";
 
 // Reading a link fetches the page; Ask Pimi has 90 seconds for its whole request.
 const PAGE_TIMEOUT_MS = 20_000;
-const LIST_MODELS_LIMIT = 50;
 
 export interface PimiToolHostDependencies {
   agentMessages?: () => AgentMessageDelivery;
@@ -225,16 +225,6 @@ export interface PimiToolHostDependencies {
   enableVoiceTools?: boolean;
   voiceOnly?: boolean;
   logger: Logger;
-}
-
-interface ProviderSummary {
-  id: AgentProvider;
-  label: string;
-  description: string;
-  enabled: boolean;
-  modes: AgentMode[];
-  status: string;
-  error?: string;
 }
 
 const WorkspaceAutomationSummarySchema = z.object({
@@ -352,26 +342,6 @@ function resolveWorkspaceWorktreeTarget(input: WorkspaceWorktreeOptions): Worksp
         },
       };
   }
-}
-
-function toProviderSummary(entry: {
-  provider: AgentProvider;
-  label?: string;
-  description?: string;
-  enabled: boolean;
-  modes?: AgentMode[];
-  status: string;
-  error?: string;
-}): ProviderSummary {
-  return {
-    id: entry.provider,
-    label: entry.label ?? entry.provider,
-    description: entry.description ?? "",
-    enabled: entry.enabled,
-    modes: entry.modes ?? [],
-    status: entry.status === "ready" ? "available" : entry.status,
-    ...(entry.error ? { error: entry.error } : {}),
-  };
 }
 
 function resolveProviderAndModelArg(params: {
@@ -781,6 +751,10 @@ function createToolCatalog(
     ["get_agent_status", "getStatus"],
     ["get_agent_activity", "getActivity"],
     ["list_agents", "listAgents"],
+    ["list_providers", "listProviders"],
+    ["list_models", "listModels"],
+    ["cancel_agent", "cancelAgent"],
+    ["archive_agent", "archiveAgent"],
   ] as const satisfies ReadonlyArray<readonly [string, keyof HostOperations]>);
   const hostResolver = createHostResolver({
     serverId: options.serverId ?? "self",
@@ -800,6 +774,10 @@ function createToolCatalog(
       getStatus: (args, context) => localHostOperations.get("get_agent_status")!(args, context),
       getActivity: (args, context) => localHostOperations.get("get_agent_activity")!(args, context),
       listAgents: (args, context) => localHostOperations.get("list_agents")!(args, context),
+      listProviders: (args, context) => localHostOperations.get("list_providers")!(args, context),
+      listModels: (args, context) => localHostOperations.get("list_models")!(args, context),
+      cancelAgent: (args, context) => localHostOperations.get("cancel_agent")!(args, context),
+      archiveAgent: (args, context) => localHostOperations.get("archive_agent")!(args, context),
     },
   });
   const registerTool = (
@@ -1523,7 +1501,8 @@ function createToolCatalog(
     "list_hosts",
     {
       title: "List hosts",
-      description: "Discover this host and registered destination hosts for fleet tools.",
+      description:
+        "List this computer and the other machines you can start agents on. Use a machine's serverId with create_workspace, list_workspaces, list_providers, list_models, create_agent and the agent follow-up tools. A host whose status is not online cannot be used yet.",
       inputSchema: {},
     },
     async () => ({
@@ -1543,7 +1522,7 @@ function createToolCatalog(
           .string()
           .optional()
           .describe(
-            "Local directory or source checkout. Defaults to your current workspace. Local isolation adopts an existing directory and never creates one.",
+            "Local directory or source checkout. Defaults to your current workspace. Local isolation adopts an existing directory and never creates one. On another host this is required and must already exist there; ask the user when they named no directory and list_workspaces has no match.",
           ),
         projectId: z.string().optional().describe("Existing project id to own the workspace."),
         title: z.string().trim().min(1).optional(),
@@ -1746,8 +1725,8 @@ function createToolCatalog(
       title: "Create agent",
       description:
         scope === "agent"
-          ? "Create an agent in your workspace as your subagent; the user sees it as a card in this chat. Requires an initial prompt. Create one per worker the user asked for, even on your own provider, and omit provider for a worker with no named provider or model. Set inheritContext: true for work discussed in this chat unless the user wants an independent view. Preserve the user's edit and launch constraints, use separate worktrees for parallel edits, and add the work to the Tasks board only when the user asks to track it. provider is a provider (codex) or provider/model (codex/gpt-5.4); omit it to use your own provider and model. For a different provider, omitting settings.modeId starts the agent in that provider's default mode. Do not guess ids; call list_providers and list_models first if uncertain."
-          : "Create an agent. Top-level creation without workspaceId creates a new local workspace. Requires an initial prompt and either a provider (codex, or codex/gpt-5.4 for a specific model) or a profile that sets one. Omitting settings.modeId starts the agent in the provider's default mode. Do not guess; call list_providers and list_models first if uncertain.",
+          ? "Create an agent in your workspace as your subagent; the user sees it as a card in this chat. Requires an initial prompt. Create one per worker the user asked for, even on your own provider, and omit provider for a worker with no named provider or model. Set inheritContext: true for work discussed in this chat unless the user wants an independent view. Preserve the user's edit and launch constraints, use separate worktrees for parallel edits, and add the work to the Tasks board only when the user asks to track it. provider is a provider (codex) or provider/model (codex/gpt-5.4); omit it to use your own provider and model. For a different provider, omitting settings.modeId starts the agent in that provider's default mode. Do not guess ids; call list_providers and list_models first if uncertain. To start it on another machine the user names, call list_hosts and pass that host's serverId, a workspaceId from list_workspaces or create_workspace on that host, and a provider/model from list_providers and list_models on that host; inheritContext, profile and cwd are this-host only."
+          : "Create an agent. Top-level creation without workspaceId creates a new local workspace. Requires an initial prompt and either a provider (codex, or codex/gpt-5.4 for a specific model) or a profile that sets one. Omitting settings.modeId starts the agent in the provider's default mode. Do not guess; call list_providers and list_models first if uncertain. To start it on another machine the user names, call list_hosts and pass that host's serverId, a workspaceId from list_workspaces or create_workspace on that host, and a provider/model from list_providers and list_models on that host; inheritContext, profile and cwd are this-host only.",
       inputSchema: createAgentInputSchema,
       outputSchema: {
         agentId: z.string(),
@@ -1861,6 +1840,7 @@ function createToolCatalog(
       source: { serverId: options.serverId, agentId: callerAgentId },
       worker: {
         id: worker.id,
+        serverId: options.serverId,
         provider: worker.provider,
         model: worker.runtimeInfo?.model ?? worker.config.model ?? null,
         title: args.parsedArgs.title.slice(0, 512),
@@ -3268,27 +3248,9 @@ function createToolCatalog(
         provider,
         wait: true,
       });
-      const needle = query?.trim().toLowerCase();
-      const matched = needle
-        ? all.filter((model) => `${model.id}\n${model.label ?? ""}`.toLowerCase().includes(needle))
-        : all;
-      // A router provider can list hundreds of models, which overflows an agent's tool output limit.
-      const models = [
-        ...matched.filter((model) => model.isDefault),
-        ...matched.filter((model) => !model.isDefault),
-      ].slice(0, LIST_MODELS_LIMIT);
       return {
         content: [],
-        structuredContent: ensureValidJson({
-          provider,
-          models,
-          total: matched.length,
-          ...(models.length < matched.length
-            ? {
-                guidance: `Showing ${models.length} of ${matched.length} models. Pass query to narrow by id or label.`,
-              }
-            : {}),
-        }),
+        structuredContent: ensureValidJson(limitModelList(provider, all, query)),
       };
     },
   );

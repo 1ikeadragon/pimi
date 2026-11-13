@@ -3615,6 +3615,13 @@ export const zhCN: TranslationResources = {
         removeErrorMessage: "无法移除连接",
         timeout: "超时",
       },
+      agentAccess: {
+        title: "此电脑上的智能体可以在此启动智能体",
+        hint: "在此电脑上运行的智能体可以在此主机上创建和管理智能体，并获得对它的完全访问权限。",
+        statusReady: "可供此电脑上的智能体使用",
+        statusWaiting: "正在等待主机连接",
+        statusError: "智能体无法使用：{{message}}",
+      },
       pairDevices: {
         title: "配对设备",
         rowTitle: "配对设备",

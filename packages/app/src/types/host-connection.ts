@@ -77,6 +77,8 @@ export interface HostProfile {
   lifecycle: HostLifecycle;
   connections: HostConnection[];
   preferredConnectionId: string | null;
+  /** Desktop only. false keeps this host out of the local daemon's saved hosts; absent means on. */
+  agentAccess?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -519,6 +521,7 @@ const StoredHostProfileSchema = z.strictObject({
   lifecycle: z.strictObject({}).optional(),
   connections: z.array(StoredHostConnectionSchema).min(1),
   preferredConnectionId: z.string().nullable().optional(),
+  agentAccess: z.boolean().optional(),
   createdAt: z.string().datetime({ offset: true }).optional(),
   updatedAt: z.string().datetime({ offset: true }).optional(),
 });
@@ -622,6 +625,7 @@ export function normalizeStoredHostProfile(entry: unknown): HostProfile | null {
     lifecycle: defaultLifecycle(),
     connections,
     preferredConnectionId,
+    ...(record.agentAccess === false ? { agentAccess: false } : {}),
     createdAt: record.createdAt ?? now,
     updatedAt: record.updatedAt ?? now,
   };

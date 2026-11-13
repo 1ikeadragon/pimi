@@ -1,8 +1,18 @@
 # Connected hosts
 
-A saved host belongs to the daemon that stores it. The app's saved connections remain a separate list.
-Connect A to B through `pimi --host A host` or `pimi.hosts`. Consumers select B by its learned `serverId`; management uses the stable
-`registrationId` created before B is reachable.
+A saved host belongs to the daemon that stores it. Connect A to B through `pimi --host A host` or `pimi.hosts`.
+Consumers select B by its learned `serverId`; management uses the stable `registrationId` created before B is reachable.
+
+On desktop, the app also registers its own saved hosts in the daemon it manages, so an agent on this computer can
+start agents on them. The app owns those rows through the source key `app-host:<serverId>` (see
+`packages/app/src/hosts/agent-host-registration.ts`):
+
+- It adds, relabels and removes only rows with that key. A row for the same `serverId` from the CLI or a plugin wins; the app skips the host.
+- A host switched off on its settings page (`agentAccess: false`), or removed in the app, loses its row. Removing or switching off never touches rows other producers wrote.
+- Connections register in this order: SSH, direct TCP, relay. A host the app only knows through another daemon (`routed`) and the managed daemon itself are never registered.
+- SSH hosts register as a unix socket (named pipe on Windows) the desktop listens on, not as `ssh://`, so the desktop's sign-in prompts and password cache apply. The link lives while the desktop runs; see [Remote SSH](remote-ssh.md#agent-endpoint).
+- The directory never returns a connection string, so the app resends it once per launch and when a row is stuck on `authentication_failed` while the app's own connection to that host is online. Updating a row restarts its link.
+- `server_id_mismatch` rows stay as they are and show their error on the host's settings page. The app never replaces an identity.
 
 ## Ownership and authority
 
@@ -34,9 +44,10 @@ sandboxed by this feature.
 ## Delegating agents
 
 Agent MCP discovers destination IDs with `list_hosts`. `create_workspace`, `list_workspaces`,
-`create_agent`, `send_agent_prompt`, `get_agent_status`, `get_agent_activity`, and `list_agents`
-accept `serverId`; omission selects the calling daemon. Remote creation requires a
-destination workspace and explicit provider/model. Caller filesystem defaults apply only on the
+`list_providers`, `list_models`, `create_agent`, `send_agent_prompt`, `get_agent_status`,
+`get_agent_activity`, `list_agents`, `cancel_agent`, and `archive_agent` accept `serverId`; omission
+selects the calling daemon. Remote creation requires a destination workspace and explicit
+provider/model, and rejects `inheritContext`, `profile`, and `cwd`. Caller filesystem defaults apply only on the
 calling daemon. Prompting a remote child acknowledges acceptance and uses the existing idle wait for
 finish notifications. Remote agent lists have no caller-directory default; pass `cwd` to filter them.
 

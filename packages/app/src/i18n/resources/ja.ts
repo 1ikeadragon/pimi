@@ -3696,6 +3696,13 @@ export const ja: TranslationResources = {
         removeErrorMessage: "接続を削除できません",
         timeout: "タイムアウト",
       },
+      agentAccess: {
+        title: "このコンピューターのエージェントがここでエージェントを起動できる",
+        hint: "このコンピューターで動作するエージェントは、このホスト上でエージェントを作成・管理できます。ホストへのフルアクセスが与えられます。",
+        statusReady: "このコンピューターのエージェントが利用可能",
+        statusWaiting: "ホストの接続を待っています",
+        statusError: "エージェントは利用できません: {{message}}",
+      },
       pairDevices: {
         title: "デバイスをペアリング",
         rowTitle: "デバイスをペアリング",

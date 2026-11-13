@@ -50,6 +50,8 @@ export const PimiDelegationResult = z.object({
     source: PimiTaskSource,
     worker: z.object({
       id: z.string().min(1),
+      /** The host the worker runs on. Absent means the same host as the parent (`source.serverId`). */
+      serverId: z.string().min(1).optional(),
       provider: z.string().min(1),
       model: z.string().nullable().optional(),
       title: z.string().trim().min(1).max(512),

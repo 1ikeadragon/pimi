@@ -21,7 +21,12 @@ import {
   type BackgroundCaller,
 } from "../create-agent/intent.js";
 import { expandUserPath } from "../../path-utils.js";
-import type { PimiToolExecutionContext, PimiToolResult } from "../tools/types.js";
+import { limitModelList, toProviderSummary } from "../tools/provider-listing.js";
+import {
+  PimiToolInputError,
+  type PimiToolExecutionContext,
+  type PimiToolResult,
+} from "../tools/types.js";
 
 export class HostOperationRejectedError extends Error {
   readonly code: unknown;
@@ -47,6 +52,10 @@ export interface HostOperations {
   getStatus: HostOperation;
   getActivity: HostOperation;
   listAgents: HostOperation;
+  listProviders: HostOperation;
+  listModels: HostOperation;
+  cancelAgent: HostOperation;
+  archiveAgent: HostOperation;
 }
 /** Connection authority at the host boundary, independent of child lifecycle. */
 export class HostObservationError extends Error {
@@ -172,25 +181,57 @@ export function createToolHosts(hosts: ConnectedHosts): ToolHosts {
   };
 }
 
-const remoteCreate = z
-  .object({
-    provider: z.string().min(1),
-    title: z.string().trim().min(1).max(60),
-    initialPrompt: z.string().min(1),
-    workspaceId: z.string().min(1),
-    labels: z.record(z.string(), z.string()).optional(),
-    notifyOnFinish: z.boolean().optional(),
-    background: z.boolean().optional(),
-    idempotencyKey: z.string().optional(),
-    settings: z
-      .object({
-        modeId: z.string().optional(),
-        thinkingOptionId: z.string().optional(),
-        features: z.record(z.string(), z.unknown()).optional(),
-      })
-      .optional(),
-  })
-  .strict();
+const remoteCreate = z.object({
+  provider: z.string().min(1),
+  title: z.string().trim().min(1).max(60),
+  initialPrompt: z.string().min(1),
+  workspaceId: z.string().min(1),
+  labels: z.record(z.string(), z.string()).optional(),
+  notifyOnFinish: z.boolean().optional(),
+  background: z.boolean().optional(),
+  idempotencyKey: z.string().optional(),
+  settings: z
+    .object({
+      modeId: z.string().optional(),
+      thinkingOptionId: z.string().optional(),
+      features: z.record(z.string(), z.unknown()).optional(),
+    })
+    .optional(),
+});
+const REMOTE_CREATE_REQUIRES =
+  "On another host create_agent needs workspaceId and provider, and does not accept inheritContext, profile or cwd.";
+
+/** Names every key the destination path cannot honor, so the agent can correct one call. */
+function parseRemoteCreate(args: Record<string, unknown>, serverId: string) {
+  const known = new Set(Object.keys(remoteCreate.shape));
+  const unsupported = Object.keys(args).filter((key) => args[key] !== undefined && !known.has(key));
+  const missing = (["workspaceId", "provider"] as const).filter((key) => !args[key]);
+  if (unsupported.length > 0 || missing.length > 0) {
+    const details = [
+      missing.length > 0 ? `Missing: ${missing.join(", ")}.` : "",
+      unsupported.length > 0 ? `Not accepted: ${unsupported.join(", ")}.` : "",
+      missing.includes("provider")
+        ? `Call list_providers with serverId ${serverId} and pass provider as <provider>/<model>.`
+        : "",
+      missing.includes("workspaceId")
+        ? `Get workspaceId from list_workspaces or create_workspace with serverId ${serverId}.`
+        : "",
+    ].filter(Boolean);
+    throw new PimiToolInputError(`${REMOTE_CREATE_REQUIRES} ${details.join(" ")}`);
+  }
+  const parsed = remoteCreate.safeParse(args);
+  if (!parsed.success) throw new PimiToolInputError(parsed.error.message, parsed.error.issues);
+  return parsed.data;
+}
+function remoteProviderModel(provider: string, serverId: string) {
+  try {
+    return resolveRequiredProviderModel(provider);
+  } catch {
+    throw new PimiToolInputError(
+      `On another host provider must be <provider>/<model>. Call list_providers and list_models with serverId ${serverId}.`,
+    );
+  }
+}
 const result = (structuredContent: unknown): PimiToolResult => ({
   content: [],
   structuredContent,
@@ -218,8 +259,8 @@ export function createHostResolver(input: {
       return input.hosts().use(destination, async (client) =>
         action({
           async createAgent(args) {
-            const parsed = remoteCreate.parse(args);
-            const { provider, model } = resolveRequiredProviderModel(parsed.provider);
+            const parsed = parseRemoteCreate(args, destination);
+            const { provider, model } = remoteProviderModel(parsed.provider, destination);
             const workspace = await client.findWorkspace(parsed.workspaceId);
             if (!workspace) throw new Error(`Workspace ${parsed.workspaceId} not found`);
             const labels = {
@@ -228,26 +269,32 @@ export function createHostResolver(input: {
                 ? parentAddressLabels({ agentId: input.callerAgentId, serverId: input.serverId })
                 : {}),
             };
-            const snapshot = await client.createAgent({
-              config: {
-                provider,
-                model,
-                cwd: workspace.workspaceDirectory,
-                title: parsed.title,
-                modeId: parsed.settings?.modeId,
-                thinkingOptionId: parsed.settings?.thinkingOptionId,
-                featureValues: parsed.settings?.features,
-              },
-              workspaceId: parsed.workspaceId,
-              // Older hosts reject any background with a workspaceId, so a visible create omits it.
-              ...(inheritAgentBackground(parsed.background, input.caller())
-                ? { background: true }
-                : {}),
-              labels,
-              initialPrompt: parsed.initialPrompt,
-              idempotencyKey: parsed.idempotencyKey,
-            });
-            return result({
+            let createdSnapshot: Awaited<ReturnType<DaemonClient["createAgent"]>>;
+            try {
+              createdSnapshot = await client.createAgent({
+                config: {
+                  provider,
+                  model,
+                  cwd: workspace.workspaceDirectory,
+                  title: parsed.title,
+                  modeId: parsed.settings?.modeId,
+                  thinkingOptionId: parsed.settings?.thinkingOptionId,
+                  featureValues: parsed.settings?.features,
+                },
+                workspaceId: parsed.workspaceId,
+                // Older hosts reject any background with a workspaceId, so a visible create omits it.
+                ...(inheritAgentBackground(parsed.background, input.caller())
+                  ? { background: true }
+                  : {}),
+                labels,
+                initialPrompt: parsed.initialPrompt,
+                idempotencyKey: parsed.idempotencyKey,
+              });
+            } catch (error) {
+              throw withProviderHint(error, destination);
+            }
+            const snapshot = createdSnapshot;
+            const payload = {
               agentId: snapshot.id,
               type: snapshot.provider,
               status: snapshot.status,
@@ -255,7 +302,27 @@ export function createHostResolver(input: {
               workspaceId: snapshot.workspaceId,
               currentModeId: snapshot.currentModeId,
               availableModes: snapshot.availableModes,
-            });
+            };
+            if (!input.callerAgentId) return result(payload);
+            // Same receipt the local path returns, so the chat shows a card for the remote child.
+            const structuredContent = {
+              ...payload,
+              pimiDelegation: {
+                source: { serverId: input.serverId, agentId: input.callerAgentId },
+                worker: {
+                  id: snapshot.id,
+                  serverId: destination,
+                  provider: snapshot.provider,
+                  model: snapshot.model ?? null,
+                  title: parsed.title,
+                },
+                sharedContext: false,
+              },
+            };
+            return {
+              content: [{ type: "text", text: JSON.stringify(structuredContent) }],
+              structuredContent,
+            };
           },
           async sendPrompt(args) {
             const agentId = args.agentId as string;
@@ -345,6 +412,24 @@ export function createHostResolver(input: {
             });
             return result({ workspaces: entries.map(workspaceSummary) });
           },
+          async listProviders() {
+            const { entries } = await client.getProvidersSnapshot();
+            return result({ providers: entries.map(toProviderSummary) });
+          },
+          async listModels(args) {
+            const provider = args.provider as string;
+            const payload = await client.listProviderModels(provider);
+            if (payload.error) throw new Error(payload.error);
+            return result(limitModelList(provider, payload.models ?? [], args.query as string));
+          },
+          async cancelAgent(args) {
+            await client.cancelAgent(args.agentId as string);
+            return result({ success: true });
+          },
+          async archiveAgent(args) {
+            await client.archiveAgent(args.agentId as string);
+            return result({ success: true });
+          },
           async createWorkspace(args) {
             const isolation = z.enum(["local", "worktree"]).parse(args.isolation);
             const path = z.string().min(1).parse(args.path);
@@ -383,6 +468,14 @@ export function createHostResolver(input: {
       );
     },
   };
+}
+/** The destination's own error says what failed; this only adds where to look next. */
+function withProviderHint(error: unknown, serverId: string): unknown {
+  if (!(error instanceof Error) || !/provider|model/i.test(error.message)) return error;
+  return Object.assign(
+    new Error(`${error.message} Call list_providers with serverId ${serverId}.`, { cause: error }),
+    "code" in error ? { code: error.code } : {},
+  );
 }
 function workspaceSummary(workspace: FetchWorkspacesEntry) {
   return {

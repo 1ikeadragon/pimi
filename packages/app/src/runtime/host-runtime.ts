@@ -53,6 +53,7 @@ import {
   createDesktopDaemonTransportFactory,
 } from "@/desktop/daemon/desktop-daemon-transport";
 import { getDesktopHost, isElectronRuntime } from "@/desktop/host";
+import { startAgentHostRegistration } from "@/hosts/agent-host-registration";
 import { readDesktopManagedLocalCredential } from "@/desktop/daemon/local-credential";
 import {
   useSessionStore,
@@ -1648,6 +1649,8 @@ export class HostRuntimeStore {
     { client: DaemonClient; observation: OwnedSubscription<HostDirectory>; unsubscribe: () => void }
   >();
   private fleetDirectoryDemand = new Map<string, () => void>();
+  private hostDirectories = new Map<string, HostDirectory>();
+  private hostDirectoryListeners = new Set<() => void>();
   private serverListeners = new Map<string, Set<() => void>>();
   private globalListeners = new Set<() => void>();
   private hostListListeners = new Set<() => void>();
@@ -1719,6 +1722,7 @@ export class HostRuntimeStore {
   private async runBoot(): Promise<void> {
     const override = readConfiguredLocalDaemonOverride();
     await this.loadRegistry();
+    if (isElectronRuntime()) startAgentHostRegistration(this);
 
     let isE2E: string | null = null;
     try {
@@ -2243,6 +2247,13 @@ export class HostRuntimeStore {
     });
   }
 
+  async setHostAgentAccess(serverId: string, enabled: boolean): Promise<void> {
+    await this.updateHost(serverId, (host) => {
+      const { agentAccess: _previous, ...rest } = host;
+      return enabled ? rest : { ...rest, agentAccess: false };
+    });
+  }
+
   async setHostColor(serverId: string, color: HostColor): Promise<void> {
     await this.updateHostAppearance(serverId, (host) => ({
       ...host,
@@ -2405,6 +2416,7 @@ export class HostRuntimeStore {
       this.hostObservations.get(serverId)?.unsubscribe();
       void this.hostObservations.get(serverId)?.observation.release();
       this.hostObservations.delete(serverId);
+      this.setHostDirectory(serverId, null);
       this.fleetDirectoryDemand.get(serverId)?.();
       this.fleetDirectoryDemand.delete(serverId);
       this.controllers.delete(serverId);
@@ -2490,6 +2502,7 @@ export class HostRuntimeStore {
     previous?.unsubscribe();
     void previous?.observation.release();
     this.hostObservations.delete(serverId);
+    this.setHostDirectory(serverId, null);
     const host = this.hosts.find((candidate) => candidate.serverId === serverId);
     if (
       !client?.isConnected ||
@@ -2499,6 +2512,7 @@ export class HostRuntimeStore {
     const observation = client.observeHosts();
     const apply = (directory: HostDirectory) => {
       if (this.hostObservations.get(serverId)?.client !== client) return;
+      this.setHostDirectory(serverId, directory);
       for (const target of directory.hosts) {
         if (!target.serverId || target.serverId === serverId) continue;
         const next = upsertHostConnectionInProfiles({
@@ -2530,6 +2544,24 @@ export class HostRuntimeStore {
     });
     this.hostObservations.set(serverId, { client, observation, unsubscribe });
     void observation.ready.then(apply).catch(() => undefined);
+  }
+
+  private setHostDirectory(serverId: string, directory: HostDirectory | null): void {
+    if (directory) this.hostDirectories.set(serverId, directory);
+    else if (!this.hostDirectories.delete(serverId)) return;
+    for (const listener of this.hostDirectoryListeners) listener();
+  }
+
+  /** The saved-host directory the daemon `serverId` last reported; null while it is not observed. */
+  getHostDirectory(serverId: string): HostDirectory | null {
+    return this.hostDirectories.get(serverId) ?? null;
+  }
+
+  subscribeHostDirectory(listener: () => void): () => void {
+    this.hostDirectoryListeners.add(listener);
+    return () => {
+      this.hostDirectoryListeners.delete(listener);
+    };
   }
 
   private syncSessionReplica(serverId: string, snapshot: HostRuntimeSnapshot): void {

@@ -3799,6 +3799,13 @@ export const en = {
         removeErrorMessage: "Unable to remove connection",
         timeout: "Timeout",
       },
+      agentAccess: {
+        title: "Agents on this computer can start agents here",
+        hint: "Agents running on this computer can create and manage agents on this host. They get full access to it.",
+        statusReady: "Ready for agents on this computer",
+        statusWaiting: "Waiting for the host to connect",
+        statusError: "Not available to agents: {{message}}",
+      },
       pairDevices: {
         title: "Pair devices",
         rowTitle: "Pair a device",

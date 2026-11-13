@@ -42,6 +42,7 @@ import { useDesktopSettings } from "@/desktop/settings/desktop-settings";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
+import { useAgentHostRegistration } from "@/hosts/use-agent-host-registration";
 import {
   getHostRuntimeStore,
   isHostRuntimeConnected,
@@ -439,9 +440,47 @@ export function HostSettingsPage({
 
       {isLocalDaemon ? <LocalDaemonSection /> : null}
 
+      {!isLocalDaemon && isElectronRuntime() ? <AgentAccessSection host={host} /> : null}
+
       {!isLocalDaemon ? <UpdateDaemonCard key={host.serverId} host={host} /> : null}
 
       <RemoveHostSection host={host} isLocalDaemon={isLocalDaemon} onRemoved={onHostRemoved} />
+    </View>
+  );
+}
+
+function AgentAccessSection({ host }: { host: HostProfile }) {
+  const { t } = useTranslation();
+  const registration = useAgentHostRegistration(host.serverId);
+  const enabled = host.agentAccess !== false;
+  const handleChange = useCallback(
+    (next: boolean) => {
+      void getHostRuntimeStore().setHostAgentAccess(host.serverId, next);
+    },
+    [host.serverId],
+  );
+  let status: string | null = null;
+  if (enabled && registration) {
+    if (registration.status === "online") status = t("settings.host.agentAccess.statusReady");
+    else if (registration.error)
+      status = t("settings.host.agentAccess.statusError", { message: registration.error.message });
+    else status = t("settings.host.agentAccess.statusWaiting");
+  }
+  return (
+    <View style={settingsStyles.card} testID="host-page-agent-access-card">
+      <View style={settingsStyles.row}>
+        <View style={settingsStyles.rowContent}>
+          <Text style={settingsStyles.rowTitle}>{t("settings.host.agentAccess.title")}</Text>
+          <Text style={settingsStyles.rowHint}>{t("settings.host.agentAccess.hint")}</Text>
+          {status ? <Text style={settingsStyles.rowHint}>{status}</Text> : null}
+        </View>
+        <Switch
+          value={enabled}
+          onValueChange={handleChange}
+          accessibilityLabel={t("settings.host.agentAccess.title")}
+          testID="host-page-agent-access-switch"
+        />
+      </View>
     </View>
   );
 }
