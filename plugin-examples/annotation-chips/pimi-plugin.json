@@ -1,6 +1,6 @@
 {
   "id": "annotation-chips",
   "requirements": {
-    "pimi": ">=0.17.31"
+    "pimi": ">=0.17.37"
   }
 }

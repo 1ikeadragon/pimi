@@ -165,7 +165,6 @@ import type {
 import type { SelectedFile } from "@/attachments/selected-file";
 import { composerWorkspaceAttachment } from "@/composer/attachments/workspace";
 import type { AttachmentUpdater } from "@/composer/draft/input-draft-core";
-import { AnnotationChipHost } from "@/annotations/chip-host";
 import {
   annotationChipLabel,
   AnnotationAttachmentSchema,
@@ -415,14 +414,24 @@ interface RenderAttachmentTrayArgs {
   };
 }
 
+// The chip heights from components/ui/chip, which a plugin renderer must fit.
+const INLINE_CHIP_LINE_HEIGHT = 20;
+const TRAY_CHIP_LINE_HEIGHT = 24;
+
 const InlineAnnotationChip = memo(function InlineAnnotationChip({
+  serverId,
+  controller,
   annotation,
+  index,
   disabled,
   onRemoveSlot,
   onChangeNote,
   onFocusComposer,
 }: {
+  serverId: string;
+  controller: ComposerController;
   annotation: AnnotationAttachment;
+  index: number;
   disabled: boolean;
   onRemoveSlot: (slot: number) => void;
   onChangeNote: (id: string, note: string) => void;
@@ -430,10 +439,14 @@ const InlineAnnotationChip = memo(function InlineAnnotationChip({
 }) {
   const remove = useCallback(() => onRemoveSlot(annotation.slot), [annotation.slot, onRemoveSlot]);
   return (
-    <AnnotationChipHost
-      annotation={annotation}
+    <PluginAnnotationAttachment
+      serverId={serverId}
+      controller={controller}
+      attachment={annotation}
       placement="inline"
+      lineHeight={INLINE_CHIP_LINE_HEIGHT}
       disabled={disabled}
+      index={index}
       onRemove={remove}
       onChangeNote={onChangeNote}
       onFocusComposer={onFocusComposer}
@@ -572,6 +585,8 @@ function renderComposerAttachmentPill(args: RenderComposerAttachmentPillArgs): R
         serverId={args.serverId}
         controller={args.pluginComposer}
         attachment={attachment}
+        placement="tray"
+        lineHeight={TRAY_CHIP_LINE_HEIGHT}
         disabled={disabled}
         index={index}
         onRemove={onRemove}
@@ -2231,7 +2246,10 @@ function ComposerContentImpl({
         if (!annotation) return null;
         return (
           <InlineAnnotationChip
+            serverId={serverId}
+            controller={pluginComposer}
             annotation={annotation}
+            index={annotations.indexOf(annotation)}
             disabled={isComposerLocked}
             onRemoveSlot={removeChip}
             onChangeNote={handleChangeAnnotationNote}
@@ -2278,7 +2296,9 @@ function ComposerContentImpl({
     handleChangeAnnotationNote,
     inputMode,
     isComposerLocked,
+    pluginComposer,
     removeChip,
+    serverId,
     setSelectedAttachments,
   ]);
 

@@ -28,6 +28,13 @@ export interface PluginAnnotationAttachment {
   /** The user's note; empty until they write one. */
   readonly note: string;
   readonly source: PluginAnnotationSource;
+  /**
+   * UTF-16 offset of the annotation's chip in `composer.getText()`, or null while the composer has
+   * not placed it yet. The chip is exactly one code unit.
+   */
+  readonly position: number | null;
+  /** 1-based place among the draft's chips in text order: the N of `[annotation N]` when sent. */
+  readonly ref: number;
 }
 
 /**
@@ -46,6 +53,21 @@ export interface PluginAnnotationAttachmentInput {
 }
 
 export type PluginComposerAttachmentInput = PluginAnnotationAttachmentInput;
+
+/** Where `attachments.add` puts the new annotation's chip in the text. */
+export interface PluginAddAttachmentOptions {
+  /** `"caret"` (default): where the user last had the caret. `"end"`, or a UTF-16 offset. */
+  readonly at?: "caret" | "end" | number;
+}
+
+/**
+ * True for the one character that stands for an annotation in `composer.getText()`. Treat it as
+ * opaque: it is never sent to the agent, and replacing the text without it removes the annotation.
+ */
+export function isComposerChipChar(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return char.length === 1 && code >= 0xe000 && code < 0xe020;
+}
 
 /** Fields `update` can change. `source` and `id` never change. */
 export interface PluginAnnotationAttachmentPatch {
@@ -74,12 +96,18 @@ export interface PluginComposerKeyEvent {
 
 export interface PluginComposerAttachments {
   /**
-   * The draft's annotations in order. The array identity changes only when its contents do, so
-   * it works as a `useSyncExternalStore` snapshot.
+   * The draft's annotations in text order. The array identity changes only when its contents (or
+   * their positions in the text) do, so it works as a `useSyncExternalStore` snapshot.
    */
   list(): readonly PluginComposerAttachment[];
-  /** Appends an attachment and returns it with its new ID. Throws when the input is invalid. */
-  add(input: PluginComposerAttachmentInput): PluginComposerAttachment;
+  /**
+   * Adds an annotation, with its chip in the text at `options.at`, and returns it with its new ID.
+   * Throws when the input is invalid or the draft already holds 32 annotations.
+   */
+  add(
+    input: PluginComposerAttachmentInput,
+    options?: PluginAddAttachmentOptions,
+  ): PluginComposerAttachment;
   /** Returns false when no attachment has the ID. Remaining attachments keep their order. */
   remove(id: string): boolean;
   /** Merges the patch into the attachment. Returns false when no attachment has the ID. */
@@ -94,9 +122,15 @@ export interface PluginComposer {
   readonly workspaceId: string | null;
   /** Null for a new-agent draft, which has no agent yet. */
   readonly agentId: string | null;
+  /** The draft text. Each annotation is one chip character in it; see `isComposerChipChar`. */
   getText(): string;
+  /** The draft text with the chip characters removed. */
+  getPlainText(): string;
   getSelection(): PluginComposerSelection;
-  /** Replaces the whole draft text. The caret goes to the end unless `selection` is given. */
+  /**
+   * Replaces the whole draft text. The caret goes to the end unless `selection` is given. Dropping
+   * a chip character removes its annotation; a chip character that matches none is dropped.
+   */
   replaceText(text: string, selection?: PluginComposerSelection): void;
   /** Replaces the selection, or inserts at the caret, and leaves the caret after the new text. */
   insertText(text: string): void;
@@ -124,10 +158,20 @@ export interface PluginComposerApi {
 
 export interface PluginAttachmentRendererProps<
   Attachment extends PluginComposerAttachment = PluginComposerAttachment,
-> extends PluginHostProps {
+> extends Omit<PluginHostProps, "layout"> {
+  layout: PluginHostProps["layout"] & {
+    /** Height of a line of the composer's text, in points. */
+    readonly lineHeight: number;
+  };
   attachment: Attachment;
   /** Position among the draft's attachments. */
   index: number;
+  /**
+   * `"inline"` draws inside a line of the composer's text, where Pimi owns the chip's wrapper,
+   * focus, removal and hover card and the component draws its inside; `"tray"` is the attachment
+   * row, which native uses. Keep `inline` to one line: `layout.lineHeight` tall.
+   */
+  placement: "inline" | "tray";
   /** The composer holding the attachment, for `remove` and `update`. */
   composer: PluginComposer;
   /** The composer is submitting. Do not offer edits. */

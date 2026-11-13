@@ -28,8 +28,12 @@ interface AnnotationPillProps {
   serverId: string;
   controller: ComposerController;
   attachment: AnnotationAttachment;
+  /** Inline in the composer's text (web), or in the attachment tray (native). */
+  placement: "inline" | "tray";
   disabled: boolean;
   index: number;
+  /** Height of a line of the composer's text, which an inline renderer must fit. */
+  lineHeight: number;
   onRemove(index: number): void;
   onChangeNote(id: string, note: string): void;
   onFocusComposer(): void;
@@ -41,7 +45,7 @@ function DefaultAnnotationPill(props: AnnotationPillProps) {
   return (
     <AnnotationChipHost
       annotation={props.attachment}
-      placement="tray"
+      placement={props.placement}
       disabled={props.disabled}
       onRemove={remove}
       onChangeNote={props.onChangeNote}
@@ -68,7 +72,10 @@ function PluginRenderedAnnotation({
   const hostLabel =
     hosts.find((host) => host.serverId === plugin.serverId)?.label ?? plugin.serverId;
   const host = useMemo(() => ({ id: plugin.serverId, label: hostLabel }), [hostLabel, plugin]);
-  const layout = useMemo(() => ({ compact, platform: resolvePluginPlatform() }), [compact]);
+  const layout = useMemo(
+    () => ({ compact, platform: resolvePluginPlatform(), lineHeight: pill.lineHeight }),
+    [compact, pill.lineHeight],
+  );
   const stateSource = useMemo(() => createPluginClientStateSource(plugin.serverId), [plugin]);
   const toast = useToast();
   const openInSidePane = useSettings((settings) => settings.openInSidePane);
@@ -81,11 +88,10 @@ function PluginRenderedAnnotation({
     });
   }, [attachment, goesToSource, openInSidePane, toast]);
   const composer = getPluginComposerBridge(plugin).handleFor(controller);
-  const pluginAttachment = useMemo<PluginComposerAttachment | null>(() => {
-    const { source, id, quote, note } = attachment;
-    const { serverId: _serverId, ...pluginSource } = source;
-    return { kind: "annotation", id, quote, note, source: pluginSource };
-  }, [attachment]);
+  const pluginAttachment = useMemo<PluginComposerAttachment | null>(
+    () => composer?.attachments.list().find((candidate) => candidate.id === attachment.id) ?? null,
+    [composer, attachment],
+  );
   if (!composer || !pluginAttachment) return renderFallback();
   const props: PluginAttachmentRendererProps = {
     theme,
@@ -93,6 +99,7 @@ function PluginRenderedAnnotation({
     layout,
     attachment: pluginAttachment,
     index,
+    placement: pill.placement,
     composer,
     disabled,
     openSource,

@@ -11,7 +11,14 @@ import {
   type AnnotationAttachment,
   type AnnotationSource,
 } from "@/annotations/model";
-import { AnnotationLimitError, annotationsOf, lowestFreeSlot } from "@/composer/chips/model";
+import {
+  AnnotationLimitError,
+  annotationsOf,
+  chipChar,
+  chipPositions,
+  lowestFreeSlot,
+  stripChips,
+} from "@/composer/chips/model";
 import { generateMessageId } from "@/types/stream";
 import type { InstalledPlugin } from "../types";
 import { composerRegistry, type ComposerController, type ComposerRegistry } from "./controller";
@@ -25,14 +32,43 @@ function toPluginSource(source: AnnotationSource): PluginAnnotationSource {
   return rest;
 }
 
-function toPluginAttachment(attachment: AnnotationAttachment): PluginComposerAttachment {
+function toPluginAttachment(
+  attachment: AnnotationAttachment,
+  position: number | null,
+  ref: number,
+): PluginComposerAttachment {
   return {
     kind: "annotation",
     id: attachment.id,
     quote: attachment.quote,
     note: attachment.note,
     source: toPluginSource(attachment.source),
+    position,
+    ref,
   };
+}
+
+/** The draft's annotations as plugins see them: chips in text order, then any not yet placed. */
+function listAnnotations(
+  attachments: readonly UserComposerAttachment[],
+  text: string,
+): PluginComposerAttachment[] {
+  const annotations = annotationsOf(attachments);
+  const placed: PluginComposerAttachment[] = [];
+  const positionOf = new Map<number, number>();
+  for (const chip of chipPositions(text)) {
+    if (!positionOf.has(chip.slot)) positionOf.set(chip.slot, chip.index);
+  }
+  const byPosition = annotations
+    .filter((annotation) => positionOf.has(annotation.slot))
+    .sort((left, right) => positionOf.get(left.slot)! - positionOf.get(right.slot)!);
+  const unplaced = annotations.filter((annotation) => !positionOf.has(annotation.slot));
+  for (const annotation of [...byPosition, ...unplaced]) {
+    placed.push(
+      toPluginAttachment(annotation, positionOf.get(annotation.slot) ?? null, placed.length + 1),
+    );
+  }
+  return placed;
 }
 
 function isAnnotation(attachment: UserComposerAttachment): attachment is AnnotationAttachment {
@@ -46,6 +82,7 @@ function createAttachmentsHandle(
   track: (release: () => void) => () => void,
 ): PluginComposerAttachments {
   let cachedFrom: readonly UserComposerAttachment[] | null = null;
+  let cachedText = "";
   let cached: readonly PluginComposerAttachment[] = [];
   const live = () => {
     if (installation.lifetime.signal.aborted) throw new Error("Plugin has stopped");
@@ -53,13 +90,17 @@ function createAttachmentsHandle(
   return {
     list() {
       const source = controller.surface.getAttachments();
-      if (source !== cachedFrom) {
+      const text = controller.surface.getText();
+      if (source !== cachedFrom || text !== cachedText) {
+        const next = listAnnotations(source, text);
+        // Typing elsewhere in the text moves no chip, so the snapshot only changes when one moved.
+        if (JSON.stringify(next) !== JSON.stringify(cached)) cached = next;
         cachedFrom = source;
-        cached = source.filter(isAnnotation).map(toPluginAttachment);
+        cachedText = text;
       }
       return cached;
     },
-    add(input) {
+    add(input, options) {
       live();
       if (input.kind !== "annotation")
         throw new Error(`Unsupported attachment kind: ${input.kind}`);
@@ -77,7 +118,26 @@ function createAttachmentsHandle(
         note: input.note ?? "",
       });
       controller.surface.updateAttachments((prev) => [...prev, attachment]);
-      return toPluginAttachment(attachment);
+      if (options?.at !== undefined && options.at !== "caret") {
+        const text = controller.surface.getText();
+        const offset =
+          options.at === "end" ? text.length : Math.max(0, Math.min(options.at, text.length));
+        const caret = offset + 1;
+        controller.surface.replaceText(
+          text.slice(0, offset) + chipChar(attachment.slot) + text.slice(offset),
+          { start: caret, end: caret },
+        );
+      }
+      return (
+        listAnnotations(controller.surface.getAttachments(), controller.surface.getText()).find(
+          (candidate) => candidate.id === attachment.id,
+        ) ??
+        toPluginAttachment(
+          attachment,
+          null,
+          annotationsOf(controller.surface.getAttachments()).length,
+        )
+      );
     },
     remove(id) {
       live();
@@ -145,6 +205,7 @@ function createComposerHandle(
       return controller.identity.agentId;
     },
     getText: () => controller.surface.getText(),
+    getPlainText: () => stripChips(controller.surface.getText()),
     getSelection: () => controller.surface.getSelection(),
     replaceText(text, selection) {
       live();

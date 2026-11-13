@@ -32,8 +32,13 @@ export function AnnotationChip({
   composer,
   disabled,
   openSource,
+  placement,
+  layout,
   theme,
 }: PluginAttachmentRendererProps<PluginAnnotationAttachment>) {
+  // Inline, the chip sits in a line of text and has to be no taller than it; in the tray it can
+  // be a little larger.
+  const height = placement === "inline" ? layout.lineHeight : 24;
   const styles = useMemo(
     () => ({
       chip: {
@@ -46,7 +51,7 @@ export function AnnotationChip({
         backgroundColor: theme.colors.surface2,
         paddingLeft: 10,
         paddingRight: 4,
-        height: 24,
+        height,
         gap: 6,
       },
       label: {
@@ -65,7 +70,7 @@ export function AnnotationChip({
       },
       cross: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 14 },
     }),
-    [theme],
+    [theme, height],
   );
   const remove = useCallback(
     () => composer.attachments.remove(attachment.id),
