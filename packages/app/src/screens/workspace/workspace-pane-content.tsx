@@ -1,4 +1,5 @@
 import { ComposerEditingScope } from "@/composer/editing-session";
+import { overridable } from "@/extension-points";
 import React, { useMemo, type ComponentType } from "react";
 import { invariant } from "@/utils/invariant";
 import {
@@ -40,6 +41,21 @@ export interface BuildWorkspacePaneContentModelInput {
   onOpenImportSheet: () => void;
 }
 
+const panelPoints = new Map<string, ComponentType>();
+
+/** One `panel` point per panel kind, made once so the component keeps its identity across renders. */
+function panelPoint(kind: string, Core: ComponentType): ComponentType {
+  let point = panelPoints.get(kind);
+  if (!point) {
+    point = overridable("panel", Core, {
+      toPlugin: () => ({ kind }),
+      merge: (core) => core,
+    });
+    panelPoints.set(kind, point);
+  }
+  return point;
+}
+
 export function buildWorkspacePaneContentModel({
   tab,
   normalizedServerId,
@@ -59,7 +75,7 @@ export function buildWorkspacePaneContentModel({
   invariant(registration, `No panel registration for kind: ${tab.kind}`);
   return {
     key: `${normalizedServerId}:${normalizedWorkspaceId}:${tab.tabId}`,
-    Component: registration.component,
+    Component: panelPoint(tab.kind, registration.component),
     paneContextValue: {
       serverId: normalizedServerId,
       workspaceId: normalizedWorkspaceId,

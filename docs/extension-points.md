@@ -38,4 +38,4 @@ Drop `<Slot id context/>` where plugin UI belongs and add the id and its context
 
 ## What is not a point yet
 
-The workspace screen, tab strip, workspace header, and pane content (`screens/workspace/*`) are not points. They wait for the workspace performance work to land; add them with the same two lines.
+The `workspace-tab` menu (tab context menu items) is not wired, and neither are the terminal, browser pane, and markdown renderer. The `panel` point is one id for every panel kind: `panelPoint` in `workspace-pane-content.tsx` makes one wrapped component per kind and caches it, because a new component per render would remount the panel.

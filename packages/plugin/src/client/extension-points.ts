@@ -25,6 +25,14 @@ export interface PluginComponentPoints {
   "screen.tasks": { serverId: string | null; taskId: string | null };
   "screen.library": { section: "skills" | "hooks" };
 
+  "screen.workspace": { serverId: string; workspaceId: string };
+  /** The desktop title bar of a workspace: project, name, branch, and its menu. */
+  "workspace.header": { serverId: string; title: string; branch: string | null };
+  /** The desktop tab strip of a workspace pane. */
+  "workspace.tabs": { serverId: string; workspaceId: string; tabCount: number };
+  /** The content of one tab. Every panel kind shares this point; `kind` says which. */
+  panel: { kind: string };
+
   "sidebar.root": { active: boolean; desktopOverlay: boolean };
   "sidebar.workspaceRow": {
     serverId: string;
