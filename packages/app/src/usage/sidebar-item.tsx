@@ -17,7 +17,6 @@ import {
 } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useRetainedPanelActive } from "@/components/retained-panel";
-import { getDesktopHost } from "@/desktop/host";
 import { openPimiUsage } from "@/navigation/pimi-usage";
 import { useAppVisible } from "@/hooks/use-app-visible";
 import { builtinSidebarNavLabelKey } from "@/sidebar-nav/model";
@@ -38,7 +37,6 @@ import {
   type PinnedUsageLayout,
   type PinnedUsageSource,
 } from "./pinned";
-import { UsageModal } from "./usage-modal";
 
 /** Each summary window with data on the usage host, under its source; empty while none has. */
 export function useUsageSummary(): readonly PinnedUsageSource[] {
@@ -133,28 +131,14 @@ export const usageHoverDetails = <UsageHoverDetails />;
 const OpenSidebarUsageContext = createContext<(() => void) | null>(null);
 
 /**
- * One owner for the footer icon and summary: both open the Usage modal over the current screen.
- * The modal mounts on first open and unmounts once it has finished closing, so its host's reports
- * load only while it is shown.
+ * One owner for the footer's open-Usage command, which opens the full Usage screen. The footer
+ * icon opens the Usage popover instead (see popover.tsx); the pinned summary and the overflow menu
+ * row go straight to the screen.
  */
 export function UsageSidebarRoot({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const openUsage = useCallback(() => {
-    if (getDesktopHost()?.showPimiWorkspace) {
-      openPimiUsage();
-      return;
-    }
-    setMounted(true);
-    setOpen(true);
-  }, []);
-  const closeUsage = useCallback(() => setOpen(false), []);
-  const unmountUsage = useCallback(() => setMounted(false), []);
-
   return (
-    <OpenSidebarUsageContext.Provider value={openUsage}>
+    <OpenSidebarUsageContext.Provider value={openPimiUsage}>
       {children}
-      {mounted ? <UsageModal visible={open} onClose={closeUsage} onDismiss={unmountUsage} /> : null}
     </OpenSidebarUsageContext.Provider>
   );
 }

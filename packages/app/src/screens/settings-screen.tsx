@@ -1,4 +1,5 @@
 import { useHardwareKeyboardPresent } from "@/keyboard";
+import { UsageIcon } from "@/usage/icon";
 import { useAddHost } from "@/hosts/add-host";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
@@ -25,7 +26,6 @@ import {
   Network,
   Bot,
   Boxes,
-  Gauge,
   Keyboard,
   Stethoscope,
   Activity,
@@ -229,7 +229,7 @@ const HOST_SECTION_ICONS: Record<HostSectionSlug, SettingsIcon> = {
   voice: Mic,
   workspaces: FolderGit2,
   providers: Boxes,
-  usage: Gauge,
+  usage: UsageIcon,
   terminals: SquareTerminal,
   editor: Code2,
   plugins: Blocks,

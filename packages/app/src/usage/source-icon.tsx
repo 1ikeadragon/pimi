@@ -1,4 +1,4 @@
-import { Gauge } from "lucide-react-native";
+import { UsageIcon } from "./icon";
 import { withUnistyles } from "react-native-unistyles";
 import { SvgIcon } from "@/components/provider-icons";
 import type { Theme } from "@/styles/theme";
@@ -12,7 +12,7 @@ function UsageSourceIconBase({
   size: number;
   color?: string;
 }) {
-  if (!svg) return <Gauge size={size} color={color} />;
+  if (!svg) return <UsageIcon size={size} color={color} />;
   return <SvgIcon svg={svg} size={size} color={color} />;
 }
 

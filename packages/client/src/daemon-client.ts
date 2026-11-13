@@ -131,6 +131,8 @@ import type {
   RefreshProvidersSnapshotResponseMessage,
   ProviderDiagnosticResponseMessage,
   UsageReportEntry,
+  UsageRange,
+  UsageGroupBy,
   DaemonGetStatusResponse,
   DaemonGetPairingOfferResponse,
   DaemonConfigReloadResponse,
@@ -6064,6 +6066,64 @@ export class DaemonClient {
       active = false;
       unsubscribe();
     }
+  }
+
+  async getUsageSummary(options: { timezoneOffsetMinutes: number; requestId?: string }) {
+    return this.sendNamespacedCorrelatedSessionRequest<"usage.get_summary.response">({
+      requestId: options.requestId,
+      message: {
+        type: "usage.get_summary.request",
+        timezoneOffsetMinutes: options.timezoneOffsetMinutes,
+      },
+      timeout: 30_000,
+    });
+  }
+
+  async getUsageBreakdown(options: {
+    range: UsageRange;
+    groupBy: UsageGroupBy;
+    provider: string | null;
+    timezoneOffsetMinutes: number;
+    requestId?: string;
+  }) {
+    return this.sendNamespacedCorrelatedSessionRequest<"usage.get_breakdown.response">({
+      requestId: options.requestId,
+      message: {
+        type: "usage.get_breakdown.request",
+        range: options.range,
+        groupBy: options.groupBy,
+        provider: options.provider,
+        timezoneOffsetMinutes: options.timezoneOffsetMinutes,
+      },
+      timeout: 30_000,
+    });
+  }
+
+  async getUsageAgentTree(options: {
+    range: UsageRange;
+    provider: string | null;
+    timezoneOffsetMinutes: number;
+    requestId?: string;
+  }) {
+    return this.sendNamespacedCorrelatedSessionRequest<"usage.get_agent_tree.response">({
+      requestId: options.requestId,
+      message: {
+        type: "usage.get_agent_tree.request",
+        range: options.range,
+        provider: options.provider,
+        timezoneOffsetMinutes: options.timezoneOffsetMinutes,
+      },
+      timeout: 30_000,
+    });
+  }
+
+  // Waits for a full incremental scan of provider transcripts; the first one is the backfill.
+  async rescanUsage(options?: { requestId?: string }) {
+    return this.sendNamespacedCorrelatedSessionRequest<"usage.rescan.response">({
+      requestId: options?.requestId,
+      message: { type: "usage.rescan.request" },
+      timeout: 300_000,
+    });
   }
 
   async listCommands(options: ListCommandsOptions): Promise<ListCommandsPayload> {

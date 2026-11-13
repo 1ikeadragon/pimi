@@ -229,6 +229,8 @@ import type { AttackService } from "./attack/service.js";
 import type { AttackScheduler } from "./attack/schedules.js";
 import { ProviderCatalogSession } from "./session/provider/provider-catalog-session.js";
 import { UsageSession } from "./session/usage/usage-session.js";
+import type { UsageReader } from "./usage/aggregate.js";
+import type { UsageScanner } from "./usage/scanner.js";
 import type { ChatSearchIndexResponse } from "@pimi/protocol/chat-search";
 import { WorkspaceSearchSession } from "./workspace-search/session.js";
 import {
@@ -514,6 +516,7 @@ export interface SessionOptions {
   workspaceRuntimeStore: WorkspaceRuntimeStore;
   workspaceAutoName: WorkspaceAutoName;
   daemonConfigStore: DaemonConfigStore;
+  usageLedger?: { reader: UsageReader; scanner: UsageScanner };
   pluginRuntime?: {
     wait: import("./plugins/lifecycle/index.js").PluginLifecycle["wait"];
     before: import("./plugins/lifecycle/index.js").PluginLifecycle["before"];
@@ -870,6 +873,7 @@ export class Session {
       workspaceAutoName,
       daemonConfigStore,
       pluginRuntime,
+      usageLedger,
       orchestrationSkills,
       stt,
       sttLanguage,
@@ -1053,6 +1057,7 @@ export class Session {
       isEnabled: () => daemonConfigStore.get().usage?.enabled === true,
       emit: (msg) => this.emit(msg),
       runtime: pluginRuntime,
+      ledger: usageLedger,
       logger: this.sessionLogger,
     });
     this.workspaceSearchSession = new WorkspaceSearchSession({
@@ -3199,6 +3204,14 @@ export class Session {
         return this.providerCatalogSession.handleProviderDiagnosticRequest(msg);
       case "usage.list_reports.request":
         return this.usageSession.handleListReports(msg);
+      case "usage.get_summary.request":
+        return this.usageSession.handleGetSummary(msg);
+      case "usage.get_breakdown.request":
+        return this.usageSession.handleGetBreakdown(msg);
+      case "usage.get_agent_tree.request":
+        return this.usageSession.handleGetAgentTree(msg);
+      case "usage.rescan.request":
+        return this.usageSession.handleRescan(msg);
       default:
         return undefined;
     }

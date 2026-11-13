@@ -54,6 +54,25 @@ Their JSON shapes are unchanged and live in the `json` column; see
 [architecture.md](architecture.md#daemon-storage). The old files are renamed `*.migrated` after the
 one-time import and are never read again.
 
+## Usage ledger
+
+`pimi.db` also holds `usage_events` (one row per provider request), `usage_tool_calls` and
+`usage_scan_cursors`. The daemon scans Claude Code (`~/.claude/projects`, honoring
+`CLAUDE_CONFIG_DIR`) and Codex (`~/.codex/sessions`, honoring `CODEX_HOME`) transcripts read-only,
+always on, resuming each file from a byte offset. The first scan is the backfill. Rows keep their
+history after the provider deletes the transcript (Claude Code removes them after 30 days).
+
+- Rows carry the provider session id, not a Pimi agent id. The owning chat is resolved at query time
+  through `agents.provider_session_id`; a session with no match was run outside Pimi.
+- `input` excludes cache reads and writes; `output` includes `reasoning`. Codex reports cached input
+  inside `input_tokens`, so the scanner subtracts it.
+- `cost_usd` is an estimate from `usage/prices.ts`; a model with no entry has no cost. Rates for the
+  5.5 Claude models are fitted, see the comment there.
+- Aggregation is SQL grouped per session, model and day or hour; ownership, projects and subagent
+  folding run over those grouped rows in `usage/aggregate.ts`. Day boundaries use the offset the
+  client sends, applied as one constant, so days before a DST change can shift by an hour.
+- Only Claude and Codex have parsers. Other providers have no history.
+
 ## Chat timelines and search
 
 `$PIMI_HOME/pimi-timeline.db` holds every chat's timeline rows, one row per recorded row under the

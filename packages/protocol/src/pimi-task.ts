@@ -282,7 +282,7 @@ export type PimiVoiceView = z.infer<typeof PimiVoiceView>;
 
 const voiceNote = z.string().trim().min(1).max(4096);
 const voiceTarget = z.string().trim().min(1).max(160);
-export const PimiVoiceUsageTab = z.enum(["sessions", "limits", "recap"]);
+export const PimiVoiceUsageTab = z.enum(["overview", "sessions", "limits", "recap"]);
 export const PimiVoiceNavigation = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("show"), view: PimiVoiceView }),
   z.strictObject({ action: z.literal("new-chat"), text: voiceNote.optional() }),
