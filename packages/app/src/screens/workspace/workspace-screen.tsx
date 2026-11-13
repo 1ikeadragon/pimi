@@ -148,6 +148,12 @@ import { useWorkspaceArchiveUndoRunning } from "@/workspace/archive-undo";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { removeResidentBrowserWebview } from "@/desktop/browser/resident-webviews";
 import { createWorkspaceBrowser, useBrowserStore } from "@/desktop/browser/store";
+import {
+  openBrowserFromSlashCommand,
+  openWorkspaceBrowserUrl,
+  resolveOriginChatTabId,
+} from "@/desktop/browser/open-url";
+import { clearVisibleWorkspaceKey, setVisibleWorkspaceKey } from "./visible-workspace";
 import { getDesktopHost } from "@/desktop/host";
 import { usePimiWorkspaceReview } from "@/desktop/use-pimi-workspace-review";
 import { buildProviderCommand } from "@/utils/provider-command-templates";
@@ -1372,6 +1378,14 @@ function WorkspaceScreenContent({
     return () => handler.remove();
   }, [isExplorerSidebarShowing, isMobile, isRouteFocused, showMobileAgent]);
 
+  useEffect(() => {
+    if (!isRouteFocused || !persistenceKey) {
+      return;
+    }
+    setVisibleWorkspaceKey(persistenceKey);
+    return () => clearVisibleWorkspaceKey(persistenceKey);
+  }, [isRouteFocused, persistenceKey]);
+
   const workspaceLayout = useWorkspaceLayoutStore((state) =>
     persistenceKey ? (state.layoutByWorkspace[persistenceKey] ?? null) : null,
   );
@@ -1951,23 +1965,47 @@ function WorkspaceScreenContent({
 
   const handleOpenUrlInBrowserTab = useCallback(
     (url: string) => {
-      if (!persistenceKey || !getIsElectron()) {
-        return;
-      }
-      const { browserId } = createWorkspaceBrowser({ initialUrl: url });
-      openWorkspaceTabFocused(
-        persistenceKey,
-        { kind: "browser", browserId },
-        FOCUSED_PANE_PLACEMENT,
-      );
+      openWorkspaceBrowserUrl({
+        workspaceKey: persistenceKey,
+        url,
+        parentTabId: resolveOriginChatTabId(normalizedServerId, workspaceLayout ?? undefined),
+        location: openInSidePane.webLinks ? "side" : "main",
+        focus: true,
+        reuse: true,
+      });
     },
-    [openWorkspaceTabFocused, persistenceKey],
+    [normalizedServerId, openInSidePane.webLinks, persistenceKey, workspaceLayout],
+  );
+
+  const handleAnnotateBrowserPage = useCallback(() => {
+    openBrowserFromSlashCommand({
+      workspaceKey: persistenceKey,
+      tabId: resolveOriginChatTabId(normalizedServerId, workspaceLayout ?? undefined),
+      args: "",
+      annotate: true,
+      invalidUrlMessage: "",
+    });
+  }, [normalizedServerId, persistenceKey, workspaceLayout]);
+
+  // A page's own window.open and a script's service URL are never collapsed into an existing tab.
+  const handleOpenUrlInNewBrowserTab = useCallback(
+    (url: string) => {
+      openWorkspaceBrowserUrl({
+        workspaceKey: persistenceKey,
+        url,
+        parentTabId: null,
+        location: "main",
+        focus: true,
+        reuse: false,
+      });
+    },
+    [persistenceKey],
   );
 
   useDesktopBrowserNewTabRequests({
     enabled: Boolean(persistenceKey),
     workspaceLayout,
-    openUrl: handleOpenUrlInBrowserTab,
+    openUrl: handleOpenUrlInNewBrowserTab,
   });
 
   const handleSelectSwitcherTab = useCallback(
@@ -2629,6 +2667,9 @@ function WorkspaceScreenContent({
         case "workspace.browser.new":
           handleCreateBrowserTab();
           return true;
+        case "workspace.browser.annotate":
+          handleAnnotateBrowserPage();
+          return true;
         case "workspace.tab.menu.open":
           handleCreateNewTab({ paneId: focusedPaneTabState.pane?.id });
           return true;
@@ -2662,6 +2703,7 @@ function WorkspaceScreenContent({
     },
     [
       activeTabId,
+      handleAnnotateBrowserPage,
       handleCloseTabById,
       handleCreateDraftTab,
       handleCreateBrowserTab,
@@ -2846,6 +2888,7 @@ function WorkspaceScreenContent({
       "workspace.tab.navigate-relative",
       "workspace.terminal.new",
       "workspace.browser.new",
+      "workspace.browser.annotate",
       "workspace.tab.menu.open",
     ] as const,
     enabled: workspaceActionsEnabled,
@@ -3311,7 +3354,7 @@ function WorkspaceScreenContent({
             scripts={workspaceDescriptor.scripts}
             liveTerminalIds={liveTerminalIds}
             onViewTerminal={handleViewScriptTerminal}
-            onOpenUrlInBrowserTab={handleOpenUrlInBrowserTab}
+            onOpenUrlInBrowserTab={handleOpenUrlInNewBrowserTab}
             hideLabels
           />
         ) : null}
@@ -3351,7 +3394,7 @@ function WorkspaceScreenContent({
       liveTerminalIds,
       scriptActions,
       handleViewScriptTerminal,
-      handleOpenUrlInBrowserTab,
+      handleOpenUrlInNewBrowserTab,
       handleToggleExplorerSidebar,
       explorerSidebarToggleLabel,
       explorerSidebarToggleAccessibilityState,
@@ -3472,14 +3515,14 @@ function WorkspaceScreenContent({
       scripts: workspaceScripts,
       liveTerminalIds,
       onViewTerminal: handleViewScriptTerminal,
-      onOpenUrlInBrowserTab: handleOpenUrlInBrowserTab,
+      onOpenUrlInBrowserTab: handleOpenUrlInNewBrowserTab,
     }),
     [
       workspaceScripts,
       liveTerminalIds,
       scriptActions,
       handleViewScriptTerminal,
-      handleOpenUrlInBrowserTab,
+      handleOpenUrlInNewBrowserTab,
     ],
   );
   const renderWorkspaceTabSwitcher = useCallback(

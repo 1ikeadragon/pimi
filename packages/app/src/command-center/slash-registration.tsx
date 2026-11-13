@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useAutocompleteCommands, type AgentSlashCommand } from "@/agent-commands";
-import { CLIENT_SLASH_COMMANDS, type ClientSlashCommand } from "@/client-slash-commands";
+import { getClientSlashCommands, type ClientSlashCommand } from "@/client-slash-commands";
 import type { ComposerEditingSession } from "@/composer/editing-session";
 import { useComposerKeyboardScope } from "@/composer/keyboard-scope";
 import type { CommandCenterContribution } from "./contributions";
@@ -77,7 +77,7 @@ export function SlashCommandCenterActions({
     () =>
       buildSlashContributions({
         providerCommands: commands,
-        clientCommands: CLIENT_SLASH_COMMANDS,
+        clientCommands: getClientSlashCommands(),
         describeClient: (command) => t(command.descriptionKey),
         insert: (token) => editingSession.insertCommand(token),
         runClient,

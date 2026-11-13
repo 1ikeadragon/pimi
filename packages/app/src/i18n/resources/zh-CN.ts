@@ -499,6 +499,8 @@ export const zhCN: TranslationResources = {
     clientCommands: {
       archiveAgent: "归档当前 Agent",
       freshDraft: "归档此 Agent 并开始新的草稿",
+      openBrowser: "在 Pimi 浏览器中打开网页",
+      annotatePage: "在 Pimi 浏览器中标注网页",
     },
     github: {
       searching: "正在搜索...",
@@ -967,6 +969,7 @@ export const zhCN: TranslationResources = {
         placeholder: "给智能体关于此元素的留言…",
         submit: "附加",
         cancel: "取消",
+        target: "附加到：{{chat}}",
       },
       devices: {
         label: "设备尺寸",
@@ -1033,6 +1036,7 @@ export const zhCN: TranslationResources = {
         preparingTerminal: "正在准备 Terminal 标签",
         preparingTerminalTooltip: "正在准备 Terminal...",
         newBrowser: "新建浏览器",
+        annotatePage: "标注网页",
         maximizePane: "最大化窗格",
         restorePane: "还原窗格",
         closePane: "关闭窗格",

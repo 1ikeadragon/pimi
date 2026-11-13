@@ -1,12 +1,20 @@
 import { Text } from "react-native";
-import { forwardRef, useCallback, useContext, useMemo, useState, type ComponentProps } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ComponentProps,
+  type MouseEvent,
+} from "react";
 import type {
   CodeBlockRendererProps,
   LinkRendererProps,
   MarkdownRenderers,
 } from "react-native-enriched-markdown";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { useFileLink } from "@/assistant-file-links";
+import { useAssistantFileLinkActions, useFileLink } from "@/assistant-file-links";
 import { useForgeShorthand } from "@/git/forge-shorthand";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { HighlightedCodeBlock } from "@/components/highlighted-code-block";
@@ -19,6 +27,8 @@ import type { Theme } from "@/styles/theme";
 import { MermaidFence, MermaidStreamingContext } from "./fence/mermaid";
 import { ViewFence } from "./fence/view";
 import { markdownLinkSource } from "./source";
+import { isHttpUrl } from "@/utils/http-url";
+import { openExternalUrl } from "@/utils/open-external-url";
 
 const ThemedCodeBlock = withUnistyles(HighlightedCodeBlock);
 const codeStyle = (theme: Theme) => ({
@@ -54,8 +64,36 @@ function WebLink({ link, anchorProps, children }: LinkRendererProps) {
   const forgeShorthand = useForgeShorthand();
   // A forge reference like `#12` carries its web URL so hover, copy and new-tab opens work.
   const forgeUrl = link.sourceType === "text" ? forgeShorthand?.resolve(link.url) : null;
-  const { tooltipPath, onHoverIn } = useFileLink(
-    forgeUrl ? markdownLinkSource(forgeUrl) : markdownLinkSource(link.url, link.sourceType),
+  const source = forgeUrl
+    ? markdownLinkSource(forgeUrl)
+    : markdownLinkSource(link.url, link.sourceType);
+  const { tooltipPath, onHoverIn } = useFileLink(source);
+  const { canResolveFile } = useAssistantFileLinkActions();
+  const href = forgeUrl ?? anchorProps.href;
+  // Cmd/Ctrl-click and middle-click send a web link to the system browser instead of Pimi's.
+  const opensExternally = useCallback(
+    () => Boolean(href && isHttpUrl(href) && !canResolveFile(source)),
+    [canResolveFile, href, source],
+  );
+  const { onClick } = anchorProps;
+  const handleClick = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      if ((event.metaKey || event.ctrlKey) && href && opensExternally()) {
+        event.preventDefault();
+        void openExternalUrl(href);
+        return;
+      }
+      onClick?.(event);
+    },
+    [href, onClick, opensExternally],
+  );
+  const handleAuxClick = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      if (event.button !== 1 || !href || !opensExternally()) return;
+      event.preventDefault();
+      void openExternalUrl(href);
+    },
+    [href, opensExternally],
   );
   const tooltip = forgeUrl ?? tooltipPath;
   const [hovered, setHovered] = useState(false);
@@ -72,8 +110,10 @@ function WebLink({ link, anchorProps, children }: LinkRendererProps) {
   const anchor = (
     <a
       {...anchorProps}
-      href={forgeUrl ?? anchorProps.href}
+      href={href}
       style={anchorStyle}
+      onClick={handleClick}
+      onAuxClick={handleAuxClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >

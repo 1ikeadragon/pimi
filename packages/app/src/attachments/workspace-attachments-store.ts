@@ -68,6 +68,18 @@ export function buildWorkspaceAttachmentScopeKey(input: WorkspaceAttachmentScope
   );
 }
 
+/** The scope of one agent chat, for attachments that belong to it alone, such as browser annotations. */
+export function buildAgentWorkspaceAttachmentScopeKey(input: {
+  serverId: string;
+  agentId: string;
+}): string {
+  return [
+    "workspace-attachments",
+    `server=${encodeScopePart(input.serverId)}`,
+    `agent=${encodeScopePart(input.agentId)}`,
+  ].join(":");
+}
+
 export function buildDraftWorkspaceAttachmentScopeKey(draftId: string): string {
   return ["workspace-attachments", `draft=${encodeScopePart(draftId)}`].join(":");
 }

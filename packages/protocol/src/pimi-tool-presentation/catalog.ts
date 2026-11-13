@@ -427,6 +427,7 @@ export const PIMI_TOOL_CATALOG = {
   // Browser
   browser_list_tabs: browser("List browser tabs", "Listed browser tabs"),
   browser_new_tab: browser("Open browser tab", "Opened browser tab", field("url")),
+  browser_show: browser("Show page", "Showed page", field("url")),
   browser_close_tab: browser("Close browser tab", "Closed browser tab", field("browserId")),
   browser_navigate: browser("Navigate", "Navigated", field("url")),
   browser_back: browser("Go back", "Went back"),

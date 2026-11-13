@@ -504,6 +504,8 @@ export const ko: TranslationResources = {
     clientCommands: {
       archiveAgent: "현재 에이전트 보관",
       freshDraft: "이 에이전트를 보관하고 새 초안을 시작합니다",
+      openBrowser: "Pimi 브라우저에서 웹 페이지 열기",
+      annotatePage: "Pimi 브라우저에서 웹 페이지에 주석 달기",
     },
     github: {
       searching: "검색 중...",
@@ -973,6 +975,7 @@ export const ko: TranslationResources = {
         placeholder: "이 요소에 관해 에이전트에게 보낼 메시지…",
         submit: "첨부",
         cancel: "취소",
+        target: "첨부 대상: {{chat}}",
       },
       devices: {
         label: "장치 크기",
@@ -1040,6 +1043,7 @@ export const ko: TranslationResources = {
         preparingTerminal: "터미널 탭 준비 중",
         preparingTerminalTooltip: "터미널 준비 중...",
         newBrowser: "새 브라우저",
+        annotatePage: "웹 페이지에 주석 달기",
         maximizePane: "창 최대화",
         restorePane: "창 복원",
         closePane: "창 닫기",

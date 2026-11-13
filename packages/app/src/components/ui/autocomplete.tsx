@@ -20,6 +20,7 @@ import {
   RotateCw,
   Sparkles,
   SquarePen,
+  Globe,
   SquareSlash,
 } from "lucide-react-native";
 import type { MatchRange } from "@pimi/protocol/search/text-match";
@@ -38,6 +39,7 @@ export type AutocompleteOptionIcon =
   | "plugin"
   | "archive"
   | "new-draft"
+  | "browser"
   | "file"
   | "directory";
 
@@ -73,6 +75,7 @@ const ROW_ICONS = {
   plugin: withUnistyles(Puzzle, mutedIconColorMapping),
   archive: withUnistyles(Archive, mutedIconColorMapping),
   "new-draft": withUnistyles(SquarePen, mutedIconColorMapping),
+  browser: withUnistyles(Globe, mutedIconColorMapping),
   file: withUnistyles(File, mutedIconColorMapping),
   directory: withUnistyles(Folder, mutedIconColorMapping),
 } satisfies Record<AutocompleteOptionIcon, unknown>;

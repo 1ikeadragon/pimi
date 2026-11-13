@@ -498,6 +498,8 @@ export const en = {
     clientCommands: {
       archiveAgent: "Archive the current agent",
       freshDraft: "Archive this agent and start a fresh draft",
+      openBrowser: "Open a web page in the Pimi browser",
+      annotatePage: "Annotate a web page in the Pimi browser",
     },
     github: {
       searching: "Searching...",
@@ -967,6 +969,7 @@ export const en = {
         placeholder: "Message to the agent about this element…",
         submit: "Attach",
         cancel: "Cancel",
+        target: "Attaches to: {{chat}}",
       },
       devices: {
         label: "Device size",
@@ -1033,6 +1036,7 @@ export const en = {
         preparingTerminal: "Preparing terminal tab",
         preparingTerminalTooltip: "Preparing terminal...",
         newBrowser: "New browser",
+        annotatePage: "Annotate web page",
         maximizePane: "Maximize pane",
         restorePane: "Restore pane",
         closePane: "Close pane",
@@ -3083,6 +3087,10 @@ export const en = {
           pullRequests: {
             label: "Clicking a pull request in the Explorer sidebar",
             description: "Open pull request details beside Changes",
+          },
+          webLinks: {
+            label: "Clicking a web link in an agent chat",
+            description: "Open web links from chat beside the conversation",
           },
           serviceUrls: {
             label: "Clicking a script's service URL",

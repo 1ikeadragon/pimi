@@ -506,6 +506,8 @@ export const ptBR: TranslationResources = {
     clientCommands: {
       archiveAgent: "Arquivar o agente atual",
       freshDraft: "Arquivar este agente e iniciar um novo rascunho",
+      openBrowser: "Abrir uma página da web no navegador do Pimi",
+      annotatePage: "Anotar uma página da web no navegador do Pimi",
     },
     github: {
       searching: "Buscando...",
@@ -978,6 +980,7 @@ export const ptBR: TranslationResources = {
         placeholder: "Mensagem ao agente sobre este elemento…",
         submit: "Anexar",
         cancel: "Cancelar",
+        target: "Anexa a: {{chat}}",
       },
       devices: {
         label: "Tamanho do dispositivo",
@@ -1044,6 +1047,7 @@ export const ptBR: TranslationResources = {
         preparingTerminal: "Preparando aba de terminal",
         preparingTerminalTooltip: "Preparando terminal...",
         newBrowser: "Novo navegador",
+        annotatePage: "Anotar página da web",
         maximizePane: "Maximizar painel",
         restorePane: "Restaurar painel",
         closePane: "Fechar painel",
