@@ -2093,7 +2093,6 @@ export const ar: TranslationResources = {
           description:
             "وكلاء اختبار جودة وأمان خصوميون يختبرون تطبيقاتك. فعّله الآن لمنح أذونات macOS المطلوبة دفعة واحدة.",
           enable: "تفعيل وضع الهجوم",
-          notNow: "ليس الآن",
         },
         phone: {
           label: "الجوال",

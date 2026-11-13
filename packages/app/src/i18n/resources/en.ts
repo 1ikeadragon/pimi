@@ -2131,7 +2131,6 @@ export const en = {
           description:
             "Adversarial QA and security agents that test your own apps. Enable it now to grant the macOS access they need in one go.",
           enable: "Enable Attack mode",
-          notNow: "Not now",
         },
         phone: {
           label: "Mobile",
