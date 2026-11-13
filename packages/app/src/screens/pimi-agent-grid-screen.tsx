@@ -13,7 +13,7 @@ import { DensityIcon } from "@/components/ui/density-icon";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
-import { PimiAgentLabels } from "@/desktop/pimi-labels";
+import { LabelChips } from "@/labels";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { useAggregatedAgents, type AggregatedAgent } from "@/hooks/use-aggregated-agents";
 import { closePimiAgentGrid } from "@/navigation/pimi-agent-grid";
@@ -193,6 +193,7 @@ const AgentTile = memo(function AgentTile({ agent }: { agent: AggregatedAgent })
   const openChat = useCallback(() => {
     navigateToAgent({ serverId, agentId: id, workspaceId: agent.workspaceId });
   }, [agent.workspaceId, id, serverId]);
+  const labelTarget = useMemo(() => ({ kind: "agent" as const, agentId: id }), [id]);
   const title = resolveAgentLabel(agent.title) ?? `${agent.provider} agent`;
   const online = connection === "online";
   const connectionLabel = connection === "connecting" ? "Connecting" : "Offline";
@@ -229,7 +230,9 @@ const AgentTile = memo(function AgentTile({ agent }: { agent: AggregatedAgent })
           <DensityIcon icon={ArrowUpRight} size="sm" color="foregroundMuted" />
         </ToolbarButton>
       </View>
-      <PimiAgentLabels serverId={serverId} workspaceId={agent.workspaceId} agentId={id} />
+      <View style={styles.tileLabels}>
+        <LabelChips serverId={serverId} target={labelTarget} wrap />
+      </View>
       <View style={styles.transcript}>
         <AgentStreamView
           agentId={id}
@@ -283,6 +286,9 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.surface0,
+  },
+  tileLabels: {
+    paddingHorizontal: theme.spacing[3],
   },
   tileHeader: {
     flexDirection: "row",

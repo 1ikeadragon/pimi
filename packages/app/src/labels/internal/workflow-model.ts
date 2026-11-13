@@ -1,9 +1,4 @@
-import {
-  normalizeWorkspaceLabelName,
-  workspaceLabelKey,
-  type WorkspaceLabelDefinition,
-} from "@pimi/protocol/workspace-labels";
-import { buildWorkspaceLabelPickerRows, type WorkspaceLabelPickerRow } from "./picker-model";
+import { normalizeLabelName, type Label } from "@pimi/protocol/labels";
 import { i18n } from "@/i18n/i18next";
 
 type Listener = () => void;
@@ -21,11 +16,15 @@ class ObservableModel {
   }
 }
 
-export interface WorkspaceLabelPickerModelSnapshot {
-  rows: readonly WorkspaceLabelPickerRow[];
+export interface LabelPickerModelSnapshot {
+  rows: readonly LabelPickerRow[];
   error: string | null;
   online: boolean;
-  pendingNames: string[];
+  pendingIds: string[];
+}
+
+export interface LabelPickerRow extends Label {
+  assigned: boolean;
 }
 
 /**
@@ -36,38 +35,34 @@ export interface WorkspaceLabelPickerModelSnapshot {
  * does own is the one-in-flight-per-label rule, which is what keeps a double tap from firing two
  * opposite mutations at the same label.
  */
-export class WorkspaceLabelPickerModel extends ObservableModel {
+export class LabelPickerModel extends ObservableModel {
   private error: string | null = null;
   private online = false;
-  private labels: readonly WorkspaceLabelDefinition[] = [];
+  private labels: readonly Label[] = [];
   private assigned: readonly string[] = [];
   private readonly pending = new Map<string, Promise<boolean>>();
-  private currentSnapshot: WorkspaceLabelPickerModelSnapshot;
+  private currentSnapshot: LabelPickerModelSnapshot;
 
   constructor(
     private readonly dependencies: {
-      mutate: (input: { label: WorkspaceLabelDefinition; assigned: boolean }) => Promise<unknown>;
+      mutate: (input: { label: Label; assigned: boolean }) => Promise<unknown>;
     },
   ) {
     super();
     this.currentSnapshot = this.buildSnapshot();
   }
 
-  snapshot = (): WorkspaceLabelPickerModelSnapshot => this.currentSnapshot;
+  snapshot = (): LabelPickerModelSnapshot => this.currentSnapshot;
 
-  sync(input: {
-    labels: readonly WorkspaceLabelDefinition[];
-    assigned: readonly string[];
-    online: boolean;
-  }): void {
+  sync(input: { labels: readonly Label[]; assigned: readonly string[]; online: boolean }): void {
     this.labels = input.labels;
     this.assigned = input.assigned;
     this.online = input.online;
     this.commit();
   }
 
-  toggle(label: WorkspaceLabelDefinition, assigned: boolean): Promise<boolean> {
-    const key = workspaceLabelKey(label.name);
+  toggle(label: Label, assigned: boolean): Promise<boolean> {
+    const key = label.id;
     const inFlight = this.pending.get(key);
     if (inFlight) return inFlight;
     this.error = null;
@@ -75,7 +70,7 @@ export class WorkspaceLabelPickerModel extends ObservableModel {
       .mutate({ label, assigned })
       .then(() => true)
       .catch((cause: unknown) => {
-        this.error = workspaceLabelErrorMessage(cause);
+        this.error = labelErrorMessage(cause);
         return false;
       })
       .finally(() => {
@@ -92,77 +87,80 @@ export class WorkspaceLabelPickerModel extends ObservableModel {
     this.publish();
   }
 
-  private buildSnapshot(): WorkspaceLabelPickerModelSnapshot {
+  private buildSnapshot(): LabelPickerModelSnapshot {
+    const assignedIds = new Set(this.assigned);
     return {
-      rows: buildWorkspaceLabelPickerRows({ labels: this.labels, assigned: this.assigned }),
+      rows: this.labels.map((label) => ({ ...label, assigned: assignedIds.has(label.id) })),
       error: this.error,
       online: this.online,
-      pendingNames: [...this.pending.keys()],
+      pendingIds: [...this.pending.keys()],
     };
   }
 }
 
-export interface WorkspaceLabelManagerHost {
+export interface LabelManagerHost {
   serverId: string;
   label: string;
   status: "offline" | "online";
-  labels: readonly WorkspaceLabelDefinition[];
+  labels: readonly Label[];
   error?: string | null;
 }
 
 /** The label being edited, as typed so far. Absent means the list is what's on screen. */
-export interface WorkspaceLabelManagerDraft {
-  /** The catalog name the edit targets. Fixed for the life of the draft. */
+export interface LabelManagerDraft {
+  /** The label the edit targets. Fixed for the life of the draft. */
+  labelId: string;
+  /** The name the label had when the edit opened, to seed the field. */
   name: string;
   draftName: string;
-  color: WorkspaceLabelDefinition["color"];
+  color: Label["color"];
 }
 
-export interface WorkspaceLabelManagerSnapshot {
-  hosts: readonly WorkspaceLabelManagerHost[];
+export interface LabelManagerSnapshot {
+  hosts: readonly LabelManagerHost[];
   serverId: string;
-  draft: WorkspaceLabelManagerDraft | null;
+  draft: LabelManagerDraft | null;
   query: string;
   error: string | null;
   pending: boolean;
-  host: WorkspaceLabelManagerHost | null;
-  labels: WorkspaceLabelDefinition[];
+  host: LabelManagerHost | null;
+  labels: Label[];
   /** The catalog entry behind the open draft, or null when nothing is being edited. */
-  editing: WorkspaceLabelDefinition | null;
+  editing: Label | null;
   /** Whether the draft differs from the label it targets — what Save is worth pressing for. */
   dirty: boolean;
 }
 
-export class WorkspaceLabelManagerModel extends ObservableModel {
-  private hosts: readonly WorkspaceLabelManagerHost[] = [];
+export class LabelManagerModel extends ObservableModel {
+  private hosts: readonly LabelManagerHost[] = [];
   private serverId = "";
-  private draft: WorkspaceLabelManagerDraft | null = null;
+  private draft: LabelManagerDraft | null = null;
   private query = "";
   private error: string | null = null;
   private operation: Promise<void> | null = null;
-  private currentSnapshot: WorkspaceLabelManagerSnapshot;
+  private currentSnapshot: LabelManagerSnapshot;
 
   constructor(
     private readonly dependencies: {
       update: (input: {
         serverId: string;
-        name: string;
-        newName?: string;
-        color?: WorkspaceLabelDefinition["color"];
-      }) => Promise<{ label?: WorkspaceLabelDefinition }>;
-      inspectDelete: (input: { serverId: string; name: string }) => Promise<{
-        affectedWorkspaceCount: number;
+        labelId: string;
+        name?: string;
+        color?: Label["color"];
+      }) => Promise<unknown>;
+      inspectDelete: (input: { serverId: string; labelId: string }) => Promise<{
+        affectedCount: number;
       }>;
-      delete: (input: { serverId: string; name: string }) => Promise<unknown>;
+      delete: (input: { serverId: string; labelId: string }) => Promise<unknown>;
     },
   ) {
     super();
     this.currentSnapshot = this.buildSnapshot();
   }
 
-  snapshot = (): WorkspaceLabelManagerSnapshot => this.currentSnapshot;
+  snapshot = (): LabelManagerSnapshot => this.currentSnapshot;
 
-  syncHosts(hosts: readonly WorkspaceLabelManagerHost[]): void {
+  syncHosts(hosts: readonly LabelManagerHost[]): void {
     this.hosts = hosts;
     if (!this.operation && !hosts.some((host) => host.serverId === this.serverId)) {
       this.serverId = hosts[0]?.serverId ?? "";
@@ -180,9 +178,9 @@ export class WorkspaceLabelManagerModel extends ObservableModel {
   }
 
   /** Open the edit view on a label, seeded with what that label currently is. */
-  edit(label: WorkspaceLabelDefinition): void {
+  edit(label: Label): void {
     if (this.operation) return;
-    this.draft = { name: label.name, draftName: label.name, color: label.color };
+    this.draft = { labelId: label.id, name: label.name, draftName: label.name, color: label.color };
     this.error = null;
     this.commit();
   }
@@ -210,7 +208,7 @@ export class WorkspaceLabelManagerModel extends ObservableModel {
     this.commit();
   }
 
-  setDraftColor(color: WorkspaceLabelDefinition["color"]): void {
+  setDraftColor(color: Label["color"]): void {
     if (!this.draft) return;
     this.draft = { ...this.draft, color };
     this.commit();
@@ -233,25 +231,25 @@ export class WorkspaceLabelManagerModel extends ObservableModel {
     // Nothing to apply is nothing to send: `dirty` already accounts for an empty or
     // whitespace-only name, which is not an edit the host could carry out.
     if (!draft || !editing || !this.currentSnapshot.dirty) return Promise.resolve();
-    const newName = normalizeWorkspaceLabelName(draft.draftName);
+    const newName = normalizeLabelName(draft.draftName);
     return this.run(async () => {
       await this.dependencies.update({
         serverId: this.serverId,
-        name: editing.name,
-        ...(newName === editing.name ? {} : { newName }),
+        labelId: editing.id,
+        ...(newName === editing.name ? {} : { name: newName }),
         ...(draft.color === editing.color ? {} : { color: draft.color }),
       });
       this.draft = null;
     });
   }
 
-  delete(confirm: (affectedWorkspaceCount: number) => Promise<boolean>): Promise<void> {
+  delete(confirm: (affectedCount: number) => Promise<boolean>): Promise<void> {
     const editing = this.currentSnapshot.editing;
     if (!editing) return Promise.resolve();
-    const target = { serverId: this.serverId, name: editing.name };
+    const target = { serverId: this.serverId, labelId: editing.id };
     return this.run(async () => {
       const inspected = await this.dependencies.inspectDelete(target);
-      if (!(await confirm(inspected.affectedWorkspaceCount))) return;
+      if (!(await confirm(inspected.affectedCount))) return;
       await this.dependencies.delete(target);
       this.draft = null;
     });
@@ -262,7 +260,7 @@ export class WorkspaceLabelManagerModel extends ObservableModel {
     this.error = null;
     this.operation = action()
       .catch((cause: unknown) => {
-        this.error = workspaceLabelErrorMessage(cause);
+        this.error = labelErrorMessage(cause);
       })
       .finally(() => {
         this.operation = null;
@@ -277,20 +275,17 @@ export class WorkspaceLabelManagerModel extends ObservableModel {
     this.publish();
   }
 
-  private buildSnapshot(): WorkspaceLabelManagerSnapshot {
+  private buildSnapshot(): LabelManagerSnapshot {
     const host = this.hosts.find((candidate) => candidate.serverId === this.serverId) ?? null;
     const labels = (host?.labels ?? []).filter((label) =>
       label.name.toLocaleLowerCase().includes(this.query.trim().toLocaleLowerCase()),
     );
     const draft = this.draft;
     const editing =
-      host?.labels.find(
-        (label) =>
-          draft !== null && workspaceLabelKey(label.name) === workspaceLabelKey(draft.name),
-      ) ?? null;
+      host?.labels.find((label) => draft !== null && label.id === draft.labelId) ?? null;
     // An empty name is not an edit the host could carry out, so it is not dirty either — which
     // is the one place Save's enablement is decided.
-    const draftName = draft ? normalizeWorkspaceLabelName(draft.draftName) : "";
+    const draftName = draft ? normalizeLabelName(draft.draftName) : "";
     return {
       hosts: this.hosts,
       serverId: this.serverId,
@@ -317,7 +312,7 @@ export class WorkspaceLabelManagerModel extends ObservableModel {
  * which is what a log wants and not what a user reads under a name field. The fields are on the
  * error too, so the suffix is removed by identity rather than by guessing at the format.
  */
-export function workspaceLabelErrorMessage(cause: unknown): string {
+export function labelErrorMessage(cause: unknown): string {
   if (!(cause instanceof Error)) return i18n.t("workspaceLabels.errors.update");
   const { requestType, code } = cause as { requestType?: string; code?: string };
   const message = cause.message

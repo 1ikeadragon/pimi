@@ -45,11 +45,8 @@ import {
   workspaceServiceLabelKey,
   type WorkspaceServiceSummary,
 } from "@/components/sidebar/workspace-meta-row";
-import {
-  useWorkspaceLabelMenuPages,
-  WORKSPACE_LABEL_PAGE_ID,
-  type WorkspaceLabelTarget,
-} from "@/workspace-labels/picker";
+import { useLabelMenuPages, LABEL_PAGE_ID } from "@/labels/picker";
+import { useWorkspacePrimaryChatTarget } from "@/labels/workspace-chat";
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({
@@ -117,7 +114,6 @@ export interface SidebarWorkspaceMenuProps {
   workspaceKey: string;
   serverId?: string;
   workspaceId?: string;
-  workspaceLabels?: readonly string[];
   onCopyPath?: () => void;
   onCopyBranchName?: () => void;
   onRename?: () => void;
@@ -181,6 +177,7 @@ function SidebarWorkspaceMenuItems({
   openInFileManagerPath,
 }: SidebarWorkspaceMenuItemsProps & { surface: MenuSurface }): ReactNode {
   const { t } = useTranslation();
+  const hasLabelTarget = useWorkspacePrimaryChatTarget(serverId, workspaceId ?? "") !== null;
   const archiveTrailing = useMemo(
     () => (archiveShortcutKeys ? <Shortcut chord={archiveShortcutKeys} /> : null),
     [archiveShortcutKeys],
@@ -259,9 +256,9 @@ function SidebarWorkspaceMenuItems({
           {isPinned ? t("sidebar.workspace.actions.unpin") : t("sidebar.workspace.actions.pin")}
         </WorkspaceMenuItem>
       ) : null}
-      {serverId && workspaceId ? (
+      {hasLabelTarget ? (
         <DropdownMenuSubTrigger
-          id={WORKSPACE_LABEL_PAGE_ID}
+          id={LABEL_PAGE_ID}
           leading={labelLeading}
           testID={`sidebar-workspace-menu-labels-${workspaceKey}`}
         >
@@ -301,7 +298,6 @@ export function SidebarWorkspaceMenu({
   workspaceKey,
   serverId,
   workspaceId,
-  workspaceLabels,
   onCopyPath,
   onCopyBranchName,
   onRename,
@@ -319,12 +315,8 @@ export function SidebarWorkspaceMenu({
   onOpenChange,
 }: SidebarWorkspaceMenuProps) {
   const { t } = useTranslation();
-  const workspaceTarget = useMemo<WorkspaceLabelTarget | null>(
-    () =>
-      serverId && workspaceId ? { serverId, workspaceId, labels: workspaceLabels ?? [] } : null,
-    [serverId, workspaceId, workspaceLabels],
-  );
-  const pages = useWorkspaceLabelMenuPages(workspaceTarget);
+  const labelTarget = useWorkspacePrimaryChatTarget(serverId, workspaceId ?? "");
+  const pages = useLabelMenuPages(serverId ?? "", labelTarget);
   return (
     <DropdownMenu compactMode="sheet" open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
@@ -347,7 +339,6 @@ export function SidebarWorkspaceMenu({
           workspaceKey={workspaceKey}
           serverId={serverId}
           workspaceId={workspaceId}
-          workspaceLabels={workspaceLabels}
           onCopyPath={onCopyPath}
           onCopyBranchName={onCopyBranchName}
           onRename={onRename}
@@ -428,15 +419,8 @@ export function SidebarWorkspaceContextMenu({
       : null,
     t,
   });
-  const workspaceTarget = useMemo<WorkspaceLabelTarget>(
-    () => ({
-      serverId: workspace.serverId,
-      workspaceId: workspace.workspaceId,
-      labels: workspace.labels ?? [],
-    }),
-    [workspace],
-  );
-  const pages = useWorkspaceLabelMenuPages(workspaceTarget);
+  const labelTarget = useWorkspacePrimaryChatTarget(workspace.serverId, workspace.workspaceId);
+  const pages = useLabelMenuPages(workspace.serverId, labelTarget);
 
   return (
     <ContextMenu open={contextMenuOpen} onOpenChange={onContextMenuOpenChange}>
@@ -457,9 +441,8 @@ export function SidebarWorkspaceContextMenu({
         <SidebarWorkspaceMenuItems
           surface="context"
           workspaceKey={workspaceKey}
-          serverId={workspaceTarget.serverId}
-          workspaceId={workspaceTarget.workspaceId}
-          workspaceLabels={workspaceTarget.labels}
+          serverId={workspace.serverId}
+          workspaceId={workspace.workspaceId}
           onCopyPath={onCopyPath}
           onCopyBranchName={onCopyBranchName}
           onRename={onRename}

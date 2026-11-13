@@ -10,10 +10,11 @@ import { Pressable, Text, View, type PressableStateCallbackType } from "react-na
 import { Pencil } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
-  workspaceLabelKey,
-  type WorkspaceLabelColor,
-  type WorkspaceLabelDefinition,
-} from "@pimi/protocol/workspace-labels";
+  LABEL_COLORS,
+  normalizeLabelName,
+  type Label,
+  type LabelColor,
+} from "@pimi/protocol/labels";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { HostFilter } from "@/components/hosts/host-filter";
 import { Button } from "@/components/ui/button";
@@ -25,12 +26,13 @@ import { useHosts } from "@/runtime/host-runtime";
 import type { Theme } from "@/styles/theme";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import {
-  createWorkspaceLabelManagerModel,
-  useWorkspaceLabelProjection,
-  workspaceLabels,
-  type WorkspaceLabelManagerDraft,
-} from "@/workspace-labels";
-import { WorkspaceLabelDot, WorkspaceLabelSwatchRow } from "./swatch";
+  createLabelManagerModel,
+  useLabelProjection,
+  labelErrorMessage,
+  labels,
+  type LabelManagerDraft,
+} from "@/labels/store";
+import { LabelDot, LabelSwatchRow } from "./swatch";
 import { useTranslation } from "@/i18n/use-translation";
 
 /** The size the host pill's own glyphs use, so the row's trailing mark matches the controls above it. */
@@ -49,7 +51,7 @@ const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted })
  * the way every other sheet reaches a second page — the header's back arrow returns from it —
  * because a label row is a label, not a button that swaps the surface under you.
  */
-export function WorkspaceLabelManagerModal({
+export function LabelManagerModal({
   visible,
   onClose,
 }: {
@@ -58,16 +60,16 @@ export function WorkspaceLabelManagerModal({
 }): ReactElement {
   const { t } = useTranslation();
   const hosts = useHosts();
-  const { hosts: labelHosts } = useWorkspaceLabelProjection();
+  const { hosts: labelHosts } = useLabelProjection();
   const snapshots = useMemo(
     () => Object.fromEntries(labelHosts.map((host) => [host.serverId, host])),
     [labelHosts],
   );
   const [model] = useState(() =>
-    createWorkspaceLabelManagerModel({
-      update: (input) => workspaceLabels.update(input),
-      inspectDelete: (input) => workspaceLabels.inspectDelete(input),
-      delete: (input) => workspaceLabels.delete(input),
+    createLabelManagerModel({
+      update: (input) => labels.update(input),
+      inspectDelete: (input) => labels.inspectDelete(input),
+      delete: (input) => labels.delete(input),
     }),
   );
 
@@ -95,13 +97,10 @@ export function WorkspaceLabelManagerModal({
 
   const selectHost = useCallback((serverId: string) => model.selectHost(serverId), [model]);
   const setQuery = useCallback((value: string) => model.setQuery(value), [model]);
-  const edit = useCallback((label: WorkspaceLabelDefinition) => model.edit(label), [model]);
+  const edit = useCallback((label: Label) => model.edit(label), [model]);
   const cancelEdit = useCallback(() => model.cancelEdit(), [model]);
   const setDraftName = useCallback((value: string) => model.setDraftName(value), [model]);
-  const setDraftColor = useCallback(
-    (color: WorkspaceLabelColor) => model.setDraftColor(color),
-    [model],
-  );
+  const setDraftColor = useCallback((color: LabelColor) => model.setDraftColor(color), [model]);
   const save = useCallback(() => {
     void model.save();
   }, [model]);
@@ -134,7 +133,7 @@ export function WorkspaceLabelManagerModal({
               onChange: setQuery,
               resetKey: Number(visible),
               placeholder: t("workspaceLabels.manage.search"),
-              testID: "workspace-label-manager-search",
+              testID: "label-manager-search",
             },
           },
     [cancelEdit, isEditing, setQuery, t, visible],
@@ -148,7 +147,7 @@ export function WorkspaceLabelManagerModal({
             variant="outline"
             disabled={disabled}
             onPress={remove}
-            testID="workspace-label-manager-delete"
+            testID="label-manager-delete"
           >
             {t("workspaceLabels.manage.delete")}
           </Button>
@@ -157,7 +156,7 @@ export function WorkspaceLabelManagerModal({
             disabled={disabled || !state.dirty}
             loading={state.pending}
             onPress={save}
-            testID="workspace-label-manager-save"
+            testID="label-manager-save"
           >
             {t("workspaceLabels.manage.save")}
           </Button>
@@ -172,10 +171,10 @@ export function WorkspaceLabelManagerModal({
       onClose={onClose}
       header={header}
       footer={footer}
-      testID="workspace-label-manager"
+      testID="label-manager"
     >
       {draft && editing ? (
-        <WorkspaceLabelEditView
+        <LabelEditView
           draft={draft}
           disabled={disabled}
           error={state.error}
@@ -191,18 +190,16 @@ export function WorkspaceLabelManagerModal({
               selectedHost={state.serverId}
               onSelectHost={selectHost}
               includeAllHost={false}
-              triggerTestID="workspace-label-manager-host"
+              triggerTestID="label-manager-host"
               hostOptionTestID={managerHostOptionTestID}
             />
           ) : null}
+          {state.host?.status === "online" ? (
+            <LabelCreateForm serverId={state.serverId} disabled={state.pending} />
+          ) : null}
           <View style={styles.list}>
             {state.labels.map((label) => (
-              <WorkspaceLabelManagerRow
-                key={workspaceLabelKey(label.name)}
-                label={label}
-                disabled={disabled}
-                onEdit={edit}
-              />
+              <LabelManagerRow key={label.id} label={label} disabled={disabled} onEdit={edit} />
             ))}
             {state.labels.length === 0 ? (
               <Text style={styles.muted}>{t("workspaceLabels.manage.empty")}</Text>
@@ -212,7 +209,7 @@ export function WorkspaceLabelManagerModal({
             <Text style={styles.muted}>{t("workspaceLabels.manage.offline")}</Text>
           ) : null}
           {(state.error ?? state.host?.error) ? (
-            <Text style={styles.error} testID="workspace-label-manager-error">
+            <Text style={styles.error} testID="label-manager-error">
               {state.error ?? state.host?.error}
             </Text>
           ) : null}
@@ -222,7 +219,78 @@ export function WorkspaceLabelManagerModal({
   );
 }
 
-const managerHostOptionTestID = (serverId: string) => `workspace-label-manager-host-${serverId}`;
+/**
+ * Creating a label from the manager: a name, a colour, one Create press. Unlike the picker's
+ * create page it assigns nothing, because the manager has no target.
+ */
+function LabelCreateForm({
+  serverId,
+  disabled,
+}: {
+  serverId: string;
+  disabled: boolean;
+}): ReactElement {
+  const { t } = useTranslation();
+  const [name, setName] = useState("");
+  const [color, setColor] = useState<LabelColor>(LABEL_COLORS[0]);
+  const [resetKey, setResetKey] = useState(0);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const trimmed = normalizeLabelName(name);
+  const submit = useCallback(() => {
+    if (!trimmed || pending) return;
+    setPending(true);
+    setError(null);
+    void (async () => {
+      try {
+        await labels.create({ serverId, name: trimmed, color });
+        setName("");
+        setResetKey((key) => key + 1);
+      } catch (cause) {
+        setError(labelErrorMessage(cause));
+      } finally {
+        setPending(false);
+      }
+    })();
+  }, [color, pending, serverId, trimmed]);
+  return (
+    <View style={styles.createForm}>
+      <Field label={t("workspaceLabels.create")}>
+        <FormTextInput
+          size="md"
+          initialValue=""
+          resetKey={resetKey}
+          onChangeText={setName}
+          onSubmitEditing={submit}
+          editable={!disabled && !pending}
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder={t("workspaceLabels.name")}
+          accessibilityLabel={t("workspaceLabels.name")}
+          testID="label-manager-create-name"
+        />
+      </Field>
+      <LabelSwatchRow
+        value={color}
+        onChange={setColor}
+        disabled={disabled || pending}
+        testID="label-manager-create-colors"
+      />
+      <Button
+        variant="outline"
+        disabled={disabled || !trimmed}
+        loading={pending}
+        onPress={submit}
+        testID="label-manager-create-submit"
+      >
+        {t("workspaceLabels.createConfirm")}
+      </Button>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </View>
+  );
+}
+
+const managerHostOptionTestID = (serverId: string) => `label-manager-host-${serverId}`;
 
 /**
  * One label: its colour, its name, and the pencil that opens it.
@@ -231,14 +299,14 @@ const managerHostOptionTestID = (serverId: string) => `workspace-label-manager-h
  * shape that survives a pressable inside a hover target (docs/hover.md). The pencil fades rather
  * than mounts, so revealing it cannot move the row out from under the pointer.
  */
-function WorkspaceLabelManagerRow({
+function LabelManagerRow({
   label,
   disabled,
   onEdit,
 }: {
-  label: WorkspaceLabelDefinition;
+  label: Label;
   disabled: boolean;
-  onEdit: (label: WorkspaceLabelDefinition) => void;
+  onEdit: (label: Label) => void;
 }): ReactElement {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
@@ -261,9 +329,9 @@ function WorkspaceLabelManagerRow({
       style={styles.row}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
-      testID={`workspace-label-manager-label-${label.name}`}
+      testID={`label-manager-label-${label.name}`}
     >
-      <WorkspaceLabelDot color={label.color} />
+      <LabelDot color={label.color} />
       <Text style={styles.rowName} numberOfLines={1}>
         {label.name}
       </Text>
@@ -275,7 +343,7 @@ function WorkspaceLabelManagerRow({
         onPress={edit}
         pointerEvents={revealed ? "auto" : "none"}
         style={editStyle}
-        testID={`workspace-label-manager-edit-${label.name}`}
+        testID={`label-manager-edit-${label.name}`}
       >
         <ThemedPencil size={EDIT_ICON_SIZE} uniProps={mutedMapping} />
       </Pressable>
@@ -289,7 +357,7 @@ function WorkspaceLabelManagerRow({
  * Picking a colour picks a colour — nothing leaves for the host until Save, so a failure has one
  * thing to report and the draft is still exactly what was typed.
  */
-function WorkspaceLabelEditView({
+function LabelEditView({
   draft,
   disabled,
   error,
@@ -297,11 +365,11 @@ function WorkspaceLabelEditView({
   onChangeColor,
   onSubmit,
 }: {
-  draft: WorkspaceLabelManagerDraft;
+  draft: LabelManagerDraft;
   disabled: boolean;
   error: string | null;
   onChangeName: (value: string) => void;
-  onChangeColor: (color: WorkspaceLabelColor) => void;
+  onChangeColor: (color: LabelColor) => void;
   onSubmit: () => void;
 }): ReactElement {
   const { t } = useTranslation();
@@ -319,19 +387,19 @@ function WorkspaceLabelEditView({
           autoCapitalize="none"
           autoCorrect={false}
           accessibilityLabel={t("workspaceLabels.manage.name")}
-          testID="workspace-label-manager-name"
+          testID="label-manager-name"
         />
       </Field>
       <Field label={t("workspaceLabels.manage.color")}>
-        <WorkspaceLabelSwatchRow
+        <LabelSwatchRow
           value={draft.color}
           onChange={onChangeColor}
           disabled={disabled}
-          testID="workspace-label-manager-colors"
+          testID="label-manager-colors"
         />
       </Field>
       {error ? (
-        <Text style={styles.error} testID="workspace-label-manager-error">
+        <Text style={styles.error} testID="label-manager-error">
           {error}
         </Text>
       ) : null}
@@ -342,6 +410,10 @@ function WorkspaceLabelEditView({
 const styles = StyleSheet.create((theme) => ({
   list: {
     gap: theme.spacing[1],
+  },
+  createForm: {
+    gap: theme.spacing[2],
+    marginBottom: theme.spacing[3],
   },
   // Fixed height so the pencil appearing cannot resize the row under the pointer. The dot leads
   // at the content inset and the pencil ends on it; nothing here indents, so the list holds one

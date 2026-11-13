@@ -562,6 +562,7 @@ interface WorkspaceHeaderTitleBarProps {
   isSubtitleDistinct: boolean;
   currentBranchName: string | null;
   normalizedServerId: string;
+  normalizedWorkspaceId: string;
   showWorkspaceSetup: boolean;
   importAgentDisabled: boolean;
   copyPathDisabled: boolean;
@@ -579,6 +580,7 @@ function WorkspaceHeaderTitleBarBase({
   isSubtitleDistinct,
   currentBranchName,
   normalizedServerId,
+  normalizedWorkspaceId,
   showWorkspaceSetup,
   importAgentDisabled,
   copyPathDisabled,
@@ -603,12 +605,15 @@ function WorkspaceHeaderTitleBarBase({
             isSubtitleDistinct={isSubtitleDistinct}
             branch={currentBranchName}
             serverId={normalizedServerId}
+            workspaceId={normalizedWorkspaceId}
           />
         </View>
       )}
       {actionsInBar ? null : (
         <View style={styles.compactHeaderMenuCluster}>
           <WorkspaceHeaderMenuDesktop
+            serverId={normalizedServerId}
+            workspaceId={normalizedWorkspaceId}
             currentBranchName={currentBranchName}
             showWorkspaceSetup={showWorkspaceSetup}
             importAgentDisabled={importAgentDisabled}
@@ -3539,6 +3544,7 @@ function WorkspaceScreenContent({
         isSubtitleDistinct={isWorkspaceHeaderSubtitleDistinct}
         currentBranchName={currentBranchName}
         normalizedServerId={normalizedServerId}
+        normalizedWorkspaceId={normalizedWorkspaceId}
         showWorkspaceSetup={showWorkspaceSetup}
         importAgentDisabled={!canOpenImportSheet}
         copyPathDisabled={!workspaceDirectory}
@@ -3558,6 +3564,7 @@ function WorkspaceScreenContent({
       handleOpenRenameChat,
       isWorkspaceHeaderLoading,
       normalizedServerId,
+      normalizedWorkspaceId,
       openImportSheet,
       showWorkspaceSetup,
       workspaceDirectory,
@@ -3669,6 +3676,7 @@ function WorkspaceScreenContent({
           isSubtitleDistinct={!editorTitle && isWorkspaceHeaderSubtitleDistinct}
           currentBranchName={currentBranchName}
           serverId={normalizedServerId}
+          workspaceId={normalizedWorkspaceId}
           onToggleExplorer={handleToggleExplorerSidebar}
           explorerToggleLabel={explorerSidebarToggleLabel}
           explorerToggleAccessibilityState={explorerSidebarToggleAccessibilityState}

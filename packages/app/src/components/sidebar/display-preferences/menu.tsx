@@ -49,13 +49,13 @@ import {
   SIDEBAR_UNLABELLED_LABEL_KEY,
   type SidebarGroupMode,
 } from "@/stores/sidebar-view-store";
-import { workspaceLabelKey, type WorkspaceLabelColor } from "@pimi/protocol/workspace-labels";
+import type { LabelColor } from "@pimi/protocol/labels";
 import { SIDEBAR_CHECKS_DISPLAYS, type SidebarChecksDisplay } from "./checks-display";
 import { useSidebarDisplayPreferences, type SidebarTrailingChoice } from "./model";
 import { SIDEBAR_ROW_ITEMS, type SidebarRowItem } from "./row-items";
-import { useWorkspaceLabelProjection } from "@/workspace-labels";
-import { WorkspaceLabelDot } from "@/workspace-labels/swatch";
-import { WorkspaceLabelManagerModal } from "@/workspace-labels/manager-modal";
+import { useLabelProjection } from "@/labels/store";
+import { LabelDot } from "@/labels/swatch";
+import { LabelManagerModal } from "@/labels/manager-modal";
 
 const mutedIconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
@@ -155,7 +155,7 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
   // `allProjects`, never `projects`: the model's `projects` is already filtered, so a picker fed
   // from it would lose the row that undoes the filter as soon as the filter narrowed to one.
   const { allProjects, resolvedProjectFilters } = useSidebarModel();
-  const { labels } = useWorkspaceLabelProjection();
+  const { labels } = useLabelProjection();
   const [managerOpen, setManagerOpen] = useState(false);
   const openManager = useCallback(() => setManagerOpen(true), []);
   const closeManager = useCallback(() => setManagerOpen(false), []);
@@ -351,7 +351,7 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
           </MenuItem>
         </MenuSurface>
       </MenuRoot>
-      <WorkspaceLabelManagerModal visible={managerOpen} onClose={closeManager} />
+      <LabelManagerModal visible={managerOpen} onClose={closeManager} />
     </>
   );
 }
@@ -391,7 +391,7 @@ function LabelFilterPage({
   preferences,
   onManage,
 }: {
-  labels: ReturnType<typeof useWorkspaceLabelProjection>["labels"];
+  labels: ReturnType<typeof useLabelProjection>["labels"];
   preferences: Preferences;
   onManage: () => void;
 }): ReactElement {
@@ -401,11 +401,11 @@ function LabelFilterPage({
     <>
       {labels.map((label) => (
         <LabelFilterItem
-          key={workspaceLabelKey(label.name)}
-          name={label.name}
+          key={label.id}
+          name={label.id}
           label={label.name}
           color={label.color}
-          selected={selected.includes(workspaceLabelKey(label.name))}
+          selected={selected.includes(label.id)}
           onToggle={preferences.toggleLabelFilter}
           testID={`sidebar-label-filter-option-${label.name}`}
         />
@@ -454,20 +454,17 @@ function LabelFilterItem({
   onToggle,
   testID,
 }: {
-  /** The filter key this row acts on. Empty for Unlabelled — see `SIDEBAR_UNLABELLED_LABEL_KEY`. */
+  /** The filter key (a label id) this row acts on. Empty for Unlabelled — see `SIDEBAR_UNLABELLED_LABEL_KEY`. */
   name: string;
   label: string;
   /** `null` is Unlabelled, the one row with no color to stand for. */
-  color: WorkspaceLabelColor | null;
+  color: LabelColor | null;
   selected: boolean;
   onToggle: (name: string) => void;
   testID: string;
 }): ReactElement {
   const handleSelect = useCallback(() => onToggle(name), [name, onToggle]);
-  const leading = useMemo(
-    () => (color ? <WorkspaceLabelDot color={color} /> : UNLABELLED_MARK),
-    [color],
-  );
+  const leading = useMemo(() => (color ? <LabelDot color={color} /> : UNLABELLED_MARK), [color]);
 
   return (
     <MenuItem

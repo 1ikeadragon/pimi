@@ -1,11 +1,7 @@
 import { useTranslation } from "@/i18n/use-translation";
 import React, { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
-import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
-import { PIMI_TASK_WORKER_LABEL } from "@pimi/protocol/pimi-task";
-import { useShallow } from "zustand/react/shallow";
-import { usePimiLinkedLabels } from "@/desktop/pimi-labels";
-import { getDesktopHost } from "@/desktop/host";
-import { useSessionStore, type Agent } from "@/stores/session-store";
+import equal from "fast-deep-equal";
+import { useStoreWithEqualityFn } from "zustand/traditional";
 import {
   useSidebarWorkspacesList,
   type SidebarProjectEntry,
@@ -27,12 +23,15 @@ import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model
 import { filterWorkspacesByLabels, type SidebarWorkspaceGroup } from "./sidebar-labels";
 import { filterWorkspacesByProjects, resolveActiveProjectFilters } from "./sidebar-project-filter";
 import {
-  hasAuthoritativeWorkspaceLabelCatalog,
-  useWorkspaceLabelProjection,
-} from "@/workspace-labels";
+  hasAuthoritativeLabelCatalog,
+  labelTargetKey,
+  useLabelProjection,
+  useLabelStore,
+} from "@/labels/store";
+import { selectWorkspaceRootChats } from "@/chats/primary-chat";
+import { useSessionStore } from "@/stores/session-store";
 
 interface SidebarModel extends SidebarWorkspacesListResult {
-  pimiTaskBranches: ReadonlyMap<string, PimiTaskBranch[]>;
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   /**
    * Every project the sidebar could show, before any filter narrows it.
@@ -53,66 +52,9 @@ interface SidebarModel extends SidebarWorkspacesListResult {
   shortcutModel: SidebarShortcutModel;
 }
 
+const NO_ROOT_CHATS: ReadonlyMap<string, string[]> = new Map();
+
 const SidebarModelContext = createContext<SidebarModel | null>(null);
-
-interface PimiTaskBranch {
-  worker: Agent;
-  parent: Agent;
-  workspace: SidebarWorkspaceEntry;
-}
-
-function visibleTaskBranch(
-  worker: Agent,
-  agents: ReadonlyMap<string, Agent>,
-  workspaces: ReadonlyMap<string, SidebarWorkspaceEntry>,
-  workspaceSizes: ReadonlyMap<string, number>,
-  groupMode: SidebarGroupMode,
-) {
-  if (!worker.labels?.[PIMI_TASK_WORKER_LABEL] || worker.archivedAt || worker.background) return;
-  if (!worker.workspaceId || workspaceSizes.get(worker.workspaceId) !== 1) return;
-  const address = getParentAddressFromLabels(worker.labels, worker.serverId);
-  if (address?.serverId !== worker.serverId) return;
-  const parent = agents.get(address.agentId);
-  if (!parent?.workspaceId || parent.archivedAt || parent.background) return;
-  if (worker.workspaceId === parent.workspaceId) return;
-  const workspace = workspaces.get(`${worker.serverId}:${worker.workspaceId}`);
-  const parentKey = `${parent.serverId}:${parent.workspaceId}`;
-  const parentWorkspace = workspaces.get(parentKey);
-  if (!workspace || workspace.pinnedAt || !parentWorkspace) return;
-  // In Status, a child that needs review must stay visible in its own bucket.
-  if (groupMode === "status" && workspace.statusBucket !== parentWorkspace.statusBucket) return;
-  return { branch: { worker, parent, workspace }, parentKey };
-}
-
-function projectPimiTaskBranches(
-  agentMaps: ReadonlyArray<ReadonlyMap<string, Agent>>,
-  workspaces: ReadonlyMap<string, SidebarWorkspaceEntry>,
-  groupMode: SidebarGroupMode,
-) {
-  const branches = new Map<string, PimiTaskBranch[]>();
-  const nestedKeys = new Set<string>();
-  for (const agents of agentMaps) {
-    const workspaceSizes = new Map<string, number>();
-    for (const agent of agents.values()) {
-      if (!agent.workspaceId || agent.archivedAt || agent.background) continue;
-      workspaceSizes.set(agent.workspaceId, (workspaceSizes.get(agent.workspaceId) ?? 0) + 1);
-    }
-    for (const worker of agents.values()) {
-      const nested = visibleTaskBranch(worker, agents, workspaces, workspaceSizes, groupMode);
-      if (!nested) continue;
-      const { branch, parentKey } = nested;
-      nestedKeys.add(branch.workspace.workspaceKey);
-      const siblings = branches.get(parentKey);
-      if (siblings) siblings.push(branch);
-      else branches.set(parentKey, [branch]);
-    }
-  }
-  return { branches, nestedKeys };
-}
-
-export function usePimiTaskBranches(workspaceKey: string) {
-  return useContext(SidebarModelContext)?.pimiTaskBranches.get(workspaceKey);
-}
 
 export function SidebarModelProvider({
   active,
@@ -125,19 +67,13 @@ export function SidebarModelProvider({
 }) {
   const { t } = useTranslation();
   const modelActive = active !== false || keyboardNavigationActive;
-  const showTaskBranches = modelActive && Boolean(getDesktopHost()?.showPimiWorkspace);
-  const agentMaps = useSessionStore(
-    useShallow((state) =>
-      showTaskBranches ? Object.values(state.sessions).map((session) => session.agents) : [],
-    ),
-  );
   const list = useSidebarWorkspacesList({ enabled: modelActive });
   const showBackground = useSidebarViewStore((state) => state.showBackground);
   const groupMode = useSidebarViewStore((state) => state.groupMode);
   const labelFilter = useSidebarViewStore((state) => state.labelFilter);
   const projectFilters = useSidebarViewStore((state) => state.projectFilters);
   const reconcileLabelFilter = useSidebarViewStore((state) => state.reconcileLabelFilter);
-  const { hosts: labelHosts } = useWorkspaceLabelProjection();
+  const { hosts: labelHosts } = useLabelProjection();
   const collapsedProjectKeys = useSidebarCollapsedSectionsStore(
     (state) => state.collapsedProjectKeys,
   );
@@ -149,15 +85,15 @@ export function SidebarModelProvider({
   const toggleProjectCollapsed = useSidebarCollapsedSectionsStore(
     (state) => state.toggleProjectCollapsed,
   );
-  const availableLabelNames = useMemo(
-    () => labelHosts.flatMap((host) => host.labels.map((label) => label.name)),
+  const availableLabelIds = useMemo(
+    () => labelHosts.flatMap((host) => host.labels.map((label) => label.id)),
     [labelHosts],
   );
-  const hasAuthoritativeLabelCatalog = hasAuthoritativeWorkspaceLabelCatalog(labelHosts);
+  const catalogsAuthoritative = hasAuthoritativeLabelCatalog(labelHosts);
   useEffect(() => {
-    if (!hasAuthoritativeLabelCatalog) return;
-    reconcileLabelFilter(availableLabelNames);
-  }, [availableLabelNames, hasAuthoritativeLabelCatalog, reconcileLabelFilter]);
+    if (!catalogsAuthoritative) return;
+    reconcileLabelFilter(availableLabelIds);
+  }, [availableLabelIds, catalogsAuthoritative, reconcileLabelFilter]);
   const hasActiveLabelFilter = hasActiveSidebarLabelFilter(labelFilter);
   const resolvedProjectFilters = useMemo(
     () =>
@@ -179,7 +115,27 @@ export function SidebarModelProvider({
     list.workspacePlacements,
     modelActive || needsWorkspaceEntries,
   );
-  const linkedLabels = usePimiLinkedLabels();
+  // Labels live on chats. A workspace matches when any root chat in it carries the label, so the
+  // filter reads each workspace's root chat ids — only while a filter is active, because the
+  // session store ticks on every stream event.
+  const rootChatIdsByWorkspace = useStoreWithEqualityFn(
+    useSessionStore,
+    (state) => {
+      if (!hasActiveLabelFilter) return NO_ROOT_CHATS;
+      const result = new Map<string, string[]>();
+      for (const workspace of workspaceEntriesByKey.values()) {
+        result.set(
+          workspace.workspaceKey,
+          selectWorkspaceRootChats(state.sessions, workspace.serverId, workspace.workspaceId).map(
+            (chat) => chat.agentId,
+          ),
+        );
+      }
+      return result;
+    },
+    equal,
+  );
+  const labelHostsById = useLabelStore((state) => state.hosts);
   const filteredWorkspaceEntriesByKey = useMemo(() => {
     const byProject = filterWorkspacesByProjects({
       workspaces: [...workspaceEntriesByKey.values()],
@@ -188,13 +144,23 @@ export function SidebarModelProvider({
     const filtered = filterWorkspacesByLabels({
       workspaces: byProject.filter((workspace) => showBackground || !workspace.background),
       ...labelFilter,
-      linkedLabels: (workspace) =>
-        linkedLabels?.serverId === workspace.serverId
-          ? linkedLabels.workspaces[workspace.workspaceId]
-          : undefined,
+      labelIdsOf: (workspace) =>
+        (rootChatIdsByWorkspace.get(workspace.workspaceKey) ?? []).flatMap(
+          (agentId) =>
+            labelHostsById[workspace.serverId]?.assignments[
+              labelTargetKey({ kind: "agent", agentId })
+            ] ?? [],
+        ),
     });
     return new Map(filtered.map((workspace) => [workspace.workspaceKey, workspace]));
-  }, [showBackground, labelFilter, linkedLabels, resolvedProjectFilters, workspaceEntriesByKey]);
+  }, [
+    showBackground,
+    labelFilter,
+    labelHostsById,
+    rootChatIdsByWorkspace,
+    resolvedProjectFilters,
+    workspaceEntriesByKey,
+  ]);
   const visibleWorkspaceKeys = useMemo(
     () => new Set(filteredWorkspaceEntriesByKey.keys()),
     [filteredWorkspaceEntriesByKey],
@@ -229,35 +195,12 @@ export function SidebarModelProvider({
     visibleWorkspaceKeys,
   ]);
   const pinnedKeys = usePinnedSidebarKeys(filteredProjects);
-  const taskTree = useMemo(
-    () => projectPimiTaskBranches(agentMaps, filteredWorkspaceEntriesByKey, groupMode),
-    [agentMaps, filteredWorkspaceEntriesByKey, groupMode],
-  );
-  const rootProjects = useMemo(() => {
-    if (!taskTree.nestedKeys.size) return filteredProjects;
-    return filteredProjects.flatMap((project) => {
-      const workspaces = project.workspaces.filter(
-        (workspace) => !taskTree.nestedKeys.has(workspace.workspaceKey),
-      );
-      if (workspaces.length === project.workspaces.length) return [project];
-      return workspaces.length ? [{ ...project, workspaces }] : [];
-    });
-  }, [filteredProjects, taskTree.nestedKeys]);
-  const rootWorkspaces = useMemo(
-    () =>
-      taskTree.nestedKeys.size
-        ? new Map(
-            [...filteredWorkspaceEntriesByKey].filter(([key]) => !taskTree.nestedKeys.has(key)),
-          )
-        : filteredWorkspaceEntriesByKey,
-    [filteredWorkspaceEntriesByKey, taskTree.nestedKeys],
-  );
   const projectionInput = useMemo(
     () => ({
-      projects: rootProjects,
+      projects: filteredProjects,
       pinnedKeys,
       pinnedWorkspaceOrder,
-      workspaceEntriesByKey: rootWorkspaces,
+      workspaceEntriesByKey: filteredWorkspaceEntriesByKey,
       projectNamesByViewKey: list.projectNamesByViewKey,
       groupMode,
       pinnedCollapsed,
@@ -270,11 +213,11 @@ export function SidebarModelProvider({
       collapsedWorkspaceGroupKeys,
       groupMode,
       list.projectNamesByViewKey,
-      rootProjects,
+      filteredProjects,
       pinnedCollapsed,
       pinnedKeys,
       pinnedWorkspaceOrder,
-      rootWorkspaces,
+      filteredWorkspaceEntriesByKey,
       t,
     ],
   );
@@ -282,8 +225,7 @@ export function SidebarModelProvider({
   const value = useMemo(
     () => ({
       ...list,
-      projects: rootProjects,
-      pimiTaskBranches: taskTree.branches,
+      projects: filteredProjects,
       allProjects: list.projects,
       resolvedProjectFilters,
       hasProjectsBeforeFilter: list.projects.length > 0,
@@ -301,8 +243,7 @@ export function SidebarModelProvider({
       collapsedProjectKeys,
       groupMode,
       list,
-      rootProjects,
-      taskTree.branches,
+      filteredProjects,
       projection,
       toggleProjectCollapsed,
       filteredWorkspaceEntriesByKey,
