@@ -1616,7 +1616,7 @@ client.addCommandCenterItem({
 | `title`    | 是       | 搜索结果的标题。                                    |
 | `icon`     | 是       | Lucide 名称、`{ svg }` 或组件。参见[图标](#icons)。 |
 | `keywords` | 否       | 额外的 Command Center 搜索词。                      |
-| `shortcut` | 否       | 键盘组合，例如 `mod+shift+m`。见下文。              |
+| `shortcut` | 否       | 键盘组合，例如 `mod+alt+m`。见下文。                |
 | `context`  | 是       | `global`、`workspace` 或 `agent`。                  |
 | `onSelect` | 是       | 对应上下文的客户端回调。                            |
 

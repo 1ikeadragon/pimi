@@ -5,7 +5,7 @@ colored by how recently one of the last 500 commits touched it; folders are labe
 shows what a plugin can build on its own, with no changes to Pimi:
 
 - a screen drawn with `react-native-svg`, panned and zoomed with `react-native-gesture-handler`
-- a sidebar item, a Command Center item with the `mod+shift+m` shortcut (rebindable in Settings), and
+- a sidebar item, a Command Center item with the `mod+alt+m` shortcut (rebindable in Settings), and
   a **Show in Repo Map** item on file tree rows
 - repository data from the daemon through the plugin's own RPC and a subscription that refreshes the
   map when files change

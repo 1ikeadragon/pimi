@@ -1928,7 +1928,7 @@ client.addCommandCenterItem({
 | `title`    | Yes      | Search result title.                                       |
 | `icon`     | Yes      | Lucide name, `{ svg }`, or component. See [Icons](#icons). |
 | `keywords` | No       | Additional Command Center search terms.                    |
-| `shortcut` | No       | A keyboard chord such as `mod+shift+m`. See below.         |
+| `shortcut` | No       | A keyboard chord such as `mod+alt+m`. See below.           |
 | `context`  | Yes      | `global`, `workspace`, or `agent`.                         |
 | `onSelect` | Yes      | Client-side callback for the matching context.             |
 

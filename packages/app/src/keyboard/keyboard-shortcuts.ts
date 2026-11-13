@@ -1731,8 +1731,11 @@ export function isShortcutCaptureComplete(bindingId: string, combos: readonly st
   return binding?.payload?.type !== "index" || /(^|\+)(Digit|[1-9])$/.test(lastCombo);
 }
 
-export function buildEffectiveBindings(overrides: ShortcutOverrides): ParsedShortcutBinding[] {
-  return allBindings.map(function (binding) {
+export function buildEffectiveBindings(
+  overrides: ShortcutOverrides,
+  base: readonly ParsedShortcutBinding[] = allBindings,
+): ParsedShortcutBinding[] {
+  return base.map(function (binding) {
     const override = overrides[binding.id];
     if (override === UNASSIGNED_COMBO) {
       return { ...binding, combo: "", parsedChord: [] };

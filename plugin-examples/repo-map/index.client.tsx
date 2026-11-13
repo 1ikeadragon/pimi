@@ -11,7 +11,7 @@ export default function contribute(client: PluginClientContext) {
       title: "Open Repo Map",
       icon: "Map",
       context: "workspace",
-      shortcut: "mod+shift+m",
+      shortcut: "mod+alt+m",
       onSelect({ workspace, openScreen }) {
         openScreen({ screenId: "map", params: { workspaceId: workspace.id } });
       },

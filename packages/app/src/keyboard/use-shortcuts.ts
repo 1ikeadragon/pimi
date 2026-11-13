@@ -59,9 +59,9 @@ export function useKeyboardShortcuts({
   const { overrides } = useKeyboardShortcutOverrides();
   const pluginBindings = usePluginShortcutBindings();
   // Plugin bindings load after the app starts, so they rebuild the effective list.
+  // The base list is an argument so the memo sees the plugin bindings change.
   const bindings = useMemo(
-    () => buildEffectiveBindings(overrides),
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    () => buildEffectiveBindings(overrides, pluginBindings),
     [overrides, pluginBindings],
   );
   const isMac = getShortcutOs() === "mac";
