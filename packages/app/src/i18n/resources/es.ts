@@ -2387,6 +2387,12 @@ export const es: TranslationResources = {
       setupDescription:
         "Para emparejar a distancia, ejecuta Pimi Relay, configura su dirección en config.json y reinicia Pimi.",
       loadingOffer: "Cargando oferta de maridaje...",
+      hostUnreachableTitle: "No se puede conectar con este host",
+      hostConnecting:
+        "Intentando conectar con este host. El enlace de vinculación aparecerá en cuanto se conecte.",
+      hostOffline:
+        "Este host está desconectado. Inicia Pimi en él y vuelve a intentarlo. También puedes añadir otro host.",
+      addAnotherHost: "Añadir otro host",
       failedToLoadOffer: "No se pudo cargar la oferta de emparejamiento.",
       relayDisabled: "El relé no está habilitado. Habilite el relé para emparejar un dispositivo.",
       enableTitle: "¿Habilitar el relé?",

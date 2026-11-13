@@ -2349,6 +2349,11 @@ export const ko: TranslationResources = {
       setupDescription:
         "원격으로 연결하려면 Pimi Relay를 실행하고 config.json에 주소를 설정한 뒤 Pimi를 다시 시작하세요.",
       loadingOffer: "페어링 정보 불러오는 중...",
+      hostUnreachableTitle: "이 호스트에 연결할 수 없습니다",
+      hostConnecting: "이 호스트에 연결하는 중입니다. 연결되면 바로 페어링 링크가 표시됩니다.",
+      hostOffline:
+        "이 호스트가 오프라인입니다. 호스트에서 Pimi를 실행한 뒤 다시 시도하세요. 다른 호스트를 추가할 수도 있습니다.",
+      addAnotherHost: "다른 호스트 추가",
       failedToLoadOffer: "페어링 정보를 불러오지 못했습니다.",
       relayDisabled:
         "릴레이가 활성화되어 있지 않습니다. 기기를 페어링하려면 릴레이를 활성화하세요.",

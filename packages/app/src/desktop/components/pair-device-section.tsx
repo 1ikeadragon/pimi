@@ -11,10 +11,15 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "@/components/ui/external-link";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useAddHost } from "@/hosts/add-host";
 import { useFetchQuery } from "@/data/query";
 import { daemonPairingOfferQueryKey } from "@/data/daemon-pairing";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
-import { useHostRuntimeClient, useHostRuntimeConnectionStatus } from "@/runtime/host-runtime";
+import {
+  getHostRuntimeStore,
+  useHostRuntimeClient,
+  useHostRuntimeConnectionStatus,
+} from "@/runtime/host-runtime";
 import type { Theme } from "@/styles/theme";
 import {
   EditingTextInput as TextInput,
@@ -26,6 +31,7 @@ const RELAY_DOCS_URL =
 export const CONNECTIVITY_DOCS_URL =
   "https://github.com/1ikeadragon/pimi/blob/main/public-docs/connectivity.md";
 export const TAILSCALE_DOCS_URL = `${CONNECTIVITY_DOCS_URL}#tailscale`;
+const OFFER_REQUEST_TIMEOUT_MS = 15_000;
 const FLEX_ONE_STYLE = { flex: 1 } as const;
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 const ThemedShieldCheck = withUnistyles(ShieldCheck);
@@ -45,7 +51,7 @@ export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps)
   const client = useHostRuntimeClient(serverId);
   const connectionStatus = useHostRuntimeConnectionStatus(serverId);
   const isConnected = connectionStatus === "online";
-  const isDisconnected = connectionStatus === "offline" || connectionStatus === "error";
+  const hostState: HostState = connectionStatus === "online" ? "online" : connectionStatus;
   const { patchConfig } = useDaemonConfig(serverId);
   const [copied, setCopied] = useState(false);
 
@@ -53,13 +59,20 @@ export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps)
     queryKey: daemonPairingOfferQueryKey(serverId),
     queryFn: async () => {
       if (!client) throw new Error(t("workspace.terminal.hostDisconnected"));
-      return client.getDaemonPairingOffer();
+      return client.getDaemonPairingOffer({ timeout: OFFER_REQUEST_TIMEOUT_MS });
     },
     enabled: Boolean(client && isConnected),
     dataShape: "value",
     staleTimeMs: 5 * 60 * 1000,
-    retry: 1,
+    retry: 0,
   });
+
+  // A request that failed while the host was dropping must not pin its error once the host is back.
+  const refetchOffer = pairingQuery.refetch;
+  const offerFailed = pairingQuery.isError;
+  useEffect(() => {
+    if (isConnected && offerFailed) void refetchOffer();
+  }, [isConnected, offerFailed, refetchOffer]);
 
   const enableRelay = useMutation({
     mutationFn: async () => {
@@ -100,8 +113,17 @@ export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps)
     void handleCopyLink();
   }, [handleCopyLink]);
   const handleRetry = useCallback(() => {
-    void pairingQuery.refetch();
-  }, [pairingQuery]);
+    if (isConnected) {
+      void pairingQuery.refetch();
+      return;
+    }
+    void getHostRuntimeStore().runProbeCycleNow(serverId);
+  }, [isConnected, pairingQuery, serverId]);
+  const openAddHost = useAddHost();
+  const handleAddHost = useCallback(() => {
+    onClose();
+    openAddHost();
+  }, [onClose, openAddHost]);
   const handleEnableRelay = useCallback(() => {
     enableRelay.mutate();
   }, [enableRelay]);
@@ -116,7 +138,7 @@ export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps)
     <View testID="pair-device-content">
       <PairDeviceBody
         isPending={pairingQuery.isPending}
-        isDisconnected={isDisconnected}
+        hostState={hostState}
         error={pairingQuery.error}
         offer={pairingQuery.data}
         enablePending={enableRelay.isPending}
@@ -128,6 +150,7 @@ export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps)
         qrError={qrQuery.isError}
         copied={copied}
         onRetry={handleRetry}
+        onAddHost={handleAddHost}
         onEnableRelay={handleEnableRelay}
         onClose={onClose}
         onCopy={handleCopyPress}
@@ -136,9 +159,11 @@ export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps)
   );
 }
 
+type HostState = "online" | "idle" | "connecting" | "offline" | "error";
+
 interface PairDeviceBodyProps {
   isPending: boolean;
-  isDisconnected: boolean;
+  hostState: HostState;
   error: Error | null;
   offer: { relayEnabled: boolean; relayConfigured?: boolean; url: string } | undefined;
   enablePending: boolean;
@@ -150,6 +175,7 @@ interface PairDeviceBodyProps {
   qrError: boolean;
   copied: boolean;
   onRetry: () => void;
+  onAddHost: () => void;
   onEnableRelay: () => void;
   onClose: () => void;
   onCopy: () => void;
@@ -157,9 +183,32 @@ interface PairDeviceBodyProps {
 
 function PairDeviceBody(props: PairDeviceBodyProps) {
   const { t } = useTranslation();
-  if (props.isDisconnected) {
+  if (props.hostState !== "online") {
+    const reconnecting = props.hostState === "connecting" || props.hostState === "idle";
     return (
-      <OfferLoadError message={t("workspace.terminal.hostDisconnected")} onRetry={props.onRetry} />
+      <View style={styles.offer}>
+        <Alert
+          size="sm"
+          variant="error"
+          title={t("pairing.device.hostUnreachableTitle")}
+          description={t(
+            reconnecting ? "pairing.device.hostConnecting" : "pairing.device.hostOffline",
+          )}
+        />
+        <View style={styles.actions}>
+          <Button
+            variant="outline"
+            leftIcon={RotateCw}
+            style={FLEX_ONE_STYLE}
+            onPress={props.onRetry}
+          >
+            {t("pairing.device.retry")}
+          </Button>
+          <Button variant="default" style={FLEX_ONE_STYLE} onPress={props.onAddHost}>
+            {t("pairing.device.addAnotherHost")}
+          </Button>
+        </View>
+      </View>
     );
   }
   if (props.isPending) {

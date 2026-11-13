@@ -2374,6 +2374,12 @@ export const ptBR: TranslationResources = {
       setupDescription:
         "Para parear remotamente, execute o Pimi Relay, configure o endereço no config.json e reinicie o Pimi.",
       loadingOffer: "Carregando oferta de pareamento...",
+      hostUnreachableTitle: "Não foi possível alcançar este host",
+      hostConnecting:
+        "Tentando alcançar este host. O link de pareamento aparece assim que ele conectar.",
+      hostOffline:
+        "Este host está offline. Inicie o Pimi nele e tente novamente. Você também pode adicionar outro host.",
+      addAnotherHost: "Adicionar outro host",
       failedToLoadOffer: "Falha ao carregar oferta de pareamento.",
       relayDisabled: "Relay não está ativado. Ative o relay para parear um dispositivo.",
       enableTitle: "Ativar o relay?",

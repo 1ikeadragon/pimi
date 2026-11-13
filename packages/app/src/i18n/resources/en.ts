@@ -2369,6 +2369,11 @@ export const en = {
     },
     device: {
       loadingOffer: "Loading pairing offer...",
+      hostUnreachableTitle: "Can't reach this host",
+      hostConnecting: "Trying to reach this host. The pairing link appears as soon as it connects.",
+      hostOffline:
+        "This host is offline. Start Pimi on it, then retry. You can still add another host.",
+      addAnotherHost: "Add another host",
       failedToLoadOffer: "Failed to load pairing offer.",
       relayDisabled: "Relay is not enabled. Enable relay to pair a device.",
       setupTitle: "Set up a relay",

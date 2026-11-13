@@ -2336,6 +2336,10 @@ export const ar: TranslationResources = {
       setupDescription:
         "للاقتران عن بُعد، شغّل Pimi Relay واضبط عنوانه في config.json ثم أعد تشغيل Pimi.",
       loadingOffer: "جارٍ تحميل عرض الإقران...",
+      hostUnreachableTitle: "تعذر الوصول إلى هذا المضيف",
+      hostConnecting: "تجري محاولة الوصول إلى هذا المضيف. سيظهر رابط الاقتران فور اتصاله.",
+      hostOffline: "هذا المضيف غير متصل. شغّل Pimi عليه ثم أعد المحاولة. يمكنك أيضًا إضافة مضيف آخر.",
+      addAnotherHost: "إضافة مضيف آخر",
       failedToLoadOffer: "فشل تحميل عرض الاقتران.",
       relayDisabled: "لم يتم تمكين التتابع. تمكين التتابع لإقران جهاز.",
       enableTitle: "تمكين التتابع؟",
