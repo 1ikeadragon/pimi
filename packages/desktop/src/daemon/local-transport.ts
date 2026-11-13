@@ -6,10 +6,10 @@ import {
   validatePort,
   validateSshHost,
 } from "@pimi/protocol/ssh-transport";
-import { BrowserWindow } from "electron";
+import { app, BrowserWindow } from "electron";
 import { ensureRemoteDaemonForDesktop } from "./remote-ssh/desktop.js";
 import { prepareSshAuth } from "./remote-ssh/askpass.js";
-import { sshConfigArgs } from "./remote-ssh/ssh-exec.js";
+import { controlPathOption, sshConfigArgs } from "./remote-ssh/control-master.js";
 import { WebSocket, type RawData } from "ws";
 
 export interface LocalTransportTarget {
@@ -176,6 +176,7 @@ function parseOpenTransportSessionInput(value: unknown): OpenTransportSessionInp
 }
 
 export function buildSshArgs(target: SshTransportTarget, interactive: boolean): string[] {
+  const controlPath = controlPathOption();
   return [
     ...sshConfigArgs(),
     ...buildSshTunnelArgs(
@@ -184,7 +185,7 @@ export function buildSshArgs(target: SshTransportTarget, interactive: boolean): 
         ...(target.sshPort !== undefined ? { sshPort: target.sshPort } : {}),
         daemonPort: target.daemonPort ?? DEFAULT_SSH_DAEMON_PORT,
       },
-      { interactive },
+      { interactive, keepAlive: true, ...(controlPath ? { controlPath } : {}) },
     ),
   ];
 }
@@ -204,6 +205,8 @@ export function resolveSshFailureDetail(failure: string | null, stderr: string):
   return failure ?? (stderr.trim() || null);
 }
 
+const TUNNEL_CLOSE_GRACE_MS = 2_000;
+
 export interface SshTunnel {
   /** Kills the ssh child, if one was started. Safe to call more than once. */
   kill(): void;
@@ -219,10 +222,16 @@ export function startSshTunnel(target: SshTransportTarget, acceptedSocket: Socke
   let stderr = "";
   let failure: string | null = null;
 
+  // Ending stdin makes ssh close its channel to the daemon and exit. A plain kill is not enough on
+  // a shared ssh connection: the master keeps the channel (and the daemon's socket) open after its
+  // client dies, and with it the master itself. The kill is only a backstop.
   function kill(): void {
-    if (child && !child.killed) {
-      child.kill();
-    }
+    const current = child;
+    if (!current || current.killed || current.exitCode !== null) return;
+    current.stdin.end();
+    setTimeout(() => {
+      if (current.exitCode === null && !current.killed) current.kill();
+    }, TUNNEL_CLOSE_GRACE_MS).unref();
   }
 
   acceptedSocket.on("error", () => undefined);
@@ -244,6 +253,7 @@ export function startSshTunnel(target: SshTransportTarget, acceptedSocket: Socke
       env: { ...process.env, ...auth.env },
     });
     child = spawned;
+    spawned.stdin.on("error", () => undefined);
     auth.attach(spawned);
     spawned.stderr.on("data", (chunk: Buffer | string) => {
       stderr = `${stderr}${chunk.toString()}`.slice(-SSH_STDERR_LIMIT);
@@ -283,6 +293,9 @@ function createSshProxy(target: SshTransportTarget): Promise<TransportEndpoint> 
 
   return new Promise((resolve, reject) => {
     server = createServer((acceptedSocket) => {
+      // ssh stdout reaches the app through this loopback hop; Nagle would hold small frames
+      // until the previous one is acknowledged.
+      acceptedSocket.setNoDelay(true);
       socket = acceptedSocket;
       server?.close();
       server = null;
@@ -626,3 +639,18 @@ export function closeLocalTransportSession(sessionId: string): void {
 export function closeAllTransportSessions(): void {
   localTransportManager.closeAll();
 }
+
+// A renderer that reloads or goes away cannot close its sessions, and each Remote SSH session
+// holds an ssh tunnel. Without this the tunnels pile up until the app quits (two per host per
+// reload). Sessions are not tied to a window, so with several windows open a reload leaves them
+// alone: the other window's tunnels are not touched, and the reloaded window's stay until quit.
+app.on("web-contents-created", (_event, contents) => {
+  if (contents.getType() !== "window") return;
+  const releaseIfLastWindow = (): void => {
+    if (BrowserWindow.getAllWindows().length <= 1) closeAllTransportSessions();
+  };
+  contents.on("did-start-navigation", (details) => {
+    if (details.isMainFrame && !details.isSameDocument) releaseIfLastWindow();
+  });
+  contents.once("destroyed", releaseIfLastWindow);
+});

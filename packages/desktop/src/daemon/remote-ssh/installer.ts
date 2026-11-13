@@ -318,7 +318,7 @@ async function ensureRemoteDaemonOnce(
   const common = { signal: deps.signal };
 
   report("connecting", `Connecting to ${input.host}`);
-  const probeOut = await runRemoteScript(target, PROBE_SCRIPT, [String(port)], {
+  const probeOut = await runRemoteScript(target, PROBE_SCRIPT, [String(port), appVersion], {
     ...common,
     timeoutMs: 45_000,
   });
