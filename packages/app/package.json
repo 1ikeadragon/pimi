@@ -1,6 +1,6 @@
 {
   "name": "@pimi/app",
-  "version": "0.17.32",
+  "version": "0.17.33",
   "private": true,
   "license": "Apache-2.0",
   "main": "index.ts",

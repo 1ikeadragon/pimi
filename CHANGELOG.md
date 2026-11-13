@@ -2,7 +2,7 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
-## 0.17.32 - 2026-11-13
+## 0.17.33 - 2026-11-13
 
 - Attack desktop target on Windows:
   - Pick any visible window. The picker shows each app's framework (Electron, UWP, Qt, Avalonia, Unity, .NET, Win32), and warns or disables rows for elevated processes, anti-cheat games and denied targets like Windows Terminal.
