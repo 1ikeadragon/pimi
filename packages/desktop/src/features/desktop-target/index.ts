@@ -4,8 +4,7 @@ import {
   type DesktopTargetErrorCode,
   type DesktopTargetExecuteResponse,
 } from "@pimi/protocol/desktop-target/rpc-schemas";
-import { AxError, probeAutomation } from "./mac/ax.js";
-import { runMac, screenGranted } from "./mac/index.js";
+import { runMac } from "./mac/index.js";
 import { HelperError, stopHelper } from "./helper-process.js";
 import { checkWinDataDir, resolveWinScope, runWin } from "./win/index.js";
 
@@ -58,7 +57,7 @@ export async function executeDesktopTarget(raw: unknown): Promise<Payload> {
       : await runWin(command, guard, agentId);
     return { requestId, ok: true, result };
   } catch (error) {
-    if (error instanceof AxError || error instanceof HelperError) {
+    if (error instanceof HelperError) {
       return failure(requestId, error.code, error.message);
     }
     return failure(requestId, "failed", error instanceof Error ? error.message : String(error));
@@ -68,7 +67,6 @@ export async function executeDesktopTarget(raw: unknown): Promise<Payload> {
 const SETTINGS_PANES = {
   accessibility: "Privacy_Accessibility",
   screen: "Privacy_ScreenCapture",
-  automation: "Privacy_Automation",
 } as const;
 
 export function registerDesktopTargetIpc(): void {
@@ -81,28 +79,24 @@ export function registerDesktopTargetIpc(): void {
         platform: "win32",
         accessibility: true,
         screen: "granted",
-        automation: "granted",
       };
     }
     if (!IS_MAC) return { supported: false };
     const prompt = (raw as { prompt?: unknown } | null)?.prompt === true;
-    let automation: "unknown" | "granted" | "denied" | "failed" = "unknown";
     if (prompt) {
       systemPreferences.isTrustedAccessibilityClient(true);
-      if (!screenGranted()) {
+      if (systemPreferences.getMediaAccessStatus("screen") !== "granted") {
         // Asking for window sources is what makes macOS show the Screen Recording prompt.
         await desktopCapturer
           .getSources({ types: ["window"], thumbnailSize: { width: 1, height: 1 } })
           .catch(() => undefined);
       }
-      automation = await probeAutomation();
     }
     return {
       supported: true,
       platform: "darwin",
       accessibility: systemPreferences.isTrustedAccessibilityClient(false),
       screen: systemPreferences.getMediaAccessStatus("screen"),
-      automation,
     };
   });
   ipcMain.handle("pimi:desktop-target:list-windows", async () => {

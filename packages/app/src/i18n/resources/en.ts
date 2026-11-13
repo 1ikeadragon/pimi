@@ -2717,7 +2717,6 @@ export const en = {
           "Pimi needs Accessibility and Screen Recording access to read and drive this window. Until both are granted, no desktop tool runs.",
         openAccessibility: "Open Accessibility settings",
         openScreen: "Open Screen Recording settings",
-        openAutomation: "Open Automation settings",
         noActions: "No actions yet.",
         noPreview: "Waiting for the window...",
       },

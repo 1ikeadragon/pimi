@@ -1,1 +1,1 @@
-desktop_snapshot (accessibility tree with element paths), desktop_screenshot, desktop_click, desktop_type and desktop_key (the other desktop tools answer unsupported on macOS)
+desktop_snapshot (accessibility tree with refs), desktop_find, desktop_element, desktop_screenshot, desktop_window (state only), desktop_wait, desktop_audit (accessibility defects), and the input tools desktop_click, desktop_type and desktop_key (the other desktop tools answer unsupported on macOS)

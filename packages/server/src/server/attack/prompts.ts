@@ -41,7 +41,7 @@ function desktopBlock(run: AttackRun): string | null {
   if (!target) return null;
   const title = target.windowTitle ? ` titled ${JSON.stringify(target.windowTitle)}` : "";
   const windows = target.platform === "win32";
-  const refs = windows ? "refs such as @d12" : 'element paths such as "0/2/1"';
+  const refs = "refs such as @d12";
   const refused = windows
     ? "system chords (the Windows key, alt+tab, alt+f4, ctrl+alt chords), and points outside the window"
     : "system chords such as cmd+q or cmd+tab, and points outside the window";

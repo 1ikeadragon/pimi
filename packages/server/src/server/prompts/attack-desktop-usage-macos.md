@@ -1,1 +1,1 @@
-Use {{refs}} from desktop_snapshot. When you find a defect, call submit_finding with desktopScreenshot: true so the owner sees the window.
+Prefer {{refs}} from desktop_snapshot or desktop_find over coordinates; refs go stale after the window changes, so re-snapshot. Coordinates are pixels of your latest desktop_screenshot. In key chords, cmd is the command key. Use desktop_wait (until text, until gone) instead of guessing delays. When you find a defect, call submit_finding with desktopScreenshot: true so the owner sees the window.

@@ -185,8 +185,6 @@ export type DesktopTargetPermissions =
       platform?: "darwin" | "win32";
       accessibility: boolean;
       screen: "granted" | "denied" | "not-determined" | "restricted" | "unknown";
-      /** Only known after a prompt-time probe; macOS has no query for it. */
-      automation: "unknown" | "granted" | "denied" | "failed";
     };
 
 export interface DesktopTargetWindow {
@@ -224,7 +222,7 @@ export interface DesktopTargetBridge {
   >;
   /** Windows: the canonical form of a directory the owner typed, or null when it is not allowed. */
   checkDataDir: (dir: string) => Promise<string | null>;
-  openSettings: (pane: "accessibility" | "screen" | "automation") => Promise<void>;
+  openSettings: (pane: "accessibility" | "screen") => Promise<void>;
 }
 
 export interface DesktopBrowserBridge {

@@ -94,6 +94,7 @@ struct FrameInfo {
 
 final class Agent {
     var next = 1
+    var refs: [Int: Node] = [:]
     var frame: FrameInfo?
 }
 

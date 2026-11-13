@@ -2693,7 +2693,6 @@ export const ko: TranslationResources = {
           "이 창을 읽고 조작하려면 Pimi에 손쉬운 사용과 화면 기록 권한이 필요합니다. 둘 다 허용되기 전에는 데스크톱 도구가 실행되지 않습니다.",
         openAccessibility: "손쉬운 사용 설정 열기",
         openScreen: "화면 기록 설정 열기",
-        openAutomation: "자동화 설정 열기",
         noActions: "아직 동작이 없습니다.",
         noPreview: "창을 기다리는 중...",
       },

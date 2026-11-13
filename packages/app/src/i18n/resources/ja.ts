@@ -2709,7 +2709,6 @@ export const ja: TranslationResources = {
           "このウィンドウを読み取り操作するには、Pimiにアクセシビリティと画面収録の権限が必要です。両方が許可されるまで、デスクトップツールは動作しません。",
         openAccessibility: "アクセシビリティ設定を開く",
         openScreen: "画面収録設定を開く",
-        openAutomation: "オートメーション設定を開く",
         noActions: "操作はまだありません。",
         noPreview: "ウィンドウを待っています...",
       },

@@ -185,7 +185,7 @@ function effects(result: { via?: string; changed?: boolean; focusLeft?: string |
 const COORDINATES =
   "Coordinates are pixels of the latest desktop_screenshot of this window, measured from its top left; take a screenshot first and do not reuse coordinates after the window changes size.";
 const REFS =
-  "An element is a ref from desktop_snapshot, desktop_find or a marked desktop_screenshot, such as @d12 on Windows (a path such as 0/2/1 on macOS). Prefer refs to coordinates.";
+  "An element is a ref from desktop_snapshot, desktop_find or a marked desktop_screenshot, such as @d12. Prefer refs to coordinates.";
 const SCREENSHOT_AFTER_FIELD = z
   .boolean()
   .optional()
@@ -483,7 +483,7 @@ export function registerDesktopTools(options: RegisterDesktopToolsOptions): void
     "desktop_snapshot",
     {
       title: "Snapshot desktop window",
-      description: `Read the accessibility tree of the one desktop window this Attack run drives. Lines carry refs (@d12 on Windows, [0/2/1] paths on macOS) that desktop_click, desktop_type and the other tools take. ${REFS} Re-snapshot after the window changes: refs go stale (stale_ref). Set interactiveOnly for a short list of controls, root to expand one subtree. A window whose tree quality is "none" (many games and custom-drawn UIs) has no refs: use desktop_screenshot with grid: true and click coordinates instead. Only for runs with a desktop target.`,
+      description: `Read the accessibility tree of the one desktop window this Attack run drives. Lines carry refs (such as @d12) that desktop_click, desktop_type and the other tools take. ${REFS} Re-snapshot after the window changes: refs go stale (stale_ref). Set interactiveOnly for a short list of controls, root to expand one subtree. A window whose tree quality is "none" (many games and custom-drawn UIs) has no refs: use desktop_screenshot with grid: true and click coordinates instead. Only for runs with a desktop target.`,
       inputSchema: {
         interactiveOnly: z.boolean().optional(),
         root: ELEMENT_FIELD,

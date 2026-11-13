@@ -107,7 +107,13 @@ extension Main {
     static func screenshot(_ w: Win, _ a: JSON, _ ag: Agent, _ t: Target) throws -> JSON {
         let maxEdge = max(256, min(1920, a.int("maxEdge", 1280)))
         if !w.info.onScreen {
-            throw HelperError("failed", "The target window is not on screen (minimized, hidden or on another Space).")
+            if Ax.isMinimized(w) {
+                if !t.allowInput { throw HelperError("window_minimized", "The window is minimized. Ask the owner to restore it.") }
+                Ax.setMinimized(w, false)
+                sleepMs(450)
+            } else {
+                throw HelperError("failed", "The target window is not on screen (hidden or on another Space).")
+            }
         }
         let frame = try Wn.frame(w)
         let shot = try Cap.grab(w)

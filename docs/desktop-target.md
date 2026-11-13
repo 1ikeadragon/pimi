@@ -25,13 +25,13 @@ The owner's consent switches are separate: `allowDesktopInput` (also implied by 
 
 ## Platform differences an agent must be told
 
-|                | macOS                                            | Windows                                                                                       |
-| -------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Element id     | path such as `0/2/1` from the last snapshot      | ref such as `@d12` from a snapshot, `desktop_find` or a marked screenshot                     |
-| Coordinates    | pixels of the latest screenshot                  | pixels of the latest screenshot (the helper remembers each agent's frame)                     |
-| Tools          | snapshot, screenshot, click, type, key           | all of them                                                                                   |
-| Refused chords | `cmd+q`, `cmd+tab`, screenshots, space switching | the Windows key, `alt+tab`, `alt+f4`, `ctrl+alt+<key>`, `alt+space`, `printscreen`, lock keys |
-| Permissions    | Accessibility, Screen Recording, Automation      | none; the permissions call returns granted                                                    |
+|                | macOS                                                                              | Windows                                                                                       |
+| -------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Element id     | ref such as `@d12` from a snapshot or `desktop_find`                               | ref such as `@d12` from a snapshot, `desktop_find` or a marked screenshot                     |
+| Coordinates    | pixels of the latest screenshot (the helper remembers each agent's frame)          | pixels of the latest screenshot (the helper remembers each agent's frame)                     |
+| Tools          | snapshot, find, element, screenshot, window (state), wait, audit, click, type, key | all of them                                                                                   |
+| Refused chords | `cmd+q`, `cmd+tab`, screenshots, space switching                                   | the Windows key, `alt+tab`, `alt+f4`, `ctrl+alt+<key>`, `alt+space`, `printscreen`, lock keys |
+| Permissions    | Accessibility and Screen Recording, granted to the app that spawned the helper     | none; the permissions call returns granted                                                    |
 
 The prompt block (`desktopBlock` in `packages/server/src/server/attack/prompts.ts`) says this per platform. Change both together.
 

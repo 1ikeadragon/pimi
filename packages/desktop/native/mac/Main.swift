@@ -22,6 +22,7 @@ enum Main {
             exit(0)
         }
         signal(SIGPIPE, SIG_IGN)
+        Input.start()
         for sig in [SIGTERM, SIGINT, SIGHUP] {
             signal(sig, SIG_IGN)
             let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
@@ -50,7 +51,7 @@ enum Main {
     static var signalSources: [DispatchSourceSignal] = []
 
     /// Everything that must be undone before the process ends.
-    static func finish() {}
+    static func finish() { Input.releaseAll() }
 
     // ---- protocol ----
 
@@ -103,6 +104,13 @@ enum Main {
         if repinned {
             repin = ["hwnd": String(win.number), "pid": Int(win.pid), "processStartedAt": win.started]
         }
+        if level.rawValue >= Level.input.rawValue, !(t?.allowInput ?? false) {
+            throw HelperError("refused", "Input is not enabled for this run.")
+        }
+        if level.rawValue >= Level.ax.rawValue {
+            try Ax.trusted()
+            if !Ax.responding(win.pid) { throw HelperError("target_hung", "The target window is not responding.") }
+        }
         return win
     }
 
@@ -113,8 +121,76 @@ enum Main {
         case "screenshot":
             let w = try prep(t, .read, &repin)
             return try screenshot(w, a, ag, t!)
+        case "snapshot":
+            let w = try prep(t, .ax, &repin)
+            return try Ax.snapshot(w, a, ag, register: true)
+        case "find":
+            let w = try prep(t, .ax, &repin)
+            return try Ax.find(w, a, ag)
+        case "element":
+            let w = try prep(t, .ax, &repin)
+            return try Ax.element(w, a, ag)
+        case "audit":
+            let w = try prep(t, .ax, &repin)
+            return try Ax.audit(w)
+        case "window":
+            let state = (a.str("action") ?? "state") == "state"
+            let w = try prep(t, state ? .read : .input, &repin)
+            return try Wn.window(w, a, t!, ag)
+        case "wait":
+            let w = try prep(t, .read, &repin)
+            return try wait(w, a, ag)
+        case "click", "type", "key":
+            let w = try prep(t, .input, &repin)
+            return try inputVerb(verb, w, a, ag, t!)
         default:
             throw HelperError("unsupported", "Unknown verb '\(verb)'.")
         }
+    }
+
+    // ---- wait ----
+
+    static func wait(_ w: Win, _ a: JSON, _ ag: Agent) throws -> JSON {
+        let start = nowMs()
+        let ms = max(0, min(10_000, a.int("ms", 0)))
+        guard let until = a.str("until") else {
+            sleepMs(ms)
+            return ["satisfied": true, "waitedMs": nowMs() - start]
+        }
+        let timeout = max(100, min(10_000, a.int("timeoutMs", 5000)))
+        var ok = false
+        var base: [UInt8] = []
+        if until == "stable" || until == "change" { base = try Cap.hash(w) }
+        var stableSince = nowMs()
+        let text = a.str("text")
+        if until == "text" || until == "gone" { try Ax.trusted() }
+        while nowMs() - start < timeout {
+            switch until {
+            case "stable":
+                let cur = try Cap.hash(w)
+                if Cap.different(base, cur) {
+                    base = cur
+                    stableSince = nowMs()
+                } else if nowMs() - stableSince >= 300 {
+                    ok = true
+                }
+                if !ok { sleepMs(60) }
+            case "change":
+                if Cap.different(base, try Cap.hash(w)) { ok = true } else { sleepMs(80) }
+            case "text":
+                let r = try Ax.snapshot(w, ["maxNodes": 600], ag, register: false)
+                if let text, ((r["tree"] as? String) ?? "").range(of: text, options: .caseInsensitive) != nil { ok = true } else { sleepMs(250) }
+            case "gone":
+                if let er = a.str("element"), er.hasPrefix("@d"), let n = Int(er.dropFirst(2)), let node = ag.refs[n], Ax.alive(node) {
+                    sleepMs(150)
+                } else {
+                    ok = true
+                }
+            default:
+                throw HelperError("failed", "Unknown wait condition.")
+            }
+            if ok { break }
+        }
+        return ["satisfied": ok, "waitedMs": nowMs() - start]
     }
 }

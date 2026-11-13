@@ -2734,7 +2734,6 @@ export const es: TranslationResources = {
           "Pimi necesita acceso de Accesibilidad y Grabación de pantalla para leer y controlar esta ventana. Hasta concederlos, no se ejecuta ninguna herramienta de escritorio.",
         openAccessibility: "Abrir ajustes de Accesibilidad",
         openScreen: "Abrir ajustes de Grabación de pantalla",
-        openAutomation: "Abrir ajustes de Automatización",
         noActions: "Aún no hay acciones.",
         noPreview: "Esperando la ventana...",
       },

@@ -2736,7 +2736,6 @@ export const fr: TranslationResources = {
           "Pimi a besoin des accès Accessibilité et Enregistrement de l’écran pour lire et piloter cette fenêtre. Tant qu’ils ne sont pas accordés, aucun outil de bureau ne s’exécute.",
         openAccessibility: "Ouvrir les réglages d’Accessibilité",
         openScreen: "Ouvrir les réglages d’Enregistrement de l’écran",
-        openAutomation: "Ouvrir les réglages d’Automatisation",
         noActions: "Aucune action pour l’instant.",
         noPreview: "En attente de la fenêtre...",
       },

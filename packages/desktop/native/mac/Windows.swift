@@ -260,4 +260,38 @@ enum Wn {
         }
         return result
     }
+
+    // ---- window verb ----
+
+    static func rect(_ r: CGRect) -> JSON {
+        ["x": Double(r.minX), "y": Double(r.minY), "width": Double(r.width), "height": Double(r.height)]
+    }
+
+    static func state(_ w: Win) throws -> JSON {
+        let frame = try Wn.frame(w)
+        let trusted = AXIsProcessTrusted()
+        let el = trusted ? (try? Ax.window(w)) : nil
+        let minimized = el.flatMap { Ax.bool($0, "AXMinimized") } ?? false
+        let fullscreen = el.flatMap { Ax.bool($0, "AXFullScreen") } ?? false
+        let visible = visibleFrame(containing: frame)
+        let fills = abs(frame.width - visible.width) < 4 && abs(frame.height - visible.height) < 4
+        var surfaces: [JSON] = [["class": "window", "rect": rect(frame)]]
+        for s in windows(onScreenOnly: true) where s.pid == w.pid && s.number != w.number && s.bounds.width >= 4 && s.bounds.height >= 4 && s.alpha > 0.01 {
+            if s.layer != 0 || frame.insetBy(dx: -3, dy: -3).contains(s.bounds) {
+                surfaces.append(["class": "layer\(s.layer)", "rect": rect(s.bounds)])
+            }
+        }
+        return [
+            "title": w.info.title, "rect": rect(frame), "dpi": 72 * backingScale(of: frame), "minimized": minimized,
+            "maximized": fullscreen || fills, "foreground": Input.isForeground(w), "responding": Ax.responding(w.pid),
+            "elevated": procLite(w.pid).map { $0.uid != getuid() } ?? false, "framework": w.app.framework,
+            "surfaces": surfaces,
+        ]
+    }
+
+    static func window(_ w: Win, _ a: JSON, _ t: Target, _ ag: Agent) throws -> JSON {
+        let act = a.str("action") ?? "state"
+        if act == "state" { return try state(w) }
+        throw HelperError("unsupported", "That window action is not available on macOS yet.")
+    }
 }
