@@ -167,12 +167,18 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     [draftKey],
   );
 
+  // The store drops or re-slots chips an edit left dangling; the editor shows what it kept.
+  const commitText = useCallback(
+    (nextText: string) => {
+      const committed = useDraftStore.getState().editDraftText({ draftKey, text: nextText });
+      if (committed !== nextText) publishTextReplacement("replace", committed);
+    },
+    [draftKey, publishTextReplacement],
+  );
+
   const textPublication = useMemo(
-    () =>
-      new AfterPaintPublication<string>((nextText) => {
-        useDraftStore.getState().editDraftText({ draftKey, text: nextText });
-      }),
-    [draftKey],
+    () => new AfterPaintPublication<string>(commitText),
+    [commitText],
   );
 
   const editText = useCallback(
@@ -180,17 +186,17 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
       if (isWeb) {
         textPublication.stage(nextText);
       } else {
-        useDraftStore.getState().editDraftText({ draftKey, text: nextText });
+        commitText(nextText);
       }
     },
-    [draftKey, textPublication],
+    [commitText, textPublication],
   );
 
   const replaceText = useCallback(
     (nextText: string) => {
       textPublication.cancel();
-      useDraftStore.getState().editDraftText({ draftKey, text: nextText });
-      publishTextReplacement("replace", nextText);
+      const committed = useDraftStore.getState().editDraftText({ draftKey, text: nextText });
+      publishTextReplacement("replace", committed);
     },
     [draftKey, publishTextReplacement, textPublication],
   );

@@ -5,11 +5,13 @@ import {
   type ComposerEditingSession,
 } from "./editing-session";
 import type { ComposerTextSource } from "./text-source";
+import { z } from "zod";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { useStore } from "zustand";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
+  AccessibilityInfo,
   View,
   Pressable,
   ScrollView,
@@ -162,6 +164,24 @@ import type {
 } from "@/attachments/types";
 import type { SelectedFile } from "@/attachments/selected-file";
 import { composerWorkspaceAttachment } from "@/composer/attachments/workspace";
+import { AnnotationChipHost } from "@/annotations/chip-host";
+import {
+  annotationChipLabel,
+  AnnotationAttachmentSchema,
+  type AnnotationAttachment,
+} from "@/annotations/model";
+import {
+  annotationsOf,
+  CHIP_CHARACTERS,
+  chipChar,
+  chipPositions,
+  chipSlot,
+  lowestFreeSlot,
+  reconcileAfterAttachmentsChange,
+  chipPreviewText,
+} from "@/composer/chips/model";
+import type { ComposerEditorChips } from "@/components/ui/chip-text-editor/types";
+import { generateMessageId as generateAnnotationId } from "@/types/stream";
 import { useWorkspaceAttachmentsForScopes } from "@/attachments/workspace-attachments-store";
 import { droppedItemsToSelectedFiles } from "@/composer/attachments/drop";
 import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
@@ -391,6 +411,49 @@ interface RenderAttachmentTrayArgs {
   };
 }
 
+const InlineAnnotationChip = memo(function InlineAnnotationChip({
+  annotation,
+  disabled,
+  onRemoveSlot,
+  onChangeNote,
+  onFocusComposer,
+}: {
+  annotation: AnnotationAttachment;
+  disabled: boolean;
+  onRemoveSlot: (slot: number) => void;
+  onChangeNote: (id: string, note: string) => void;
+  onFocusComposer: () => void;
+}) {
+  const remove = useCallback(() => onRemoveSlot(annotation.slot), [annotation.slot, onRemoveSlot]);
+  return (
+    <AnnotationChipHost
+      annotation={annotation}
+      placement="inline"
+      disabled={disabled}
+      onRemove={remove}
+      onChangeNote={onChangeNote}
+      onFocusComposer={onFocusComposer}
+    />
+  );
+});
+
+const CopiedChipsSchema = z.object({
+  text: z.string(),
+  annotations: z.array(AnnotationAttachmentSchema),
+});
+
+function parseCopiedChips(payload: string): z.infer<typeof CopiedChipsSchema> | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(payload);
+  } catch (error) {
+    if (error instanceof SyntaxError) return null;
+    throw error;
+  }
+  const parsed = CopiedChipsSchema.safeParse(json);
+  return parsed.success ? parsed.data : null;
+}
+
 function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | null {
   const {
     serverId,
@@ -404,22 +467,26 @@ function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | nu
     focusInput,
     labels,
   } = args;
-  if (selectedAttachments.length === 0 && pendingFiles.length === 0) return null;
+  // Where the editor draws chips inline, annotations live in the text and not in the tray.
+  const inTray = (attachment: ComposerAttachment) => !(isWeb && attachment.kind === "annotation");
+  if (!selectedAttachments.some(inTray) && pendingFiles.length === 0) return null;
   return (
     <View style={styles.attachmentTray} testID="composer-attachment-tray">
       {selectedAttachments.map((attachment, index) =>
-        renderComposerAttachmentPill({
-          serverId,
-          pluginComposer,
-          attachment,
-          index,
-          disabled: isComposerLocked,
-          onOpen: handleOpenAttachment,
-          onRemove: handleRemoveAttachment,
-          onChangeAnnotationNote: handleChangeAnnotationNote,
-          onFocusInput: focusInput,
-          labels,
-        }),
+        !inTray(attachment)
+          ? null
+          : renderComposerAttachmentPill({
+              serverId,
+              pluginComposer,
+              attachment,
+              index,
+              disabled: isComposerLocked,
+              onOpen: handleOpenAttachment,
+              onRemove: handleRemoveAttachment,
+              onChangeAnnotationNote: handleChangeAnnotationNote,
+              onFocusInput: focusInput,
+              labels,
+            }),
       )}
       {pendingFiles.map(({ id, file }) => (
         <AttachmentFrame key={id} testID="composer-pending-file-attachment">
@@ -857,7 +924,7 @@ function QueuedMessageRow({
   return (
     <View style={[styles.queueItem, glyph ? styles.compactQueueItem : null]}>
       <Text style={styles.queueText} numberOfLines={2} ellipsizeMode="tail">
-        {item.text}
+        {chipPreviewText(item.text, annotationsOf(item.attachments))}
       </Text>
       <View style={[styles.queueActions, glyph ? styles.compactQueueActions : null]}>
         <QueueActionButton
@@ -2110,6 +2177,102 @@ function ComposerContentImpl({
     [setSelectedAttachments],
   );
 
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
+  const removeChip = useCallback((slot: number) => {
+    const input = messageInputRef.current;
+    if (!input) return;
+    const { text, selection } = input.getInputSnapshot();
+    const index = text.indexOf(chipChar(slot));
+    if (index < 0) return;
+    const caret = selection.start > index ? selection.start - 1 : selection.start;
+    input.replaceText(text.slice(0, index) + text.slice(index + 1), { start: caret, end: caret });
+  }, []);
+  const chips = useMemo<ComposerEditorChips | undefined>(() => {
+    if (!isWeb || inputMode !== "chat") return undefined;
+    const annotations = annotationsOf(attachments);
+    return {
+      render: (slot) => {
+        const annotation = annotations.find((candidate) => candidate.slot === slot);
+        if (!annotation) return null;
+        return (
+          <InlineAnnotationChip
+            annotation={annotation}
+            disabled={isComposerLocked}
+            onRemoveSlot={removeChip}
+            onChangeNote={handleChangeAnnotationNote}
+            onFocusComposer={focusInput}
+          />
+        );
+      },
+      plainText: (slot) => {
+        const annotation = annotations.find((candidate) => candidate.slot === slot);
+        return annotation ? `[${annotationChipLabel(annotation)}]` : "";
+      },
+      copy: (text) => {
+        const slots = new Set(chipPositions(text).map((chip) => chip.slot));
+        return JSON.stringify({
+          text,
+          annotations: annotations.filter((annotation) => slots.has(annotation.slot)),
+        });
+      },
+      paste: (payload) => {
+        const parsed = parseCopiedChips(payload);
+        if (!parsed) return null;
+        const used = new Set(annotationsOf(attachmentsRef.current).map((a) => a.slot));
+        const newSlotFor = new Map<number, number>();
+        const clones: AnnotationAttachment[] = [];
+        for (const annotation of parsed.annotations) {
+          const slot = lowestFreeSlot(used);
+          if (slot === null) break;
+          used.add(slot);
+          newSlotFor.set(annotation.slot, slot);
+          clones.push({ ...annotation, id: generateAnnotationId(), slot });
+        }
+        if (clones.length > 0) setSelectedAttachments((current) => [...current, ...clones]);
+        return parsed.text.replace(CHIP_CHARACTERS, (char) => {
+          const slot = newSlotFor.get(chipSlot(char));
+          return slot === undefined ? "" : chipChar(slot);
+        });
+      },
+    };
+  }, [
+    attachments,
+    focusInput,
+    handleChangeAnnotationNote,
+    inputMode,
+    isComposerLocked,
+    removeChip,
+    setSelectedAttachments,
+  ]);
+
+  // The editor owns the text; this keeps its chips and the draft's annotations in step. Run again
+  // when the draft's text is replaced, since a hydrated draft may predate its chips.
+  useEffect(() => {
+    const input = messageInputRef.current;
+    if (!isWeb || !input) return;
+    const { text, selection } = input.getInputSnapshot();
+    const placement = reconcileAfterAttachmentsChange({
+      text,
+      caret: selection.end,
+      annotations: annotationsOf(attachments),
+    });
+    if (placement) {
+      input.replaceText(placement.text, { start: placement.caret, end: placement.caret });
+    }
+  }, [attachments, textReplacement.key]);
+
+  const annotationCount = annotationsOf(attachments).length;
+  const previousAnnotationCount = useRef(annotationCount);
+  useEffect(() => {
+    const previous = previousAnnotationCount.current;
+    previousAnnotationCount.current = annotationCount;
+    if (annotationCount === previous) return;
+    AccessibilityInfo.announceForAccessibility(
+      t(annotationCount > previous ? "chips.announceAdded" : "chips.announceRemoved"),
+    );
+  }, [annotationCount, t]);
+
   const handleOpenAttachment = useCallback(
     (attachment: ComposerAttachment) => {
       openComposerAttachment({
@@ -2785,6 +2948,7 @@ function ComposerContentImpl({
                   isSubmitLoading={isSubmitLoadingVisible}
                   preserveHeightOnSubmit={submitBehavior === "preserve-and-lock"}
                   attachments={selectedAttachments}
+                  chips={chips}
                   cwd={cwd}
                   attachmentMenuItems={attachmentMenuItems}
                   onAttachButtonRef={handleAttachButtonRef}

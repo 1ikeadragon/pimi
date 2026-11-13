@@ -1,3 +1,4 @@
+import { AnnotationLimitError } from "@/composer/chips/model";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { StateEffect, StateField, type EditorState, type Extension } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet, type ViewUpdate } from "@codemirror/view";
@@ -405,7 +406,12 @@ export function EditorAnnotationSelection({
         range,
       );
     } catch (error) {
-      if (!(error instanceof AnnotationTargetUnavailableError)) throw error;
+      if (
+        !(
+          error instanceof AnnotationTargetUnavailableError || error instanceof AnnotationLimitError
+        )
+      )
+        throw error;
       toast.error(error.message);
     }
   }, [surface, target, toast, startEditing]);
