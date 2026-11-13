@@ -44,4 +44,8 @@ On Windows, run `npm run pimi:package:win` after `npm ci` and `npm run setup`. B
 - Blush artwork is adapted from Sophia L. Crownfield’s [_Studies of Ferns_](https://commons.wikimedia.org/wiki/File%3ADrawing%2C_Studies_of_Ferns%2C_early_20th_century_%28CH_18345009%29.jpg).
 - Community appearances draw from [Ayu](https://github.com/ayu-theme/vscode-ayu), [One Dark Pro](https://github.com/Binaryify/OneDark-Pro), [Nord](https://www.nordtheme.com/docs/colors-and-palettes/), [Gruvbox](https://github.com/ellisonleao/gruvbox.nvim), and [Catppuccin](https://catppuccin.com/palette/). [Palette licenses](packages/app/public/pimi-textures/PALETTE-LICENSES.txt)
 
+## Disclaimer
+
+Pimi's Attack mode and desktop testing tools are designed for use on your own applications and property, with your full knowledge and consent. You are responsible for ensuring you have authorization to test any software you target. Do not use these tools against applications, systems, or services you do not own or do not have explicit permission to test.
+
 [Apache 2.0 license](LICENSE)

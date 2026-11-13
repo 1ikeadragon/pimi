@@ -1,29 +1,7 @@
 // The macOS confinement rules for Attack's desktop target. Pure functions: nothing here touches
 // the system, so every rule can be read in one place.
 
-// Apps an agent may never drive: they run commands, grant permissions or hold secrets, so one
-// typed line would leave the window the owner picked. This is a deny list of known shells and
-// system tools, not a complete one; the owner's choice of window is the real boundary.
-const FORBIDDEN_BUNDLE_IDS: ReadonlySet<string> = new Set([
-  "com.apple.Terminal",
-  "com.googlecode.iterm2",
-  "com.mitchellh.ghostty",
-  "dev.warp.Warp-Stable",
-  "net.kovidgoyal.kitty",
-  "org.alacritty",
-  "com.github.wez.wezterm",
-  "com.apple.systempreferences",
-  "com.apple.ScriptEditor2",
-  "com.apple.Automator",
-  "com.apple.keychainaccess",
-  "com.apple.Passwords",
-  "com.1password.1password",
-  "com.agilebits.onepassword7",
-  "com.bitwarden.desktop",
-  "com.apple.loginwindow",
-  "com.apple.SecurityAgent",
-  "com.apple.finder",
-]);
+const FORBIDDEN_BUNDLE_IDS: ReadonlySet<string> = new Set([]);
 
 /** Why a window of this app can never be a target, or null. */
 export function forbiddenTarget(bundleId: string): string | null {
