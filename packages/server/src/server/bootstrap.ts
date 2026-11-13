@@ -464,6 +464,7 @@ export interface PimiDaemonConfig {
     maxProcessConcurrency: number;
   };
   autoArchiveAfterMerge?: boolean;
+  limitFallback?: MutableDaemonConfig["limitFallback"];
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
   terminalProfiles?: TerminalProfile[];
@@ -602,6 +603,12 @@ function createInitialLogConfig(config: ResolvedDaemonSettings): MutableDaemonCo
   };
 }
 
+function resolveLimitFallback(
+  config: ResolvedDaemonSettings["limitFallback"],
+): MutableDaemonConfig["limitFallback"] {
+  return config ?? { enabled: false, chain: [] };
+}
+
 function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): MutableDaemonConfig {
   const providers = config.providerOverrides ?? {};
 
@@ -624,6 +631,7 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
     providers,
     metadataGeneration: resolveMetadataGeneration(config.metadataGeneration),
     autoArchiveAfterMerge: config.autoArchiveAfterMerge ?? false,
+    limitFallback: resolveLimitFallback(config.limitFallback),
     enableTerminalAgentHooks: config.enableTerminalAgentHooks ?? false,
     log: createInitialLogConfig(config),
     idleRuntimeCleanup: config.idleRuntimeCleanup !== false,

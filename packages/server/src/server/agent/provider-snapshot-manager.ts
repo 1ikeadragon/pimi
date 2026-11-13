@@ -37,7 +37,10 @@ import {
   shutdownAgentClients,
   type ProviderDefinition,
 } from "./provider-registry.js";
-import { BUILTIN_PROVIDER_IDS } from "@pimi/protocol/provider-manifest";
+import {
+  BUILTIN_PROVIDER_IDS,
+  type AgentProviderModeDefinition,
+} from "@pimi/protocol/provider-manifest";
 import { applyMutableProviderConfigToOverrides } from "../daemon-config-store.js";
 import {
   formatProviderDiagnostic,
@@ -355,6 +358,16 @@ export class ProviderSnapshotManager {
 
   supportsConfigRequiredProvider(provider: AgentProvider): boolean {
     return this.pluginProviders.definitions()[provider]?.requiresConfiguration === true;
+  }
+
+  /** Whether the agent's current mode or features run tools without approval. */
+  isAgentUnattended(agent: ManagedAgent): boolean {
+    return this.resolveParent(agent).isUnattended;
+  }
+
+  /** The mode list the provider's definition ships, with the manifest's permission classes. */
+  getModeDefinitions(provider: AgentProvider): readonly AgentProviderModeDefinition[] {
+    return this.generation.definitions[provider]?.modes ?? [];
   }
 
   getProviderLabel(provider: AgentProvider): string {

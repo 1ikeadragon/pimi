@@ -4324,6 +4324,34 @@ export class DaemonClient {
     }
   }
 
+  /** Opts one chat out of (or back into) the host's auto-switch on limit. */
+  async setAgentLimitFallbackDisabled(agentId: string, disabled: boolean): Promise<void> {
+    const requestId = this.createRequestId();
+    const message = SessionInboundMessageSchema.parse({
+      type: "agent.limit_fallback.set.request",
+      agentId,
+      disabled,
+      requestId,
+    });
+    const payload = await this.sendRequest({
+      requestId,
+      message,
+      timeout: 15_000,
+      select: (msg) => {
+        if (msg.type !== "agent.limit_fallback.set.response") {
+          return null;
+        }
+        if (msg.payload.requestId !== requestId) {
+          return null;
+        }
+        return msg.payload;
+      },
+    });
+    if (!payload.accepted) {
+      throw new Error(payload.error ?? "The host could not update this chat's limit setting");
+    }
+  }
+
   async restartServer(
     reason?: string,
     requestId?: string,

@@ -17,6 +17,7 @@ import {
   type PermissionResult,
   type PermissionUpdate,
   type Query,
+  type SDKAssistantMessageError,
   type SDKMessage,
   type SDKPartialAssistantMessage,
   type SDKResultMessage,
@@ -134,6 +135,7 @@ import {
   type SteerResult,
   type AgentStreamEvent,
   type AgentTimelineItem,
+  type AgentTurnLimit,
   type AgentUsage,
   type AgentRuntimeInfo,
   type FetchCatalogOptions,
@@ -397,6 +399,16 @@ const CLAUDE_CAPABILITIES: AgentCapabilityFlags = {
   supportsRewindFiles: true,
   supportsRewindBoth: true,
 };
+
+/**
+ * The SDK declares `resetsAt` as a number without naming the unit. Claude Code sends Unix
+ * seconds; a value past 1e12 is already milliseconds.
+ */
+function resetsAtFromSdk(resetsAt: number | undefined): { resetsAt?: string } {
+  if (typeof resetsAt !== "number" || !(resetsAt > 0)) return {};
+  const ms = resetsAt < 1e12 ? resetsAt * 1000 : resetsAt;
+  return { resetsAt: new Date(ms).toISOString() };
+}
 
 const DEFAULT_MODES: AgentMode[] = [
   {
@@ -2447,6 +2459,10 @@ class ClaudeAgentSession implements AgentSession {
    * failed turn shows the same text as its error, so showing both would repeat it.
    */
   private withheldErrorReply: AgentTimelineItem[] = [];
+  // What Claude Code reported this turn about being limited, from its typed `rate_limit_event`
+  // and assistant `error` fields. Cleared when a turn starts so a past limit cannot label a
+  // later failure.
+  private turnLimit: AgentTurnLimit | null = null;
   private readonly contextUsage: ClaudeContextUsageState;
   private userMessageIds: string[] = [];
   private readonly emittedUserMessageIds = new Set<string>();
@@ -2625,6 +2641,7 @@ class ClaudeAgentSession implements AgentSession {
     };
     this.cancelCurrentTurn = requestCancel;
 
+    this.turnLimit = null;
     this.notifySubscribers({ type: "turn_started", provider: "claude" });
 
     try {
@@ -4023,6 +4040,30 @@ class ClaudeAgentSession implements AgentSession {
     return errors.some((e: string) => /\baborted\b/i.test(e));
   }
 
+  /** Reads the typed limit signals off a message; text is never inspected. */
+  private recordLimitSignal(message: SDKMessage): void {
+    if (message.type === "rate_limit_event") this.recordRateLimitEvent(message);
+    else if (message.type === "assistant") this.recordAssistantLimitError(message.error);
+  }
+
+  /** `rejected` is the only status that stops work; `allowed_warning` is a heads-up. */
+  private recordRateLimitEvent(message: Extract<SDKMessage, { type: "rate_limit_event" }>): void {
+    const info = message.rate_limit_info;
+    if (info.status !== "rejected") return;
+    this.turnLimit = {
+      kind: info.errorCode === "credits_required" ? "credits" : "usage",
+      ...resetsAtFromSdk(info.resetsAt),
+    };
+  }
+
+  /** `overloaded` and `server_error` are the provider's trouble, not this account's limit. */
+  private recordAssistantLimitError(error: SDKAssistantMessageError | undefined): void {
+    if (error !== "rate_limit" && error !== "billing_error") return;
+    // A rejected `rate_limit_event` is more specific and usually arrives first.
+    if (this.turnLimit) return;
+    this.turnLimit = { kind: error === "rate_limit" ? "rate" : "credits" };
+  }
+
   private buildTurnFailedEvent(
     errorMessage: string,
   ): Extract<AgentStreamEvent, { type: "turn_failed" }> {
@@ -4030,12 +4071,15 @@ class ClaudeAgentSession implements AgentSession {
     const exitCodeMatch = normalized.match(/\bcode\s+(\d+)\b/i);
     const code = exitCodeMatch ? exitCodeMatch[1] : undefined;
     const diagnostic = this.getRecentStderrDiagnostic();
+    const limit = this.turnLimit;
+    this.turnLimit = null;
     return {
       type: "turn_failed",
       provider: "claude",
       error: normalized,
       ...(code ? { code } : {}),
       ...(diagnostic ? { diagnostic } : {}),
+      ...(limit ? { limit } : {}),
     };
   }
 
@@ -4195,6 +4239,7 @@ class ClaudeAgentSession implements AgentSession {
     this.activeForegroundInput = this.input;
     this.activeTurnHasAssistantText = false;
     this.contextUsage.beginTurn();
+    this.turnLimit = null;
     this.notifySubscribers({ type: "turn_started", provider: "claude" });
     this.syncTurnState("autonomous turn started");
   }
@@ -4765,6 +4810,7 @@ class ClaudeAgentSession implements AgentSession {
     }
 
     this.forgetStartedMessage(message);
+    this.recordLimitSignal(message);
 
     switch (message.type) {
       case "system":

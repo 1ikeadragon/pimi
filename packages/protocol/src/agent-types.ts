@@ -418,6 +418,26 @@ export interface AgentProviderSwitchEndpoint {
 export interface AgentProviderSwitchMarker {
   from: AgentProviderSwitchEndpoint;
   to: AgentProviderSwitchEndpoint;
+  /** Set when the daemon moved the chat because the provider reported a limit, not the user. */
+  reason?: "limit";
+  /** ISO time the limited provider says it recovers. Only on `reason: "limit"`. */
+  resetsAt?: string;
+  /**
+   * Only on `reason: "limit"`. `carried` means the chat's permission mode moved to the closest
+   * equivalent on the new provider, named by `label`. Not carried means no equivalent existed and
+   * the new provider's default applies; `label` then names the mode that was left behind.
+   */
+  permissionMode?: { carried: boolean; label?: string };
+}
+
+/**
+ * A provider's structured report that it cannot take more work for now. Set only by the provider
+ * adapter from a typed signal, never from error text.
+ */
+export interface AgentTurnLimit {
+  kind: "usage" | "rate" | "credits";
+  /** ISO time the limit lifts, when the provider says. */
+  resetsAt?: string;
 }
 
 /**
@@ -494,6 +514,7 @@ export type AgentStreamEvent =
       error: string;
       code?: string;
       diagnostic?: string;
+      limit?: AgentTurnLimit;
       turnId?: string;
     }
   | { type: "turn_canceled"; provider: AgentProvider; reason: string; turnId?: string }

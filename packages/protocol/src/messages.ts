@@ -338,6 +338,20 @@ export const EditorLanguageServerSchema = z.object({
   args: z.array(z.string().max(4096)).max(32),
 });
 
+export const LIMIT_FALLBACK_MAX_CHAIN = 5;
+
+// One place a chat can continue when its provider reports a limit.
+export const LimitFallbackEntrySchema = z.object({
+  provider: z.string().min(1),
+  model: z.string().min(1).optional(),
+});
+
+// Host-wide. Off by default: turning it on sends a chat's content to the next provider unprompted.
+export const LimitFallbackConfigSchema = z.object({
+  enabled: z.boolean(),
+  chain: z.array(LimitFallbackEntrySchema).max(LIMIT_FALLBACK_MAX_CHAIN),
+});
+
 export const NETWORK_LOG_RETENTION_DAYS_MIN = 1;
 export const NETWORK_LOG_RETENTION_DAYS_MAX = 90;
 export const NETWORK_LOG_RETENTION_DAYS_DEFAULT = 3;
@@ -376,6 +390,7 @@ export const MutableDaemonConfigSchema = z
     }),
     autoArchiveAfterMerge: z.boolean().default(false),
     enableTerminalAgentHooks: z.boolean().default(false),
+    limitFallback: LimitFallbackConfigSchema.default({ enabled: false, chain: [] }),
     // Persisted host-wide value, applied live by the daemon.
     idleRuntimeCleanup: z.boolean(),
     resumeOnStartup: z.boolean(),
@@ -432,6 +447,7 @@ export const MutableDaemonConfigPatchSchema = z
       .optional(),
     autoArchiveAfterMerge: z.boolean().optional(),
     enableTerminalAgentHooks: z.boolean().optional(),
+    limitFallback: LimitFallbackConfigSchema.optional(),
     idleRuntimeCleanup: z.boolean().optional(),
     resumeOnStartup: z.boolean().optional(),
     resumePrompt: z.string().optional(),
@@ -1099,6 +1115,9 @@ export const AgentProviderSwitchMarkerSchema: z.ZodType<AgentProviderSwitchMarke
   z.object({
     from: AgentProviderSwitchEndpointSchema,
     to: AgentProviderSwitchEndpointSchema,
+    reason: z.literal("limit").optional(),
+    resetsAt: z.string().optional(),
+    permissionMode: z.object({ carried: z.boolean(), label: z.string().optional() }).optional(),
   });
 
 /** Marks where another agent answered this agent's permission prompt. */
@@ -1203,6 +1222,12 @@ export const AgentStreamEventPayloadSchema = z.discriminatedUnion("type", [
     error: z.string(),
     code: z.string().optional(),
     diagnostic: z.string().optional(),
+    limit: z
+      .object({
+        kind: z.enum(["usage", "rate", "credits"]),
+        resetsAt: z.string().optional(),
+      })
+      .optional(),
   }),
   z.object({
     type: z.literal("turn_canceled"),
@@ -1308,6 +1333,8 @@ export const AgentSnapshotPayloadSchema = z.object({
   // Background agent: hidden from default discovery, tabs, tracks and notifications.
   // Fixed at creation. Effective background also includes the workspace's flag.
   background: z.boolean().optional(),
+  // This chat opted out of the host's auto-switch on limit.
+  limitFallbackDisabled: z.boolean().optional(),
 });
 
 export type AgentSnapshotPayload = z.infer<typeof AgentSnapshotPayloadSchema>;
@@ -2502,6 +2529,24 @@ export const AgentProviderSwitchResponseMessageSchema = z.object({
     error: z.string().nullable(),
     // A machine-readable reason. Kept a string so new codes never narrow the wire type.
     errorCode: z.string().optional(),
+  }),
+});
+
+/** Opts one chat out of (or back into) the host's auto-switch on limit. */
+export const AgentLimitFallbackSetRequestMessageSchema = z.object({
+  type: z.literal("agent.limit_fallback.set.request"),
+  agentId: z.string(),
+  disabled: z.boolean(),
+  requestId: z.string(),
+});
+
+export const AgentLimitFallbackSetResponseMessageSchema = z.object({
+  type: z.literal("agent.limit_fallback.set.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    accepted: z.boolean(),
+    error: z.string().nullable(),
   }),
 });
 
@@ -3850,6 +3895,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   SetAgentFeatureRequestMessageSchema,
   AgentConfigApplyRequestMessageSchema,
   AgentProviderSwitchRequestMessageSchema,
+  AgentLimitFallbackSetRequestMessageSchema,
   AgentDetachRequestMessageSchema,
   AgentSubagentsResumeRequestMessageSchema,
   AgentRewindRequestMessageSchema,
@@ -7715,6 +7761,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   SetAgentFeatureResponseMessageSchema,
   AgentConfigApplyResponseMessageSchema,
   AgentProviderSwitchResponseMessageSchema,
+  AgentLimitFallbackSetResponseMessageSchema,
   AgentDetachResponseMessageSchema,
   AgentSubagentsResumeResponseMessageSchema,
   AgentRewindResponseMessageSchema,
@@ -8093,6 +8140,12 @@ export type FetchAgentRequestMessage = z.infer<typeof FetchAgentRequestMessageSc
 export type AgentForkContextRequestMessage = z.infer<typeof AgentForkContextRequestMessageSchema>;
 export type AgentProviderSwitchRequestMessage = z.infer<
   typeof AgentProviderSwitchRequestMessageSchema
+>;
+export type AgentLimitFallbackSetRequestMessage = z.infer<
+  typeof AgentLimitFallbackSetRequestMessageSchema
+>;
+export type AgentLimitFallbackSetResponseMessage = z.infer<
+  typeof AgentLimitFallbackSetResponseMessageSchema
 >;
 export type AgentProviderSwitchResponseMessage = z.infer<
   typeof AgentProviderSwitchResponseMessageSchema

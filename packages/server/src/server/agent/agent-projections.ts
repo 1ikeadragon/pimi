@@ -300,6 +300,7 @@ export function buildStoredAgentPayload(
     attentionTimestamp: record.attentionTimestamp ?? null,
     archivedAt: record.archivedAt ?? null,
     ...visibilityFlags(record),
+    ...(record.limitFallbackDisabled ? { limitFallbackDisabled: true } : {}),
     labels: normalizeLabels(record.labels),
     ...(typeof record.lastError === "string" ? { lastError: record.lastError } : {}),
     ...(record.lastUsage && { lastUsage: record.lastUsage }),
