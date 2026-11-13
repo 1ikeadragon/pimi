@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.36 - 2026-11-13
+
+- Fixed: removing the local host left the app unable to start the daemon, with no way to recover. The daemon management setting is now auto-restored when no hosts are configured.
+
 ## 0.17.35 - 2026-11-13
 
 - Attack desktop target: removed hardcoded deny lists on macOS too (terminals, system tools, password managers, Finder). Only the Pimi self-check remains on both platforms.
