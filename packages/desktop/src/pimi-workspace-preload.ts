@@ -1,11 +1,7 @@
 // Pimi. Apache-2.0.
 import { contextBridge, ipcRenderer } from "electron";
 import type { PimiAppearance, PimiDestination, WorkspaceLayout } from "./window/pimi-window.js";
-import type {
-  PimiReviewRequest,
-  PimiVoiceBubbleState,
-  PimiWorkspaceSection,
-} from "@pimi/protocol/pimi-task";
+import type { PimiVoiceBubbleState, PimiWorkspaceSection } from "@pimi/protocol/pimi-task";
 
 let appearance: PimiAppearance | undefined;
 let onAppearanceChange: ((mode: PimiAppearance) => void) | undefined;
@@ -40,19 +36,6 @@ window.addEventListener(
       event.target instanceof Element ? event.target.closest("button[data-space-url]") : null;
     if (spaceLink)
       ipcRenderer.send("pimi:workspace:space-link", spaceLink.getAttribute("data-space-url"));
-    const link =
-      event.target instanceof Element
-        ? event.target.closest<HTMLAnchorElement>("a[data-pimi-report-link]")
-        : null;
-    if (link) {
-      event.preventDefault();
-      const report = link.closest<HTMLElement>("#task-report-document");
-      ipcRenderer.send("pimi:workspace:report-link", {
-        taskId: report?.dataset.taskId,
-        reportId: report?.dataset.reportId,
-        href: link.getAttribute("href"),
-      });
-    }
   },
   true,
 );
@@ -65,8 +48,6 @@ contextBridge.exposeInMainWorld("pimiWorkspace", {
   onCloseDialog: (listener: () => void) => {
     ipcRenderer.on("pimi:workspace:close-dialog", () => listener());
   },
-  openReview: (request: PimiReviewRequest) =>
-    ipcRenderer.send("pimi:workspace:open-review", request),
   onLayoutChange: (apply: (mode: WorkspaceLayout) => void) => {
     onLayoutChange = apply;
     apply(layout);
@@ -74,9 +55,6 @@ contextBridge.exposeInMainWorld("pimiWorkspace", {
   onAppearanceChange: (apply: (mode: PimiAppearance) => void) => {
     onAppearanceChange = apply;
     if (appearance) apply(appearance);
-  },
-  onReportLinkError: (listener: (error: { reportId: string; message: string }) => void) => {
-    ipcRenderer.on("pimi:workspace:report-link-error", (_event, error) => listener(error));
   },
   onSpaceLinkError: (listener: () => void) => {
     ipcRenderer.on("pimi:workspace:space-link-error", () => listener());

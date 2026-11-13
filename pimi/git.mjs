@@ -1,7 +1,7 @@
 // Pimi. Apache-2.0.
 import { execFile } from "node:child_process";
 import { lstat, readdir, realpath } from "node:fs/promises";
-import { basename, join, relative, resolve } from "node:path";
+import { basename, join, relative } from "node:path";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
@@ -54,37 +54,6 @@ export const git = (cwd, ...args) => runGit(cwd, args);
 
 export async function repository(path) {
   return realpath((await git(path, "rev-parse", "--show-toplevel")).replace(/\r?\n$/, ""));
-}
-
-// Read configured fetch URLs without contacting a remote or changing Git state.
-export async function repositoryRemotes(cwd) {
-  const names = (await git(cwd, "remote")).trim().split("\n").filter(Boolean);
-  const remotes = [];
-  for (const name of names) {
-    const url = (await git(cwd, "remote", "get-url", name)).trim();
-    remotes.push({ name, url });
-  }
-  return remotes;
-}
-
-export async function discoverWorktrees(root) {
-  const output = await git(root, "worktree", "list", "--porcelain", "-z");
-  const worktrees = [];
-  for (const record of output.split("\0\0")) {
-    const fields = record.split("\0");
-    const value = (key) =>
-      fields.find((field) => field.startsWith(key + " "))?.slice(key.length + 1);
-    const directory = value("worktree");
-    if (!directory || fields.includes("bare")) continue;
-    worktrees.push({
-      path: process.platform === "win32" ? resolve(directory) : directory,
-      repo: basename(root),
-      head: value("HEAD"),
-      branch: value("branch")?.replace(/^refs\/heads\//, "") ?? "Detached HEAD",
-      unavailable: fields.some((field) => /^prunable(?: |$)/.test(field)),
-    });
-  }
-  return worktrees;
 }
 
 export const commit = (cwd, ref) =>
@@ -153,24 +122,6 @@ async function resolveBase(cwd, input) {
       "refs/heads/master",
     ].find((ref) => refs.includes(ref)) ?? "HEAD";
   return { label, sha: await commit(cwd, label) };
-}
-
-export async function worktreeFacts(worktree, baseRef) {
-  if (worktree.unavailable) return { ...worktree };
-  try {
-    const [status, head] = await Promise.all([
-      git(worktree.path, "status", "--porcelain=v1", "-z", "--untracked-files=normal"),
-      readHead(worktree.path),
-    ]);
-    if (!head) return { ...worktree, dirty: Boolean(status), ahead: 0 };
-    const base = await resolveBase(worktree.path, baseRef);
-    const ahead = Number(
-      (await git(worktree.path, "rev-list", "--count", `${base.sha}..HEAD`)).trim(),
-    );
-    return { ...worktree, dirty: Boolean(status), ahead };
-  } catch (error) {
-    return { ...worktree, error: error.message };
-  }
 }
 
 async function pullRequest(cwd, url) {

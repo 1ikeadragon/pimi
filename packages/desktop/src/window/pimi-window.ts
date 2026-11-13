@@ -4,40 +4,28 @@ import { readFileSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { readLocalCredentialForTarget, resolvePimiHome } from "@pimi/server/daemon-control";
+import { readLocalCredentialForTarget } from "@pimi/server/daemon-control";
 import { parseAgentDeepLink, type AgentDeepLinkTarget } from "@pimi/protocol/agent-deep-link";
-import {
-  isPimiArxivEmbed,
-  isPimiSpaceEmbed,
-  parsePimiSpaceUrl,
-  PimiLinkedLabels,
-  PimiReportLinkRequest,
-  PimiReportLinkTarget,
-  PimiReviewRequest,
-  type PimiReportLinkError,
-} from "@pimi/protocol/pimi-task";
+import { isPimiArxivEmbed, isPimiSpaceEmbed, parsePimiSpaceUrl } from "@pimi/protocol/pimi-task";
 import type {
   PimiActivitySection,
-  PimiDestination,
-  PimiRecap,
-  PimiRecapPeriod,
+  PimiDestination as ProtocolPimiDestination,
   PimiReviewSummary,
   PimiVoiceBubbleState,
   PimiVoiceCommandInput,
   PimiVoiceResult,
   PimiWorkspaceSection,
 } from "@pimi/protocol/pimi-task";
+import type { TaskImportRecord } from "@pimi/protocol/task/types";
 import { resolveDesktopDaemonStatus } from "../daemon/daemon-manager.js";
 import { createPimiWorkspaceSession } from "./pimi-workspace-session.js";
 
 const AGENT_CONSOLE_URL = "pimi-agents://open";
 const APPEARANCE_FILE = "pimi-appearance.json";
-const DESTINATION_SECTIONS: Record<PimiDestination["view"], PimiWorkspaceSection> = {
-  tasks: "tasks",
-  task: "tasks",
-  "task-draft": "tasks",
-  "new-task": "tasks",
-  worktrees: "board",
+// The page keeps Memory and Spaces; tasks and Review are native app screens.
+export type PimiDestination = Extract<ProtocolPimiDestination, { view: "memory" | "spaces" }>;
+type PageSection = Extract<PimiWorkspaceSection, "memory" | "spaces">;
+const DESTINATION_SECTIONS: Record<PimiDestination["view"], PageSection> = {
   memory: "memory",
   spaces: "spaces",
 };
@@ -72,14 +60,9 @@ const PIMI_APPEARANCE_BACKGROUNDS: Record<Exclude<PimiAppearance, "system">, str
 function isPimiAppearance(value: unknown): value is PimiAppearance {
   return PIMI_APPEARANCES.some((mode) => mode === value);
 }
-export type { PimiDestination } from "@pimi/protocol/pimi-task";
 export type WorkspaceLayout = "inline" | "attached" | "hidden";
 export interface PimiContentBounds extends Electron.Rectangle {
   sidebar: boolean;
-}
-interface DictationAnchor {
-  x: number;
-  y: number;
 }
 interface WorkspaceSurface {
   view: WebContentsView;
@@ -87,15 +70,13 @@ interface WorkspaceSurface {
   owner?: BrowserWindow;
   releaseHost?: () => void;
   resizeHost?: () => void;
-  cancelDictation?: () => void;
   options: PimiWindowOptions;
   layout: WorkspaceLayout;
-  section: PimiWorkspaceSection;
+  section: PageSection;
   dialogOpen: boolean;
 }
 let workspace: WorkspaceSurface | undefined;
 let workspaceRuntime: Promise<PimiRuntimeResult> | undefined;
-let onTaskComplete: ((task: { id: string; title: string }) => void | Promise<void>) | undefined;
 let opening: Promise<WorkspaceSurface> | undefined;
 let requestedOwner: BrowserWindow | undefined;
 let navigationRequest = 0;
@@ -108,12 +89,6 @@ export function updatePimiVoiceBubble(win: BrowserWindow, state: PimiVoiceBubble
   voiceBubbleStates.set(win, state);
   if (workspace?.host === win && !workspace.view.webContents.isDestroyed()) {
     workspace.view.webContents.send("pimi:voice:state", state);
-  }
-}
-
-export function reportPimiLinkError(win: BrowserWindow, error: PimiReportLinkError): void {
-  if (workspace?.host === win && !workspace.view.webContents.isDestroyed()) {
-    workspace.view.webContents.send("pimi:workspace:report-link-error", error);
   }
 }
 
@@ -165,14 +140,12 @@ export function pimiAppearanceArgument(): string {
 interface PimiRuntimeResult {
   origin: string;
   observeWorkspaces(): Promise<void>;
-  getLinkedLabels(): Promise<PimiLinkedLabels>;
-  getRecap(period: PimiRecapPeriod): PimiRecap;
+  importTasks(tasks: TaskImportRecord[]): Promise<{ imported: number; skipped: number }>;
+  localServerId(): Promise<string>;
   runVoiceCommand(
     input: PimiVoiceCommandInput,
     onStatus: (status: string) => void,
   ): Promise<PimiVoiceResult>;
-  subscribeToLabels(listener: () => void): () => void;
-  resolveReportLink(request: PimiReportLinkRequest): Promise<PimiReportLinkTarget>;
   close(): Promise<void>;
 }
 
@@ -190,14 +163,9 @@ export async function getPimiReviewSummary(
 interface PimiRuntime {
   startPimi(options: {
     native: boolean;
-    paths: string[];
-    watchState: string;
-    taskState: string;
-    agentTaskHome?: string;
+    dataHome: string;
     getAppearance: () => PimiAppearance;
-    openDictation: (signal: AbortSignal, anchor?: DictationAnchor) => Promise<string | null>;
     connection: () => Promise<DesktopDaemonConnection>;
-    onTaskComplete: (task: { id: string; title: string }) => void | Promise<void>;
     onActivity: (section: PimiActivitySection) => void;
   }): Promise<PimiRuntimeResult>;
 }
@@ -206,18 +174,16 @@ interface PimiWindowOptions {
   runtimeDir: string;
   resolveConsoleWindow: (preferred?: BrowserWindow) => Promise<BrowserWindow>;
   openAgentChat: (target: AgentDeepLinkTarget) => void;
-  dictationUrl: string;
-  preload: string;
   workspacePreload: string;
 }
 
-interface DesktopDaemonConnection {
+export interface DesktopDaemonConnection {
   url: string;
   credential?: string;
   localDataCredential?: string;
 }
 
-async function connectToDesktopDaemon(): Promise<DesktopDaemonConnection> {
+export async function connectToDesktopDaemon(): Promise<DesktopDaemonConnection> {
   if (process.env.PIMI_DESKTOP_DAEMON_URL) return { url: process.env.PIMI_DESKTOP_DAEMON_URL };
   const status = await resolveDesktopDaemonStatus();
   const endpoint = status.listen ?? process.env.PIMI_LISTEN ?? "127.0.0.1:6767";
@@ -328,7 +294,6 @@ function attach(
     closeIfUnhosted(surface);
   };
   surface.releaseHost = () => {
-    surface.cancelDictation?.();
     win.removeListener("resize", resize);
     win.removeListener("closed", closed);
     surface.view.webContents.ipc.removeListener("pimi:workspace:click", notifyWorkspaceClick);
@@ -352,40 +317,22 @@ async function createWorkspaceRuntime(runtimeDir: string): Promise<PimiRuntimeRe
   const { startPimi } = (await import(entry)) as PimiRuntime;
   const runtime = await startPimi({
     native: true,
-    watchState: path.join(app.getPath("userData"), "pimi-worktrees.json"),
-    taskState: path.join(app.getPath("userData"), "pimi-tasks.json"),
-    agentTaskHome: resolvePimiHome(),
+    dataHome: app.getPath("userData"),
     getAppearance: getPimiAppearance,
-    openDictation: (signal, anchor) => {
-      if (!workspace?.host) return Promise.reject(new Error("Open the workspace to dictate."));
-      return dictateBrief(workspace, workspace.host, signal, anchor);
-    },
-    paths: process.env.PIMI_REPOS?.split(path.delimiter).filter(Boolean) ?? [],
     connection: connectToDesktopDaemon,
-    onTaskComplete: (task) => onTaskComplete?.(task),
     onActivity: (section) => {
       for (const win of BrowserWindow.getAllWindows()) {
         if (!win.isDestroyed()) win.webContents.send("pimi:workspace:activity", section);
       }
     },
   });
-  const unsubscribeLabels = runtime.subscribeToLabels(() => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) win.webContents.send("pimi:labels:changed");
-    }
-  });
   app.once("will-quit", () => {
-    unsubscribeLabels();
     void runtime.close().catch(console.error);
   });
   return runtime;
 }
 
-export function initializePimiWorkspace(
-  runtimeDir: string,
-  notifyTaskCompletion?: typeof onTaskComplete,
-): Promise<PimiRuntimeResult> {
-  if (notifyTaskCompletion) onTaskComplete = notifyTaskCompletion;
+export function initializePimiWorkspace(runtimeDir: string): Promise<PimiRuntimeResult> {
   workspaceRuntime ??= createWorkspaceRuntime(runtimeDir).catch((error) => {
     workspaceRuntime = undefined;
     throw error;
@@ -414,7 +361,7 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     view,
     options,
     layout: "hidden",
-    section: "tasks",
+    section: "memory",
     dialogOpen: false,
   };
   const contents = view.webContents;
@@ -429,14 +376,7 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
   });
   contents.ipc.on("pimi:workspace:section", (event, section: unknown) => {
     if (event.senderFrame !== contents.mainFrame) return;
-    if (
-      section !== "tasks" &&
-      section !== "board" &&
-      section !== "memory" &&
-      section !== "spaces"
-    ) {
-      return;
-    }
+    if (section !== "memory" && section !== "spaces") return;
     if (section === surface.section) return;
     surface.section = section;
     surface.host?.webContents.send("pimi:workspace:section", section);
@@ -444,25 +384,12 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
   contents.ipc.on("pimi:workspace:dialog", (event, open: unknown) => {
     if (event.senderFrame === contents.mainFrame) surface.dialogOpen = open === true;
   });
-  contents.ipc.on("pimi:workspace:open-review", (event, value: unknown) => {
-    if (
-      event.senderFrame !== contents.mainFrame ||
-      URL.parse(event.senderFrame.url)?.origin !== runtime.origin
-    )
-      return;
-    const request = PimiReviewRequest.safeParse(value);
-    const host = surface.host;
-    if (!request.success || !host || host.isDestroyed()) return;
-    if (request.data.kind === "checkout" && !path.isAbsolute(request.data.path)) return;
-    host.webContents.send("pimi:workspace:open-review", request.data);
-  });
   contents.ipc.on("pimi:voice:toggle", (event) => {
     if (
       event.senderFrame !== contents.mainFrame ||
       new URL(event.senderFrame.url).origin !== runtime.origin ||
       !surface.host ||
-      surface.host.isDestroyed() ||
-      surface.cancelDictation
+      surface.host.isDestroyed()
     )
       return;
     surface.host.webContents.send("pimi:voice:toggle");
@@ -483,45 +410,6 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
       contents.send("pimi:voice:state", voiceBubbleStates.get(surface.host) ?? VOICE_OFF);
     }
     contents.send("pimi:appearance:change", getPimiAppearance());
-  });
-  contents.ipc.on("pimi:workspace:report-link", (event, value: unknown) => {
-    if (
-      event.senderFrame !== contents.mainFrame ||
-      URL.parse(event.senderFrame.url)?.origin !== runtime.origin ||
-      surface.section !== "tasks"
-    )
-      return;
-    const request = PimiReportLinkRequest.safeParse(value);
-    if (!request.success) return;
-    const agent = parseAgentDeepLink(request.data.href);
-    if (agent) {
-      hidePimiWorkspace(surface.host);
-      options.openAgentChat(agent);
-      return;
-    }
-    const host = surface.host;
-    const fail = (message: string) => {
-      if (!contents.isDestroyed()) {
-        contents.send("pimi:workspace:report-link-error", {
-          reportId: request.data.reportId,
-          message,
-        });
-      }
-    };
-    if (!host || host.isDestroyed()) {
-      fail("Open Pimi's Agent Console to view this link.");
-      return;
-    }
-    void (async () => {
-      try {
-        const target = PimiReportLinkTarget.parse(await runtime.resolveReportLink(request.data));
-        if (host.isDestroyed() || surface.host !== host) return;
-        host.webContents.send("pimi:workspace:open-report-link", target);
-      } catch (error) {
-        console.error("Could not open report link:", error);
-        fail("This report's workspace is unavailable. Reconnect its host and try again.");
-      }
-    })();
   });
   contents.ipc.on("pimi:workspace:space-link", (event, value: unknown) => {
     if (
@@ -576,108 +464,6 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     contents.close();
     throw error;
   }
-}
-
-function dictateBrief(
-  surface: WorkspaceSurface,
-  host: BrowserWindow,
-  signal: AbortSignal,
-  anchor?: DictationAnchor,
-): Promise<string | null> {
-  if (host.isDestroyed() || signal.aborted) return Promise.resolve(null);
-  if (surface.cancelDictation) {
-    return Promise.reject(new Error("A dictation is already open."));
-  }
-  host.webContents.send("pimi:voice:pause");
-
-  const { dictationUrl, preload } = surface.options;
-  const island = new WebContentsView({
-    webPreferences: {
-      preload,
-      additionalArguments: [
-        "--pimi-task-dictation",
-        `--pimi-console-url=${dictationUrl}`,
-        pimiAppearanceArgument(),
-      ],
-      autoplayPolicy: "no-user-gesture-required",
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-  const contents = island.webContents;
-  island.setBackgroundColor("#00000000");
-  contents.on("will-navigate", (event) => event.preventDefault());
-  contents.on("will-redirect", (event) => event.preventDefault());
-  contents.setWindowOpenHandler(() => ({ action: "deny" }));
-
-  const resize = () => {
-    const area = surface.view.getBounds();
-    const zoom = surface.view.webContents.getZoomFactor();
-    const islandWidth = Math.min(304, area.width);
-    const islandHeight = Math.min(80, area.height);
-    const center = anchor ? anchor.x * zoom : area.width / 2;
-    const bottom = anchor ? anchor.y * zoom : area.height / 2;
-    island.setBounds({
-      x:
-        area.x +
-        Math.max(0, Math.min(area.width - islandWidth, Math.round(center - islandWidth / 2))),
-      y:
-        area.y +
-        Math.max(0, Math.min(area.height - islandHeight, Math.round(bottom - islandHeight / 2))),
-      width: islandWidth,
-      height: islandHeight,
-    });
-  };
-
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const finish = (value: string | null, error?: Error) => {
-      if (settled) return;
-      settled = true;
-      surface.cancelDictation = undefined;
-      signal.removeEventListener("abort", cancel);
-      host.removeListener("resize", resize);
-      if (!host.isDestroyed()) {
-        host.contentView.removeChildView(island);
-        if (!surface.view.webContents.isDestroyed()) surface.view.webContents.focus();
-      }
-      if (!contents.isDestroyed()) contents.close();
-      if (error) reject(error);
-      else resolve(value);
-    };
-    const cancel = () => finish(null);
-    surface.cancelDictation = cancel;
-    signal.addEventListener("abort", cancel, { once: true });
-    contents.once("destroyed", cancel);
-    contents.on("render-process-gone", () =>
-      finish(null, new Error("Dictation closed unexpectedly. Try again.")),
-    );
-    contents.ipc.on("pimi:task-dictation:complete", (event, value: unknown) => {
-      if (event.senderFrame !== contents.mainFrame || event.senderFrame.url !== dictationUrl)
-        return;
-      if (value !== null && typeof value !== "string") return;
-      if (typeof value === "string" && value.length > 2400) {
-        finish(
-          null,
-          new Error("The transcript is too long for a task brief. Try a shorter recording."),
-        );
-      } else {
-        finish(value);
-      }
-    });
-    void contents.loadURL(dictationUrl).then(
-      () => {
-        if (settled || host.isDestroyed()) return cancel();
-        resize();
-        host.contentView.addChildView(island);
-        host.on("resize", resize);
-        contents.focus();
-        return undefined;
-      },
-      (error: Error) => finish(null, error),
-    );
-  });
 }
 
 /** Titlebar back closes a card open in the workspace before it leaves the section. */
