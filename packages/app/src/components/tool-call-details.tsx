@@ -45,21 +45,14 @@ interface ToolCallDetailsContentProps {
 
 interface DetailStyles {
   sectionFillStyle: StyleProp<ViewStyle>;
-  codeBlockFillStyle: StyleProp<ViewStyle>;
+  surfaceFillStyle: StyleProp<ViewStyle>;
   codeVerticalScrollStyle: StyleProp<ViewStyle>;
   scrollAreaFillStyle: StyleProp<ViewStyle>;
   scrollAreaStyle: StyleProp<ViewStyle>;
-  jsonScrollCombined: StyleProp<ViewStyle>;
-  jsonScrollErrorCombined: StyleProp<ViewStyle>;
   fullBleedContainerStyle: StyleProp<ViewStyle>;
   loadingContainerStyle: StyleProp<ViewStyle>;
   resolvedMaxHeight: number | undefined;
   shouldFill: boolean;
-  isFullBleed: boolean;
-}
-
-function resolveIsFullBleed(detail: ToolCallDetail | undefined): boolean {
-  return detail?.type === "edit" || detail?.type === "shell" || detail?.type === "write";
 }
 
 function resolveShouldFill(
@@ -76,17 +69,14 @@ function useDetailStyles(
   resolvedMaxHeight: number | undefined,
   fillAvailableHeight: boolean,
 ): DetailStyles {
-  const isFullBleed = resolveIsFullBleed(detail);
   const shouldFill = resolveShouldFill(detail, fillAvailableHeight);
-  const codeBlockStyle = isFullBleed ? styles.fullBleedBlock : styles.diffContainer;
-
   const sectionFillStyle = useMemo(
     () => [styles.section, shouldFill && styles.fillHeight],
     [shouldFill],
   );
-  const codeBlockFillStyle = useMemo(
-    () => [codeBlockStyle, shouldFill && styles.fillHeight],
-    [codeBlockStyle, shouldFill],
+  const surfaceFillStyle = useMemo(
+    () => [styles.codeSurface, shouldFill && styles.fillHeight],
+    [shouldFill],
   );
   const codeVerticalScrollStyle = useMemo(
     () => [
@@ -111,14 +101,9 @@ function useDetailStyles(
     ],
     [resolvedMaxHeight],
   );
-  const jsonScrollCombined = styles.jsonScroll;
-  const jsonScrollErrorCombined = [styles.jsonScroll, styles.jsonScrollError];
   const fullBleedContainerStyle = useMemo(
-    () => [
-      isFullBleed ? styles.fullBleedContainer : styles.paddedContainer,
-      shouldFill && styles.fillHeight,
-    ],
-    [isFullBleed, shouldFill],
+    () => [styles.container, shouldFill && styles.fillHeight],
+    [shouldFill],
   );
   const loadingContainerStyle = useMemo(
     () => [styles.loadingContainer, fillAvailableHeight && styles.fillHeight],
@@ -127,17 +112,14 @@ function useDetailStyles(
 
   return {
     sectionFillStyle,
-    codeBlockFillStyle,
+    surfaceFillStyle,
     codeVerticalScrollStyle,
     scrollAreaFillStyle,
     scrollAreaStyle,
-    jsonScrollCombined,
-    jsonScrollErrorCombined,
     fullBleedContainerStyle,
     loadingContainerStyle,
     resolvedMaxHeight,
     shouldFill,
-    isFullBleed,
   };
 }
 
@@ -151,6 +133,11 @@ function useDiffLines(detail: ToolCallDetail | undefined): DiffLine[] | undefine
   }, [detail]);
 }
 
+// The one surface every code-like detail sits on: no border, no nested boxes.
+function CodeSurface({ ds, children }: { ds: DetailStyles; children: ReactNode }) {
+  return <View style={ds.surfaceFillStyle}>{children}</View>;
+}
+
 interface ShellDetailProps {
   command: string;
   output: string | null | undefined;
@@ -162,31 +149,29 @@ function ShellDetailSection({ command, output, ds }: ShellDetailProps) {
   const commandOutput = (output ?? "").replace(/^\n+/, "");
   const hasOutput = commandOutput.length > 0;
   return (
-    <View style={ds.sectionFillStyle}>
-      <View style={ds.codeBlockFillStyle}>
+    <CodeSurface ds={ds}>
+      <ScrollView
+        style={ds.codeVerticalScrollStyle}
+        contentContainerStyle={styles.codeVerticalContent}
+        nestedScrollEnabled
+        showsVerticalScrollIndicator
+      >
         <ScrollView
-          style={ds.codeVerticalScrollStyle}
-          contentContainerStyle={styles.codeVerticalContent}
+          horizontal
           nestedScrollEnabled
-          showsVerticalScrollIndicator
+          showsHorizontalScrollIndicator
+          contentContainerStyle={styles.codeHorizontalContent}
         >
-          <ScrollView
-            horizontal
-            nestedScrollEnabled
-            showsHorizontalScrollIndicator
-            contentContainerStyle={styles.codeHorizontalContent}
-          >
-            <View style={styles.codeLine} dataSet={CODE_SURFACE_DATASET}>
-              <Text selectable style={styles.scrollText}>
-                <Text style={styles.shellPrompt}>$ </Text>
-                {normalizedCommand}
-                {hasOutput ? `\n\n${commandOutput}` : ""}
-              </Text>
-            </View>
-          </ScrollView>
+          <View style={styles.codeLine} dataSet={CODE_SURFACE_DATASET}>
+            <Text selectable style={styles.scrollText}>
+              <Text style={styles.shellPrompt}>$ </Text>
+              {normalizedCommand}
+              {hasOutput ? `\n\n${commandOutput}` : ""}
+            </Text>
+          </View>
         </ScrollView>
-      </View>
-    </View>
+      </ScrollView>
+    </CodeSurface>
   );
 }
 
@@ -197,36 +182,27 @@ interface EditDetailProps {
 
 function EditDetailSection({ diffLines, ds }: EditDetailProps) {
   return (
-    <View style={ds.sectionFillStyle}>
+    <CodeSurface ds={ds}>
       {diffLines ? (
-        <View style={ds.codeBlockFillStyle}>
-          <DiffViewer
-            diffLines={diffLines}
-            maxHeight={ds.resolvedMaxHeight}
-            fillAvailableHeight={ds.shouldFill}
-          />
-        </View>
+        <DiffViewer
+          diffLines={diffLines}
+          maxHeight={ds.resolvedMaxHeight}
+          fillAvailableHeight={ds.shouldFill}
+        />
       ) : null}
-    </View>
+    </CodeSurface>
   );
 }
 
 interface ScrollableContentProps {
   content: string;
   ds: DetailStyles;
-  wrapInSectionFill?: boolean;
   // Drives syntax highlighting (extension only) and, with startLine, a gutter.
   filePath?: string | null;
   startLine?: number;
 }
 
-function ScrollableTextSection({
-  content,
-  ds,
-  wrapInSectionFill = true,
-  filePath,
-  startLine,
-}: ScrollableContentProps) {
+function ScrollableTextSection({ content, ds, filePath, startLine }: ScrollableContentProps) {
   const keyedLines = useMemo(
     () => (filePath ? highlightToKeyedLines(content, extensionFromPath(filePath)) : null),
     [content, filePath],
@@ -249,8 +225,7 @@ function ScrollableTextSection({
       </ScrollView>
     </ScrollView>
   );
-  if (!wrapInSectionFill) return body;
-  return <View style={ds.sectionFillStyle}>{body}</View>;
+  return <CodeSurface ds={ds}>{body}</CodeSurface>;
 }
 
 interface FetchDetailProps {
@@ -261,7 +236,7 @@ interface FetchDetailProps {
 
 function FetchDetailSection({ url, result, ds }: FetchDetailProps) {
   return (
-    <View style={ds.sectionFillStyle}>
+    <CodeSurface ds={ds}>
       <ScrollView
         style={ds.scrollAreaFillStyle}
         contentContainerStyle={styles.scrollContent}
@@ -274,19 +249,15 @@ function FetchDetailSection({ url, result, ds }: FetchDetailProps) {
           </Text>
         </ScrollView>
       </ScrollView>
-    </View>
+    </CodeSurface>
   );
 }
 
+// Prose (thinking text, plain tool output): no surface.
 function ScrollablePlainTextSection({ text, ds }: { text: string; ds: DetailStyles }) {
   return (
     <View style={styles.section}>
-      <ScrollView
-        style={ds.scrollAreaStyle}
-        contentContainerStyle={styles.scrollContent}
-        nestedScrollEnabled
-        showsVerticalScrollIndicator
-      >
+      <ScrollView style={ds.scrollAreaStyle} nestedScrollEnabled showsVerticalScrollIndicator>
         <Text selectable style={styles.plainText}>
           {text}
         </Text>
@@ -304,53 +275,52 @@ interface SearchDetail {
 }
 
 function buildSearchSections(detail: SearchDetail, ds: DetailStyles): ReactNode[] {
-  const out: ReactNode[] = [];
+  const blocks: ReactNode[] = [];
   if (detail.content) {
-    out.push(
-      <View key="search-content" style={styles.section}>
-        <ScrollView
-          style={ds.scrollAreaStyle}
-          contentContainerStyle={styles.scrollContent}
-          nestedScrollEnabled
-          showsVerticalScrollIndicator
-        >
-          <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator>
-            <Text selectable style={styles.scrollText} dataSet={CODE_SURFACE_DATASET}>
-              {detail.content}
-            </Text>
-          </ScrollView>
+    blocks.push(
+      <ScrollView
+        key="search-content"
+        style={ds.scrollAreaStyle}
+        contentContainerStyle={styles.scrollContent}
+        nestedScrollEnabled
+        showsVerticalScrollIndicator
+      >
+        <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator>
+          <Text selectable style={styles.scrollText} dataSet={CODE_SURFACE_DATASET}>
+            {detail.content}
+          </Text>
         </ScrollView>
-      </View>,
+      </ScrollView>,
     );
   }
+  const textBlocks: { key: string; text: string }[] = [];
   if (detail.filePaths && detail.filePaths.length > 0) {
-    out.push(
-      <View key="search-files" style={styles.section}>
-        <Text selectable style={styles.scrollText} dataSet={CODE_SURFACE_DATASET}>
-          {detail.filePaths.join("\n")}
-        </Text>
-      </View>,
-    );
+    textBlocks.push({ key: "search-files", text: detail.filePaths.join("\n") });
   }
   if (detail.webResults && detail.webResults.length > 0) {
-    out.push(
-      <View key="search-web-results" style={styles.section}>
-        <Text selectable style={styles.scrollText} dataSet={CODE_SURFACE_DATASET}>
-          {detail.webResults.map((entry) => `${entry.title}\n${entry.url}`).join("\n\n")}
-        </Text>
-      </View>,
-    );
+    textBlocks.push({
+      key: "search-web-results",
+      text: detail.webResults.map((entry) => `${entry.title}\n${entry.url}`).join("\n\n"),
+    });
   }
   if (detail.annotations && detail.annotations.length > 0) {
-    out.push(
-      <View key="search-annotations" style={styles.section}>
+    textBlocks.push({ key: "search-annotations", text: detail.annotations.join("\n\n") });
+  }
+  for (const block of textBlocks) {
+    blocks.push(
+      <View key={block.key} style={styles.scrollContent}>
         <Text selectable style={styles.scrollText} dataSet={CODE_SURFACE_DATASET}>
-          {detail.annotations.join("\n\n")}
+          {block.text}
         </Text>
       </View>,
     );
   }
-  return out;
+  if (blocks.length === 0) return [];
+  return [
+    <CodeSurface key="search" ds={ds}>
+      {blocks}
+    </CodeSurface>,
+  ];
 }
 
 function serializeUnknownValue(value: unknown): string {
@@ -392,23 +362,20 @@ function buildUnknownSections(detail: UnknownDetail, ds: DetailStyles, t: TFunct
       continue;
     }
     out.push(
-      <View key={`${section.title}-header`} style={styles.groupHeader}>
-        <Text style={styles.groupHeaderText}>{section.title}</Text>
-      </View>,
-    );
-    out.push(
-      <View key={`${section.title}-value`} style={styles.section}>
-        <ScrollView
-          horizontal
-          nestedScrollEnabled
-          style={ds.jsonScrollCombined}
-          contentContainerStyle={styles.jsonContent}
-          showsHorizontalScrollIndicator={true}
-        >
-          <Text selectable style={styles.scrollText} dataSet={CODE_SURFACE_DATASET}>
-            {value}
-          </Text>
-        </ScrollView>
+      <View key={section.title} style={styles.labeledSection}>
+        <Text style={styles.sectionLabel}>{section.title}</Text>
+        <CodeSurface ds={ds}>
+          <ScrollView
+            horizontal
+            nestedScrollEnabled
+            contentContainerStyle={styles.scrollContent}
+            showsHorizontalScrollIndicator={true}
+          >
+            <Text selectable style={styles.scrollText} dataSet={CODE_SURFACE_DATASET}>
+              {value}
+            </Text>
+          </ScrollView>
+        </CodeSurface>
       </View>,
     );
   }
@@ -467,17 +434,14 @@ function buildDetailSections(
     return [<EditDetailSection key="edit" diffLines={diffLines} ds={ds} />];
   }
   if (detail.type === "write") {
+    if (!detail.content) return [];
     return [
-      <View key="write" style={ds.sectionFillStyle}>
-        {detail.content ? (
-          <ScrollableTextSection
-            content={detail.content}
-            ds={ds}
-            wrapInSectionFill={false}
-            filePath={detail.filePath}
-          />
-        ) : null}
-      </View>,
+      <ScrollableTextSection
+        key="write"
+        content={detail.content}
+        ds={ds}
+        filePath={detail.filePath}
+      />,
     ];
   }
   if (detail.type === "read") {
@@ -509,15 +473,12 @@ function buildDetailSections(
 }
 
 function ErrorSection({ errorText, ds }: { errorText: string; ds: DetailStyles }) {
-  const { t } = useTranslation();
   return (
-    <View style={styles.section}>
-      <Text style={[styles.sectionTitle, styles.errorText]}>{t("toolCallDetails.error")}</Text>
+    <CodeSurface ds={ds}>
       <ScrollView
         horizontal
         nestedScrollEnabled
-        style={ds.jsonScrollErrorCombined}
-        contentContainerStyle={styles.jsonContent}
+        contentContainerStyle={styles.scrollContent}
         showsHorizontalScrollIndicator={true}
       >
         <Text
@@ -528,7 +489,7 @@ function ErrorSection({ errorText, ds }: { errorText: string; ds: DetailStyles }
           {errorText}
         </Text>
       </ScrollView>
-    </View>
+    </CodeSurface>
   );
 }
 
@@ -620,34 +581,23 @@ const styles = StyleSheet.create((theme) => {
   const insets = getCodeInsets(theme);
 
   return {
-    paddedContainer: {
-      gap: theme.spacing[4],
-      padding: 0,
-    },
-    fullBleedContainer: {
+    container: {
       gap: theme.spacing[2],
-      padding: 0,
     },
-    groupHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: theme.spacing[2],
-      paddingHorizontal: theme.spacing[3],
-      paddingVertical: theme.spacing[2],
-      borderBottomWidth: theme.borderWidth[1],
-      borderBottomColor: theme.colors.border,
+    codeSurface: {
+      backgroundColor: theme.colors.surface1,
+      borderRadius: theme.borderRadius.xl,
+      overflow: "hidden",
     },
-    groupHeaderText: {
+    labeledSection: {
+      gap: theme.spacing[1],
+    },
+    sectionLabel: {
       color: theme.colors.foregroundMuted,
-      fontSize: theme.fontSize.base,
-      fontWeight: theme.fontWeight.normal,
+      fontSize: theme.fontSize.sm,
     },
     pimiSection: {
-      gap: theme.spacing[3],
-      paddingHorizontal: theme.spacing[4],
-      paddingVertical: theme.spacing[4],
-      borderBottomWidth: theme.borderWidth[1],
-      borderBottomColor: theme.colors.border,
+      gap: theme.spacing[2],
     },
     pimiSectionTitle: {
       color: theme.colors.foreground,
@@ -692,33 +642,9 @@ const styles = StyleSheet.create((theme) => {
     plainText: {
       fontFamily: theme.fontFamily.ui,
       fontSize: theme.fontSize.base,
-      color: theme.colors.foreground,
-      lineHeight: 22,
+      color: theme.colors.foregroundMuted,
+      lineHeight: Math.round(theme.fontSize.base * 1.5),
       overflowWrap: "anywhere",
-    },
-    sectionTitle: {
-      color: theme.colors.foregroundMuted,
-      fontSize: theme.fontSize.sm,
-      fontWeight: theme.fontWeight.semibold,
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
-    },
-    rangeText: {
-      color: theme.colors.foregroundMuted,
-      fontSize: theme.fontSize.sm,
-    },
-    diffContainer: {
-      borderWidth: theme.borderWidth[1],
-      borderColor: theme.colors.border,
-      borderRadius: theme.borderRadius.base,
-      overflow: "hidden",
-      backgroundColor: theme.colors.surface2,
-    },
-    fullBleedBlock: {
-      borderWidth: 0,
-      borderRadius: 0,
-      overflow: "hidden",
-      backgroundColor: theme.colors.surface1,
     },
     codeVerticalScroll: {},
     codeVerticalContent: {
@@ -733,12 +659,7 @@ const styles = StyleSheet.create((theme) => {
       paddingHorizontal: insets.padding,
       paddingVertical: insets.padding,
     },
-    scrollArea: {
-      borderWidth: theme.borderWidth[1],
-      borderColor: theme.colors.border,
-      borderRadius: theme.borderRadius.base,
-      backgroundColor: theme.colors.surface2,
-    },
+    scrollArea: {},
     scrollContent: {
       padding: insets.padding,
     },
@@ -757,20 +678,8 @@ const styles = StyleSheet.create((theme) => {
     shellPrompt: {
       color: theme.colors.foregroundMuted,
     },
-    jsonScroll: {
-      borderWidth: theme.borderWidth[1],
-      borderColor: theme.colors.border,
-      borderRadius: theme.borderRadius.base,
-      backgroundColor: theme.colors.surface2,
-    },
-    jsonScrollError: {
-      borderColor: theme.colors.destructive,
-    },
-    jsonContent: {
-      padding: insets.padding,
-    },
     errorText: {
-      color: theme.colors.destructive,
+      color: theme.colors.statusDanger,
     },
     bodyStatusPill: {
       position: "absolute",
@@ -783,8 +692,6 @@ const styles = StyleSheet.create((theme) => {
       paddingVertical: theme.spacing[1],
       borderRadius: theme.borderRadius.md,
       backgroundColor: theme.colors.surface2,
-      borderWidth: theme.borderWidth[1],
-      borderColor: theme.colors.border,
     },
     bodyStatusText: {
       color: theme.colors.foregroundMuted,
