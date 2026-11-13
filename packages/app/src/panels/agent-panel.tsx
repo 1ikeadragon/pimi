@@ -1106,14 +1106,15 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
 }) {
   const { t } = useTranslation();
-  // The workspace sheet is for looking; Open as tab brings the agent back with its composer.
+  // The workspace sheet is for looking, except on a subagent: you reach it to talk to it, and
+  // Open as tab brings any other agent back with its composer.
   const paneHost = usePaneContext().host;
-  const showsComposer = draft !== null || paneHost !== "sheet";
+  const parentAgentId = useParentAgentId(serverId, agentId);
+  const showsComposer = draft !== null || paneHost !== "sheet" || parentAgentId !== null;
   // The dock lays out fullscreen for the same session the composer edits in.
   const composerEditingSession = useComposerEditingSession("chat");
   const isComposerFullscreen = useComposerFullscreen(composerEditingSession);
   const hasActiveComposer = !agentState.archivedAt && !isArchivingCurrentAgent;
-  const parentAgentId = useParentAgentId(serverId, agentId);
   // With a composer the parent is a pill above it; without one, the box takes the composer's place.
   const parentPillAgentId = showsComposer ? parentAgentId : null;
   const rawAgentInputDraft = useAgentInputDraft({

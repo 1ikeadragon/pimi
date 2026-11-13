@@ -2458,6 +2458,13 @@ export const ru: TranslationResources = {
       parentAgent: "Родительский агент",
       openParent: "Открыть родителя",
     },
+    message: {
+      placeholder: "Написать этому субагенту",
+      notConnected: "Нет подключения к хосту",
+      textOnly: "Субагенты принимают только текст. Уберите вложения, чтобы отправить.",
+      unavailable:
+        "{{provider}} не может доставлять сообщения своим субагентам, поэтому этот доступен только для чтения.",
+    },
     title: "Субагенты",
     pillLabelOne: "1 субагент",
     pillLabelMany: "Субагентов: {{count}}",

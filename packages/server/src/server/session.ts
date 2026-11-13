@@ -2781,6 +2781,8 @@ export class Session {
         return this.handleProviderSubagentListRequest(msg);
       case "agent.background_work.list.request":
         return this.handleAgentBackgroundWorkListRequest(msg);
+      case "agent.provider_subagents.send_message.request":
+        return this.handleProviderSubagentSendMessageRequest(msg);
       case "agent.background_work.stop.request":
         return this.handleAgentBackgroundWorkStopRequest(msg);
       case "agent.provider_subagents.timeline.get.request":
@@ -8541,6 +8543,32 @@ export class Session {
         },
       });
     }
+  }
+
+  private async handleProviderSubagentSendMessageRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.provider_subagents.send_message.request" }>,
+  ): Promise<void> {
+    let error: string | null = null;
+    try {
+      const prompt = this.agentManager.buildProviderSubagentMessagePrompt(
+        msg.parentAgentId,
+        msg.subagentId,
+        msg.text,
+      );
+      const result = await this.handleSendAgentMessage(msg.parentAgentId, prompt, msg.messageId);
+      if (!result.ok) error = result.error;
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+    }
+    this.emit({
+      type: "agent.provider_subagents.send_message.response",
+      payload: {
+        requestId: msg.requestId,
+        parentAgentId: msg.parentAgentId,
+        subagentId: msg.subagentId,
+        error,
+      },
+    });
   }
 
   private async handleAgentBackgroundWorkStopRequest(

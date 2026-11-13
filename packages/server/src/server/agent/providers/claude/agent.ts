@@ -2725,6 +2725,17 @@ class ClaudeAgentSession implements AgentSession {
     };
   }
 
+  wrapProviderSubagentMessage(subagentId: string, text: string): string | null {
+    const taskId = this.taskProtocolSource.taskIdForSubagent(subagentId);
+    if (!taskId) return null;
+    return [
+      `The user is writing to your subagent with agent id ${taskId}.`,
+      "Deliver the message below to it unchanged with the SendMessage tool (to: that agent id). If the agent has finished, SendMessage resumes it. Do nothing else this turn except relay what the subagent answers.",
+      "",
+      text,
+    ].join("\n");
+  }
+
   async stopBackgroundWork(id: string): Promise<void> {
     const query = this.query;
     if (!query || !this.runtimeSafety.canStop(id))

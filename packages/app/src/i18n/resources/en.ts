@@ -2461,6 +2461,13 @@ export const en = {
       parentAgent: "Parent agent",
       openParent: "Open parent",
     },
+    message: {
+      placeholder: "Message this subagent",
+      notConnected: "Not connected to the host",
+      textOnly: "Subagents accept text only. Remove the attachments to send.",
+      unavailable:
+        "{{provider}} has no way to deliver messages to its subagents, so this one is read-only.",
+    },
     title: "Subagents",
     pillLabelOne: "1 subagent",
     pillLabelMany: "{{count}} subagents",

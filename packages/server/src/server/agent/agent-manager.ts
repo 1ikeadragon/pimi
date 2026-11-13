@@ -118,6 +118,7 @@ import { buildAgentForkContextAttachment, MAX_FORK_CONTEXT_CHARS } from "./activ
 import { isChatHistoryAttachment } from "./prompt-attachments.js";
 import type { AgentAttachment } from "@pimi/protocol/messages";
 import type { AgentImageRef } from "@pimi/protocol/agent-types";
+import { canMessageProviderSubagent } from "@pimi/protocol/provider-subagent-messaging";
 import { storeProviderImage, type AgentImageStore } from "./agent-images.js";
 import { SlashCommandsCache } from "./slash-commands-cache.js";
 import { SqliteTimelineStore, timelineSessionKey } from "./sqlite-timeline-store.js";
@@ -1824,6 +1825,26 @@ export class AgentManager {
   ): ProviderSubagentDescriptor | null {
     this.requirePublicAgent(parentAgentId);
     return this.providerSubagents.get(parentAgentId, subagentId);
+  }
+
+  /**
+   * The parent-session prompt that delivers a user message to one provider subagent. Throws when
+   * the provider has no route to its children, so a caller never sends the message elsewhere.
+   */
+  buildProviderSubagentMessagePrompt(
+    parentAgentId: string,
+    subagentId: string,
+    text: string,
+  ): string {
+    const parent = this.requirePublicAgent(parentAgentId);
+    const descriptor = this.providerSubagents.get(parentAgentId, subagentId);
+    if (!descriptor) throw new Error("Subagent not found");
+    if (!canMessageProviderSubagent(parent.provider)) {
+      throw new Error(`${parent.provider} subagents cannot receive messages`);
+    }
+    const prompt = parent.session?.wrapProviderSubagentMessage?.(subagentId, text);
+    if (!prompt) throw new Error("This subagent can no longer be messaged");
+    return prompt;
   }
 
   fetchProviderSubagentTimeline(

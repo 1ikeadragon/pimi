@@ -2476,6 +2476,14 @@ export const fr: TranslationResources = {
       parentAgent: "Agent parent",
       openParent: "Ouvrir le parent",
     },
+    message: {
+      placeholder: "Écrire à ce sous-agent",
+      notConnected: "Non connecté à l'hôte",
+      textOnly:
+        "Les sous-agents n'acceptent que du texte. Retirez les pièces jointes pour envoyer.",
+      unavailable:
+        "{{provider}} ne peut pas transmettre de messages à ses sous-agents ; celui-ci est en lecture seule.",
+    },
     title: "Sous-agents",
     pillLabelOne: "1 sous-agent",
     pillLabelMany: "{{count}} sous-agents",

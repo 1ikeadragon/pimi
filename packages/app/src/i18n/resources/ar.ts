@@ -2424,6 +2424,13 @@ export const ar: TranslationResources = {
       parentAgent: "الوكيل الأصلي",
       openParent: "فتح الوكيل الأصلي",
     },
+    message: {
+      placeholder: "راسل هذا الوكيل الفرعي",
+      notConnected: "غير متصل بالمضيف",
+      textOnly: "الوكلاء الفرعيون يقبلون النص فقط. أزل المرفقات للإرسال.",
+      unavailable:
+        "{{provider}} لا يملك طريقة لتسليم الرسائل إلى وكلائه الفرعيين، لذا هذا الوكيل للقراءة فقط.",
+    },
     title: "الوكلاء الفرعيون",
     pillLabelOne: "وكيل فرعي واحد",
     pillLabelMany: "{{count}} وكلاء فرعيين",

@@ -2319,6 +2319,15 @@ export const ProviderSubagentListRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
+export const ProviderSubagentSendMessageRequestMessageSchema = z.object({
+  type: z.literal("agent.provider_subagents.send_message.request"),
+  parentAgentId: z.string(),
+  subagentId: z.string(),
+  text: z.string(),
+  messageId: z.string().optional(),
+  requestId: z.string(),
+});
+
 export const AgentBackgroundWorkListRequestMessageSchema = z.object({
   type: z.literal("agent.background_work.list.request"),
   agentId: z.string(),
@@ -3806,6 +3815,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ProviderSubagentListRequestMessageSchema,
   AgentBackgroundWorkListRequestMessageSchema,
   AgentBackgroundWorkStopRequestMessageSchema,
+  ProviderSubagentSendMessageRequestMessageSchema,
   ProviderSubagentTimelineRequestMessageSchema,
   SetAgentTimelineSubscriptionRequestMessageSchema,
   AgentForkContextRequestMessageSchema,
@@ -5077,6 +5087,16 @@ export const AgentBackgroundWorkListResponseMessageSchema = z.object({
     requestId: z.string(),
     agentId: z.string(),
     items: z.array(AgentBackgroundWorkItemSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+export const ProviderSubagentSendMessageResponseMessageSchema = z.object({
+  type: z.literal("agent.provider_subagents.send_message.response"),
+  payload: z.object({
+    requestId: z.string(),
+    parentAgentId: z.string(),
+    subagentId: z.string(),
     error: z.string().nullable(),
   }),
 });
@@ -7632,6 +7652,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   ProviderSubagentUpdateMessageSchema,
   AgentBackgroundWorkListResponseMessageSchema,
   AgentBackgroundWorkStopResponseMessageSchema,
+  ProviderSubagentSendMessageResponseMessageSchema,
   AgentBackgroundWorkUpdateMessageSchema,
   SetAgentTimelineSubscriptionResponseMessageSchema,
   AgentAttentionRequiredMessageSchema,

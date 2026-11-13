@@ -2450,6 +2450,13 @@ export const ja: TranslationResources = {
       parentAgent: "親エージェント",
       openParent: "親を開く",
     },
+    message: {
+      placeholder: "このサブエージェントにメッセージ",
+      notConnected: "ホストに接続されていません",
+      textOnly: "サブエージェントはテキストのみ受け付けます。添付を外して送信してください。",
+      unavailable:
+        "{{provider}} はサブエージェントへメッセージを届けられないため、これは読み取り専用です。",
+    },
     title: "サブエージェント",
     pillLabelOne: "サブエージェント 1 件",
     pillLabelMany: "サブエージェント {{count}} 件",

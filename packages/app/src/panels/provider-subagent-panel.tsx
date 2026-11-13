@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { invariant } from "@/utils/invariant";
@@ -12,12 +12,19 @@ import {
 import { ComposerTrackBar } from "@/composer/tracks";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
-import { usePaneContext } from "@/panels/pane-context";
+import { usePaneContext, usePaneFocus } from "@/panels/pane-context";
 import { PaneSubtitle } from "@/panels/pane-subtitle";
 import { definePanel, type PanelDescriptor } from "@/panels/panel-registry";
 import { useSessionStore } from "@/stores/session-store";
 import type { SheetTab } from "@/stores/workspace-layout-store";
-import { ParentAgentCallout } from "@/subagents/parent";
+import { canMessageProviderSubagent } from "@pimi/protocol/provider-subagent-messaging";
+import { ComposerDock } from "@/composer/dock";
+import { useComposerEditingSession, useComposerFullscreen } from "@/composer/editing-session";
+import {
+  ProviderSubagentComposer,
+  ProviderSubagentComposerUnavailable,
+} from "@/panels/provider-subagent-composer";
+import { ParentAgentPill } from "@/subagents/parent";
 import { type SubagentRow, useSubagentsForParent } from "@/subagents/select";
 import { useSubagentSheetTab } from "@/subagents/sheet-tab";
 import { SubagentsTrack } from "@/subagents/track";
@@ -39,8 +46,8 @@ const EMPTY_PERMISSIONS = new Map<string, PendingPermission>();
 const EMPTY_STREAM_ITEMS: StreamItem[] = [];
 const NOOP_SUBAGENT = () => undefined;
 
-function resolveChildTrackClearance(childCount: number, isCompact: boolean) {
-  if (childCount === 0) return { tail: 0, controls: 0 };
+function resolveChildTrackClearance(hasTrack: boolean, isCompact: boolean) {
+  if (!hasTrack) return { tail: 0, controls: 0 };
   return {
     tail: resolveComposerTrackTailClearance(isCompact),
     controls: resolveComposerTrackControlClearance(isCompact),
@@ -49,18 +56,25 @@ function resolveChildTrackClearance(childCount: number, isCompact: boolean) {
 
 function ProviderSubagentChildTrack({
   serverId,
+  parentAgentId,
+  showParentPill,
   rows,
   onOpenProviderSubagent,
   sheetTabFor,
 }: {
   serverId: string;
+  parentAgentId: string;
+  showParentPill: boolean;
   rows: ReturnType<typeof useSubagentsForParent>;
   onOpenProviderSubagent: (parentAgentId: string, subagentId: string) => void;
   sheetTabFor: (row: SubagentRow) => SheetTab | null;
 }) {
-  if (rows.length === 0) return null;
+  if (rows.length === 0 && !showParentPill) return null;
   return (
     <ComposerTrackBar>
+      {showParentPill ? (
+        <ParentAgentPill serverId={serverId} parentAgentId={parentAgentId} />
+      ) : null}
       <SubagentsTrack
         serverId={serverId}
         rows={rows}
@@ -109,8 +123,66 @@ function useProviderSubagentDescriptor(
   };
 }
 
+function resolveSubagentProvider(
+  descriptor: { provider?: string } | null,
+  parent: { provider?: string } | null,
+): string | null {
+  return descriptor?.provider ?? parent?.provider ?? null;
+}
+
+function resolveSubagentCwd(
+  descriptor: { cwd?: string | null } | null,
+  parent: { cwd?: string | null } | null,
+): string {
+  return descriptor?.cwd ?? parent?.cwd ?? "";
+}
+
+function ProviderSubagentFooter({
+  serverId,
+  parentAgentId,
+  subagentId,
+  streamId,
+  provider,
+  cwd,
+  isPaneFocused,
+  editingSession,
+}: {
+  serverId: string;
+  parentAgentId: string;
+  subagentId: string;
+  streamId: string;
+  provider: string | null;
+  cwd: string;
+  isPaneFocused: boolean;
+  editingSession: ComponentProps<typeof ProviderSubagentComposer>["editingSession"];
+}) {
+  if (provider !== null && canMessageProviderSubagent(provider)) {
+    return (
+      <ProviderSubagentComposer
+        serverId={serverId}
+        parentAgentId={parentAgentId}
+        subagentId={subagentId}
+        streamId={streamId}
+        cwd={cwd}
+        isPaneFocused={isPaneFocused}
+        editingSession={editingSession}
+      />
+    );
+  }
+  return (
+    <ProviderSubagentComposerUnavailable
+      serverId={serverId}
+      parentAgentId={parentAgentId}
+      provider={formatProviderLabel(provider ?? "agent")}
+    />
+  );
+}
+
 function ProviderSubagentPanel() {
   const { serverId, workspaceId, tabId, target, openFileInWorkspace, openTab } = usePaneContext();
+  const { isPaneFocused } = usePaneFocus();
+  const editingSession = useComposerEditingSession("chat");
+  const isComposerFullscreen = useComposerFullscreen(editingSession);
   invariant(target.kind === "provider_subagent", "ProviderSubagentPanel requires provider target");
   const key = providerSubagentKey(serverId, target.parentAgentId, target.subagentId);
   const streamId = `provider:${encodeURIComponent(target.parentAgentId)}:${encodeURIComponent(target.subagentId)}`;
@@ -134,7 +206,12 @@ function ProviderSubagentPanel() {
     parentAgentId: target.parentAgentId,
     providerParentSubagentId: target.subagentId,
   });
-  const childTrackClearance = resolveChildTrackClearance(childRows.length, isCompact);
+  const provider = resolveSubagentProvider(descriptor, parent);
+  const canMessage = provider !== null && canMessageProviderSubagent(provider);
+  const childTrackClearance = resolveChildTrackClearance(
+    childRows.length > 0 || canMessage,
+    isCompact,
+  );
   const sheetTabFor = useSubagentSheetTab(
     buildWorkspaceTabPersistenceKey({ serverId, workspaceId }),
     tabId,
@@ -227,34 +304,56 @@ function ProviderSubagentPanel() {
     [descriptor?.status],
   );
 
+  const stream = (
+    <View style={styles.stream}>
+      <AgentStreamView
+        agentId={streamId}
+        imageAgentId={target.parentAgentId}
+        serverId={serverId}
+        context={streamContext}
+        streamItems={timeline?.tail ?? EMPTY_STREAM_ITEMS}
+        streamHead={timeline?.head ?? EMPTY_STREAM_ITEMS}
+        turnPresentation={turnPresentation}
+        pendingPermissions={EMPTY_PERMISSIONS}
+        isAuthoritativeHistoryReady
+        onOpenWorkspaceFile={openFileInWorkspace}
+        readOnly
+        historyPagination={historyPagination}
+        bottomOverlayTailClearance={childTrackClearance.tail}
+        bottomOverlayControlClearance={childTrackClearance.controls}
+      />
+      <ProviderSubagentChildTrack
+        serverId={serverId}
+        parentAgentId={target.parentAgentId}
+        showParentPill={canMessage}
+        rows={childRows}
+        onOpenProviderSubagent={openProviderChild}
+        sheetTabFor={sheetTabFor}
+      />
+    </View>
+  );
+  const content = (
+    <View style={styles.stream}>
+      {subtitle ? <PaneSubtitle text={subtitle} testID="provider-subagent-pane-subtitle" /> : null}
+      {stream}
+    </View>
+  );
+
   return (
     <View style={styles.container} testID="provider-subagent-panel">
-      {subtitle ? <PaneSubtitle text={subtitle} testID="provider-subagent-pane-subtitle" /> : null}
-      <View style={styles.stream}>
-        <AgentStreamView
-          agentId={streamId}
-          imageAgentId={target.parentAgentId}
+      <ComposerDock fullscreen={isComposerFullscreen}>
+        {content}
+        <ProviderSubagentFooter
           serverId={serverId}
-          context={streamContext}
-          streamItems={timeline?.tail ?? EMPTY_STREAM_ITEMS}
-          streamHead={timeline?.head ?? EMPTY_STREAM_ITEMS}
-          turnPresentation={turnPresentation}
-          pendingPermissions={EMPTY_PERMISSIONS}
-          isAuthoritativeHistoryReady
-          onOpenWorkspaceFile={openFileInWorkspace}
-          readOnly
-          historyPagination={historyPagination}
-          bottomOverlayTailClearance={childTrackClearance.tail}
-          bottomOverlayControlClearance={childTrackClearance.controls}
+          parentAgentId={target.parentAgentId}
+          subagentId={target.subagentId}
+          streamId={streamId}
+          provider={provider}
+          cwd={resolveSubagentCwd(descriptor, parent)}
+          isPaneFocused={isPaneFocused}
+          editingSession={editingSession}
         />
-        <ProviderSubagentChildTrack
-          serverId={serverId}
-          rows={childRows}
-          onOpenProviderSubagent={openProviderChild}
-          sheetTabFor={sheetTabFor}
-        />
-      </View>
-      <ParentAgentCallout serverId={serverId} parentAgentId={target.parentAgentId} />
+      </ComposerDock>
     </View>
   );
 }
