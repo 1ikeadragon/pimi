@@ -888,7 +888,7 @@ function AgentProfilePickerRowView({
 }
 
 /**
- * Pinned above the provider list. Rows are actions, not selections: applying a
+ * Below the provider list on the root view, above the models in a provider. Rows are actions, not selections: applying a
  * profile writes its values into the composer and nothing stays bound to it, so
  * there is no checkmark and no active row to show.
  */
@@ -896,10 +896,12 @@ function AgentProfilesPickerSection({
   rows,
   onApplyProfile,
   onEditProfiles,
+  placement,
 }: {
   rows: AgentProfilePickerRowModel[];
   onApplyProfile?: (profileId: string) => void;
   onEditProfiles?: () => void;
+  placement: ProfilesPlacement;
 }) {
   const { t } = useTranslation();
   const handleApply = useCallback(
@@ -907,7 +909,7 @@ function AgentProfilesPickerSection({
     [onApplyProfile],
   );
   return (
-    <View style={styles.profilesContainer}>
+    <View style={placement === "below" ? styles.profilesContainerBelow : styles.profilesContainer}>
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionHeadingText}>{t("modelSelector.profiles")}</Text>
         {onEditProfiles ? (
@@ -944,14 +946,18 @@ function CreateAgentProfileRow({ onPress }: { onPress: () => void }) {
   );
 }
 
+type ProfilesPlacement = "above" | "below";
+
 function AgentProfilesPickerContent({
   rows,
   onApplyProfile,
   onEditProfiles,
+  placement = "above",
 }: {
   rows: AgentProfilePickerRowModel[];
   onApplyProfile?: (profileId: string) => void;
   onEditProfiles?: () => void;
+  placement?: ProfilesPlacement;
 }) {
   if (rows.length === 0) {
     return onEditProfiles ? <CreateAgentProfileRow onPress={onEditProfiles} /> : null;
@@ -961,6 +967,7 @@ function AgentProfilesPickerContent({
       rows={rows}
       onApplyProfile={onApplyProfile}
       onEditProfiles={onEditProfiles}
+      placement={placement}
     />
   );
 }
@@ -1463,13 +1470,6 @@ function ModelBrowserContent({
 
   const allProvidersContent = (
     <View>
-      {showProfilesSection && profiles ? (
-        <AgentProfilesPickerContent
-          rows={profiles.rows}
-          onApplyProfile={onApplyProfile}
-          onEditProfiles={onEditProfiles}
-        />
-      ) : null}
       {rootBrowseContent ??
         (providers.length > 0 ? (
           <View>
@@ -1485,6 +1485,14 @@ function ModelBrowserContent({
             />
           </View>
         ) : null)}
+      {showProfilesSection && profiles ? (
+        <AgentProfilesPickerContent
+          rows={profiles.rows}
+          onApplyProfile={onApplyProfile}
+          onEditProfiles={onEditProfiles}
+          placement="below"
+        />
+      ) : null}
       {!hasResults ? <ModelSearchEmptyState /> : null}
     </View>
   );
@@ -1558,6 +1566,11 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.surface1,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+  },
+  profilesContainerBelow: {
+    backgroundColor: theme.colors.surface1,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
   separator: {
     height: 1,
