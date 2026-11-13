@@ -10,7 +10,14 @@ import {
   createElement,
 } from "react";
 import { createPortal } from "react-dom";
-import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import {
+  Pressable,
+  Text,
+  View,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import {
   EditingTextInput as TextInput,
   type EditingTextInputHandle,
@@ -20,6 +27,7 @@ import {
   ArrowRight,
   Camera,
   ChevronDown,
+  Ellipsis,
   Maximize,
   Monitor,
   MousePointer2,
@@ -45,6 +53,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -597,6 +607,151 @@ function DeviceSizeMenu({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+type ToolbarIconStyle = (state: { hovered?: boolean; pressed?: boolean }) => StyleProp<ViewStyle>;
+
+// Below this toolbar width the DevTools, annotate, screenshot and device-size controls fold into
+// one overflow menu, so the URL field keeps room and no control is clipped off the right edge.
+const BROWSER_TOOLBAR_COLLAPSE_WIDTH = 380;
+
+const ThemedEllipsis = withUnistyles(Ellipsis);
+
+function BrowserToolbarActions({
+  collapsed,
+  selectorMode,
+  selectedDeviceSizeId,
+  onSelectDeviceSize,
+  onOpenDevTools,
+  onToggleAnnotate,
+  onToggleScreenshot,
+  baseIconButtonStyle,
+  annotateIconButtonStyle,
+  screenshotIconButtonStyle,
+}: {
+  collapsed: boolean;
+  selectorMode: "annotate" | "screenshot" | null;
+  selectedDeviceSizeId: DeviceSizeId | null;
+  onSelectDeviceSize: (id: DeviceSizeId) => void;
+  onOpenDevTools: () => void;
+  onToggleAnnotate: () => void;
+  onToggleScreenshot: () => void;
+  baseIconButtonStyle: ToolbarIconStyle;
+  annotateIconButtonStyle: ToolbarIconStyle;
+  screenshotIconButtonStyle: ToolbarIconStyle;
+}) {
+  const { t } = useTranslation();
+  const { theme } = useUnistyles();
+  const annotating = selectorMode === "annotate";
+  const capturing = selectorMode === "screenshot";
+  const annotateLabel = annotating
+    ? t("workspace.browser.controls.cancelSelector")
+    : t("workspace.browser.controls.annotateElement");
+  const screenshotLabel = capturing
+    ? t("workspace.browser.controls.cancelSelector")
+    : t("workspace.browser.controls.screenshotElement");
+  const devToolsIcon = useMemo(
+    () => <Wrench size={16} color={theme.colors.foregroundMuted} />,
+    [theme.colors.foregroundMuted],
+  );
+  const annotateIcon = useMemo(
+    () => (
+      <MousePointer2
+        size={16}
+        color={annotating ? theme.colors.accent : theme.colors.foregroundMuted}
+      />
+    ),
+    [annotating, theme.colors.accent, theme.colors.foregroundMuted],
+  );
+  const screenshotIcon = useMemo(
+    () => (
+      <Camera size={16} color={capturing ? theme.colors.accent : theme.colors.foregroundMuted} />
+    ),
+    [capturing, theme.colors.accent, theme.colors.foregroundMuted],
+  );
+
+  if (collapsed) {
+    const moreLabel = t("workspace.git.actions.moreActions");
+    return (
+      <View style={styles.chromeRight}>
+        <DropdownMenu>
+          <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger accessibilityLabel={moreLabel} style={baseIconButtonStyle}>
+                <ThemedEllipsis size={16} uniProps={deviceMutedIconMapping} />
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="center" offset={8}>
+              <Text style={styles.toolbarTooltipText}>{moreLabel}</Text>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="end" scrollable maxHeight={360}>
+            <DropdownMenuItem leading={devToolsIcon} onSelect={onOpenDevTools}>
+              {t("workspace.browser.controls.openDevTools")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              leading={annotateIcon}
+              selected={annotating}
+              onSelect={onToggleAnnotate}
+            >
+              {annotateLabel}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              leading={screenshotIcon}
+              selected={capturing}
+              onSelect={onToggleScreenshot}
+            >
+              {screenshotLabel}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>{t("workspace.browser.devices.label")}</DropdownMenuLabel>
+            {DEVICE_SIZE_PRESETS.map((preset) => (
+              <DeviceSizeMenuItem
+                key={preset.id}
+                preset={preset}
+                selected={preset.id === selectedDeviceSizeId}
+                label={formatDevicePresetLabel(preset, t(RESPONSIVE_DEVICE_LABEL_KEY))}
+                onSelect={onSelectDeviceSize}
+              />
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.chromeRight}>
+      <DeviceSizeMenu
+        selectedId={selectedDeviceSizeId}
+        onSelect={onSelectDeviceSize}
+        triggerStyle={baseIconButtonStyle}
+      />
+      <ToolbarButton
+        label={t("workspace.browser.controls.openDevTools")}
+        onPress={onOpenDevTools}
+        style={baseIconButtonStyle}
+      >
+        {devToolsIcon}
+      </ToolbarButton>
+      <ToolbarButton
+        label={annotateLabel}
+        active={annotating}
+        onPress={onToggleAnnotate}
+        style={annotateIconButtonStyle}
+      >
+        {annotateIcon}
+      </ToolbarButton>
+      <ToolbarButton
+        label={screenshotLabel}
+        active={capturing}
+        onPress={onToggleScreenshot}
+        style={screenshotIconButtonStyle}
+      >
+        {screenshotIcon}
+      </ToolbarButton>
+    </View>
   );
 }
 
@@ -1479,6 +1634,12 @@ export function BrowserPane({
       });
   }, []);
 
+  const [toolbarWidth, setToolbarWidth] = useState<number | null>(null);
+  const handleToolbarLayout = useCallback((event: LayoutChangeEvent) => {
+    setToolbarWidth(Math.round(event.nativeEvent.layout.width));
+  }, []);
+  const collapseToolbar = toolbarWidth !== null && toolbarWidth < BROWSER_TOOLBAR_COLLAPSE_WIDTH;
+
   const baseIconButtonStyle = useCallback(
     ({ hovered, pressed }: { hovered?: boolean; pressed?: boolean }) => [
       styles.iconButton,
@@ -1587,7 +1748,7 @@ export function BrowserPane({
 
   return (
     <View style={styles.container}>
-      <View style={styles.chromeRow}>
+      <View style={styles.chromeRow} onLayout={handleToolbarLayout}>
         <View style={styles.chromeLeft}>
           <ToolbarButton
             label={t("workspace.browser.controls.back")}
@@ -1632,54 +1793,18 @@ export function BrowserPane({
             initialValue={draftUrl}
           />
         </View>
-        <View style={styles.chromeRight}>
-          <DeviceSizeMenu
-            selectedId={selectedDeviceSizeId}
-            onSelect={handleSelectDeviceSize}
-            triggerStyle={baseIconButtonStyle}
-          />
-          <ToolbarButton
-            label={t("workspace.browser.controls.openDevTools")}
-            onPress={handleOpenDevTools}
-            style={baseIconButtonStyle}
-          >
-            <Wrench size={16} color={theme.colors.foregroundMuted} />
-          </ToolbarButton>
-          <ToolbarButton
-            label={
-              selectorMode === "annotate"
-                ? t("workspace.browser.controls.cancelSelector")
-                : t("workspace.browser.controls.annotateElement")
-            }
-            active={selectorMode === "annotate"}
-            onPress={handleToggleElementSelector}
-            style={annotateIconButtonStyle}
-          >
-            <MousePointer2
-              size={16}
-              color={
-                selectorMode === "annotate" ? theme.colors.accent : theme.colors.foregroundMuted
-              }
-            />
-          </ToolbarButton>
-          <ToolbarButton
-            label={
-              selectorMode === "screenshot"
-                ? t("workspace.browser.controls.cancelSelector")
-                : t("workspace.browser.controls.screenshotElement")
-            }
-            active={selectorMode === "screenshot"}
-            onPress={handleToggleScreenshot}
-            style={screenshotIconButtonStyle}
-          >
-            <Camera
-              size={16}
-              color={
-                selectorMode === "screenshot" ? theme.colors.accent : theme.colors.foregroundMuted
-              }
-            />
-          </ToolbarButton>
-        </View>
+        <BrowserToolbarActions
+          collapsed={collapseToolbar}
+          selectorMode={selectorMode}
+          selectedDeviceSizeId={selectedDeviceSizeId}
+          onSelectDeviceSize={handleSelectDeviceSize}
+          onOpenDevTools={handleOpenDevTools}
+          onToggleAnnotate={handleToggleElementSelector}
+          onToggleScreenshot={handleToggleScreenshot}
+          baseIconButtonStyle={baseIconButtonStyle}
+          annotateIconButtonStyle={annotateIconButtonStyle}
+          screenshotIconButtonStyle={screenshotIconButtonStyle}
+        />
       </View>
       {browser?.lastError ? (
         <View style={styles.errorRow}>
