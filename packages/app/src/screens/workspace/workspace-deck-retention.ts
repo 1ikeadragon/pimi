@@ -15,7 +15,11 @@ export function resolveWorkspaceDeckRetentionLimit(input: { isNative: boolean })
 interface ReconcileRetainedWorkspaceSelectionsInput {
   currentEntries: RetainedWorkspaceSelection[];
   activeSelection: ActiveWorkspaceSelection | null;
-  now: number;
+  /**
+   * The clock for stamping and expiring inactive entries. Render passes null: it only decides
+   * which workspaces stay mounted, and the effect that follows stamps and expires them.
+   */
+  now: number | null;
   maxMountedWorkspaces?: number;
   inactiveTtlMs?: number;
 }
@@ -100,7 +104,7 @@ export function reconcileRetainedWorkspaceSelections({
       continue;
     }
     const inactiveSince = entry.inactiveSince ?? now;
-    if (now - inactiveSince >= inactiveTtlMs) {
+    if (inactiveSince !== null && now !== null && now - inactiveSince >= inactiveTtlMs) {
       continue;
     }
     appendEntry({ selection: entry.selection, inactiveSince });

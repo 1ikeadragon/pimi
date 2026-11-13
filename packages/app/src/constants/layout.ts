@@ -1,4 +1,6 @@
-import { useUnistyles } from "react-native-unistyles";
+import { useSyncExternalStore } from "react";
+import { Dimensions } from "react-native";
+import { UnistylesRuntime } from "react-native-unistyles";
 import { bySizing, TOUCH_TARGET } from "@/components/ui/control-sizing";
 import { isWeb } from "@/constants/platform";
 
@@ -44,13 +46,46 @@ export function isCompactBreakpoint(breakpoint: string | undefined): boolean {
   return breakpoint === "xs" || breakpoint === "sm";
 }
 
+// The compact boundary is the `md` breakpoint: compact means below it. Web asks the same media
+// query Unistyles uses for its own breakpoint, so this flips in the same frame as the styles.
+// Native has no media queries, so it compares the window width.
+function getCompactMaxWidthExclusive(): number {
+  return UnistylesRuntime.breakpoints?.md ?? 600;
+}
+
+let compactMediaQuery: MediaQueryList | null = null;
+function getCompactMediaQuery(): MediaQueryList {
+  compactMediaQuery ??= window.matchMedia(`(min-width: ${getCompactMaxWidthExclusive()}px)`);
+  return compactMediaQuery;
+}
+
+function subscribeCompactFormFactor(onChange: () => void): () => void {
+  if (isWeb) {
+    const query = getCompactMediaQuery();
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }
+  const subscription = Dimensions.addEventListener("change", onChange);
+  return () => subscription.remove();
+}
+
+function getCompactFormFactorSnapshot(): boolean {
+  if (isWeb) {
+    return !getCompactMediaQuery().matches;
+  }
+  return Dimensions.get("window").width < getCompactMaxWidthExclusive();
+}
+
 /**
- * Reactive hook — re-renders the component when the breakpoint changes.
+ * Reactive hook — re-renders the component only when the window crosses the compact boundary.
  * Always use this instead of reading UnistylesRuntime.breakpoint directly.
  */
 export function useIsCompactFormFactor(): boolean {
-  const { rt } = useUnistyles();
-  return isCompactBreakpoint(rt.breakpoint);
+  return useSyncExternalStore(
+    subscribeCompactFormFactor,
+    getCompactFormFactorSnapshot,
+    getCompactFormFactorSnapshot,
+  );
 }
 
 // SplitContainer relies on dnd-kit and DOM-backed accessibility helpers.
