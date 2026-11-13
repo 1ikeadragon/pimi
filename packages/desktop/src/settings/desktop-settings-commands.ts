@@ -1,6 +1,10 @@
 import type { DesktopSettingsStore } from "./desktop-settings.js";
 
-export type DesktopCommandHandler = (args?: Record<string, unknown>) => unknown;
+// `callerId` is the webContents id of the window that invoked the command.
+export type DesktopCommandHandler = (
+  args: Record<string, unknown> | undefined,
+  callerId: number,
+) => unknown;
 
 export function createDesktopSettingsCommandHandlers({
   settingsStore,

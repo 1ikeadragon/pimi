@@ -6,7 +6,7 @@ import {
   validatePort,
   validateSshHost,
 } from "@pimi/protocol/ssh-transport";
-import { app, BrowserWindow } from "electron";
+import { app, webContents } from "electron";
 import { ensureRemoteDaemonForDesktop } from "./remote-ssh/desktop.js";
 import { prepareSshAuth } from "./remote-ssh/askpass.js";
 import { controlPathOption, sshConfigArgs } from "./remote-ssh/control-master.js";
@@ -38,6 +38,8 @@ export interface TransportEventPayload {
 
 interface Session {
   id: string;
+  // webContents id of the window that opened the session; its events go only there.
+  ownerId: number;
   target: TransportTarget;
   ws: TransportWebSocket | null;
   state: "opening" | "open" | "closed";
@@ -71,14 +73,15 @@ export interface LocalTransportManagerDependencies {
   resolveEndpoint(target: TransportTarget): Promise<TransportEndpoint>;
   createWebSocket(url: string): TransportWebSocket;
   scheduleTimeout(callback: () => void, delayMs: number): () => void;
-  emitEvent(payload: TransportEventPayload): void;
+  emitEvent(ownerId: number, payload: TransportEventPayload): void;
 }
 
 export interface LocalTransportManager {
-  open(rawInput: unknown): void;
+  open(rawInput: unknown, ownerId: number): void;
   send(input: { sessionId: string; text?: string; binaryBase64?: string }): Promise<void>;
   close(sessionId: string): void;
   closeAll(): void;
+  closeOwnedBy(ownerId: number): void;
 }
 
 const WS_ENDPOINT_PATH = "/ws";
@@ -87,10 +90,8 @@ export const LOCAL_TRANSPORT_SETUP_TIMEOUT_MS = 30_000;
 // A Remote SSH connect may install or upgrade the daemon first.
 export const REMOTE_SSH_SETUP_TIMEOUT_MS = 10 * 60_000;
 
-function emitTransportEvent(payload: TransportEventPayload): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send("pimi:event:local-daemon-transport-event", payload);
-  }
+function emitTransportEvent(ownerId: number, payload: TransportEventPayload): void {
+  webContents.fromId(ownerId)?.send("pimi:event:local-daemon-transport-event", payload);
 }
 
 /**
@@ -364,9 +365,9 @@ export function createLocalTransportManager(
     return sessions.get(session.id) === session && session.state !== "closed";
   }
 
-  function emitEvent(payload: TransportEventPayload): void {
+  function emitEvent(session: Session, payload: TransportEventPayload): void {
     try {
-      deps.emitEvent(payload);
+      deps.emitEvent(session.ownerId, payload);
     } catch {
       // A renderer may disappear while the main process is broadcasting an event.
     }
@@ -416,7 +417,7 @@ export function createLocalTransportManager(
       return;
     }
     disposeSession(session);
-    emitEvent({ sessionId: session.id, kind: "error", error: message });
+    emitEvent(session, { sessionId: session.id, kind: "error", error: message });
   }
 
   async function connectSession(session: Session): Promise<void> {
@@ -468,7 +469,7 @@ export function createLocalTransportManager(
       session.cancelSetupDeadline();
       session.cancelSetupDeadline = () => undefined;
       session.state = "open";
-      emitEvent({ sessionId: session.id, kind: "open" });
+      emitEvent(session, { sessionId: session.id, kind: "open" });
     });
 
     ws.on("message", (data: RawData, isBinary: boolean) => {
@@ -477,7 +478,7 @@ export function createLocalTransportManager(
       }
       if (isBinary || data instanceof Buffer) {
         const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
-        emitEvent({
+        emitEvent(session, {
           sessionId: session.id,
           kind: "message",
           binaryBase64: buf.toString("base64"),
@@ -485,7 +486,7 @@ export function createLocalTransportManager(
         return;
       }
 
-      emitEvent({
+      emitEvent(session, {
         sessionId: session.id,
         kind: "message",
         text: data.toString(),
@@ -507,7 +508,7 @@ export function createLocalTransportManager(
       }
 
       disposeSession(session);
-      emitEvent({
+      emitEvent(session, {
         sessionId: session.id,
         kind: "close",
         code,
@@ -529,11 +530,11 @@ export function createLocalTransportManager(
         return;
       }
 
-      emitEvent({ sessionId: session.id, kind: "error", error: detail });
+      emitEvent(session, { sessionId: session.id, kind: "error", error: detail });
     });
   }
 
-  function open(rawInput: unknown): void {
+  function open(rawInput: unknown, ownerId: number): void {
     const { sessionId, target } = parseOpenTransportSessionInput(rawInput);
     if (sessions.has(sessionId)) {
       throw new Error(`Local transport session already exists: ${sessionId}`);
@@ -541,6 +542,7 @@ export function createLocalTransportManager(
 
     const session: Session = {
       id: sessionId,
+      ownerId,
       target,
       ws: null,
       state: "opening",
@@ -606,7 +608,13 @@ export function createLocalTransportManager(
     }
   }
 
-  return { open, send, close, closeAll };
+  function closeOwnedBy(ownerId: number): void {
+    for (const session of sessions.values()) {
+      if (session.ownerId === ownerId) disposeSession(session);
+    }
+  }
+
+  return { open, send, close, closeAll, closeOwnedBy };
 }
 
 const localTransportManager = createLocalTransportManager({
@@ -620,8 +628,8 @@ const localTransportManager = createLocalTransportManager({
   emitEvent: emitTransportEvent,
 });
 
-export function openLocalTransportSession(rawInput: unknown): void {
-  localTransportManager.open(rawInput);
+export function openLocalTransportSession(rawInput: unknown, ownerId: number): void {
+  localTransportManager.open(rawInput, ownerId);
 }
 
 export async function sendLocalTransportMessage(input: {
@@ -641,16 +649,15 @@ export function closeAllTransportSessions(): void {
 }
 
 // A renderer that reloads or goes away cannot close its sessions, and each Remote SSH session
-// holds an ssh tunnel. Without this the tunnels pile up until the app quits (two per host per
-// reload). Sessions are not tied to a window, so with several windows open a reload leaves them
-// alone: the other window's tunnels are not touched, and the reloaded window's stay until quit.
+// holds an ssh tunnel. A window's sessions end when it navigates or is destroyed; other windows'
+// sessions are untouched.
 app.on("web-contents-created", (_event, contents) => {
   if (contents.getType() !== "window") return;
-  const releaseIfLastWindow = (): void => {
-    if (BrowserWindow.getAllWindows().length <= 1) closeAllTransportSessions();
-  };
+  const ownerId = contents.id;
   contents.on("did-start-navigation", (details) => {
-    if (details.isMainFrame && !details.isSameDocument) releaseIfLastWindow();
+    if (details.isMainFrame && !details.isSameDocument) {
+      localTransportManager.closeOwnedBy(ownerId);
+    }
   });
-  contents.once("destroyed", releaseIfLastWindow);
+  contents.once("destroyed", () => localTransportManager.closeOwnedBy(ownerId));
 });

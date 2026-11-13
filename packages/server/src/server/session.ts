@@ -36,7 +36,7 @@ import type { MessageReceipts } from "./message-receipts/index.js";
 import type { AgentBackgroundWorkItem } from "./agent/background-work/index.js";
 import { WorkspaceSetupObservation } from "./workspace-setup-observation.js";
 import { SessionDelivery, type OwnedSubscription } from "./session/owned-subscriptions/index.js";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { lstat, mkdir, mkdtemp, rename, rm, stat } from "node:fs/promises";
 import { basename, join, resolve, sep } from "path";
@@ -767,6 +767,7 @@ export class Session {
   private unsubscribeAgentEvents: (() => void) | null = null;
   private unsubscribeProjectMutations: (() => void) | null = null;
   private unsubscribePluginChanges: (() => void) | null = null;
+  private unsubscribeAutomationDrafts: (() => void) | null = null;
   private unsubscribeWorkspaceMutations: (() => void) | null = null;
   private registryMutationQueue: Promise<void> = Promise.resolve();
   private projectUpdateQueue: Promise<void> = Promise.resolve();
@@ -789,6 +790,7 @@ export class Session {
     WorkspaceUpdatesSubscriptionState
   >();
   private readonly workspaceLabelService: WorkspaceLabelService | null;
+  private readonly automationService: AutomationService;
   private readonly eventSubscriptions = new Map<
     string,
     { owner: OwnedSubscription; events: Set<SessionEventSubscription>; notifications: boolean }
@@ -915,6 +917,7 @@ export class Session {
     this.projectIcons = new ProjectIconReader(pimiHome);
     this.worktreesRoot = worktreesRoot;
     this.pluginRuntime = pluginRuntime;
+    this.automationService = automationService;
     this.orchestrationSkills = orchestrationSkills;
     this.sessionLogger = logger.child({
       module: "session",
@@ -1652,6 +1655,14 @@ export class Session {
     else {
       this.unsubscribePluginChanges?.();
       this.unsubscribePluginChanges = null;
+    }
+    if (this.wantsEvent("status.automation_drafts_changed"))
+      this.unsubscribeAutomationDrafts ??= this.automationService.onDraftsChanged(() => {
+        this.emit({ type: "status", payload: { status: "automation_drafts_changed" } });
+      });
+    else {
+      this.unsubscribeAutomationDrafts?.();
+      this.unsubscribeAutomationDrafts = null;
     }
   }
 
@@ -2886,12 +2897,18 @@ export class Session {
         return this.agentConfigSession.handleSetAgentThinkingRequest(msg);
       case "agent.config.apply.request":
         return this.agentConfigSession.handleAgentConfigApplyRequest(msg);
-      case "get_daemon_config_request":
+      case "get_daemon_config_request": {
+        const config = this.daemonConfigStore.get();
+        const configHash = createHash("sha256").update(JSON.stringify(config)).digest("hex");
         this.emit({
           type: "get_daemon_config_response",
-          payload: { requestId: msg.requestId, config: this.daemonConfigStore.get() },
+          payload:
+            msg.ifNoneMatch === configHash
+              ? { requestId: msg.requestId, configHash, notModified: true }
+              : { requestId: msg.requestId, configHash, config },
         });
         return undefined;
+      }
       case "daemon.get_status.request":
         return this.daemonSession.handleGetStatusRequest(msg);
       case "daemon.get_pairing_offer.request":
@@ -9058,6 +9075,8 @@ export class Session {
     this.unsubscribeProjectMutations = null;
     this.unsubscribePluginChanges?.();
     this.unsubscribePluginChanges = null;
+    this.unsubscribeAutomationDrafts?.();
+    this.unsubscribeAutomationDrafts = null;
     this.unsubscribeWorkspaceMutations?.();
     this.unsubscribeWorkspaceMutations = null;
     this.agentUpdates.dispose();
@@ -9163,6 +9182,8 @@ function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubs
           return "status.plugin_catalog_changed";
         case "plugin_settings_changed":
           return "status.plugin_settings_changed";
+        case "automation_drafts_changed":
+          return "status.automation_drafts_changed";
         default:
           return null;
       }

@@ -1968,6 +1968,8 @@ export const TerminalHooksReconcileRequestSchema = z
 export const GetDaemonConfigRequestMessageSchema = z.object({
   type: z.literal("get_daemon_config_request"),
   requestId: z.string(),
+  // Hash of the config the client already holds; a match returns no config body.
+  ifNoneMatch: z.string().optional(),
 });
 
 export const SetDaemonConfigRequestMessageSchema = z.object({
@@ -3596,6 +3598,7 @@ export const SessionEventSubscriptionSchema = z.enum([
   "status.daemon_config_changed",
   "status.plugin_catalog_changed",
   "status.plugin_settings_changed",
+  "status.automation_drafts_changed",
   "activity_log",
   "attack.run.changed",
   "attack.finding.changed",
@@ -4145,6 +4148,10 @@ export const PluginSettingsChangedStatusPayloadSchema = z.object({
   settingsId: z.string(),
 });
 
+export const AutomationDraftsChangedStatusPayloadSchema = z.object({
+  status: z.literal("automation_drafts_changed"),
+});
+
 export const KnownStatusPayloadSchema = z.discriminatedUnion("status", [
   AgentCreatedStatusPayloadSchema,
   AgentCreateFailedStatusPayloadSchema,
@@ -4155,6 +4162,7 @@ export const KnownStatusPayloadSchema = z.discriminatedUnion("status", [
   DaemonConfigChangedStatusPayloadSchema,
   PluginCatalogChangedStatusPayloadSchema,
   PluginSettingsChangedStatusPayloadSchema,
+  AutomationDraftsChangedStatusPayloadSchema,
 ]);
 
 export type KnownStatusPayload = z.infer<typeof KnownStatusPayloadSchema>;
@@ -5309,7 +5317,9 @@ export const GetDaemonConfigResponseMessageSchema = z.object({
   payload: z
     .object({
       requestId: z.string(),
-      config: MutableDaemonConfigSchema,
+      configHash: z.string(),
+      notModified: z.boolean().optional(),
+      config: MutableDaemonConfigSchema.optional(),
     })
     .passthrough(),
 });

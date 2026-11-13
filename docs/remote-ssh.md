@@ -28,6 +28,18 @@ On macOS and Linux every ssh Pimi starts for one machine (the probe, the app's t
 - Quitting the app stops every master and removes the sockets. After a crash a master exits on its own once idle; a stale socket is replaced by the next connect.
 - Windows keeps one ssh per use: Win32-OpenSSH has no multiplexing.
 
+## Windows and tunnels
+
+Every transport session belongs to the window that opened it: the IPC handler gets the caller's `webContents` id, and events go only to that window. A window's sessions, and the `ssh -W` tunnels under them, end when it navigates (reload) or is destroyed; other windows keep theirs. A renderer cannot close its sessions itself when it reloads, so nothing else would.
+
+## Keeping the link quiet
+
+Over a tunnel every request is a round trip and every byte queues behind the others on one TCP stream, so the app avoids repeating itself:
+
+- `get_daemon_config` is 35 KB on a stock host (agent profiles). The app keeps the last copy per host in `AsyncStorage` with the daemon's hash and sends the hash back, so a launch or reconnect costs a 200-byte `notModified` answer.
+- `DaemonClient` shares one in-flight response among identical reads in `SHARED_READ_REQUESTS`. Add a request there only when its response depends on nothing but the message body.
+- Automation drafts arrive as `status.automation_drafts_changed` events. There is no polling, so an idle host sends nothing.
+
 ## Sign-in prompts
 
 The desktop runs ssh with `SSH_ASKPASS_REQUIRE=force`, so ssh calls Pimi's askpass program only when it would otherwise prompt. The program (`bin/pimi-ssh-askpass` on macOS, the Windows helper exe in askpass mode) relays ssh's prompt text to the main process over a private socket or pipe, authenticated by a per-spawn token. The answer never goes through env, argv or disk. Three things are easy to get wrong:

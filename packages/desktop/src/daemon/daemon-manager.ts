@@ -656,7 +656,7 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
     remote_ssh_auth_forget: (args) => {
       forgetRemoteSshAuth(args);
     },
-    open_local_daemon_transport: async (args) => await openLocalTransportSession(args),
+    open_local_daemon_transport: (args, callerId) => openLocalTransportSession(args, callerId),
     send_local_daemon_transport_message: async (args) => {
       await sendLocalTransportMessage(
         args as { sessionId: string; text?: string; binaryBase64?: string },
@@ -702,19 +702,19 @@ export function registerDaemonManager(onDaemonReady?: () => void): void {
       "restart_desktop_daemon",
     ]) {
       const handleStatus = handlers[command];
-      handlers[command] = async (args) => {
-        const status = (await handleStatus(args)) as DesktopDaemonStatus;
+      handlers[command] = async (args, callerId) => {
+        const status = (await handleStatus(args, callerId)) as DesktopDaemonStatus;
         if (status.status === "running") onDaemonReady();
         return status;
       };
     }
   }
 
-  ipcMain.handle("pimi:invoke", async (_event, command: string, args?: Record<string, unknown>) => {
+  ipcMain.handle("pimi:invoke", async (event, command: string, args?: Record<string, unknown>) => {
     const handler = handlers[command];
     if (!handler) {
       throw new Error(`Unknown desktop command: ${command}`);
     }
-    return await handler(args);
+    return await handler(args, event.sender.id);
   });
 }

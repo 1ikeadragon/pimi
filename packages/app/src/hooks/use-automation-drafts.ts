@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { AutomationDraft } from "@pimi/protocol/automation/types";
@@ -20,33 +20,65 @@ const automationDraftsQueryBaseKey = ["automation-drafts"] as const;
  */
 export const announceableDraftKeys = new Set<string>();
 const NO_DRAFTS: AggregatedAutomationDraft[] = [];
-// A compile is one LLM turn: poll quickly while one runs, slowly otherwise so a draft started on
-// another client still surfaces.
-const DRAFTING_POLL_MS = 2_000;
-const IDLE_POLL_MS = 15_000;
 
 function clientFor(serverId: string) {
   return useSessionStore.getState().sessions[serverId]?.client ?? null;
 }
 
-/** Every connected host's drafts. A host that fails to answer contributes none. */
-export function useAutomationDrafts(): AggregatedAutomationDraft[] {
+function useOnlineHostIds(): string[] {
   const hosts = useHosts();
   const serverIds = useMemo(() => hosts.map((host) => host.serverId), [hosts]);
   const statuses = useHostRuntimeConnectionStatuses(serverIds);
-  const onlineIds = useMemo(
+  return useMemo(
     () => serverIds.filter((serverId) => statuses.get(serverId) === "online"),
     [serverIds, statuses],
   );
+}
+
+/**
+ * Keeps the draft list current from the hosts' change events, including drafts started on another
+ * client. A subscription's snapshot fires on every (re)connect, which catches changes missed while
+ * offline. Mount once; `useAutomationDrafts` readers share the query.
+ */
+export function useAutomationDraftSync(): void {
+  const queryClient = useQueryClient();
+  const onlineIds = useOnlineHostIds();
+  const onlineKey = onlineIds.join("|");
+  useEffect(() => {
+    const releases: Array<() => void> = [];
+    for (const serverId of onlineKey ? onlineKey.split("|") : []) {
+      const client = clientFor(serverId);
+      if (!client) continue;
+      const observation = client.observeEvents(["status.automation_drafts_changed"]);
+      const invalidate = () => {
+        void queryClient.invalidateQueries({ queryKey: automationDraftsQueryBaseKey });
+      };
+      observation.subscribe({
+        snapshot: invalidate,
+        update: (message) => {
+          if (message.type === "status" && message.payload.status === "automation_drafts_changed") {
+            invalidate();
+          }
+        },
+      });
+      releases.push(() => {
+        void observation.release().catch(() => undefined);
+      });
+    }
+    return () => {
+      for (const release of releases) release();
+    };
+  }, [onlineKey, queryClient]);
+}
+
+/** Every connected host's drafts. A host that fails to answer contributes none. */
+export function useAutomationDrafts(): AggregatedAutomationDraft[] {
+  const onlineIds = useOnlineHostIds();
   const query = useFetchQuery({
     queryKey: [...automationDraftsQueryBaseKey, onlineIds.join("|")],
     enabled: onlineIds.length > 0,
     dataShape: "list",
     staleTimeMs: 1_000,
-    refetchInterval: (current) =>
-      current.state.data?.some((draft) => draft.state === "drafting")
-        ? DRAFTING_POLL_MS
-        : IDLE_POLL_MS,
     queryFn: async (): Promise<AggregatedAutomationDraft[]> => {
       const perHost = await Promise.all(
         onlineIds.map(async (serverId) => {

@@ -285,6 +285,7 @@ export class AutomationService {
   private archiveQueue: Promise<void> = Promise.resolve();
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private ticking = false;
+  private readonly draftListeners = new Set<() => void>();
 
   constructor(options: AutomationServiceOptions) {
     this.logger = options.logger.child({ module: "automation-service" });
@@ -355,8 +356,25 @@ export class AutomationService {
       createdAt: now,
       updatedAt: now,
     });
+    this.notifyDraftsChanged();
     this.compileDraft(draft);
     return draft;
+  }
+
+  /** Calls `listener` after any draft is added, changed or dismissed. */
+  onDraftsChanged(listener: () => void): () => void {
+    this.draftListeners.add(listener);
+    return () => this.draftListeners.delete(listener);
+  }
+
+  private notifyDraftsChanged(): void {
+    for (const listener of this.draftListeners) {
+      try {
+        listener();
+      } catch (caught) {
+        this.logger.warn({ err: caught }, "Automation draft listener failed");
+      }
+    }
   }
 
   async listDrafts(): Promise<AutomationDraft[]> {
@@ -390,6 +408,7 @@ export class AutomationService {
       }),
       id,
     );
+    this.notifyDraftsChanged();
     this.compileDraft(draft);
     return draft;
   }
@@ -397,6 +416,7 @@ export class AutomationService {
   // Dismissing a draft that is still compiling drops its result when the turn ends.
   async dismissDraft(id: string): Promise<void> {
     await this.store.drafts.delete(id);
+    this.notifyDraftsChanged();
   }
 
   private compileDraft(draft: AutomationDraft): void {
@@ -423,6 +443,7 @@ export class AutomationService {
         automationId,
         updatedAt: new Date().toISOString(),
       }));
+      this.notifyDraftsChanged();
     })().catch((caught) => {
       this.logger.error({ err: caught, draftId: draft.id }, "Failed to record automation draft");
     });
