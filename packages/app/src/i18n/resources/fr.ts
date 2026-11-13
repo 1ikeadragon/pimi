@@ -2963,6 +2963,19 @@ export const fr: TranslationResources = {
     showMore: "Afficher plus",
     showLess: "Afficher moins",
   },
+  activity: {
+    failed: "Échec",
+    stopped: "Arrêté",
+    verbs: {
+      read: { done: "A lu", running: "Lecture" },
+      search: { done: "A cherché", running: "Recherche" },
+      fetch: { done: "A récupéré", running: "Récupération" },
+      edit: { done: "A modifié", running: "Modification" },
+      write: { done: "A écrit", running: "Écriture" },
+      shell: { done: "A exécuté", running: "Exécution" },
+      thinking: { done: "A réfléchi", running: "Réflexion" },
+    },
+  },
   toolCallGroup: {
     thought: "Réfléchi",
     editedFiles: {

@@ -1,10 +1,10 @@
 import React, { memo, useCallback, useRef, type ReactNode } from "react";
 import { ScrollView } from "react-native";
-import { Wrench } from "lucide-react-native";
+import { ListCollapse } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useDisclosureHold } from "@/agent-stream/disclosure";
 import { IndentRail } from "@/components/indent-rail";
-import { ExpandableBadge } from "@/components/message";
+import { ActivityRow } from "@/components/activity-row";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useOverviewSummaryLabel } from "./label";
 import type { OverviewToolCallGroup } from "./model";
@@ -67,11 +67,11 @@ export const OverviewToolCallGroupView = memo(function OverviewToolCallGroupView
   if (isCompact) {
     return (
       <>
-        <ExpandableBadge
+        <ActivityRow
           testID="tool-call-group"
-          label={aggregateSummary}
-          icon={Wrench}
-          isLoading={group.isLoading}
+          icon={ListCollapse}
+          verb={aggregateSummary}
+          state={group.isLoading ? "running" : "idle"}
           isExpanded={false}
           isLastInSequence={isLastInSequence}
           onToggle={toggle}
@@ -84,16 +84,16 @@ export const OverviewToolCallGroupView = memo(function OverviewToolCallGroupView
   }
 
   return (
-    <ExpandableBadge
+    <ActivityRow
       testID="tool-call-group"
-      label={aggregateSummary}
-      icon={Wrench}
-      isLoading={group.isLoading}
+      icon={ListCollapse}
+      verb={aggregateSummary}
+      state={group.isLoading ? "running" : "idle"}
       isExpanded={expanded}
       isLastInSequence={isLastInSequence}
       onToggle={toggle}
       renderDetails={renderDetails}
-      borderlessWhenExpanded
+      nested
     />
   );
 });
@@ -104,6 +104,5 @@ const styles = StyleSheet.create((theme) => ({
   },
   content: {
     paddingTop: theme.spacing[1],
-    paddingHorizontal: 13,
   },
 }));

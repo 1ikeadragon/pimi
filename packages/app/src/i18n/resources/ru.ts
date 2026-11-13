@@ -2941,6 +2941,19 @@ export const ru: TranslationResources = {
     showMore: "Показать больше",
     showLess: "Свернуть",
   },
+  activity: {
+    failed: "Ошибка",
+    stopped: "Остановлено",
+    verbs: {
+      read: { done: "Прочитано", running: "Чтение" },
+      search: { done: "Поиск выполнен", running: "Поиск" },
+      fetch: { done: "Загружено", running: "Загрузка" },
+      edit: { done: "Изменено", running: "Изменение" },
+      write: { done: "Записано", running: "Запись" },
+      shell: { done: "Выполнено", running: "Выполнение" },
+      thinking: { done: "Размышление завершено", running: "Размышление" },
+    },
+  },
   toolCallGroup: {
     thought: "Обдумал",
     editedFiles: {

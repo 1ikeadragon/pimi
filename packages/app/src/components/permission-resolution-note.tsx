@@ -5,6 +5,7 @@ import { Check, X } from "lucide-react-native";
 import { useTranslation } from "@/i18n/use-translation";
 import type { AgentPermissionResolutionMarker } from "@pimi/protocol/agent-types";
 import { DensityIcon } from "@/components/ui/density-icon";
+import { bySizing } from "@/components/ui/control-sizing";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { useSessionStore } from "@/stores/session-store";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
@@ -46,7 +47,7 @@ export const PermissionResolutionNote = memo(function PermissionResolutionNote({
 
   return (
     <PressHighlight
-      style={styles.row}
+      style={[styles.row, isHovered && styles.rowHovered]}
       highlightStyle={styles.pressed}
       onPress={handlePress}
       onHoverIn={handleHoverIn}
@@ -72,25 +73,27 @@ export const PermissionResolutionNote = memo(function PermissionResolutionNote({
   );
 });
 
-// Sits on the tool-call rows' rail: same icon slot, text size and color, without their chrome.
+// Sits on the activity rows' rail: same glyph column, text start, size and color.
 const styles = StyleSheet.create((theme) => ({
   row: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
     maxWidth: "100%",
-    marginLeft: -4,
-    paddingVertical: theme.spacing[1],
-    paddingRight: theme.spacing[2],
-    marginBottom: theme.spacing[1],
+    marginLeft: -theme.spacing[2],
+    paddingHorizontal: theme.spacing[2],
+    height: bySizing({ touch: 36, pointer: 28 }),
     borderRadius: theme.borderRadius.lg,
   },
+  rowHovered: {
+    backgroundColor: theme.colors.interactionHighlight,
+  },
   icon: {
-    width: 22,
-    height: 22,
+    width: 16,
+    height: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: theme.spacing[1],
+    marginRight: theme.spacing[3],
   },
   text: {
     flexShrink: 1,
@@ -101,10 +104,10 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
   },
   pressed: {
-    backgroundColor: theme.colors.surface2,
+    backgroundColor: theme.colors.interactionHighlight,
   },
   summary: {
     fontFamily: theme.fontFamily.mono,
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.code,
   },
 }));

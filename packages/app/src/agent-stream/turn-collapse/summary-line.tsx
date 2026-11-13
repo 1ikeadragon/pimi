@@ -2,7 +2,7 @@ import { memo, useCallback } from "react";
 import { useTranslation } from "@/i18n/use-translation";
 import { Summary } from "lucide-react-native";
 import { useDisclosureHold } from "@/agent-stream/disclosure";
-import { ExpandableBadge } from "@/components/message";
+import { ActivityRow } from "@/components/activity-row";
 import { useOverviewSummaryLabel } from "@/tool-calls/detail-level/overview/label";
 import type { CollapsedTurn } from "./model";
 
@@ -26,13 +26,13 @@ export const TurnSummaryLine = memo(function TurnSummaryLine({
   );
 
   return (
-    <ExpandableBadge
+    <ActivityRow
       testID="turn-summary"
-      label={label}
       icon={Summary}
+      verb={label}
       isExpanded={turn.expanded}
       onToggle={toggle}
-      borderlessWhenExpanded
+      nested
     />
   );
 });

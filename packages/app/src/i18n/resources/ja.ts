@@ -2936,6 +2936,19 @@ export const ja: TranslationResources = {
     showMore: "もっと見る",
     showLess: "折りたたむ",
   },
+  activity: {
+    failed: "失敗",
+    stopped: "停止",
+    verbs: {
+      read: { done: "読み取り", running: "読み取り中" },
+      search: { done: "検索", running: "検索中" },
+      fetch: { done: "取得", running: "取得中" },
+      edit: { done: "編集", running: "編集中" },
+      write: { done: "書き込み", running: "書き込み中" },
+      shell: { done: "実行", running: "実行中" },
+      thinking: { done: "思考", running: "思考中" },
+    },
+  },
   toolCallGroup: {
     thought: "思考",
     editedFiles: {

@@ -1,6 +1,7 @@
 import { memo, useMemo, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { ACTIVITY_ROW_TEXT_OFFSET } from "@/components/activity-row";
 import { PimiMascot } from "@/components/icons/pimi-mascot";
 import type { ToolCallRun } from "../grouping";
 import { summarizeToolCalls } from "./model";
@@ -66,7 +67,7 @@ const styles = StyleSheet.create((theme) => ({
   sentence: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
-    paddingHorizontal: 13,
+    marginLeft: ACTIVITY_ROW_TEXT_OFFSET,
     paddingBottom: theme.spacing[1],
   },
 }));

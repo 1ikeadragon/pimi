@@ -2904,6 +2904,19 @@ export const ar: TranslationResources = {
     showMore: "عرض المزيد",
     showLess: "عرض أقل",
   },
+  activity: {
+    failed: "فشل",
+    stopped: "تم الإيقاف",
+    verbs: {
+      read: { done: "قرأ", running: "يقرأ" },
+      search: { done: "بحث عن", running: "يبحث عن" },
+      fetch: { done: "جلب", running: "يجلب" },
+      edit: { done: "عدّل", running: "يعدّل" },
+      write: { done: "كتب", running: "يكتب" },
+      shell: { done: "شغّل", running: "يشغّل" },
+      thinking: { done: "فكّر", running: "يفكّر" },
+    },
+  },
   toolCallGroup: {
     thought: "فكّر",
     editedFiles: {

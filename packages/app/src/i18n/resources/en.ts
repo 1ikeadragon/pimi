@@ -2944,6 +2944,19 @@ export const en = {
     showMore: "Show more",
     showLess: "Show less",
   },
+  activity: {
+    failed: "Failed",
+    stopped: "Stopped",
+    verbs: {
+      read: { done: "Read", running: "Reading" },
+      search: { done: "Searched", running: "Searching" },
+      fetch: { done: "Fetched", running: "Fetching" },
+      edit: { done: "Edited", running: "Editing" },
+      write: { done: "Wrote", running: "Writing" },
+      shell: { done: "Ran", running: "Running" },
+      thinking: { done: "Thought", running: "Thinking" },
+    },
+  },
   toolCallGroup: {
     thought: "Thought",
     editedFiles: {
