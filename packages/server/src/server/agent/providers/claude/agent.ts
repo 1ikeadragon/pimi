@@ -3724,7 +3724,7 @@ class ClaudeAgentSession implements AgentSession {
   }
 
   private buildSdkEnv() {
-    return createProviderEnv({
+    const env = createProviderEnv({
       baseEnv: process.env,
       runtimeSettings: this.runtimeSettings,
       overlays: [
@@ -3734,6 +3734,13 @@ class ClaudeAgentSession implements AgentSession {
         { CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1" },
       ],
     });
+    // Claude Code exits at launch when run as uid 0 with --allow-dangerously-skip-permissions
+    // (which buildOptions always passes) unless IS_SANDBOX=1. A root daemon is the owner's
+    // choice, so Pimi sets it for every Claude process; a value the user set wins.
+    if (process.getuid?.() === 0 && env["IS_SANDBOX"] === undefined) {
+      env["IS_SANDBOX"] = "1";
+    }
+    return env;
   }
 
   private async buildOptions(permissionMode: PermissionMode): Promise<ClaudeOptions> {
