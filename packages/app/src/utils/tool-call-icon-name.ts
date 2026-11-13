@@ -2,21 +2,31 @@ import type { AgentMessage } from "@pimi/protocol/agent-message";
 import type { ToolCallDetail, ToolCallIconName } from "@pimi/protocol/agent-types";
 import { isPimiToolName } from "@pimi/protocol/tool-name-normalization";
 
-export type ToolCallIcon = ToolCallIconName | "pimi";
+export type ToolCallIcon =
+  | ToolCallIconName
+  | "pimi"
+  | "file_text"
+  | "file_pen_line"
+  | "globe"
+  | "plug";
 
 const TOOL_DETAIL_ICON_NAMES: Record<ToolCallDetail["type"], ToolCallIcon> = {
   shell: "square_terminal",
-  read: "eye",
-  edit: "pencil",
-  write: "pencil",
+  read: "file_text",
+  edit: "file_pen_line",
+  write: "file_pen_line",
   search: "search",
-  fetch: "search",
+  fetch: "globe",
   worktree_setup: "square_terminal",
   sub_agent: "bot",
   plain_text: "wrench",
   plan: "brain",
   unknown: "wrench",
 };
+
+function isMcpToolName(lowerName: string): boolean {
+  return lowerName.startsWith("mcp__");
+}
 
 export function resolveToolCallIconName(
   toolName: string,
@@ -46,7 +56,13 @@ export function resolveToolCallIconName(
   if (lowerName === "task") {
     return "bot";
   }
+  if (isMcpToolName(lowerName)) {
+    return "plug";
+  }
 
+  if (detail?.type === "search" && detail.toolName === "web_search") {
+    return "globe";
+  }
   if (detail) {
     return TOOL_DETAIL_ICON_NAMES[detail.type];
   }

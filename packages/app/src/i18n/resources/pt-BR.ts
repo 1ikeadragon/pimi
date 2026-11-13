@@ -2959,6 +2959,19 @@ export const ptBR: TranslationResources = {
     showMore: "Mostrar mais",
     showLess: "Mostrar menos",
   },
+  activity: {
+    failed: "Falhou",
+    stopped: "Interrompido",
+    verbs: {
+      read: { done: "Leu", running: "Lendo" },
+      search: { done: "Pesquisou", running: "Pesquisando" },
+      fetch: { done: "Buscou", running: "Buscando" },
+      edit: { done: "Editou", running: "Editando" },
+      write: { done: "Escreveu", running: "Escrevendo" },
+      shell: { done: "Executou", running: "Executando" },
+      thinking: { done: "Pensou", running: "Pensando" },
+    },
+  },
   toolCallGroup: {
     thought: "Pensou",
     editedFiles: {

@@ -2976,6 +2976,19 @@ export const es: TranslationResources = {
     showMore: "Mostrar más",
     showLess: "Mostrar menos",
   },
+  activity: {
+    failed: "Error",
+    stopped: "Detenido",
+    verbs: {
+      read: { done: "Leyó", running: "Leyendo" },
+      search: { done: "Buscó", running: "Buscando" },
+      fetch: { done: "Obtuvo", running: "Obteniendo" },
+      edit: { done: "Editó", running: "Editando" },
+      write: { done: "Escribió", running: "Escribiendo" },
+      shell: { done: "Ejecutó", running: "Ejecutando" },
+      thinking: { done: "Pensó", running: "Pensando" },
+    },
+  },
   toolCallGroup: {
     thought: "Razonó",
     editedFiles: {

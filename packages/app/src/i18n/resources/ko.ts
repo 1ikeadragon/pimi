@@ -2933,6 +2933,19 @@ export const ko: TranslationResources = {
     showMore: "더 보기",
     showLess: "접기",
   },
+  activity: {
+    failed: "실패",
+    stopped: "중단됨",
+    verbs: {
+      read: { done: "읽음", running: "읽는 중" },
+      search: { done: "검색함", running: "검색 중" },
+      fetch: { done: "가져옴", running: "가져오는 중" },
+      edit: { done: "편집함", running: "편집 중" },
+      write: { done: "작성함", running: "작성 중" },
+      shell: { done: "실행함", running: "실행 중" },
+      thinking: { done: "생각함", running: "생각 중" },
+    },
+  },
   toolCallGroup: {
     thought: "생각함",
     editedFiles: {

@@ -2883,6 +2883,19 @@ export const zhCN: TranslationResources = {
     showMore: "展开",
     showLess: "收起",
   },
+  activity: {
+    failed: "失败",
+    stopped: "已停止",
+    verbs: {
+      read: { done: "已读取", running: "正在读取" },
+      search: { done: "已搜索", running: "正在搜索" },
+      fetch: { done: "已获取", running: "正在获取" },
+      edit: { done: "已编辑", running: "正在编辑" },
+      write: { done: "已写入", running: "正在写入" },
+      shell: { done: "已运行", running: "正在运行" },
+      thinking: { done: "已思考", running: "正在思考" },
+    },
+  },
   toolCallGroup: {
     thought: "已思考",
     editedFiles: {

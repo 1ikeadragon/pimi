@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
 import { View, type StyleProp, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { ACTIVITY_ROW_TEXT_OFFSET } from "@/components/activity-row";
 
 /**
- * Align the rail with the expanded caret's left edge. Keep the content offset fixed so
- * expanded tool cards stay in place, with a gap between their border and the rail.
+ * The rail runs down the centre of a row's glyph column. Content starts at the row text column,
+ * so nested rows put their glyphs under the parent's text.
  */
-const RAIL_LEFT = 1;
+const RAIL_LEFT = 7;
 const RAIL_WIDTH = 1;
-export const INDENT_RAIL_CONTENT_OFFSET = 21;
+export const INDENT_RAIL_CONTENT_OFFSET = ACTIVITY_ROW_TEXT_OFFSET;
 
 /** Indents opened chat rows under the summary that collapsed them, behind a vertical line. */
 export function IndentRail({

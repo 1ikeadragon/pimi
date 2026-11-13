@@ -35,7 +35,11 @@ function working(label: string, specific: boolean): WorkingStatus {
   return { kind: "working", label, specific, urgent: false };
 }
 
-function toolCallLabel(item: Extract<StreamItem, { kind: "tool_call" }>, cwd?: string): string {
+function toolCallLabel(
+  item: Extract<StreamItem, { kind: "tool_call" }>,
+  t: TFunction,
+  cwd?: string,
+): string {
   if (item.payload.source !== "agent") {
     return item.payload.data.toolName;
   }
@@ -50,10 +54,9 @@ function toolCallLabel(item: Extract<StreamItem, { kind: "tool_call" }>, cwd?: s
     metadata: data.metadata,
     cwd,
     resolveIcon: noIcon,
+    t,
   });
-  return presentation.summary
-    ? `${presentation.displayName} ${presentation.summary}`
-    : presentation.displayName;
+  return presentation.target ? `${presentation.verb} ${presentation.target}` : presentation.verb;
 }
 
 export function resolveWorkingStatus(input: ResolveWorkingStatusInput): WorkingStatus {
@@ -89,7 +92,7 @@ export function resolveWorkingStatus(input: ResolveWorkingStatusInput): WorkingS
     const running =
       last.payload.data.status === "running" || last.payload.data.status === "executing";
     if (running) {
-      return working(toolCallLabel(last, input.cwd), true);
+      return working(toolCallLabel(last, t, input.cwd), true);
     }
   } else if (last?.kind === "thought" && last.status === "loading") {
     return working(t("agentStream.working.thinking"), true);
