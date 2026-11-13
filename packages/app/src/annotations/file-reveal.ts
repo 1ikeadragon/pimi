@@ -5,7 +5,7 @@ import { createWorkspaceFileTabTarget } from "@/workspace/file-open";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { openPreferredWorkspaceTarget } from "@/workspace-tabs/open-beside";
 import { revealAnnotationSource } from "./edit-session";
-import type { AnnotationAttachment } from "./model";
+import type { AnnotationCapture } from "./model";
 
 /** The file loads and its editor mounts over several frames; a missing file never mounts one. */
 const EDITOR_TIMEOUT_MS = 5000;
@@ -27,7 +27,7 @@ let current: (() => void) | null = null;
  * `onNotice` reports a layout that cannot switch or a file whose editor never appears.
  */
 export function goToFileAnnotation(input: {
-  attachment: AnnotationAttachment;
+  attachment: AnnotationCapture;
   preferences: OpenInSidePanePreferences;
   onNotice(notice: FileRevealNotice): void;
 }): void {

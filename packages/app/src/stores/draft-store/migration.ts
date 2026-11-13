@@ -1,5 +1,7 @@
 import type { AttachmentMetadata, UserComposerAttachment } from "@/attachments/types";
 import { isLegacyNewWorkspaceDraftKey, NEW_WORKSPACE_DRAFT_KEY } from "@/stores/draft-keys";
+import { AnnotationAttachmentSchema } from "@/annotations/model";
+import { lowestFreeSlot } from "@/composer/chips/model";
 import { z } from "zod";
 import {
   AttachmentMetadataSchema,
@@ -64,8 +66,12 @@ const LegacyReviewAttachmentSchema = z.strictObject({
     ),
   }),
 });
+// COMPAT(draft-annotation-slot): drafts saved before annotations had chip slots. Slots are assigned
+// in order when the draft is read.
+const LegacyAnnotationAttachmentSchema = AnnotationAttachmentSchema.omit({ slot: true });
 const PersistedComposerAttachmentSchema = z.union([
   UserComposerAttachmentSchema,
+  LegacyAnnotationAttachmentSchema,
   LegacyGithubPrAttachmentSchema,
   LegacyReviewAttachmentSchema,
 ]);
@@ -147,13 +153,34 @@ function normalizePersistedComposerAttachment(
   return normalizeComposerAttachment(result.data);
 }
 
+function assignLegacyAnnotationSlots(
+  attachments: readonly PersistedComposerAttachment[],
+): PersistedComposerAttachment[] {
+  const used = new Set<number>();
+  for (const attachment of attachments) {
+    if (attachment.kind === "annotation" && "slot" in attachment) used.add(attachment.slot);
+  }
+  const assigned: PersistedComposerAttachment[] = [];
+  for (const attachment of attachments) {
+    if (attachment.kind !== "annotation" || "slot" in attachment) {
+      assigned.push(attachment);
+      continue;
+    }
+    const slot = lowestFreeSlot(used);
+    if (slot === null) continue;
+    used.add(slot);
+    assigned.push({ ...attachment, slot });
+  }
+  return assigned;
+}
+
 export async function migrateDraftInput(
   input: { rawInput: unknown },
   ports: { migrateLegacyImages: MigrateLegacyImages },
 ): Promise<CanonicalDraftInput> {
   const result = RawDraftInputSchema.safeParse(input.rawInput);
   const rawInput = result.success ? result.data : {};
-  const attachments = (rawInput.attachments ?? [])
+  const attachments = assignLegacyAnnotationSlots(rawInput.attachments ?? [])
     .map(normalizePersistedComposerAttachment)
     .filter((attachment): attachment is UserComposerAttachment => attachment !== null);
   const legacyImages = (rawInput.images ?? []).map(normalizePersistedImage);

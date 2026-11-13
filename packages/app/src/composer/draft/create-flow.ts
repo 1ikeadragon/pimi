@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useReducer } from "react";
 import { useTranslation } from "react-i18next";
 import type { ComposerAttachment } from "@/attachments/types";
-import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
+import { prepareComposerSubmission } from "@/composer/attachments/submit";
 import { isActiveCreateFlowForDraft, useCreateFlowStore } from "@/stores/create-flow-store";
 import { handoffCreatedAgentMessageSubmission } from "@/composer/submission/writer";
 import { createUserMessage, type UserMessageImageAttachment } from "@/types/stream";
@@ -234,14 +234,14 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
       }
 
       dispatch({ type: "DRAFT_SET_ERROR", message: "" });
-      const trimmedPrompt = text.trim();
       const pendingServerId = getPendingServerId();
       if (!pendingServerId) {
         const error = new Error(t("composer.errors.noHostSelected"));
         dispatch({ type: "DRAFT_SET_ERROR", message: error.message });
         throw error;
       }
-      const wirePayload = splitComposerAttachmentsForSubmit(attachments);
+      const wirePayload = prepareComposerSubmission({ text, attachments });
+      const trimmedPrompt = wirePayload.text.trim();
       const images = wirePayload.images;
 
       const hasAttachmentContent = images.length > 0 || wirePayload.attachments.length > 0;

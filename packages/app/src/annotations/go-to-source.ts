@@ -3,7 +3,7 @@ import { collectAllTabs, useWorkspaceLayoutStore } from "@/stores/workspace-layo
 import { revealWorkspaceTab } from "@/workspace-tabs/navigation";
 import { revealAnnotationSource } from "./edit-session";
 import { FILE_REVEAL_NOTICE, goToFileAnnotation } from "./file-reveal";
-import type { AnnotationAttachment } from "./model";
+import type { AnnotationCapture } from "./model";
 
 /** The chat's tab is revealed and its list loads over several frames before the quote is found. */
 const CHAT_TIMEOUT_MS = 5000;
@@ -21,7 +21,7 @@ interface GoToSourceInput {
  * that quote, and nothing has moved, so the caller can fall back.
  */
 export function goToAnnotationSource(
-  attachment: AnnotationAttachment,
+  attachment: AnnotationCapture,
   input: GoToSourceInput,
 ): boolean {
   if (attachment.source.kind === "file") {
@@ -37,7 +37,7 @@ export function goToAnnotationSource(
 
 let cancelPendingChat: (() => void) | null = null;
 
-function findChatTab(source: Extract<AnnotationAttachment["source"], { kind: "chat" }>) {
+function findChatTab(source: Extract<AnnotationCapture["source"], { kind: "chat" }>) {
   const { layoutByWorkspace } = useWorkspaceLayoutStore.getState();
   for (const [workspaceKey, layout] of Object.entries(layoutByWorkspace)) {
     if (!workspaceKey.startsWith(`${source.serverId}:`)) continue;
@@ -56,7 +56,7 @@ function findChatTab(source: Extract<AnnotationAttachment["source"], { kind: "ch
  * history this window never loaded cannot be reached, and says so.
  */
 export function goToSentAnnotationSource(
-  attachment: AnnotationAttachment,
+  attachment: AnnotationCapture,
   input: GoToSourceInput,
 ): void {
   cancelPendingChat?.();

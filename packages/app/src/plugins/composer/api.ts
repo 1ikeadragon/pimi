@@ -11,6 +11,7 @@ import {
   type AnnotationAttachment,
   type AnnotationSource,
 } from "@/annotations/model";
+import { AnnotationLimitError, annotationsOf, lowestFreeSlot } from "@/composer/chips/model";
 import { generateMessageId } from "@/types/stream";
 import type { InstalledPlugin } from "../types";
 import { composerRegistry, type ComposerController, type ComposerRegistry } from "./controller";
@@ -63,9 +64,14 @@ function createAttachmentsHandle(
       if (input.kind !== "annotation")
         throw new Error(`Unsupported attachment kind: ${input.kind}`);
       const source: AnnotationSource = { ...input.source, serverId: installation.serverId };
+      const slot = lowestFreeSlot(
+        annotationsOf(controller.surface.getAttachments()).map((a) => a.slot),
+      );
+      if (slot === null) throw new AnnotationLimitError();
       const attachment = AnnotationAttachmentSchema.parse({
         kind: "annotation",
         id: generateMessageId(),
+        slot,
         source,
         quote: input.quote,
         note: input.note ?? "",

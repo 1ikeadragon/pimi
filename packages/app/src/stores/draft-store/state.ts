@@ -7,7 +7,7 @@ import {
 import { PluginResourceComposerAttachmentSchema } from "@/plugins/attachments";
 import { z } from "zod";
 
-export const DRAFT_STORE_VERSION = 5;
+export const DRAFT_STORE_VERSION = 6;
 export const FINALIZED_DRAFT_TTL_MS = 5 * 60 * 1000;
 
 export interface LegacyDraftImage {
@@ -124,8 +124,6 @@ export const UserComposerAttachmentSchema: z.ZodType<UserComposerAttachment> = z
 export const CanonicalDraftInputSchema = z.strictObject({
   text: z.string(),
   attachments: z.array(UserComposerAttachmentSchema),
-  // COMPAT(draft-cwd): accept legacy persisted drafts that include cwd. Stop accepting after 2026-11-09.
-  cwd: z.string().optional(),
 });
 const DraftRecordSchema: z.ZodType<DraftRecord> = z.strictObject({
   input: CanonicalDraftInputSchema,

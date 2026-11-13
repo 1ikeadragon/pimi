@@ -11,7 +11,7 @@ import {
   isWorkspaceAttachment,
   userAttachmentsOnly,
 } from "@/attachments/workspace-attachment-utils";
-import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
+import { prepareComposerSubmission } from "@/composer/attachments/submit";
 import { createUserMessage, generateMessageId, type UserMessageItem } from "@/types/stream";
 import type { MessageSubmissionRejectionOutcome } from "@/composer/submission/model";
 import type { PickedImageAttachmentInput } from "@/hooks/image-attachment-picker";
@@ -50,7 +50,7 @@ export interface ComposerSendClient {
       messageId: string;
       activeTurnBehavior?: ActiveTurnBehavior;
       images: Array<{ data: string; mimeType: string }>;
-      attachments: ReturnType<typeof splitComposerAttachmentsForSubmit>["attachments"];
+      attachments: ReturnType<typeof prepareComposerSubmission>["attachments"];
     },
   ) => Promise<unknown>;
   uploadFile: (input: { fileName: string; mimeType: string; bytes: Uint8Array }) => Promise<{
@@ -198,11 +198,14 @@ export interface DispatchComposerAgentMessageInput {
 export async function dispatchComposerAgentMessage(
   input: DispatchComposerAgentMessageInput,
 ): Promise<void> {
-  const wirePayload = splitComposerAttachmentsForSubmit(input.attachments);
+  const wirePayload = prepareComposerSubmission({
+    text: input.text,
+    attachments: input.attachments,
+  });
   const clientMessageId = generateMessageId();
   const userMessage = createUserMessage({
     clientMessageId,
-    text: input.text,
+    text: wirePayload.text,
     timestamp: new Date(),
     images: wirePayload.images,
     attachments: wirePayload.attachments,
@@ -213,7 +216,7 @@ export async function dispatchComposerAgentMessage(
   input.submission.begin(input.agentId, userMessage);
   try {
     const imagesData = await input.encodeImages(wirePayload.images);
-    await input.client.sendAgentMessage(input.agentId, input.text, {
+    await input.client.sendAgentMessage(input.agentId, wirePayload.text, {
       messageId: clientMessageId,
       ...(input.activeTurnBehavior ? { activeTurnBehavior: input.activeTurnBehavior } : {}),
       images: imagesData ?? [],

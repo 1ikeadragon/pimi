@@ -1,4 +1,5 @@
-import type { AnnotationAttachment } from "@/annotations/model";
+import type { AnnotationAttachment, NewAnnotation } from "@/annotations/model";
+import { AnnotationLimitError, annotationsOf, lowestFreeSlot } from "@/composer/chips/model";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -50,11 +51,14 @@ interface DraftStoreActions {
     draftKey: string;
     lifecycle?: Exclude<DraftLifecycleState, "active">;
   }) => void;
-  /** Adds the annotation without taking focus: its note editor opens at the source first. */
+  /**
+   * Adds the annotation without taking focus: its note editor opens at the source first. The draft
+   * assigns its chip slot; the composer places the chip in the text.
+   */
   attachAnnotation: (input: {
     draftKey: string;
-    attachment: AnnotationAttachment;
-  }) => Promise<void>;
+    attachment: NewAnnotation;
+  }) => Promise<AnnotationAttachment>;
   requestComposerFocus: (input: { draftKey: string }) => void;
   attachWorkspaceFile: (input: {
     draftKey: string;
@@ -383,26 +387,22 @@ export const useDraftStore = create<DraftStore>()(
 
       attachAnnotation: async ({ draftKey, attachment }) => {
         await get().hydrateDraftInput({ draftKey });
-        set((state) => {
-          const existing = state.drafts[draftKey];
-          const draft = toDraftInputIfReady(existing) ?? {
-            text: "",
-            attachments: [],
-          };
-          return {
-            drafts: {
-              ...state.drafts,
-              [draftKey]: createDraftRecord({
-                draft: {
-                  ...draft,
-                  attachments: [...draft.attachments, attachment],
-                },
-                lifecycle: "active",
-                previousVersion: existing?.version,
-              }),
-            },
-          };
-        });
+        const existing = get().drafts[draftKey];
+        const draft = toDraftInputIfReady(existing) ?? { text: "", attachments: [] };
+        const slot = lowestFreeSlot(annotationsOf(draft.attachments).map((a) => a.slot));
+        if (slot === null) throw new AnnotationLimitError();
+        const placed: AnnotationAttachment = { ...attachment, slot };
+        set((state) => ({
+          drafts: {
+            ...state.drafts,
+            [draftKey]: createDraftRecord({
+              draft: { ...draft, attachments: [...draft.attachments, placed] },
+              lifecycle: "active",
+              previousVersion: existing?.version,
+            }),
+          },
+        }));
+        return placed;
       },
 
       requestComposerFocus: ({ draftKey }) => {

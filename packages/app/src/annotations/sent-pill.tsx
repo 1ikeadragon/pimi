@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { MessageSquare } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
 import type { AnnotationAttachmentMetadata } from "@pimi/protocol/messages";
@@ -9,7 +9,7 @@ import { useToast } from "@/contexts/toast-context";
 import { useSettings } from "@/hooks/use-settings";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { goToSentAnnotationSource } from "./go-to-source";
-import { annotationSourceLabel, annotationTitle, type AnnotationAttachment } from "./model";
+import { annotationSourceLabel, annotationTitle } from "./model";
 
 const ThemedMessageSquare = withUnistyles(MessageSquare);
 const iconAppearance = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
@@ -24,10 +24,7 @@ export function SentAnnotationPill({ annotation }: { annotation: AnnotationAttac
   const toast = useToast();
   const openInSidePane = useSettings((settings) => settings.openInSidePane);
   // The sent message has no draft id; the reveal only reads the source, quote and selector.
-  const attachment = useMemo<AnnotationAttachment>(
-    () => ({ kind: "annotation", id: "sent", ...annotation }),
-    [annotation],
-  );
+  const attachment = annotation;
   const handlePress = useCallback(
     () =>
       goToSentAnnotationSource(attachment, {

@@ -943,8 +943,10 @@ export const AnnotationTextSelectorSchema = z.object({
   suffix: z.string(),
 });
 
-/** What a sent message keeps of an annotation so its pill can go back to the source. */
+/** What a sent message keeps of an annotation so its chip can go back to the source. */
 export const AnnotationAttachmentMetadataSchema = z.object({
+  /** N of the `[annotation N]` marker the message text carries for this annotation. */
+  ref: z.number().int().positive().optional(),
   source: AnnotationSourceSchema,
   quote: z.string(),
   note: z.string(),

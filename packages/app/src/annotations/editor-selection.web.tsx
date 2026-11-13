@@ -8,12 +8,7 @@ import {
   type AnnotationEditorOutcome,
   type AnnotationEditSession,
 } from "./edit-session";
-import {
-  ANNOTATION_CHARACTER_LIMIT,
-  type AnnotationAttachment,
-  type AnnotationCapture,
-  type AnnotationSource,
-} from "./model";
+import { ANNOTATION_CHARACTER_LIMIT, type AnnotationCapture, type AnnotationSource } from "./model";
 import {
   ANNOTATION_MARK_CLASS,
   ANNOTATION_PULSE_MARK_CLASS,
@@ -371,7 +366,7 @@ export function EditorAnnotationSelection({
   useEffect(() => registerAnnotationSource(openEditor), [openEditor]);
 
   const revealSource = useCallback(
-    (attachment: AnnotationAttachment): boolean => {
+    (attachment: AnnotationCapture): boolean => {
       const { source, quote } = attachment;
       if (!view || !view.dom.isConnected || source.kind !== "file") return false;
       const sameFile =
