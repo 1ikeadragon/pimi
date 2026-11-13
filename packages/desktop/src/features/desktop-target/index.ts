@@ -53,7 +53,9 @@ export async function executeDesktopTarget(raw: unknown): Promise<Payload> {
     );
   }
   try {
-    const result = IS_MAC ? await runMac(command, guard) : await runWin(command, guard, agentId);
+    const result = IS_MAC
+      ? await runMac(command, guard, agentId)
+      : await runWin(command, guard, agentId);
     return { requestId, ok: true, result };
   } catch (error) {
     if (error instanceof AxError || error instanceof HelperError) {

@@ -116,6 +116,9 @@ mac:
       to: bin/pimi
     - from: native/mac/bin/betterleaks
       to: desktop-helper/betterleaks
+    # The Accessibility and capture helper that drives desktop targets (built by npm run build:mac-helper).
+    - from: native/mac/bin/pimi-desktop-helper
+      to: desktop-helper/pimi-desktop-helper
   target:
     - dmg
     - zip

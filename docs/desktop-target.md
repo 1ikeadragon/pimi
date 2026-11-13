@@ -4,14 +4,14 @@ Attack mode can drive one desktop window instead of (or beside) a URL. The owner
 
 ## Layers
 
-| Layer        | Where                                                 | Owns                                                                                                                   |
-| ------------ | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Agent tools  | `packages/server/src/server/desktop-tools/tools.ts`   | Tool schemas and descriptions, the input-consent check (`INPUT_VERBS`), result text                                    |
-| Guard        | `AttackService.desktopGuardForAgent`                  | Builds the guard from the run record. An agent never supplies one                                                      |
-| Broker       | `desktop-tools/broker.ts`                             | Routes a request to the connected desktop app and waits for the answer                                                 |
-| Wire schema  | `packages/protocol/src/desktop-target/rpc-schemas.ts` | Commands, results, error codes, guard                                                                                  |
-| Main process | `packages/desktop/src/features/desktop-target/`       | Applies the guard again, then runs the command: `mac/` through Accessibility, `win/` through `pimi-desktop-helper.exe` |
-| Helper       | `packages/desktop/native/win/`                        | UI Automation, window capture, input injection, the gates that keep input inside the window                            |
+| Layer        | Where                                                 | Owns                                                                                                         |
+| ------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Agent tools  | `packages/server/src/server/desktop-tools/tools.ts`   | Tool schemas and descriptions, the input-consent check (`INPUT_VERBS`), result text                          |
+| Guard        | `AttackService.desktopGuardForAgent`                  | Builds the guard from the run record. An agent never supplies one                                            |
+| Broker       | `desktop-tools/broker.ts`                             | Routes a request to the connected desktop app and waits for the answer                                       |
+| Wire schema  | `packages/protocol/src/desktop-target/rpc-schemas.ts` | Commands, results, error codes, guard                                                                        |
+| Main process | `packages/desktop/src/features/desktop-target/`       | Applies the guard again, then runs the command through the platform's `pimi-desktop-helper` (`mac/`, `win/`) |
+| Helper       | `packages/desktop/native/win/`, `native/mac/`         | Accessibility or UI Automation, window capture, input injection, the gates that keep input inside the window |
 
 The daemon and the main process both check the guard. The daemon refuses before sending, the main process refuses again, and the Windows helper checks a third time. Keep all three when you add a verb.
 
@@ -40,6 +40,14 @@ macOS answers `unsupported` for the Windows-only verbs and ignores optional argu
 ## Deny lists
 
 `win/guard-win.ts` holds the list of apps that are never targets (terminals, remote control, system tools, password managers, the shell, Pimi itself) and the Windows `refuseWinChord`. The helper has the same list and re-checks it. Edit both. Games that ship anti-cheat are listed in the picker as blocked and refused at resolve: synthesized input next to anti-cheat can get an account banned.
+
+## macOS helper
+
+- `native/mac/*.swift`, built with `swiftc` and Apple frameworks only (`npm run build:mac-helper`, arm64, macOS 13+). No SwiftPM, no packages. `npm run pimi:package:mac` and the release workflow build it first.
+- Same process model as the Windows helper: `helper-process.ts` spawns it lazily and speaks JSON lines. On a timeout the main process sends SIGTERM and then SIGKILL 700 ms later, so the helper can release held keys and buttons.
+- Screen Recording and Accessibility are granted to the app that spawned the helper (Pimi packaged; Electron or the terminal in dev), not to the helper. `pimi-desktop-helper --selftest` prints both states for the process it runs under, so run it from a terminal only to see the terminal's grants.
+- The window is pinned by its window-server id, owner pid and process start time (carried in the picker's `win`, with the id in `hwnd`). The helper falls back to the app's one window and answers `repinned`.
+- Capture is `screencapture -l <id>`, decoded and scaled in the helper. It reads the window even when another window covers it.
 
 ## Windows helper
 

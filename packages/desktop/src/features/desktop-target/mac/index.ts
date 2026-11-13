@@ -7,15 +7,14 @@ import {
   AxError,
   clickElement,
   clickPoint,
-  listWindows,
   pressKey,
   resolveWindow,
   snapshotWindow,
   typeText,
 } from "./ax.js";
-import { captureWindow } from "./capture.js";
 import { forbiddenTarget, isElementPath, keyCodeFor, parseChord, refuseChord } from "./guard.js";
 import { pointInFrame, type DesktopGuard } from "../guard.js";
+import { helperRequest, type HelperTarget } from "../helper-process.js";
 
 // The macOS side of Attack's desktop target: one window, chosen by the owner, driven through
 // Accessibility. Every call re-resolves the window from the guard: a closed window or a different
@@ -23,8 +22,88 @@ import { pointInFrame, type DesktopGuard } from "../guard.js";
 
 const OWN_PID = process.pid;
 
+interface Pin {
+  windowId: string;
+  pid: number;
+  processStartedAt: string | null;
+}
+
+// Per run: where the helper last found the window. The helper answers `repinned` when it had to
+// look for the window again (the app restarted, the window id was recycled).
+const pins = new Map<string, Pin>();
+
+function targetFor(guard: DesktopGuard): HelperTarget {
+  const pin = pins.get(guard.runId);
+  const win = guard.win;
+  return {
+    appId: guard.bundleId,
+    windowTitle: guard.windowTitle,
+    hwnd: pin?.windowId ?? win?.hwnd ?? null,
+    pid: pin?.pid ?? win?.pid ?? null,
+    processStartedAt: pin ? pin.processStartedAt : (win?.processStartedAt ?? null),
+    windowClass: null,
+    allowInput: guard.allowInput,
+    allowRelaunch: guard.allowRelaunch,
+    launchArgs: guard.launchArgs,
+    disposable: guard.disposable,
+  };
+}
+
+function str(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+async function helperVerb(
+  command: DesktopTargetCommand,
+  guard: DesktopGuard,
+  agentId: string,
+): Promise<Record<string, unknown>> {
+  const { repinned, ...result } = await helperRequest({
+    verb: command.command,
+    agent: agentId,
+    target: targetFor(guard),
+    args: command.args,
+  });
+  const pin = repinned as { hwnd?: unknown; pid?: unknown; processStartedAt?: unknown } | undefined;
+  if (pin && typeof pin.hwnd === "string" && typeof pin.pid === "number") {
+    pins.set(guard.runId, {
+      windowId: pin.hwnd,
+      pid: pin.pid,
+      processStartedAt: typeof pin.processStartedAt === "string" ? pin.processStartedAt : null,
+    });
+  }
+  return result;
+}
+
 export function screenGranted(): boolean {
   return systemPreferences.getMediaAccessStatus("screen") === "granted";
+}
+
+function listResult(raw: Record<string, unknown>): DesktopTargetResult {
+  const windows = Array.isArray(raw.windows) ? (raw.windows as Record<string, unknown>[]) : [];
+  return {
+    command: "list_windows",
+    windows: windows
+      .filter((window) => forbiddenTarget(str(window.appId)) === null)
+      .map((window) => ({
+        bundleId: str(window.appId),
+        appName: str(window.appName),
+        windowTitle: str(window.windowTitle),
+        platform: "darwin" as const,
+        framework: str(window.framework),
+        elevated: window.elevated === true,
+        blocked: typeof window.blocked === "string" ? window.blocked : null,
+        win: {
+          hwnd: str(window.hwnd),
+          pid: typeof window.pid === "number" ? window.pid : 0,
+          processStartedAt:
+            typeof window.processStartedAt === "string" ? window.processStartedAt : null,
+          windowClass: "",
+          exeName: str(window.exeName),
+          framework: str(window.framework),
+        },
+      })),
+  };
 }
 
 function requireInput(guard: DesktopGuard): void {
@@ -72,7 +151,12 @@ async function keyMac(
 export async function runMac(
   command: DesktopTargetCommand,
   guard: DesktopGuard,
+  agentId: string,
 ): Promise<DesktopTargetResult> {
+  if (command.command === "list_windows") {
+    const raw = await helperRequest({ verb: "list", agent: null, target: null, args: {} });
+    return listResult(raw);
+  }
   const forbidden = forbiddenTarget(guard.bundleId);
   if (forbidden) throw new AxError("refused", forbidden);
   if (!screenGranted()) {
@@ -82,33 +166,9 @@ export async function runMac(
     );
   }
   switch (command.command) {
-    case "list_windows": {
-      const windows = await listWindows(OWN_PID);
-      return {
-        command: "list_windows",
-        windows: windows
-          .filter((window) => forbiddenTarget(window.bundleId) === null)
-          .map((window) => ({
-            bundleId: window.bundleId,
-            appName: window.appName,
-            windowTitle: window.windowTitle,
-            platform: "darwin" as const,
-          })),
-      };
-    }
     case "screenshot": {
-      const window = await resolveWindow(guard, OWN_PID);
-      if (window.windowNumber === null) {
-        throw new AxError("window_gone", "The target window is not on screen.");
-      }
-      const shot = await captureWindow(window.windowNumber, command.args.maxEdge ?? 1280);
-      return {
-        command: "screenshot",
-        mimeType: "image/png",
-        ...shot,
-        windowWidth: window.frame.width,
-        windowHeight: window.frame.height,
-      };
+      const result = await helperVerb(command, guard, agentId);
+      return { command: "screenshot", ...result } as DesktopTargetResult;
     }
     case "snapshot": {
       const snapshot = await snapshotWindow(guard, OWN_PID);
