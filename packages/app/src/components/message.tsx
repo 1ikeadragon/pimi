@@ -5,7 +5,7 @@ import { useDisclosureHold } from "@/agent-stream/disclosure";
 import { MessagePreview, MessageSender } from "@/components/user-message";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { getAgentAttachmentPillContent } from "@/attachments/attachment-pill-content";
-import { SentAnnotationPill } from "@/annotations/sent-pill";
+import { SentAnnotationPill, SentScreenshotContext } from "@/annotations/sent-pill";
 import {
   isBrowserElementAttachment,
   SentBrowserElementPill,
@@ -390,6 +390,50 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
 
 const MESSAGE_TEXT_DATASET = { messageText: "true" };
 
+function SentAttachmentRow({
+  attachments,
+  resolvedImages,
+  style,
+}: {
+  attachments: readonly AgentAttachment[];
+  resolvedImages: ReadonlyArray<UserMessageImageAttachment | null>;
+  style: StyleProp<ViewStyle>;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View style={style}>
+      {attachments.map((attachment, index) => {
+        if (isBrowserElementAttachment(attachment)) {
+          const shot = attachment.browserElement.screenshotIndex;
+          return (
+            <SentBrowserElementPill
+              key={`browser:${attachment.browserElement.url}:${attachment.browserElement.selector}:${attachment.browserElement.comment ?? ""}`}
+              attachment={attachment}
+              screenshot={shot === undefined ? null : (resolvedImages[shot] ?? null)}
+            />
+          );
+        }
+        if (attachment.type === "text" && attachment.annotation) {
+          return (
+            <SentAnnotationPill
+              key={`annotation:${attachment.annotation.quote.slice(0, 48)}:${attachment.annotation.note.slice(0, 16)}`}
+              annotation={attachment.annotation}
+            />
+          );
+        }
+        const content = getAgentAttachmentPillContent(attachment, t);
+        return (
+          <AttachmentFrame
+            key={`${attachment.type}:${"number" in attachment ? attachment.number : index}`}
+          >
+            <AttachmentLabel icon={content.icon} title={content.title} />
+          </AttachmentFrame>
+        );
+      })}
+    </View>
+  );
+}
+
 export const UserMessage = memo(function UserMessage({
   sender,
   serverId,
@@ -431,6 +475,9 @@ export const UserMessage = memo(function UserMessage({
         const index = attachment.browserElement.screenshotIndex;
         if (index !== undefined) pillShots.add(index);
       }
+      if (attachment.type === "text" && attachment.annotation?.screenshotIndex !== undefined) {
+        pillShots.add(attachment.annotation.screenshotIndex);
+      }
     }
     return resolvedSlots.flatMap((slot, index) =>
       pillShots.has(index)
@@ -439,6 +486,10 @@ export const UserMessage = memo(function UserMessage({
     );
   }, [attachments, resolvedSlots, sentImages]);
   const hasImages = standaloneItems.length > 0;
+  const screenshotFor = useCallback(
+    (index: number) => resolvedImages[index] ?? null,
+    [resolvedImages],
+  );
   // An annotation whose marker is in the text is drawn there; the rest stay in the row above.
   const annotationsByRef = useMemo(() => {
     const byRef = new Map<number, AnnotationAttachmentMetadata>();
@@ -526,53 +577,30 @@ export const UserMessage = memo(function UserMessage({
       >
         {sender ? <MessageSender sender={sender} serverId={serverId} /> : null}
         <View style={userMessageStylesheet.bubble}>
-          <MessagePreview>
-            {hasImages ? (
-              <View style={imagePreviewContainerStyle}>
-                <AgentImageGrid items={standaloneItems} />
-              </View>
-            ) : null}
-            {hasAttachments ? (
-              <View style={attachmentPreviewContainerStyle}>
-                {rowAttachments.map((attachment, index) => {
-                  if (isBrowserElementAttachment(attachment)) {
-                    const shot = attachment.browserElement.screenshotIndex;
-                    return (
-                      <SentBrowserElementPill
-                        key={`browser:${attachment.browserElement.url}:${attachment.browserElement.selector}:${attachment.browserElement.comment ?? ""}`}
-                        attachment={attachment}
-                        screenshot={shot === undefined ? null : (resolvedImages[shot] ?? null)}
-                      />
-                    );
-                  }
-                  if (attachment.type === "text" && attachment.annotation) {
-                    return (
-                      <SentAnnotationPill
-                        key={`annotation:${attachment.annotation.quote.slice(0, 48)}:${attachment.annotation.note.slice(0, 16)}`}
-                        annotation={attachment.annotation}
-                      />
-                    );
-                  }
-                  const content = getAgentAttachmentPillContent(attachment, t);
-                  return (
-                    <AttachmentFrame
-                      key={`${attachment.type}:${"number" in attachment ? attachment.number : index}`}
-                    >
-                      <AttachmentLabel icon={content.icon} title={content.title} />
-                    </AttachmentFrame>
-                  );
-                })}
-              </View>
-            ) : null}
-            {hasText ? (
-              <UserMessageText
-                message={message}
-                annotations={annotationsByRef}
-                style={userMessageStylesheet.text}
-                dataSet={MESSAGE_TEXT_DATASET}
-              />
-            ) : null}
-          </MessagePreview>
+          <SentScreenshotContext.Provider value={screenshotFor}>
+            <MessagePreview>
+              {hasImages ? (
+                <View style={imagePreviewContainerStyle}>
+                  <AgentImageGrid items={standaloneItems} />
+                </View>
+              ) : null}
+              {hasAttachments ? (
+                <SentAttachmentRow
+                  attachments={rowAttachments}
+                  resolvedImages={resolvedImages}
+                  style={attachmentPreviewContainerStyle}
+                />
+              ) : null}
+              {hasText ? (
+                <UserMessageText
+                  message={message}
+                  annotations={annotationsByRef}
+                  style={userMessageStylesheet.text}
+                  dataSet={MESSAGE_TEXT_DATASET}
+                />
+              ) : null}
+            </MessagePreview>
+          </SentScreenshotContext.Provider>
         </View>
         {hasText ? (
           <View

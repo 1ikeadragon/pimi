@@ -217,6 +217,9 @@ function collectQueuedMessageAttachmentIds(
         if (attachment.kind === "image") {
           referencedIds.add(attachment.metadata.id);
         }
+        if (attachment.kind === "annotation" && attachment.screenshot) {
+          referencedIds.add(attachment.screenshot.id);
+        }
       }
     }
   }

@@ -103,13 +103,17 @@ export function AnnotationChipHost({
   }, []);
   const hoverActions = useMemo(
     () => ({
-      onGoToSource: () => {
-        if (!goToSource()) handleEdit();
-      },
+      ...(annotation.source.kind === "browser"
+        ? {}
+        : {
+            onGoToSource: () => {
+              if (!goToSource()) handleEdit();
+            },
+          }),
       onEditNote: handleEdit,
       onRemove,
     }),
-    [goToSource, handleEdit, onRemove],
+    [annotation.source.kind, goToSource, handleEdit, onRemove],
   );
   const label = annotationAccessibilityLabel(annotation, t);
   const chip = (

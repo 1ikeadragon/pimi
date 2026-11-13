@@ -1,3 +1,4 @@
+import { AttachmentMetadataSchema } from "@/attachments/metadata-schema";
 import { ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT } from "@/components/assistant-message-render-limit.shared";
 import type { TFunction } from "i18next";
 import { z } from "zod";
@@ -24,6 +25,8 @@ export const AnnotationAttachmentSchema = z.strictObject({
   note: z.string().max(ANNOTATION_CHARACTER_LIMIT),
   // Absent on drafts saved before chat quotes were re-anchored, and on file annotations.
   selector: AnnotationTextSelectorSchema.optional(),
+  /** A browser element's cropped screenshot, sent to the agent as an image beside the element. */
+  screenshot: AttachmentMetadataSchema.optional(),
 });
 export type { AnnotationSource, AnnotationTextSelector };
 export type AnnotationAttachment = z.infer<typeof AnnotationAttachmentSchema>;
@@ -56,9 +59,23 @@ function agentChatSourceLabel(source: Extract<AnnotationSource, { kind: "chat" }
   return source.role === "user" ? "Your message" : "Assistant message";
 }
 
-/** Where the quote came from, for the person: the file with its lines, or which message. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host || url;
+  } catch (error) {
+    if (error instanceof TypeError) return url;
+    throw error;
+  }
+}
+
+function browserLabel(source: Extract<AnnotationSource, { kind: "browser" }>): string {
+  return `<${source.tag}> · ${hostOf(source.url)}`;
+}
+
+/** Where the quote came from, for the person: the file with its lines, a message, or a page. */
 export function annotationSourceLabel(source: AnnotationSource, t: TFunction): string {
   if (source.kind === "file") return `${source.path}:${lineRange(source, "–")}`;
+  if (source.kind === "browser") return browserLabel(source);
   return source.role === "user" ? t("chips.yourMessage") : t("chips.assistantMessage");
 }
 
@@ -69,6 +86,7 @@ export function annotationChipLabel(
   if (annotation.source.kind === "file") {
     return `${basename(annotation.source.path)}:${lineRange(annotation.source, "–")}`;
   }
+  if (annotation.source.kind === "browser") return browserLabel(annotation.source);
   const text = (annotation.note.trim() || annotation.quote).replace(/\s+/g, " ").trim();
   return text.length > CHIP_LABEL_LENGTH ? `${text.slice(0, CHIP_LABEL_LENGTH - 1)}…` : text;
 }
@@ -105,23 +123,33 @@ function singleLine(value: string): string {
 
 function serializedSource(source: AnnotationSource): string {
   if (source.kind === "file") return `${singleLine(source.path)}:${lineRange(source, "-")}`;
+  if (source.kind === "browser")
+    return `<${singleLine(source.tag)}> ${singleLine(source.selector)} on ${singleLine(source.url)}`;
+  return agentChatSourceLabel(source);
+}
+
+function agentTitleSource(source: AnnotationSource): string {
+  if (source.kind === "file") return basename(source.path);
+  if (source.kind === "browser") return `Browser element <${source.tag}>`;
   return agentChatSourceLabel(source);
 }
 
 export function annotationToAgentAttachment(
   annotation: AnnotationAttachment,
   ref: number,
+  screenshotIndex?: number,
 ): Extract<AgentAttachment, { type: "text" }> {
   const { source, quote } = annotation;
   const note = annotation.note.trim();
   const fence = fenceFor(quote);
-  const titleSource = source.kind === "file" ? basename(source.path) : agentChatSourceLabel(source);
+  const titleSource = agentTitleSource(source);
   return {
     type: "text",
     mimeType: "text/plain",
     title: `Annotation · ${singleLine(titleSource)}`,
     annotation: {
       ref,
+      ...(screenshotIndex !== undefined ? { screenshotIndex } : {}),
       source,
       quote,
       note: annotation.note,

@@ -29,9 +29,15 @@ export function prepareComposerSubmission(input: {
 }): ComposerSubmission {
   const serialized = serializeChipText(input.text, annotationsOf(input.attachments));
   const images: ImageAttachment[] = [];
-  const agentAttachments: AgentAttachment[] = serialized.annotations.map((annotation, index) =>
-    annotationToAgentAttachment(annotation, index + 1),
-  );
+  const agentAttachments: AgentAttachment[] = serialized.annotations.map((annotation, index) => {
+    // A browser element's screenshot goes out as an image; the annotation says which one.
+    let screenshotIndex: number | undefined;
+    if (annotation.screenshot) {
+      screenshotIndex = images.length;
+      images.push(annotation.screenshot);
+    }
+    return annotationToAgentAttachment(annotation, index + 1, screenshotIndex);
+  });
 
   for (const attachment of input.attachments) {
     if (attachment.kind === "annotation") continue;

@@ -28,6 +28,7 @@ function toPluginSource(source: AnnotationSource): PluginAnnotationSource {
     const { serverId: _serverId, ...rest } = source;
     return rest;
   }
+  if (source.kind === "browser") return source;
   const { serverId: _serverId, ...rest } = source;
   return rest;
 }
@@ -104,7 +105,10 @@ function createAttachmentsHandle(
       live();
       if (input.kind !== "annotation")
         throw new Error(`Unsupported attachment kind: ${input.kind}`);
-      const source: AnnotationSource = { ...input.source, serverId: installation.serverId };
+      const source: AnnotationSource =
+        input.source.kind === "browser"
+          ? input.source
+          : { ...input.source, serverId: installation.serverId };
       const slot = lowestFreeSlot(
         annotationsOf(controller.surface.getAttachments()).map((a) => a.slot),
       );

@@ -2,9 +2,9 @@ import type { AttachmentMetadata, UserComposerAttachment } from "@/attachments/t
 import { isLegacyNewWorkspaceDraftKey, NEW_WORKSPACE_DRAFT_KEY } from "@/stores/draft-keys";
 import { AnnotationAttachmentSchema } from "@/annotations/model";
 import { lowestFreeSlot } from "@/composer/chips/model";
+import { AttachmentMetadataSchema } from "@/attachments/metadata-schema";
 import { z } from "zod";
 import {
-  AttachmentMetadataSchema,
   LegacyDraftImageSchema,
   normalizeAttachmentMetadata,
   normalizeComposerAttachment,

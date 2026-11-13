@@ -3,7 +3,7 @@ import type { PersistStorage, StorageValue } from "zustand/middleware";
 import { z } from "zod";
 import { TextAttachmentSchema } from "@pimi/protocol/messages";
 import { createValidatedPersistStorage } from "@/storage/validated-persist-storage";
-import { AttachmentMetadataSchema } from "@/stores/draft-store/state";
+import { AttachmentMetadataSchema } from "@/attachments/metadata-schema";
 import { retainAttachmentForGarbageCollection, trackAttachmentRetentionRead } from "./gc-retention";
 import { persistAttachmentFromBytes } from "./service";
 import { getAttachmentStore } from "./store";

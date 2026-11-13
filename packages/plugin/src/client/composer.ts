@@ -18,6 +18,12 @@ export type PluginAnnotationSource =
       readonly agentId: string;
       readonly messageId: string;
       readonly role: "user" | "assistant";
+    }
+  | {
+      readonly kind: "browser";
+      readonly url: string;
+      readonly selector: string;
+      readonly tag: string;
     };
 
 /** A quote the user annotated, waiting in a composer draft. */

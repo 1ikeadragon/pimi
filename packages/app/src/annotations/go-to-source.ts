@@ -24,6 +24,8 @@ export function goToAnnotationSource(
   attachment: AnnotationCapture,
   input: GoToSourceInput,
 ): boolean {
+  // A browser element has no place to go back to: its page may be gone or changed.
+  if (attachment.source.kind === "browser") return false;
   if (attachment.source.kind === "file") {
     goToFileAnnotation({
       attachment,

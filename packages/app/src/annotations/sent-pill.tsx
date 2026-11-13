@@ -1,6 +1,8 @@
-import { useCallback, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AnnotationAttachmentMetadata } from "@pimi/protocol/messages";
+import type { AttachmentMetadata } from "@/attachments/types";
+import { BrowserElementPreview } from "@/composer/attachments/browser-element-preview";
 import { AttachmentFrame } from "@/components/attachment-pill";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useIsCompactFormFactor } from "@/constants/layout";
@@ -12,6 +14,11 @@ import { goToSentAnnotationSource } from "./go-to-source";
 import { AnnotationHoverContent } from "./hover-content";
 import { annotationAccessibilityLabel } from "./model";
 import { AnnotationReadSheet } from "./sheet";
+
+/** Resolves a message's screenshot by its index among the message's images. */
+export const SentScreenshotContext = createContext<(index: number) => AttachmentMetadata | null>(
+  () => null,
+);
 
 /**
  * An annotation in a sent message, drawn in the text or in the row above it. Wide layouts go back
@@ -38,11 +45,16 @@ export function SentAnnotationPill({
       }),
     [annotation, openInSidePane, toast],
   );
+  const screenshotFor = useContext(SentScreenshotContext);
+  const isElement = annotation.source.kind === "browser";
   const handlePress = useCallback(() => {
-    if (goesToSource) goToSource();
+    if (goesToSource && !isElement) goToSource();
     else setReading(true);
-  }, [goesToSource, goToSource]);
-  const actions = useMemo(() => ({ onGoToSource: goToSource }), [goToSource]);
+  }, [goesToSource, goToSource, isElement]);
+  const actions = useMemo(
+    () => (isElement ? {} : { onGoToSource: goToSource }),
+    [goToSource, isElement],
+  );
   return (
     <>
       <HoverCard disabled={!goesToSource}>
@@ -59,7 +71,23 @@ export function SentAnnotationPill({
           <AnnotationHoverContent annotation={annotation} actions={actions} />
         </HoverCardContent>
       </HoverCard>
-      {reading ? <AnnotationReadSheet annotation={annotation} onClose={closeSheet} /> : null}
+      {reading && annotation.source.kind === "browser" ? (
+        <BrowserElementPreview
+          tag={annotation.source.tag}
+          url={annotation.source.url}
+          comment={annotation.note.trim() || undefined}
+          text={annotation.quote}
+          screenshot={
+            annotation.screenshotIndex === undefined
+              ? null
+              : screenshotFor(annotation.screenshotIndex)
+          }
+          onClose={closeSheet}
+        />
+      ) : null}
+      {reading && annotation.source.kind !== "browser" ? (
+        <AnnotationReadSheet annotation={annotation} onClose={closeSheet} />
+      ) : null}
     </>
   );
 }

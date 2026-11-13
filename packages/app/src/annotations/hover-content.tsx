@@ -13,7 +13,8 @@ const mutedIconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMute
 
 /** Each action is offered only when the surface can do it: a sent message has no note to edit. */
 export interface AnnotationHoverActions {
-  onGoToSource(): void;
+  /** Absent for a source there is nowhere to go back to, such as a browser element. */
+  onGoToSource?: () => void;
   onEditNote?: () => void;
   onRemove?: () => void;
 }
@@ -39,9 +40,11 @@ export function AnnotationHoverContent({
       </Text>
       {note ? <Text style={styles.note}>{note}</Text> : null}
       <View style={styles.footer}>
-        <ToolbarButton label={goToLabel} onPress={actions.onGoToSource} tooltipSide="top">
-          <ThemedArrowUpRight size={ICON_SIZE.sm} uniProps={mutedIconMapping} />
-        </ToolbarButton>
+        {actions.onGoToSource ? (
+          <ToolbarButton label={goToLabel} onPress={actions.onGoToSource} tooltipSide="top">
+            <ThemedArrowUpRight size={ICON_SIZE.sm} uniProps={mutedIconMapping} />
+          </ToolbarButton>
+        ) : null}
         {actions.onEditNote ? (
           <ToolbarButton label={t("chips.editNote")} onPress={actions.onEditNote} tooltipSide="top">
             <ThemedPencil size={ICON_SIZE.sm} uniProps={mutedIconMapping} />
