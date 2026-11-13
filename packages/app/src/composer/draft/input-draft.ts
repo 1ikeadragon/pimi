@@ -22,6 +22,8 @@ import {
   resolveEffectiveComposerThinkingOptionId,
   type ProviderSelectionState,
 } from "@/provider-selection/provider-selection";
+import type { AnnotationAttachment } from "@/annotations/model";
+import { annotationsOf, lowestFreeSlot } from "@/composer/chips/model";
 import { useDraftStore } from "@/stores/draft-store";
 import { AfterPaintPublication } from "@/composer/after-paint-publication";
 import { useShallow } from "zustand/shallow";
@@ -80,6 +82,29 @@ export interface AgentInputDraft {
   isHydrated: boolean;
   attachmentFocusRequestId: number;
   composerState: DraftComposerState | null;
+}
+
+/**
+ * An annotation added by something that cannot see the stash (a plugin) may have taken the slot of
+ * one the user deleted; undo would then bring back a chip that points at the wrong annotation.
+ * Moves such a newcomer to a free slot.
+ */
+function avoidStashedSlots(
+  next: UserComposerAttachment[],
+  previous: readonly UserComposerAttachment[],
+  stashed: readonly AnnotationAttachment[],
+): UserComposerAttachment[] {
+  const known = new Set(annotationsOf(previous).map((annotation) => annotation.id));
+  const reserved = new Set(stashed.map((annotation) => annotation.slot));
+  const used = new Set(annotationsOf(next).map((annotation) => annotation.slot));
+  return next.map((attachment) => {
+    if (attachment.kind !== "annotation" || known.has(attachment.id)) return attachment;
+    if (!reserved.has(attachment.slot)) return attachment;
+    const slot = lowestFreeSlot([...used, ...reserved]);
+    if (slot === null) return attachment;
+    used.add(slot);
+    return { ...attachment, slot };
+  });
 }
 
 export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDraft {
@@ -203,12 +228,13 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
 
   const setAttachments = useCallback(
     (updater: AttachmentUpdater) => {
-      saveDraft((current) => ({
-        ...current,
-        attachments: typeof updater === "function" ? updater(current.attachments) : updater,
-      }));
+      saveDraft((current) => {
+        const next = typeof updater === "function" ? updater(current.attachments) : updater;
+        const stashed = useDraftStore.getState().detachedAnnotationsByDraftKey[draftKey] ?? [];
+        return { ...current, attachments: avoidStashedSlots(next, current.attachments, stashed) };
+      });
     },
-    [saveDraft],
+    [draftKey, saveDraft],
   );
 
   // Kept until the draft is sent or the user detaches it; changing the model does not detach it,

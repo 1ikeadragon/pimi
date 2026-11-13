@@ -47,6 +47,9 @@ function chipExtension(
       const element = document.createElement("span");
       element.className = "cm-chip";
       element.contentEditable = "false";
+      // A stray click on a chip must not move focus out of the editor; Enter keeps sending.
+      // The chip still receives the click, and keyboard users can still Tab onto it.
+      element.addEventListener("mousedown", (event) => event.preventDefault());
       mount(element, this.slot);
       return element;
     }

@@ -83,7 +83,8 @@ const styles = StyleSheet.create((theme) => ({
     maxWidth: 260,
     paddingHorizontal: theme.spacing[1.5],
     borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surface3,
+    // A fill over whatever the chip sits on, so it reads on every surface in both themes.
+    backgroundColor: theme.colors.interactionHighlight,
     // Always present so focus changes the colour and never the size.
     borderWidth: theme.borderWidth[1],
     borderColor: "transparent",
@@ -97,7 +98,7 @@ const styles = StyleSheet.create((theme) => ({
         false: {},
       },
       selected: {
-        true: { backgroundColor: theme.colors.surface4 },
+        true: { borderColor: theme.colors.foregroundExtraMuted },
         false: {},
       },
       focused: {
