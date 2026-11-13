@@ -4,7 +4,7 @@ Enter `user@devbox` and Pimi installs its daemon on that Linux machine, starts i
 
 ## What Pimi does
 
-Every step runs through your system `ssh`, so `~/.ssh/config`, `ProxyJump`, keys and your agent apply. Pimi stores no SSH secret and runs `ssh` with `BatchMode=yes`, so a key that needs a passphrase has to be in your agent. A first-seen host key is recorded in `known_hosts` (`StrictHostKeyChecking=accept-new`); a changed key is refused.
+Every step runs through your system `ssh`, so `~/.ssh/config`, `ProxyJump`, keys and your agent apply. Keys and your agent are used first. If the server asks for a password, passphrase or code, Pimi asks for it in the app and keeps it in memory until you quit. A first-seen host key is recorded in `known_hosts` (`StrictHostKeyChecking=accept-new`); a changed key is refused.
 
 1. **Probe.** `uname -s`/`-m`, `$HOME`, free disk, libc, Node versions, systemd, and whether a daemon already answers on `127.0.0.1:6767` and at which version.
 2. **Install when needed.** If no daemon runs at the desktop's version, Pimi installs it into `~/.pimi/runtime/<version>/`:
@@ -17,6 +17,16 @@ Every step runs through your system `ssh`, so `~/.ssh/config`, `ProxyJump`, keys
 
 Turn on **Keep the daemon running with systemd** in the dialog to use a `systemd --user` unit (`pimi-daemon.service`, `Restart=on-failure`) when the machine has one. The unit stops at logout unless you run `loginctl enable-linger <user>`.
 
+## Sign-in prompts
+
+The desktop runs ssh with `SSH_ASKPASS_REQUIRE=force`, so ssh calls Pimi's askpass program only when it would otherwise prompt. The program (`bin/pimi-ssh-askpass` on macOS, the Windows helper exe in askpass mode) relays ssh's prompt text to the main process over a private socket or pipe, authenticated by a per-spawn token. The answer never goes through env, argv or disk. Three things are easy to get wrong:
+
+- Answers to password and passphrase prompts are cached in memory per machine and prompt; one-time codes are not. Every reconnect runs a probe ssh and a tunnel ssh, so without the cache each one would ask.
+- Cancelling kills that ssh at once (ssh would otherwise send empty passwords) and stops background reconnects from prompting again for that machine. Adding it or upgrading it again, or restarting the app, prompts again.
+- The Windows askpass must stay an exe. Win32-OpenSSH starts it with the server-controlled prompt on the command line, which a `.cmd` or script would hand to `cmd.exe`.
+
+`SSH_ASKPASS_REQUIRE` needs OpenSSH 8.4. On an older ssh the desktop keeps `BatchMode=yes` and the sign-in error says so. The CLI and daemon-side `ssh://` hosts stay in batch mode.
+
 ## Requirements
 
 - Linux on x86_64 or arm64 with glibc (Ubuntu, Debian, Fedora). Alpine (musl) and macOS remotes are not supported.
@@ -27,7 +37,7 @@ Turn on **Keep the daemon running with systemd** in the dialog to use a `systemd
 
 | Message                            | What to do                                                                                             |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| SSH could not sign in              | Run `ssh user@host` in a terminal, add the key with `ssh-add`.                                         |
+| SSH could not sign in              | Check the user name and password or key.                                                               |
 | Host key does not match            | The machine was reinstalled or something is wrong. `ssh-keygen -R host` only if you expect the change. |
 | Could not reach the host           | Check the name, port, VPN and `sshd`.                                                                  |
 | Unsupported OS, CPU or libc        | Use a glibc Linux on x86_64 or arm64.                                                                  |

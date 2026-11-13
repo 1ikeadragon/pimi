@@ -210,7 +210,11 @@ import {
   type ComposerController,
 } from "@/plugins";
 import { SlashCommandCenterActions } from "@/command-center/slash-registration";
-import { resolveClientSlashCommand, type ClientSlashCommand } from "@/client-slash-commands";
+import {
+  resolveClientSlashCommand,
+  type ClientSlashCommand,
+  type ResolvedClientSlashCommand,
+} from "@/client-slash-commands";
 import {
   appendWorkspaceFileAttachment,
   getWorkspaceFileAttachmentKey,
@@ -1160,7 +1164,7 @@ interface ComposerProps {
   workspaceId?: string | null;
   isPaneFocused: boolean;
   onSubmitMessage?: (payload: MessagePayload) => Promise<void>;
-  onClientSlashCommand?: (command: ClientSlashCommand) => Promise<void>;
+  onClientSlashCommand?: (command: ClientSlashCommand, args: string) => Promise<void>;
   /** When true, the submit button is enabled even without text or images (e.g. external attachment selected). */
   hasExternalContent?: boolean;
   /** When true, the composer can submit even with no text or attachments. */
@@ -1697,9 +1701,26 @@ function ComposerContentImpl({
   });
 
   const runClientSlashCommand = useCallback(
-    (command: ClientSlashCommand): boolean => {
+    ({ command, args }: ResolvedClientSlashCommand): boolean => {
       if (command.execution !== "immediate" || !onClientSlashCommand) {
         return false;
+      }
+
+      setSendError(null);
+      setIsProcessing(true);
+      if (command.keepsAttachments) {
+        // The input is cleared only once the command succeeded, so a bad argument leaves the
+        // text and its pending attachments for the user to fix.
+        void onClientSlashCommand(command, args)
+          .then(() => replaceUserInput(""))
+          .catch((error) => {
+            console.error("[Composer] Failed to run client slash command:", error);
+            setSendError(error instanceof Error ? error.message : String(error));
+          })
+          .finally(() => {
+            setIsProcessing(false);
+          });
+        return true;
       }
 
       if (blurOnSubmit) {
@@ -1709,9 +1730,7 @@ function ComposerContentImpl({
       replaceUserInput("");
       setSelectedAttachments([]);
       resetSuppression();
-      setSendError(null);
-      setIsProcessing(true);
-      void onClientSlashCommand(command)
+      void onClientSlashCommand(command, args)
         .catch((error) => {
           console.error("[Composer] Failed to run client slash command:", error);
           setSendError(error instanceof Error ? error.message : String(error));
@@ -1729,6 +1748,19 @@ function ComposerContentImpl({
       setSelectedAttachments,
       replaceUserInput,
     ],
+  );
+
+  // A selection from autocomplete or the palette carries no arguments; a command that takes
+  // some is inserted for the user to complete instead.
+  const runClientSlashCommandFromMenu = useCallback(
+    (command: ClientSlashCommand): boolean => {
+      const blockedByAttachments =
+        !command.keepsAttachments && buildOutgoingAttachments(attachments).length > 0;
+      return !command.acceptsArgs && !blockedByAttachments
+        ? runClientSlashCommand({ command, args: "" })
+        : false;
+    },
+    [attachments, buildOutgoingAttachments, runClientSlashCommand],
   );
 
   const runPluginClientSlashCommand = useCallback(
@@ -2831,8 +2863,7 @@ function ComposerContentImpl({
       serverId,
       agentId,
       draft: commandDraft,
-      canExecuteClientSlashCommand: buildOutgoingAttachments(attachments).length === 0,
-      onClientSlashCommand: runClientSlashCommand,
+      onClientSlashCommand: runClientSlashCommandFromMenu,
       pluginClientSlashCommands,
     }),
     [
@@ -2840,9 +2871,7 @@ function ComposerContentImpl({
       serverId,
       agentId,
       commandDraft,
-      buildOutgoingAttachments,
-      attachments,
-      runClientSlashCommand,
+      runClientSlashCommandFromMenu,
       pluginClientSlashCommands,
     ],
   );
@@ -2927,7 +2956,7 @@ function ComposerContentImpl({
                   serverId={serverId}
                   agentId={agentId}
                   editingSession={editingSession}
-                  runClient={runClientSlashCommand}
+                  runClient={runClientSlashCommandFromMenu}
                 />
               ) : null}
               {/* MessageInput handles everything: text, dictation, attachments, all buttons */}

@@ -38,7 +38,7 @@ function createTextPattern(path: string, forgeReferencePattern?: string): RegExp
 // Quotes and unbalanced closing parentheses end the URL. Trailing sentence punctuation stays outside.
 const URL_CHARACTER = String.raw`[^\s<>()"'\x60]`;
 const URL_GROUP = String.raw`\(${URL_CHARACTER}*\)`;
-const BARE_URL = String.raw`https?://(?:${URL_CHARACTER}|${URL_GROUP})*(?:[^\s<>()"'\x60.,;:!?]|${URL_GROUP})`;
+export const BARE_URL = String.raw`https?://(?:${URL_CHARACTER}|${URL_GROUP})*(?:[^\s<>()"'\x60.,;:!?]|${URL_GROUP})`;
 
 const TEXT_PATTERN = createTextPattern(PROSE_PATH);
 // One entry per distinct workspace forge remote; reuse keeps the engine's regex identity stable.

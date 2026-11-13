@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 interface BrowserPaneProps {
   browserId: string;
+  tabId: string;
   serverId: string;
   workspaceId: string;
   cwd: string | null;

@@ -6,7 +6,7 @@ nav: 工具参考
 
 # 浏览器工具 {#browser-tools}
 
-启用[浏览器自动化](/docs/browser)后，`browser_*` 工具会和其他 [Pimi MCP 工具](/docs/mcp)一起注入到 Agent 中。
+启用[浏览器自动化](/docs/browser)后，`browser_*` 工具会和其他 [Pimi MCP 工具](/docs/mcp)一起注入到 Agent 中。`browser_show` 始终可用，无论是否启用浏览器自动化。
 
 通用概念：
 
@@ -18,12 +18,13 @@ nav: 工具参考
 
 ## 标签页 {#tabs}
 
-| 工具                | 参数                       | 用途                                              |
-| ------------------- | -------------------------- | ------------------------------------------------- |
-| `browser_list_tabs` | —                          | 列出 Agent 工作区在所有已连接宿主上打开的标签页。 |
-| `browser_new_tab`   | `url?`                     | 在后台打开一个标签页并返回它的 `browserId`。      |
-| `browser_close_tab` | `browserId`                | 关闭标签页并清理它的 webview。                    |
-| `browser_resize`    | `browserId, width, height` | 调整标签页视口大小，用手机或平板的尺寸检查布局。  |
+| 工具                | 参数                       | 用途                                                                                                                                |
+| ------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `browser_list_tabs` | —                          | 列出 Agent 工作区在所有已连接宿主上打开的标签页。                                                                                   |
+| `browser_new_tab`   | `url?`                     | 在后台打开一个标签页并返回它的 `browserId`。                                                                                        |
+| `browser_show`      | `url`                      | 在聊天旁边的可见标签页中向用户展示页面。不返回页面内容；已有相同 URL 的标签页时会复用。`localhost` 地址在运行桌面应用的机器上解析。 |
+| `browser_close_tab` | `browserId`                | 关闭标签页并清理它的 webview。                                                                                                      |
+| `browser_resize`    | `browserId, width, height` | 调整标签页视口大小，用手机或平板的尺寸检查布局。                                                                                    |
 
 ## 读取页面 {#reading-the-page}
 

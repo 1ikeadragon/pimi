@@ -1,3 +1,4 @@
+import { UserMessageText } from "@/components/user-message-text";
 import { useDisclosureHold } from "@/agent-stream/disclosure";
 import { MessagePreview, MessageSender } from "@/components/user-message";
 import { useStableEvent } from "@/hooks/use-stable-event";
@@ -537,9 +538,11 @@ export const UserMessage = memo(function UserMessage({
               </View>
             ) : null}
             {hasText ? (
-              <Text selectable style={userMessageStylesheet.text} dataSet={MESSAGE_TEXT_DATASET}>
-                {message}
-              </Text>
+              <UserMessageText
+                message={message}
+                style={userMessageStylesheet.text}
+                dataSet={MESSAGE_TEXT_DATASET}
+              />
             ) : null}
           </MessagePreview>
         </View>

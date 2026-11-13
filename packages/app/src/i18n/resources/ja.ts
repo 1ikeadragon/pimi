@@ -3,53 +3,51 @@ import { pluginSettings } from "./plugin-settings";
 
 export const ja: TranslationResources = {
   remoteDev: {
-    title: "Remote dev machine (SSH)",
-    optionHint: "Pimi installs and starts its daemon over ssh.",
-    helper:
-      "Enter the machine as user@host. Pimi connects with your system ssh (your ~/.ssh/config, keys and agent), installs its daemon there when needed, and starts it. No passwords or keys are stored.",
-    hostLabel: "SSH host",
-    hostPlaceholder: "user@devbox",
-    invalidTarget:
-      "Enter the machine as user@host, a name from your ~/.ssh/config, or ssh://user@host.",
-    systemdTitle: "Keep the daemon running with systemd",
-    systemdHint:
-      "Uses a systemd --user service when the machine has one. Otherwise Pimi starts the daemon with nohup.",
-    docsLink: "How remote SSH works",
-    setupStopped: "Setup stopped",
+    title: "リモート開発マシン (SSH)",
+    hostLabel: "SSH ホスト",
+    hostPlaceholder: "user@host",
+    invalidTarget: "user@host を入力してください。",
+    systemdTitle: "systemd でデーモンを常時実行",
+    docsLink: "リモート SSH のしくみ",
+    setupStopped: "セットアップが停止しました",
     steps: {
-      connecting: "Connecting",
-      checking: "Checking the machine",
-      installing: "Installing",
-      installingVersion: "Installing v{{version}}",
-      alreadyInstalled: "(already installed)",
-      starting: "Starting the daemon",
-      connected: "Connected",
+      connecting: "接続中",
+      checking: "マシンを確認中",
+      installing: "インストール中",
+      installingVersion: "v{{version}} をインストール中",
+      alreadyInstalled: "(インストール済み)",
+      starting: "デーモンを起動中",
+      connected: "接続しました",
     },
-    settingsRowTitle: "Connect a remote dev machine",
-    settingsRowHint:
-      "Enter user@devbox. Pimi installs and starts its daemon over ssh, then runs agents, terminals and git on that machine.",
-    commandTitle: "Connect a remote dev machine (SSH)",
+    settingsRowTitle: "リモート開発マシンに接続",
+    settingsRowHint: "そのマシン上でエージェント、ターミナル、git を実行します。",
+    commandTitle: "リモート開発マシンに接続 (SSH)",
     onboarding: {
-      label: "Where to work",
-      title: "Where should your agents run?",
-      description:
-        "Use this computer, or connect a remote dev machine over SSH. Pimi installs and starts its daemon on the remote for you.",
-      localTitle: "Use this computer",
-      localHint: "Agents run here, on your own files. Nothing to install.",
-      remoteTitle: "Connect a remote dev machine over SSH",
-      remoteHint:
-        "Enter user@devbox. Pimi installs its daemon there over ssh and runs agents, terminals and git on that machine.",
+      label: "作業場所",
+      title: "エージェントをどこで実行しますか？",
+      description: "このコンピューターまたはリモートマシンを使います。",
+      localTitle: "このコンピューターを使う",
+      localHint: "エージェントはここで、あなたのファイルに対して実行されます。",
+      remoteTitle: "リモート開発マシンに接続",
+      remoteHint: "エージェントはそちらで実行されます。Pimi が SSH でセットアップします。",
     },
     upgrade: {
-      title: "Upgrade Pimi on {{host}}?",
+      title: "{{host}} の Pimi をアップグレードしますか？",
       message:
-        "{{host}} runs Pimi {{running}}, this app is {{desktop}}. Upgrading restarts the daemon there. {{work}}",
+        "{{host}} では Pimi {{running}} が動作していて、このアプリは {{desktop}} です。アップグレードすると向こうのデーモンが再起動します。{{work}}",
       workBusy:
-        "It has {{agents}} running agents and {{terminals}} open terminals that would stop.",
-      workUnknown: "Pimi could not tell whether agents or terminals are running.",
-      later: "Later",
-      now: "Upgrade now",
-      failed: "The upgrade failed.",
+        "実行中のエージェント {{agents}} 件と開いているターミナル {{terminals}} 件が停止します。",
+      workUnknown: "実行中のエージェントやターミナルがあるか Pimi で確認できませんでした。",
+      later: "後で",
+      now: "今すぐアップグレード",
+      failed: "アップグレードに失敗しました。",
+    },
+    auth: {
+      title: "{{host}} にサインイン",
+      inputLabel: "パスワードまたはコード",
+      retry: "うまくいきませんでした。もう一度お試しください。",
+      submit: "続行",
+      cancel: "キャンセル",
     },
   },
   harnessUpdates: {
@@ -536,6 +534,8 @@ export const ja: TranslationResources = {
     clientCommands: {
       archiveAgent: "現在のエージェントをアーカイブ",
       freshDraft: "このエージェントをアーカイブして新しい下書きを開始",
+      openBrowser: "PimiブラウザでWebページを開く",
+      annotatePage: "PimiブラウザでWebページに注釈を付ける",
     },
     github: {
       searching: "検索中...",
@@ -1008,6 +1008,7 @@ export const ja: TranslationResources = {
         placeholder: "この要素についてエージェントへのメッセージ…",
         submit: "添付",
         cancel: "キャンセル",
+        target: "添付先: {{chat}}",
       },
       devices: {
         label: "デバイスサイズ",
@@ -1075,6 +1076,7 @@ export const ja: TranslationResources = {
         preparingTerminal: "ターミナルタブを準備中",
         preparingTerminalTooltip: "ターミナルを準備中...",
         newBrowser: "新しいブラウザ",
+        annotatePage: "Webページに注釈を付ける",
         maximizePane: "ペインを最大化",
         restorePane: "ペインを元に戻す",
         closePane: "ペインを閉じる",
@@ -2220,7 +2222,7 @@ export const ja: TranslationResources = {
       },
       remoteSsh: {
         title: "リモート SSH",
-        description: "デスクトップの SSH クライアント経由で接続します。",
+        description: "Pimi が SSH でセットアップします。",
       },
       scanQr: {
         title: "QRコードをスキャン",
@@ -2274,13 +2276,6 @@ export const ja: TranslationResources = {
       },
     },
     remoteSsh: {
-      title: "リモート SSH",
-      helper: "リモートホストで動作する Pimi デーモンに接続します。",
-      fields: {
-        target: "SSH ホスト",
-        password: "デーモンのパスワード",
-        optional: "任意",
-      },
       passwordVisibility: {
         show: "パスワードを表示",
         hide: "パスワードを非表示",
@@ -2292,7 +2287,6 @@ export const ja: TranslationResources = {
       },
       errors: {
         targetRequired: "SSH ホストは必須です",
-        invalidTarget: "有効な ssh:// ホストを入力してください",
         failedToConnect: "SSH で接続できません。{{detail}}",
       },
     },

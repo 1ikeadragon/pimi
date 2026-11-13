@@ -38,6 +38,9 @@ namespace PimiDesktopHelper
         [MTAThread]
         static int Main(string[] args)
         {
+            // ssh launches this exe as its SSH_ASKPASS program; Pimi sets the variable only for ssh.
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PIMI_SSH_ASKPASS_SOCK")) && !(args.Length > 0 && args[0] == "--selftest"))
+                return Askpass.Run(args);
             if (args.Length > 0 && args[0] == "--selftest")
             {
                 try { var a = U.A; Console.WriteLine("{\"ok\":true,\"version\":\"1\",\"uia\":true,\"wgc\":" + (Wgc.Available() ? "true" : "false") + "}"); return 0; }

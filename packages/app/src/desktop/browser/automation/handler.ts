@@ -14,6 +14,8 @@ import {
 } from "@/desktop/browser/store";
 import { collectAllTabs, useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
+import { openWorkspaceBrowserUrl } from "@/desktop/browser/open-url";
+import { isWorkspaceOnScreen } from "@/screens/workspace/visible-workspace";
 
 type BrowserAutomationExecuteRequest = Extract<
   SessionOutboundMessage,
@@ -141,6 +143,21 @@ async function handleBrowserAutomationRequest(params: {
           ...(registrationWaitTimeoutMs !== undefined ? { registrationWaitTimeoutMs } : {}),
           ...(registrationPollIntervalMs !== undefined ? { registrationPollIntervalMs } : {}),
         }),
+      });
+    } catch (error) {
+      client.sendBrowserAutomationExecuteResponse({
+        type: "browser.automation.execute.response",
+        payload: normalizeThrownBridgeError(request.requestId, error),
+      });
+    }
+    return;
+  }
+
+  if (request.command.command === "show_tab") {
+    try {
+      client.sendBrowserAutomationExecuteResponse({
+        type: "browser.automation.execute.response",
+        payload: await showBrowserTabForRequest({ request, serverId, browserHost }),
       });
     } catch (error) {
       client.sendBrowserAutomationExecuteResponse({
@@ -396,11 +413,10 @@ async function openBrowserTabForRequest(params: {
   }
 
   const url = command.args.url ?? "https://example.com";
+  const owner = attackOwnerForRequest(request);
   const { browserId, url: normalizedUrl } = createWorkspaceBrowser({
     initialUrl: url,
-    ...(request.attackGuard && request.agentId
-      ? { owner: { runId: request.attackGuard.runId, agentId: request.agentId } }
-      : {}),
+    ...(owner ? { owner } : {}),
   });
   // A tab an Attack run's agent opens is confined to the run's hosts from the start.
   if (request.attackGuard) {
@@ -446,6 +462,89 @@ async function openBrowserTabForRequest(params: {
     requestId: request.requestId,
     ok: true,
     result: { command: "new_tab", browserId, workspaceId, url: normalizedUrl },
+  };
+}
+
+function attackOwnerForRequest(request: BrowserAutomationExecuteRequest) {
+  return request.attackGuard && request.agentId
+    ? { runId: request.attackGuard.runId, agentId: request.agentId }
+    : undefined;
+}
+
+/** The chat tab of the agent that asked, so the page opens as that chat's companion. */
+function findAgentTabId(workspaceKey: string, agentId: string | undefined): string | null {
+  const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];
+  if (!layout || !agentId) return null;
+  const tab = collectAllTabs(layout.root).find(
+    (candidate) => candidate.target.kind === "agent" && candidate.target.agentId === agentId,
+  );
+  return tab?.tabId ?? null;
+}
+
+/**
+ * browser_show: puts a page beside the asking agent's chat for the user. It never takes keyboard
+ * focus and does not wait for the webview to register, since the agent gets no page back.
+ */
+async function showBrowserTabForRequest(params: {
+  request: BrowserAutomationExecuteRequest;
+  serverId?: string;
+  browserHost: DesktopHostBridge["browser"] | undefined;
+}): Promise<BrowserAutomationResponsePayload> {
+  const { request, serverId, browserHost } = params;
+  const command = request.command as Extract<
+    BrowserAutomationExecuteRequest["command"],
+    { command: "show_tab" }
+  >;
+  const workspaceId = request.workspaceId;
+  const workspaceKey =
+    serverId && workspaceId ? buildWorkspaceTabPersistenceKey({ serverId, workspaceId }) : null;
+  if (!workspaceId || !workspaceKey) {
+    return browserAutomationFailure({
+      requestId: request.requestId,
+      code: "browser_unsupported",
+      message: "Cannot show a browser tab without a workspace context.",
+    });
+  }
+  const visible = isWorkspaceOnScreen(workspaceKey);
+  if (command.args.requireVisible && !visible) {
+    return browserAutomationFailure({
+      requestId: request.requestId,
+      code: "browser_not_visible",
+      message: "The workspace is not on screen in this window.",
+    });
+  }
+  const opened = openWorkspaceBrowserUrl({
+    workspaceKey,
+    url: command.args.url,
+    parentTabId: findAgentTabId(workspaceKey, request.agentId),
+    location: "side",
+    focus: false,
+    reuse: true,
+    owner: attackOwnerForRequest(request),
+  });
+  if (!opened) {
+    return browserAutomationFailure({
+      requestId: request.requestId,
+      code: "browser_unsupported",
+      message: "The workspace could not open a browser tab.",
+    });
+  }
+  // A tab an Attack run's agent shows is confined to the run's hosts from the start.
+  if (request.attackGuard && !opened.reused) {
+    await browserHost?.setAttackPolicy?.({ browserId: opened.browserId, ...request.attackGuard });
+  }
+  const record = getBrowserRecord(opened.browserId);
+  return {
+    requestId: request.requestId,
+    ok: true,
+    result: {
+      command: "show_tab",
+      browserId: opened.browserId,
+      workspaceId,
+      url: record?.url ?? command.args.url,
+      visible,
+      reused: opened.reused,
+    },
   };
 }
 

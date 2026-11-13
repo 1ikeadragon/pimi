@@ -2,6 +2,7 @@ import path from "node:path";
 import { app, BrowserWindow } from "electron";
 import { validatePort, validateSshHost } from "@pimi/protocol/ssh-transport";
 import { resolveDesktopAppVersion } from "../app-version.js";
+import { allowSshPrompts, answerSshAuth, forgetSshAuth } from "./askpass.js";
 import { RemoteSshError } from "./errors.js";
 import {
   ensureRemoteDaemon,
@@ -101,7 +102,9 @@ export async function prepareRemoteSsh(args: unknown): Promise<RemoteSshPrepareR
   const controller = new AbortController();
   cancellations.set(requestId, controller);
   try {
-    const result = await ensureRemoteDaemonForDesktop(parseEnsureInput(record.target), {
+    const input = parseEnsureInput(record.target);
+    allowSshPrompts(input);
+    const result = await ensureRemoteDaemonForDesktop(input, {
       requestId,
       signal: controller.signal,
     });
@@ -124,4 +127,26 @@ export async function prepareRemoteSsh(args: unknown): Promise<RemoteSshPrepareR
 export function cancelRemoteSsh(args: unknown): void {
   const requestId = (args as { requestId?: unknown } | null)?.requestId;
   if (typeof requestId === "string") cancellations.get(requestId)?.abort();
+}
+
+function parseAuthTarget(value: unknown): { host: string; sshPort?: number } {
+  const input = parseEnsureInput(value);
+  return { host: input.host, ...(input.sshPort !== undefined ? { sshPort: input.sshPort } : {}) };
+}
+
+/** IPC: the user's answer to an ssh sign-in prompt. The secret is never logged or stored. */
+export function answerRemoteSshAuth(args: unknown): void {
+  const record = (typeof args === "object" && args !== null ? args : {}) as Record<string, unknown>;
+  if (typeof record.promptId !== "string") throw new Error("Prompt ID is required.");
+  if (record.cancel === true) {
+    answerSshAuth(record.promptId, "cancel");
+    return;
+  }
+  if (typeof record.secret !== "string") throw new Error("Answer is required.");
+  answerSshAuth(record.promptId, { secret: record.secret });
+}
+
+/** IPC: forget the passwords and the cancel mark for a machine whose connection was removed. */
+export function forgetRemoteSshAuth(args: unknown): void {
+  forgetSshAuth(parseAuthTarget(args));
 }

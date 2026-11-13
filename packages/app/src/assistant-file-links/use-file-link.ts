@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from "react";
-import { Alert } from "react-native";
 import { parseAgentDeepLink } from "@pimi/protocol/agent-deep-link";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { getDesktopHost } from "@/desktop/host";
@@ -347,14 +346,8 @@ async function dispatchExternalUrl(input: {
     host?.dismissPimiWorkspace?.();
     return;
   }
-  if (host?.showPimiWorkspace && isHttpUrl(input.url)) {
-    if (current.onOpenWebUrl) {
-      current.onOpenWebUrl(input.url);
-    } else {
-      const message = "Open a workspace in Pimi to view this web link.";
-      if (current.toast) current.toast.error(message);
-      else Alert.alert("Workspace unavailable", message);
-    }
+  if (host?.showPimiWorkspace && isHttpUrl(input.url) && current.onOpenWebUrl) {
+    current.onOpenWebUrl(input.url);
     return;
   }
   await openExternalUrl(input.url);

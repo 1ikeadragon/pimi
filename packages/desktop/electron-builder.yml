@@ -72,6 +72,7 @@ files:
 asarUnpack:
   - dist/daemon/node-entrypoint-runner.js
   - node_modules/@pimi/server/dist/server/terminal/shell-integration/**/*
+  - dist/daemon/remote-ssh/askpass-client.js
 extraResources:
   # Preserve physical compiler inputs, including .d.ts files omitted from packaged node_modules.
   - from: ../server/dist/server/builtin-plugins
@@ -114,6 +115,8 @@ mac:
   extraResources:
     - from: bin/pimi
       to: bin/pimi
+    - from: bin/pimi-ssh-askpass
+      to: bin/pimi-ssh-askpass
     - from: native/mac/bin/betterleaks
       to: desktop-helper/betterleaks
   target:

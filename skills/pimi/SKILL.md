@@ -164,6 +164,8 @@ Use a terminal for a long-running or interactive process the user should be able
 
 The `browser_*` tools drive tabs in the Pimi desktop app's browser. They exist only when the host has browser tools enabled, and they need a workspace and a connected desktop app.
 
+`browser_show` is the exception: it exists without that setting. It opens a URL beside the chat so the user can look at it and annotate elements back to you. It only shows the page; you get no content, `browserId` aside, and cannot click or read it. Use it when the user asks to see a page. Use `browser_new_tab` and the rest to work on a page yourself.
+
 1. `browser_new_tab` with a URL, or `browser_list_tabs`, gives you a `browserId`. Pass it to every other browser tool.
 2. `browser_snapshot` returns the page with element `ref`s.
 3. Act on a `ref` with `browser_click`, `browser_fill`, `browser_type`, `browser_keypress`, `browser_select`, `browser_hover`, `browser_drag`, or `browser_upload`.
