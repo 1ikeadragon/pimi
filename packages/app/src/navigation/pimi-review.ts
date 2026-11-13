@@ -88,13 +88,16 @@ export function openPimiReview(source?: ReviewSource, serverId?: string): void {
   router.navigate({ pathname: PIMI_REVIEW_ROUTE, params } as unknown as Href);
 }
 
+// Any page of a pull request (`/pull/12`, `/pull/12/files`, `/pull/12/commits/<sha>`) opens it in Review.
 const GITHUB_PULL_REQUEST_PATH =
-  /^\/([A-Za-z0-9_][\w.-]{0,99})\/([A-Za-z0-9_][\w.-]{0,99})\/pull\/([1-9]\d{0,15})\/?$/;
+  /^\/([A-Za-z0-9_][\w.-]{0,99})\/([A-Za-z0-9_][\w.-]{0,99})\/pull\/([1-9]\d{0,15})(?:\/.*)?$/;
+const GITHUB_HOSTS = new Set(["github.com", "www.github.com"]);
 
 /** A GitHub pull request URL as a review source on `serverId`, or null for any other URL. */
 export function pullRequestUrlToSource(url: string, serverId: string): ReviewSource | null {
   const parsed = URL.parse(url);
-  if (!parsed || parsed.protocol !== "https:" || parsed.hostname !== "github.com") return null;
+  if (!parsed || (parsed.protocol !== "https:" && parsed.protocol !== "http:")) return null;
+  if (!GITHUB_HOSTS.has(parsed.hostname.toLowerCase())) return null;
   const match = GITHUB_PULL_REQUEST_PATH.exec(parsed.pathname);
   if (!match) return null;
   return {
