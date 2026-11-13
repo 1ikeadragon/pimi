@@ -135,7 +135,11 @@ import {
   type CreatePimiWorktreeCommandInput,
   createPimiWorktreeCommand,
 } from "../../worktree/commands.js";
-import { registerBrowserTools } from "../../browser-tools/tools.js";
+import {
+  registerBrowserShowTool,
+  registerBrowserTools,
+  type RegisterBrowserToolsOptions,
+} from "../../browser-tools/tools.js";
 import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
 import { registerDesktopToolsWhenWired } from "../../desktop-tools/tools.js";
 import type { AttackService } from "../../attack/service.js";
@@ -535,6 +539,16 @@ export function createPimiAgentToolManifest(
 ): Pick<PimiToolCatalog, "tools"> {
   // Plugins register before a caller exists, but every execution uses an agent-bound catalog.
   return { tools: createToolCatalog(options, "agent").tools };
+}
+
+function registerBrowserShowWhenAvailable(input: {
+  broker: RegisterBrowserToolsOptions["broker"] | null | undefined;
+  scope: "agent" | "top-level";
+  voiceCommand: boolean | undefined;
+  registration: Omit<RegisterBrowserToolsOptions, "broker">;
+}): void {
+  if (input.scope !== "agent" || input.voiceCommand || !input.broker) return;
+  registerBrowserShowTool({ ...input.registration, broker: input.broker });
 }
 
 function registerCodebaseTool(
@@ -1474,6 +1488,18 @@ function createToolCatalog(
       attack: options.attackService,
     });
   }
+
+  registerBrowserShowWhenAvailable({
+    broker: options.browserToolsBroker,
+    scope,
+    voiceCommand: options.voiceCommand,
+    registration: {
+      registerTool,
+      callerAgentId,
+      resolveCallerAgent,
+      attack: options.attackService,
+    },
+  });
 
   registerDesktopToolsWhenWired({
     registerTool,

@@ -8,7 +8,7 @@ category: Browser
 
 # Browser tools
 
-The `browser_*` tools are injected into agents alongside the other [Pimi MCP tools](/docs/mcp) when [browser automation](/docs/browser) is enabled.
+The `browser_*` tools are injected into agents alongside the other [Pimi MCP tools](/docs/mcp) when [browser automation](/docs/browser) is enabled. `browser_show` is always available, whether or not browser automation is enabled.
 
 Shared concepts:
 
@@ -20,12 +20,13 @@ Arguments marked `?` are optional.
 
 ## Tabs
 
-| Tool                | Arguments                  | Purpose                                                                   |
-| ------------------- | -------------------------- | ------------------------------------------------------------------------- |
-| `browser_list_tabs` | —                          | List open tabs in the agent's workspace across connected hosts.           |
-| `browser_new_tab`   | `url?`                     | Open a tab in the background and return its `browserId`.                  |
-| `browser_close_tab` | `browserId`                | Close a tab and clean up its webview.                                     |
-| `browser_resize`    | `browserId, width, height` | Resize the tab's viewport — check a layout at phone or tablet dimensions. |
+| Tool                | Arguments                  | Purpose                                                                                                                                                                                 |
+| ------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `browser_list_tabs` | —                          | List open tabs in the agent's workspace across connected hosts.                                                                                                                         |
+| `browser_new_tab`   | `url?`                     | Open a tab in the background and return its `browserId`.                                                                                                                                |
+| `browser_show`      | `url`                      | Show a page to the user in a visible tab beside the chat. Returns no page content; reuses a tab already on that URL. A `localhost` URL resolves on the machine running the desktop app. |
+| `browser_close_tab` | `browserId`                | Close a tab and clean up its webview.                                                                                                                                                   |
+| `browser_resize`    | `browserId, width, height` | Resize the tab's viewport — check a layout at phone or tablet dimensions.                                                                                                               |
 
 ## Reading the page
 

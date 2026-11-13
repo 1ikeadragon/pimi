@@ -149,6 +149,7 @@ import { useStableEvent } from "@/hooks/use-stable-event";
 import { removeResidentBrowserWebview } from "@/desktop/browser/resident-webviews";
 import { createWorkspaceBrowser, useBrowserStore } from "@/desktop/browser/store";
 import { openWorkspaceBrowserUrl, resolveOriginChatTabId } from "@/desktop/browser/open-url";
+import { clearVisibleWorkspaceKey, setVisibleWorkspaceKey } from "./visible-workspace";
 import { getDesktopHost } from "@/desktop/host";
 import { usePimiWorkspaceReview } from "@/desktop/use-pimi-workspace-review";
 import { buildProviderCommand } from "@/utils/provider-command-templates";
@@ -1372,6 +1373,14 @@ function WorkspaceScreenContent({
 
     return () => handler.remove();
   }, [isExplorerSidebarShowing, isMobile, isRouteFocused, showMobileAgent]);
+
+  useEffect(() => {
+    if (!isRouteFocused || !persistenceKey) {
+      return;
+    }
+    setVisibleWorkspaceKey(persistenceKey);
+    return () => clearVisibleWorkspaceKey(persistenceKey);
+  }, [isRouteFocused, persistenceKey]);
 
   const workspaceLayout = useWorkspaceLayoutStore((state) =>
     persistenceKey ? (state.layoutByWorkspace[persistenceKey] ?? null) : null,

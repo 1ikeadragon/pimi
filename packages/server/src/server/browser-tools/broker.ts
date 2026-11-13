@@ -4,6 +4,7 @@ import {
   BrowserAutomationExecuteResponseSchema,
   type BrowserAutomationCommand,
   type BrowserAutomationCommandName,
+  type BrowserAutomationErrorCode,
   type BrowserAutomationExecuteRequest,
   type BrowserAutomationExecuteResponse,
 } from "@pimi/protocol/browser-automation/rpc-schemas";
@@ -47,6 +48,12 @@ export interface BrowserToolsBrokerOptions {
 }
 
 const DEFAULT_BROWSER_TOOLS_TIMEOUT_MS = 15_000;
+const SHOW_TAB_PROBE_TIMEOUT_MS = 4_000;
+const SHOW_TAB_TRY_NEXT_HOST_CODES: ReadonlySet<BrowserAutomationErrorCode> = new Set([
+  "browser_not_visible",
+  "browser_timeout",
+  "browser_unsupported",
+]);
 
 export class BrowserToolsBroker {
   private readonly defaultTimeoutMs: number;
@@ -143,6 +150,14 @@ export class BrowserToolsBroker {
     if (request.data.command.command === "list_tabs") {
       return this.executeListTabs({
         request: request.data,
+        timeoutMs: input.timeoutMs ?? this.defaultTimeoutMs,
+      });
+    }
+
+    if (request.data.command.command === "show_tab") {
+      return this.executeShowTab({
+        request: request.data,
+        command: request.data.command,
         timeoutMs: input.timeoutMs ?? this.defaultTimeoutMs,
       });
     }
@@ -272,6 +287,62 @@ export class BrowserToolsBroker {
         ),
       },
     };
+  }
+
+  /**
+   * Shows a page to the user. With several hosts (windows or devices) it asks them one at a time,
+   * newest first, to open the tab only if the workspace is on screen there, so a page never opens
+   * in two windows. When none has the workspace on screen it opens in the newest host's layout.
+   */
+  private async executeShowTab(params: {
+    request: BrowserAutomationExecuteRequest;
+    command: Extract<BrowserAutomationCommand, { command: "show_tab" }>;
+    timeoutMs: number;
+  }): Promise<BrowserToolsResponsePayload> {
+    const { request, command, timeoutMs } = params;
+    const hosts = Array.from(this.clients.values()).toReversed();
+    if (hosts.length === 0) {
+      return this.noBrowserHostFailure(request.requestId);
+    }
+    const buildRequest = (requestId: string, requireVisible: boolean) => ({
+      ...request,
+      requestId,
+      command: { ...command, args: { ...command.args, requireVisible } },
+    });
+
+    if (hosts.length > 1) {
+      for (const host of hosts) {
+        if (!host.supportedCommands.has("show_tab")) {
+          continue;
+        }
+        const payload = await this.sendRequest({
+          host,
+          request: buildRequest(`${request.requestId}:${host.client.id}`, true),
+          timeoutMs: Math.min(timeoutMs, SHOW_TAB_PROBE_TIMEOUT_MS),
+        });
+        if (payload.ok) {
+          return withBrowserToolsRequestId(payload, request.requestId);
+        }
+        if (!SHOW_TAB_TRY_NEXT_HOST_CODES.has(payload.error.code)) {
+          return withBrowserToolsRequestId(payload, request.requestId);
+        }
+      }
+    }
+
+    const newest = hosts[0];
+    const unsupported = this.unsupportedCommandFailure({
+      host: newest,
+      commandName: "show_tab",
+      requestId: request.requestId,
+    });
+    if (unsupported) {
+      return unsupported;
+    }
+    return this.sendRequest({
+      host: newest,
+      request: buildRequest(request.requestId, false),
+      timeoutMs,
+    });
   }
 
   private selectHostForCommand(
@@ -469,7 +540,11 @@ export class BrowserToolsBroker {
 }
 
 function getBrowserIdForCommand(command: BrowserAutomationCommand): string | null {
-  if (command.command === "list_tabs" || command.command === "new_tab") {
+  if (
+    command.command === "list_tabs" ||
+    command.command === "new_tab" ||
+    command.command === "show_tab"
+  ) {
     return null;
   }
   return command.args.browserId;
