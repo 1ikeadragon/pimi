@@ -263,9 +263,9 @@ export const fr: TranslationResources = {
       notePlaceholder: "Note facultative pour l’agent",
       openIn: "Ouvrir le chat dans",
       noWorkspace:
-        "Aucun espace de travail pour {{repo}} sur cet hôte. Créez un nouvel espace de travail et sélectionnez-y la pull request.",
+        "Aucune discussion pour {{repo}} sur cet hôte. Démarrez une nouvelle discussion et choisissez-y la pull request.",
       thisRepository: "ce dépôt",
-      newWorkspace: "Nouvel espace de travail",
+      newWorkspace: "Nouvelle discussion",
       openChat: "Ouvrir dans le chat",
       preparing: "Préparation…",
       onThisBranch: "Sur cette branche",
@@ -281,7 +281,7 @@ export const fr: TranslationResources = {
       files: "Fichiers",
       noFiles: "Cette demande de modification ne contient aucun fichier modifié.",
       checkoutUnsupported:
-        "Les diffs de worktrees locaux s’ouvrent depuis le volet Modifications de l’espace de travail.",
+        "Les diffs de worktrees locaux s’ouvrent depuis le panneau Modifications de la discussion.",
       filterPlaceholder: "Filtrer les fichiers",
       filterClear: "Effacer le filtre",
       unviewedOnly: "Non vus",
@@ -298,7 +298,7 @@ export const fr: TranslationResources = {
       askInChat: "Demander dans le chat",
       annotations_one: "{{count}} annotation",
       annotations_other: "{{count}} annotations",
-      noWorkspace: "Aucun espace de travail pour {{repo}} sur cet hôte",
+      noWorkspace: "Aucune discussion pour {{repo}} sur cet hôte",
       askUnavailable: "Ouvrez d’abord les fichiers annotés ; leurs patchs ne sont pas chargés.",
       detached_one: "{{count}} fil absent de ce diff",
       detached_other: "{{count}} fils absents de ce diff",
@@ -361,7 +361,7 @@ export const fr: TranslationResources = {
       daemonClientUnavailable: "Client du daemon indisponible",
       daemonClientDisconnected: "Le client du daemon est déconnecté",
       noFileFound: "Aucun fichier trouvé pour {{token}}",
-      folderOutsideWorkspace: "{{path}} se trouve en dehors de cet espace de travail",
+      folderOutsideWorkspace: "{{path}} est en dehors de ce dossier",
       unexpectedDictationError: "Une erreur inattendue s’est produite pendant la dictée.",
     },
     connectionStatus: {
@@ -379,7 +379,7 @@ export const fr: TranslationResources = {
       close: "Fermer le menu",
     },
     commandCenter: {
-      placeholder: "Rechercher des commandes, fichiers, espaces de travail et agents…",
+      placeholder: "Rechercher des commandes, fichiers, discussions et agents...",
       filePlaceholder: "Rechercher des fichiers…",
       commands: "Commands",
       commandsPlaceholder: "Type a command or setting...",
@@ -401,7 +401,7 @@ export const fr: TranslationResources = {
       noMatches: "Aucun résultat",
       actions: "Actions",
       files: "Fichiers",
-      workspaces: "Espaces de travail",
+      workspaces: "Discussions",
       agents: "Agents",
       newAgent: "Nouvel agent",
       open: "Ouvrir {{name}}",
@@ -725,11 +725,11 @@ export const fr: TranslationResources = {
       copyTurn: "Copier l’échange",
       copyMessage: "Copier le message",
       forkMenu: "Forker la conversation à partir d’ici",
-      forkInNewTab: "Forker dans un nouvel onglet",
-      forkInNewWorkspace: "Forker dans un nouvel espace de travail",
+      forkInNewTab: "Forker comme onglet",
+      forkInNewWorkspace: "Forker dans une nouvelle discussion",
       forkWithProvider: "Dupliquer avec un autre fournisseur",
       forkNoOtherProviders: "Aucun autre fournisseur n’est disponible sur cet hôte.",
-      forkMissingWorkspace: "Cet agent n’est dans aucun espace de travail.",
+      forkMissingWorkspace: "Cet agent n’est dans aucune discussion.",
       forkFailed: "Impossible de forker la conversation",
       openFile: "Ouvrir le fichier",
       copied: "Copié",
@@ -821,7 +821,7 @@ export const fr: TranslationResources = {
     searchPlaceholder: "Rechercher des sessions…",
     scope: {
       host: "Sessions sur {{host}}",
-      workspace: "Cet espace de travail",
+      workspace: "Cette discussion",
     },
     filters: {
       all: "Tous",
@@ -854,14 +854,14 @@ export const fr: TranslationResources = {
   },
   workspace: {
     route: {
-      loading: "Chargement de l’espace de travail…",
+      loading: "Chargement de la discussion",
       connecting: "Connexion…",
       hostOffline: "{{hostName}} est hors ligne",
       cannotReachHost: "Impossible de joindre {{hostName}}",
       hostStatus: "Statut de l’hôte : {{status}}",
       manageHost: "Gérer l’hôte",
       recovery: {
-        archivedTitle: "Espace de travail archivé",
+        archivedTitle: "Discussion archivée",
         restoreDescription:
           "Restaurez {{workspaceName}} pour retrouver ses agents. Son worktree utilisera la branche {{branch}}.",
         restoreWithoutBranchDescription:
@@ -869,10 +869,10 @@ export const fr: TranslationResources = {
         unarchiveDescription: "{{workspaceName}} est archivé. Désarchivez-le pour le rouvrir.",
         restoreAction: "Restaurer",
         unarchiveAction: "Désarchiver",
-        restoringTitle: "Restauration de l’espace de travail",
+        restoringTitle: "Restauration de la discussion",
         restoringAction: "Restauration…",
-        unavailableTitle: "Espace de travail indisponible",
-        checkFailedTitle: "Impossible de vérifier l’espace de travail",
+        unavailableTitle: "Discussion indisponible",
+        checkFailedTitle: "Impossible de vérifier la discussion",
       },
     },
     hoverCard: {
@@ -936,7 +936,7 @@ export const fr: TranslationResources = {
         noVisibleFiles: "Aucun fichier visible",
       },
       states: {
-        unavailable: "L’espace de travail est indisponible",
+        unavailable: "La discussion est indisponible",
         loading: "Chargement des fichiers…",
       },
       errors: {
@@ -989,7 +989,7 @@ export const fr: TranslationResources = {
     browser: {
       unavailable: {
         title: "Le navigateur est réservé à l’app de bureau",
-        subtitle: "Ouvrez cet espace de travail dans Electron pour utiliser le navigateur intégré.",
+        subtitle: "Ouvrez cette discussion dans Electron pour utiliser le navigateur intégré.",
       },
       session: "Session de navigateur {{browserId}}",
       controls: {
@@ -1048,11 +1048,11 @@ export const fr: TranslationResources = {
         terminal: "Terminal",
         browser: "Navigateur",
         agent: "Agent",
-        workspace: "Espace de travail",
+        workspace: "Discussion",
       },
       switcher: {
         trigger: "Changer d’onglet ({{count}} ouverts)",
-        title: "Onglets de l’espace de travail",
+        title: "Onglets de la discussion",
         searchPlaceholder: "Rechercher des onglets",
       },
       menu: {
@@ -1152,23 +1152,22 @@ export const fr: TranslationResources = {
     },
     header: {
       actions: {
-        workspaceActions: "Actions de l’espace de travail",
-        workspaceActionsUnhealthy:
-          "Actions de l’espace de travail, un service est en mauvaise santé",
+        workspaceActions: "Actions de la discussion",
+        workspaceActionsUnhealthy: "Actions de la discussion, un service est défaillant",
         newAgent: "Nouvel agent",
         newTerminal: "Nouveau terminal",
         newBrowser: "Nouvel onglet de navigateur",
         importSession: "Importer une session",
-        copyPath: "Copier le chemin de l’espace de travail",
+        renameChat: "Renommer la discussion",
+        copyPath: "Copier le chemin du worktree",
         copyBranchName: "Copier le nom de la branche",
         showSetup: "Afficher la configuration",
       },
       toasts: {
-        workspacePathUnavailable: "Le chemin de l’espace de travail n’est pas encore disponible",
+        workspacePathUnavailable: "Le chemin du worktree n’est pas encore disponible",
         branchNameUnavailable: "Nom de la branche indisponible",
-        terminalQueued:
-          "Préparation de l’espace de travail, le terminal s’ouvrira dès qu’il sera prêt…",
-        workspacePathCopiedLabel: "Chemin de l’espace de travail",
+        terminalQueued: "Préparation du worktree, ouverture du terminal dès que possible...",
+        workspacePathCopiedLabel: "Chemin du worktree",
         branchNameCopiedLabel: "Nom de la branche",
       },
     },
@@ -1255,7 +1254,7 @@ export const fr: TranslationResources = {
           success: "Mis à jour",
         },
         archive: {
-          label: "Archiver l’espace de travail",
+          label: "Archiver la discussion",
           pending: "Archivage…",
           success: "Archivé",
         },
@@ -1320,7 +1319,7 @@ export const fr: TranslationResources = {
           mergePrNoGithub:
             "Impossible de fusionner la PR pour l’instant : GitHub n’est pas connecté",
           archiveNotWorktree:
-            "Archivage indisponible : cet espace de travail n’a pas été créé comme worktree Pimi",
+            "L’archivage n’est pas disponible ici car cette discussion n’a pas été créée comme worktree Pimi",
           mergePrNoForge:
             "Impossible de fusionner la {{noun}} pour l’instant : {{brand}} n’est pas connecté",
           mergePrMissing: "Impossible de fusionner la PR : il n’y a pas encore de pull request",
@@ -1409,7 +1408,7 @@ export const fr: TranslationResources = {
         modifiedFile: "Modifié",
         commits: {
           title: "Commits",
-          countLabel: "{{count}} commits de l’espace de travail",
+          countLabel: "{{count}} commits de la discussion",
           noneAhead: "Aucun commit en avance sur {{baseRef}} pour l’instant",
           fileDiffEmpty: "Aucune modification à afficher",
           fileDiffError: "Impossible de charger le diff du fichier",
@@ -1421,9 +1420,9 @@ export const fr: TranslationResources = {
       openInEditor: {
         open: "Ouvrir",
         chooseEditor: "Choisir l’éditeur",
-        openIn: "Ouvrir l’espace de travail dans {{target}}",
+        openIn: "Ouvrir le dossier dans {{target}}",
         openFileIn: "Ouvrir {{fileName}} dans {{target}}",
-        failedOpen: "Impossible d’ouvrir l’espace de travail",
+        failedOpen: "Impossible d’ouvrir le dossier",
       },
       pr: {
         actions: {
@@ -1579,8 +1578,8 @@ export const fr: TranslationResources = {
       save: "Enregistrer",
       delete: "Supprimer",
       deleteTitle: "Supprimer {{name}} ?",
-      deleteMessage_one: "Cela retire l’étiquette de {{count}} espace de travail sur cet hôte.",
-      deleteMessage_other: "Cela retire l’étiquette de {{count}} espaces de travail sur cet hôte.",
+      deleteMessage_one: "Cela retire l’étiquette de {{count}} discussion sur cet hôte.",
+      deleteMessage_other: "Cela retire l’étiquette de {{count}} discussions sur cet hôte.",
       offline: "Cet hôte est hors ligne.",
     },
   },
@@ -1651,9 +1650,9 @@ export const fr: TranslationResources = {
       },
     },
     filterEmpty: {
-      title: "Aucun espace de travail ne correspond",
+      title: "Aucune discussion ne correspond",
       description:
-        "Modifiez ou effacez les filtres de la barre latérale pour afficher les espaces de travail.",
+        "Modifiez ou effacez les filtres de la barre latérale pour voir les discussions.",
       clear: "Effacer les filtres",
     },
     pinned: {
@@ -1666,7 +1665,7 @@ export const fr: TranslationResources = {
     },
     actions: {
       addProject: "Ajouter un projet",
-      newWorkspace: "Nouvel espace de travail",
+      newWorkspace: "Nouvelle discussion",
       hosts: "Hôtes",
       settings: "Paramètres",
       closeSidebar: "Fermer la barre latérale",
@@ -1718,7 +1717,7 @@ export const fr: TranslationResources = {
       },
       toasts: {
         hostDisconnected: "L’hôte n’est pas connecté",
-        removeFailed: "Impossible de retirer certains espaces de travail",
+        removeFailed: "Impossible de supprimer certaines discussions",
       },
       empty: {
         title: "Aucun projet pour l’instant",
@@ -1740,49 +1739,52 @@ export const fr: TranslationResources = {
         pending: "En attente : {{count}}",
       },
       actions: {
-        menu: "Actions de l’espace de travail",
-        newWorkspace: "Nouvel espace de travail",
+        menu: "Actions de la discussion",
+        newWorkspace: "Nouvelle discussion",
         showMore: "Afficher plus",
         showLess: "Afficher moins",
-        createWorkspaceFor: "Créer un espace de travail pour {{projectName}}",
+        createWorkspaceFor: "Démarrer une nouvelle discussion dans {{projectName}}",
         copyPath: "Copier le chemin",
         copyBranchName: "Copier le nom de la branche",
-        rename: "Renommer l’espace de travail",
+        rename: "Renommer la discussion",
         pin: "Épingler en haut",
         unpin: "Désépingler",
         archive: "Archiver",
-        archiveWorkspace: "Archiver l’espace de travail",
+        archiveWorkspace: "Archiver la discussion",
         hideFromSidebar: "Masquer de la barre latérale",
         archiving: "Archivage…",
         hiding: "Masquage…",
       },
       confirmations: {
-        hideTitle: "Masquer l’espace de travail ?",
+        hideTitle: "Masquer la discussion ?",
         hideMessage:
           "Masquer « {{workspaceName}} » de la barre latérale ?\n\nLes fichiers sur le disque ne seront pas modifiés.",
         hideConfirm: "Masquer",
         cancel: "Annuler",
+        archiveSiblingChats_one: "Archive aussi 1 autre discussion partageant ce worktree.",
+        archiveSiblingChats_other:
+          "Archive aussi {{count}} autres discussions partageant ce worktree.",
       },
       rename: {
-        title: "Renommer l’espace de travail",
+        title: "Renommer la discussion",
         submit: "Renommer",
         invalidBranchName: "Nom de branche invalide",
       },
       toasts: {
-        workspacePathUnavailable: "Chemin de l’espace de travail indisponible",
+        workspacePathUnavailable: "Chemin du worktree indisponible",
         pathCopied: "Chemin copié",
         branchNameCopied: "Nom de branche copié",
         hostDisconnected: "L’hôte n’est pas connecté",
-        hideFailed: "Impossible de masquer l’espace de travail",
-        archiveFailed: "Impossible d’archiver l’espace de travail",
-        archived: "Espace de travail archivé",
+        hideFailed: "Impossible de masquer la discussion",
+        archiveFailed: "Impossible d’archiver la discussion",
+        archived: "Discussion archivée",
         undoArchive: "Annuler",
         undoArchiveFailed: "Impossible d’annuler l’archivage",
       },
     },
   },
   newWorkspace: {
-    title: "Nouvel espace de travail",
+    title: "Nouvelle discussion",
     create: "Créer",
     isolation: {
       local: "Local",
@@ -2049,7 +2051,7 @@ export const fr: TranslationResources = {
   },
   branchSwitcher: {
     failedToLoad: "Impossible de charger les branches. Rouvrez le sélecteur pour réessayer.",
-    triggerTooltip: "Changer la branche de l’espace de travail",
+    triggerTooltip: "Changer la branche de la discussion",
     currentBranch: "Branche actuelle : {{branchName}}. Appuyez pour changer de branche.",
     placeholder: "Changer de branche…",
     searchPlaceholder: "Filtrer les branches…",
@@ -2069,7 +2071,7 @@ export const fr: TranslationResources = {
     stashRestored: "Modifications remisées restaurées",
   },
   agentAutocomplete: {
-    searchingWorkspace: "Recherche dans l’espace de travail…",
+    searchingWorkspace: "Recherche dans le dossier...",
     loadingCommands: "Chargement des commandes…",
     noFiles: "Aucun fichier ou répertoire trouvé",
     noCommands: "Aucune commande trouvée",
@@ -2093,15 +2095,14 @@ export const fr: TranslationResources = {
     dialogFilterName: "Images",
   },
   workspaceSetup: {
-    title: "Créer un espace de travail",
+    title: "Nouvelle discussion",
     errors: {
       failedCreateWorktree: "Impossible de créer le worktree",
       failedOpenProject: "Impossible d’ouvrir le projet",
       selectModel: "Sélectionnez un modèle",
       hostDisconnected: "L’hôte n’est pas connecté",
-      pendingRequired: "Aucune configuration d’espace de travail en attente",
-      composerStateRequired:
-        "L’état de la zone de saisie de configuration de l’espace de travail est requis",
+      pendingRequired: "Aucune configuration de discussion en attente",
+      composerStateRequired: "L’état du compositeur de configuration de la discussion est requis",
     },
   },
   onboarding: {
@@ -2234,7 +2235,7 @@ export const fr: TranslationResources = {
       noProviders: "Aucun fournisseur disponible sur l’hôte sélectionné",
       modelDefaultsLoading: "Les valeurs par défaut du modèle sont en cours de chargement",
       noModelAvailable: "Aucun modèle disponible pour le fournisseur sélectionné",
-      workspaceDirectoryNotFound: "Répertoire de l’espace de travail introuvable",
+      workspaceDirectoryNotFound: "Dossier introuvable",
       hostDisconnected: "L’hôte n’est pas connecté",
     },
   },
@@ -2523,7 +2524,7 @@ export const fr: TranslationResources = {
       entry: "Exécution d'attaque",
       title: "Attaque",
       noRun:
-        "Aucune exécution d'attaque dans cet espace de travail. Lancez-en une depuis l'application de bureau.",
+        "Aucune exécution d’attaque dans cette discussion. Lancez-en une depuis l’application de bureau.",
     },
     batchFix: {
       selectOpen: "Sélectionner les ouverts",
@@ -2892,7 +2893,7 @@ export const fr: TranslationResources = {
           source: "Source",
         },
       },
-      directoryMissing: "Répertoire de l’espace de travail introuvable.",
+      directoryMissing: "Dossier introuvable.",
       loading: "Chargement du fichier…",
       noPreview: "Aucun aperçu disponible",
       binaryPreviewUnavailable: "Aperçu indisponible pour un fichier binaire",
@@ -2924,8 +2925,8 @@ export const fr: TranslationResources = {
     },
     files: {
       label: "Fichiers",
-      subtitle: "Fichiers de l’espace de travail",
-      tooltip: "Parcourir les fichiers de l’espace de travail",
+      subtitle: "Fichiers de la discussion",
+      tooltip: "Parcourir les fichiers de la discussion",
       chooseFile: "Choisissez un fichier",
     },
     pullRequest: {
@@ -2942,7 +2943,7 @@ export const fr: TranslationResources = {
       commitSubtitle: "Diff du commit",
       uncommittedSubtitle: "Modifications non commitées",
       baseSubtitle: "Comparé à {{baseRef}}",
-      directoryMissing: "Répertoire de l’espace de travail introuvable.",
+      directoryMissing: "Dossier introuvable.",
       empty: "Aucune modification",
       loadError: "Impossible de charger le diff",
     },
@@ -3269,7 +3270,7 @@ export const fr: TranslationResources = {
       agents: "Agents",
       metadata: "Modèles Pimi",
       voice: "Voix",
-      workspaces: "Espaces de travail",
+      workspaces: "Discussions",
       providers: "Fournisseurs",
       usage: "Utilisation",
       terminals: "Terminaux",
@@ -3342,12 +3343,12 @@ export const fr: TranslationResources = {
     },
     plugins: pluginSettings.fr,
     metadataGeneration: {
-      autoNaming: "Nommer automatiquement les discussions et les espaces de travail",
+      autoNaming: "Nommer automatiquement les discussions et les branches",
       autoNamingHint:
         "Génère les titres et les noms des branches des nouveaux arbres de travail à partir du premier message. Les noms modifiés sont conservés.",
       title: "Modèles Pimi",
       description:
-        "Choisissez le modèle utilisé par Pimi pour les titres d’espaces de travail, les noms de branches, les messages de commit et les brouillons de pull request",
+        "Choisissez les modèles que Pimi utilise pour les titres de discussions, les messages de commit, les pull requests, Describe it et Ask Pimi",
       selection: "Sélection du modèle",
       automatic: "Automatique",
       preferred: "Manuel",
@@ -3370,7 +3371,7 @@ export const fr: TranslationResources = {
         "{{provider}} est désactivé ou non installé. Pimi n'utilisera pas un autre modèle pour cela",
       features: {
         title: "Titres des discussions",
-        branchName: "Titres des espaces de travail et branches",
+        branchName: "Noms de branches",
         commitMessage: "Messages de commit",
         pullRequest: "Texte des pull requests",
         automation: "Décrivez-le",
@@ -3694,7 +3695,7 @@ export const fr: TranslationResources = {
       },
       sections: {
         general: "Général",
-        workspaces: "Projets et espaces de travail",
+        workspaces: "Projets et discussions",
         tabsPanes: "Onglets et panneaux",
         layout: "Disposition",
         editor: "Éditeur",
@@ -3702,15 +3703,15 @@ export const fr: TranslationResources = {
       },
       help: {
         openProject: "Ouvrir un projet",
-        newWorkspace: "Nouvel espace de travail",
+        newWorkspace: "Nouvelle discussion",
         newWorktree: "Nouveau worktree",
-        archiveWorkspace: "Archiver l’espace de travail",
+        archiveWorkspace: "Archiver la discussion",
         newTab: "Nouvel onglet",
         closeCurrentTab: "Fermer l’onglet actuel",
-        jumpToWorkspace: "Aller à l’espace de travail",
+        jumpToWorkspace: "Aller à la discussion",
         jumpToTab: "Aller à l’onglet",
-        previousWorkspace: "Espace de travail précédent",
-        nextWorkspace: "Espace de travail suivant",
+        previousWorkspace: "Discussion précédente",
+        nextWorkspace: "Discussion suivante",
         previousTab: "Onglet précédent",
         nextTab: "Onglet suivant",
         splitPaneRight: "Diviser le panneau vers la droite",
@@ -3930,7 +3931,7 @@ export const fr: TranslationResources = {
         },
       },
       workspaces: {
-        unavailable: "Connectez-vous à cet hôte pour gérer les espaces de travail",
+        unavailable: "Connectez-vous à cet hôte pour gérer les discussions",
       },
       terminalProfiles: {
         unavailable: "Connectez-vous à cet hôte pour gérer les profils de terminal",

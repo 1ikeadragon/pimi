@@ -263,9 +263,9 @@ export const ptBR: TranslationResources = {
       notePlaceholder: "Nota opcional para o agente",
       openIn: "Abrir o chat em",
       noWorkspace:
-        "Nenhum workspace para {{repo}} neste host. Inicie um novo workspace e selecione o pull request lá.",
+        "Nenhuma conversa para {{repo}} neste host. Inicie uma nova conversa e escolha o pull request lá.",
       thisRepository: "este repositório",
-      newWorkspace: "Novo workspace",
+      newWorkspace: "Nova conversa",
       openChat: "Abrir no chat",
       preparing: "Preparando…",
       onThisBranch: "Nesta branch",
@@ -280,7 +280,7 @@ export const ptBR: TranslationResources = {
       retry: "Tentar novamente",
       files: "Arquivos",
       noFiles: "Esta solicitação de alteração não tem arquivos alterados.",
-      checkoutUnsupported: "Os diffs de worktrees locais abrem no painel Alterações do workspace.",
+      checkoutUnsupported: "Os diffs de worktrees locais abrem no painel Alterações da conversa.",
       filterPlaceholder: "Filtrar arquivos",
       filterClear: "Limpar filtro",
       unviewedOnly: "Não vistos",
@@ -297,7 +297,7 @@ export const ptBR: TranslationResources = {
       askInChat: "Perguntar no chat",
       annotations_one: "{{count}} anotação",
       annotations_other: "{{count}} anotações",
-      noWorkspace: "Nenhum workspace para {{repo}} neste host",
+      noWorkspace: "Nenhuma conversa para {{repo}} neste host",
       askUnavailable: "Abra primeiro os arquivos anotados; seus patches não estão carregados.",
       detached_one: "{{count}} thread fora deste diff",
       detached_other: "{{count}} threads fora deste diff",
@@ -360,7 +360,7 @@ export const ptBR: TranslationResources = {
       daemonClientUnavailable: "Cliente do daemon indisponível",
       daemonClientDisconnected: "O cliente do daemon está desconectado",
       noFileFound: "Nenhum arquivo encontrado para {{token}}",
-      folderOutsideWorkspace: "{{path}} está fora deste workspace",
+      folderOutsideWorkspace: "{{path}} está fora desta pasta",
       unexpectedDictationError: "Ocorreu um erro inesperado ao processar o ditado.",
     },
     connectionStatus: {
@@ -378,7 +378,7 @@ export const ptBR: TranslationResources = {
       close: "Fechar menu",
     },
     commandCenter: {
-      placeholder: "Buscar comandos, arquivos, espaços de trabalho e agentes...",
+      placeholder: "Pesquisar comandos, arquivos, conversas e agentes...",
       filePlaceholder: "Pesquisar arquivos...",
       commands: "Commands",
       commandsPlaceholder: "Type a command or setting...",
@@ -400,7 +400,7 @@ export const ptBR: TranslationResources = {
       noMatches: "Nenhuma correspondência",
       actions: "Ações",
       files: "Arquivos",
-      workspaces: "Espaços de trabalho",
+      workspaces: "Conversas",
       agents: "Agentes",
       newAgent: "Novo agente",
       open: "Abrir {{name}}",
@@ -723,11 +723,11 @@ export const ptBR: TranslationResources = {
       copyTurn: "Copiar turno",
       copyMessage: "Copiar mensagem",
       forkMenu: "Bifurcar mensagem",
-      forkInNewTab: "Bifurcar em uma nova aba",
-      forkInNewWorkspace: "Bifurcar em um novo workspace",
+      forkInNewTab: "Bifurcar como aba",
+      forkInNewWorkspace: "Bifurcar em uma nova conversa",
       forkWithProvider: "Bifurcar com outro provedor",
       forkNoOtherProviders: "Não há outros provedores disponíveis neste host.",
-      forkMissingWorkspace: "Este agente não está em um workspace.",
+      forkMissingWorkspace: "Este agente não está em uma conversa.",
       forkFailed: "Falha ao bifurcar o chat",
       openFile: "Abrir arquivo",
       copied: "Copiado",
@@ -819,7 +819,7 @@ export const ptBR: TranslationResources = {
     searchPlaceholder: "Buscar sessões...",
     scope: {
       host: "Sessões em {{host}}",
-      workspace: "Este workspace",
+      workspace: "Esta conversa",
     },
     filters: {
       all: "Tudo",
@@ -852,14 +852,14 @@ export const ptBR: TranslationResources = {
   },
   workspace: {
     route: {
-      loading: "Carregando workspace",
+      loading: "Carregando conversa",
       connecting: "Conectando",
       hostOffline: "{{hostName}} está offline",
       cannotReachHost: "Não é possível acessar {{hostName}}",
       hostStatus: "Status do host: {{status}}",
       manageHost: "Gerenciar host",
       recovery: {
-        archivedTitle: "Workspace arquivado",
+        archivedTitle: "Conversa arquivada",
         restoreDescription:
           "Restaure {{workspaceName}} para voltar aos seus agentes. A worktree usará a branch {{branch}}.",
         restoreWithoutBranchDescription:
@@ -868,10 +868,10 @@ export const ptBR: TranslationResources = {
           "{{workspaceName}} está arquivado. Desarquive-o para abri-lo novamente.",
         restoreAction: "Restaurar",
         unarchiveAction: "Desarquivar",
-        restoringTitle: "Restaurando workspace",
+        restoringTitle: "Restaurando conversa",
         restoringAction: "Restaurando...",
-        unavailableTitle: "Workspace indisponível",
-        checkFailedTitle: "Não foi possível verificar o workspace",
+        unavailableTitle: "Conversa indisponível",
+        checkFailedTitle: "Não foi possível verificar a conversa",
       },
     },
     hoverCard: {
@@ -935,7 +935,7 @@ export const ptBR: TranslationResources = {
         noVisibleFiles: "Nenhum arquivo visível",
       },
       states: {
-        unavailable: "Workspace indisponível",
+        unavailable: "A conversa está indisponível",
         loading: "Carregando arquivos...",
       },
       errors: {
@@ -988,7 +988,7 @@ export const ptBR: TranslationResources = {
     browser: {
       unavailable: {
         title: "O navegador é exclusivo do desktop",
-        subtitle: "Abra este workspace no Electron para usar o navegador integrado.",
+        subtitle: "Abra esta conversa no Electron para usar o navegador integrado.",
       },
       session: "Sessão do navegador {{browserId}}",
       controls: {
@@ -1047,11 +1047,11 @@ export const ptBR: TranslationResources = {
         terminal: "Terminal",
         browser: "Navegador",
         agent: "Agente",
-        workspace: "Workspace",
+        workspace: "Conversa",
       },
       switcher: {
         trigger: "Alternar abas ({{count}} abertas)",
-        title: "Abas do workspace",
+        title: "Abas da conversa",
         searchPlaceholder: "Buscar abas",
       },
       menu: {
@@ -1149,21 +1149,22 @@ export const ptBR: TranslationResources = {
     },
     header: {
       actions: {
-        workspaceActions: "Ações do workspace",
-        workspaceActionsUnhealthy: "Ações do workspace, há um serviço com problema",
+        workspaceActions: "Ações da conversa",
+        workspaceActionsUnhealthy: "Ações da conversa, um serviço está com problema",
         newAgent: "Novo agente",
         newTerminal: "Novo terminal",
         newBrowser: "Nova aba de navegador",
         importSession: "Importar sessão",
-        copyPath: "Copiar caminho do workspace",
+        renameChat: "Renomear conversa",
+        copyPath: "Copiar caminho do worktree",
         copyBranchName: "Copiar nome da branch",
         showSetup: "Mostrar configuração",
       },
       toasts: {
-        workspacePathUnavailable: "O caminho do workspace ainda não está disponível",
+        workspacePathUnavailable: "O caminho do worktree ainda não está disponível",
         branchNameUnavailable: "Nome da branch indisponível",
-        terminalQueued: "Preparando workspace, abrindo terminal quando estiver pronto...",
-        workspacePathCopiedLabel: "Caminho do workspace",
+        terminalQueued: "Preparando o worktree, abrindo o terminal quando estiver pronto...",
+        workspacePathCopiedLabel: "Caminho do worktree",
         branchNameCopiedLabel: "Nome da branch",
       },
     },
@@ -1250,7 +1251,7 @@ export const ptBR: TranslationResources = {
           success: "Atualizado",
         },
         archive: {
-          label: "Arquivar workspace",
+          label: "Arquivar conversa",
           pending: "Arquivando...",
           success: "Arquivado",
         },
@@ -1317,7 +1318,7 @@ export const ptBR: TranslationResources = {
           mergePrNoGithub:
             "Merge da PR não está disponível agora porque o GitHub não está conectado",
           archiveNotWorktree:
-            "Arquivar não está disponível aqui porque este workspace não foi criado como um worktree do Pimi",
+            "Arquivar não está disponível aqui porque esta conversa não foi criada como um worktree do Pimi",
           mergePrNoForge:
             "Merge da {{noun}} não está disponível agora porque o {{brand}} não está conectado",
           mergePrMissing: "Merge da PR não está disponível porque ainda não há uma pull request",
@@ -1406,7 +1407,7 @@ export const ptBR: TranslationResources = {
         modifiedFile: "Modificado",
         commits: {
           title: "Commits",
-          countLabel: "{{count}} commits do espaço de trabalho",
+          countLabel: "{{count}} commits da conversa",
           noneAhead: "Ainda não há commits à frente de {{baseRef}}",
           fileDiffEmpty: "Nenhuma alteração para exibir",
           fileDiffError: "Falha ao carregar diff do arquivo",
@@ -1418,9 +1419,9 @@ export const ptBR: TranslationResources = {
       openInEditor: {
         open: "Abrir",
         chooseEditor: "Escolher editor",
-        openIn: "Abrir workspace em {{target}}",
+        openIn: "Abrir pasta em {{target}}",
         openFileIn: "Abrir {{fileName}} em {{target}}",
-        failedOpen: "Falha ao abrir workspace",
+        failedOpen: "Falha ao abrir a pasta",
       },
       pr: {
         actions: {
@@ -1576,8 +1577,8 @@ export const ptBR: TranslationResources = {
       save: "Salvar",
       delete: "Excluir",
       deleteTitle: "Excluir {{name}}?",
-      deleteMessage_one: "Isso remove a etiqueta de {{count}} workspace neste host.",
-      deleteMessage_other: "Isso remove a etiqueta de {{count}} workspaces neste host.",
+      deleteMessage_one: "Isso remove o rótulo de {{count}} conversa neste host.",
+      deleteMessage_other: "Isso remove o rótulo de {{count}} conversas neste host.",
       offline: "Este host está offline.",
     },
   },
@@ -1648,8 +1649,8 @@ export const ptBR: TranslationResources = {
       },
     },
     filterEmpty: {
-      title: "Nenhum espaço de trabalho corresponde",
-      description: "Altere ou limpe os filtros da barra lateral para ver espaços de trabalho.",
+      title: "Nenhuma conversa corresponde",
+      description: "Altere ou limpe os filtros da barra lateral para ver conversas.",
       clear: "Limpar filtros",
     },
     pinned: {
@@ -1662,7 +1663,7 @@ export const ptBR: TranslationResources = {
     },
     actions: {
       addProject: "Adicionar projeto",
-      newWorkspace: "Novo workspace",
+      newWorkspace: "Nova conversa",
       hosts: "Hosts",
       settings: "Configurações",
       closeSidebar: "Fechar barra lateral",
@@ -1714,7 +1715,7 @@ export const ptBR: TranslationResources = {
       },
       toasts: {
         hostDisconnected: "Host não está conectado",
-        removeFailed: "Falha ao remover alguns workspaces",
+        removeFailed: "Falha ao remover algumas conversas",
       },
       empty: {
         title: "Nenhum projeto ainda",
@@ -1736,49 +1737,52 @@ export const ptBR: TranslationResources = {
         pending: "Pendentes: {{count}}",
       },
       actions: {
-        menu: "Ações do workspace",
-        newWorkspace: "Novo workspace",
+        menu: "Ações da conversa",
+        newWorkspace: "Nova conversa",
         showMore: "Mostrar mais",
         showLess: "Mostrar menos",
-        createWorkspaceFor: "Criar um novo workspace para {{projectName}}",
+        createWorkspaceFor: "Iniciar uma nova conversa em {{projectName}}",
         copyPath: "Copiar caminho",
         copyBranchName: "Copiar nome da branch",
-        rename: "Renomear workspace",
+        rename: "Renomear conversa",
         pin: "Fixar no topo",
         unpin: "Desafixar",
         archive: "Arquivar",
-        archiveWorkspace: "Arquivar workspace",
+        archiveWorkspace: "Arquivar conversa",
         hideFromSidebar: "Ocultar da barra lateral",
         archiving: "Arquivando...",
         hiding: "Ocultando...",
       },
       confirmations: {
-        hideTitle: "Ocultar workspace?",
+        hideTitle: "Ocultar conversa?",
         hideMessage:
           'Ocultar "{{workspaceName}}" da barra lateral?\n\nOs arquivos no disco não serão alterados.',
         hideConfirm: "Ocultar",
         cancel: "Cancelar",
+        archiveSiblingChats_one: "Também arquiva 1 outra conversa que compartilha este worktree.",
+        archiveSiblingChats_other:
+          "Também arquiva {{count}} outras conversas que compartilham este worktree.",
       },
       rename: {
-        title: "Renomear workspace",
+        title: "Renomear conversa",
         submit: "Renomear",
         invalidBranchName: "Nome de branch inválido",
       },
       toasts: {
-        workspacePathUnavailable: "Caminho do workspace indisponível",
+        workspacePathUnavailable: "Caminho do worktree indisponível",
         pathCopied: "Caminho copiado",
         branchNameCopied: "Nome da branch copiado",
         hostDisconnected: "Host não está conectado",
-        hideFailed: "Falha ao ocultar workspace",
-        archiveFailed: "Falha ao arquivar workspace",
-        archived: "Workspace arquivado",
+        hideFailed: "Falha ao ocultar a conversa",
+        archiveFailed: "Falha ao arquivar a conversa",
+        archived: "Conversa arquivada",
         undoArchive: "Desfazer",
         undoArchiveFailed: "Não foi possível desfazer o arquivamento",
       },
     },
   },
   newWorkspace: {
-    title: "Novo workspace",
+    title: "Nova conversa",
     create: "Criar",
     isolation: {
       local: "Local",
@@ -2038,7 +2042,7 @@ export const ptBR: TranslationResources = {
   },
   branchSwitcher: {
     failedToLoad: "Não foi possível carregar as branches. Reabra o seletor para tentar novamente.",
-    triggerTooltip: "Trocar branch do workspace",
+    triggerTooltip: "Alternar branch da conversa",
     currentBranch: "Branch atual: {{branchName}}. Pressione para trocar de branch.",
     placeholder: "Trocar branch...",
     searchPlaceholder: "Filtrar branches...",
@@ -2057,7 +2061,7 @@ export const ptBR: TranslationResources = {
     stashRestored: "Alterações em stash restauradas",
   },
   agentAutocomplete: {
-    searchingWorkspace: "Buscando workspace...",
+    searchingWorkspace: "Pesquisando na pasta...",
     loadingCommands: "Carregando comandos...",
     noFiles: "Nenhum arquivo ou diretório encontrado",
     noCommands: "Nenhum comando encontrado",
@@ -2081,14 +2085,14 @@ export const ptBR: TranslationResources = {
     dialogFilterName: "Imagens",
   },
   workspaceSetup: {
-    title: "Criar workspace",
+    title: "Nova conversa",
     errors: {
       failedCreateWorktree: "Falha ao criar worktree",
       failedOpenProject: "Falha ao abrir projeto",
       selectModel: "Selecione um modelo",
       hostDisconnected: "Host não está conectado",
-      pendingRequired: "Nenhuma configuração de workspace está pendente",
-      composerStateRequired: "O estado do composer da configuração do workspace é obrigatório",
+      pendingRequired: "Nenhuma configuração de conversa pendente",
+      composerStateRequired: "O estado do compositor de configuração da conversa é obrigatório",
     },
   },
   onboarding: {
@@ -2220,7 +2224,7 @@ export const ptBR: TranslationResources = {
       noProviders: "Nenhum provedor disponível no host selecionado",
       modelDefaultsLoading: "Os modelos padrão ainda estão carregando",
       noModelAvailable: "Nenhum modelo disponível para o provedor selecionado",
-      workspaceDirectoryNotFound: "Diretório do workspace não encontrado",
+      workspaceDirectoryNotFound: "Pasta não encontrada",
       hostDisconnected: "Host não está conectado",
     },
   },
@@ -2507,7 +2511,7 @@ export const ptBR: TranslationResources = {
     phone: {
       entry: "Execução de ataque",
       title: "Ataque",
-      noRun: "Nenhuma execução de ataque neste espaço de trabalho. Inicie uma pelo app de desktop.",
+      noRun: "Nenhuma execução de ataque nesta conversa. Inicie uma pelo app para desktop.",
     },
     batchFix: {
       selectOpen: "Selecionar abertos",
@@ -2872,7 +2876,7 @@ export const ptBR: TranslationResources = {
           source: "Fonte",
         },
       },
-      directoryMissing: "Diretório do workspace não encontrado.",
+      directoryMissing: "Pasta não encontrada.",
       loading: "Carregando arquivo...",
       noPreview: "Nenhuma prévia disponível",
       binaryPreviewUnavailable: "Prévia binária indisponível",
@@ -2904,8 +2908,8 @@ export const ptBR: TranslationResources = {
     },
     files: {
       label: "Arquivos",
-      subtitle: "Arquivos do espaço de trabalho",
-      tooltip: "Explorar arquivos do espaço de trabalho",
+      subtitle: "Arquivos da conversa",
+      tooltip: "Procurar arquivos da conversa",
       chooseFile: "Escolha um arquivo",
     },
     pullRequest: {
@@ -2921,7 +2925,7 @@ export const ptBR: TranslationResources = {
       commitSubtitle: "Diff do commit",
       uncommittedSubtitle: "Alterações não commitadas",
       baseSubtitle: "Comparado com {{baseRef}}",
-      directoryMissing: "Diretório do workspace não encontrado.",
+      directoryMissing: "Pasta não encontrada.",
       empty: "Nenhuma alteração",
       loadError: "Falha ao carregar diff",
     },
@@ -3248,7 +3252,7 @@ export const ptBR: TranslationResources = {
       agents: "Agentes",
       metadata: "Modelos do Pimi",
       voice: "Voz",
-      workspaces: "Workspaces",
+      workspaces: "Conversas",
       providers: "Provedores",
       usage: "Uso",
       terminals: "Terminais",
@@ -3321,12 +3325,12 @@ export const ptBR: TranslationResources = {
     },
     plugins: pluginSettings["pt-BR"],
     metadataGeneration: {
-      autoNaming: "Nomear conversas e espaços de trabalho automaticamente",
+      autoNaming: "Nomear conversas e branches automaticamente",
       autoNamingHint:
         "Gera títulos e nomes de branches de novas árvores de trabalho a partir da primeira mensagem. Os nomes que você editar são mantidos.",
       title: "Modelos do Pimi",
       description:
-        "Escolha o modelo usado pelo Pimi para títulos de espaços de trabalho, nomes de branches, mensagens de commit e rascunhos de pull request",
+        "Escolha os modelos que o Pimi usa para títulos de conversas, mensagens de commit, pull requests, Describe it e Ask Pimi",
       selection: "Seleção de modelo",
       automatic: "Automática",
       preferred: "Manual",
@@ -3349,7 +3353,7 @@ export const ptBR: TranslationResources = {
         "{{provider}} está desativado ou não instalado. O Pimi não usará outro modelo para isso",
       features: {
         title: "Títulos de conversas",
-        branchName: "Títulos de espaços de trabalho e branches",
+        branchName: "Nomes de branches",
         commitMessage: "Mensagens de commit",
         pullRequest: "Texto de pull requests",
         automation: "Descreva",
@@ -3667,7 +3671,7 @@ export const ptBR: TranslationResources = {
       },
       sections: {
         general: "Geral",
-        workspaces: "Projetos e workspaces",
+        workspaces: "Projetos e conversas",
         tabsPanes: "Abas e painéis",
         layout: "Layout",
         editor: "Editor",
@@ -3675,15 +3679,15 @@ export const ptBR: TranslationResources = {
       },
       help: {
         openProject: "Abrir projeto",
-        newWorkspace: "Novo workspace",
+        newWorkspace: "Nova conversa",
         newWorktree: "Novo worktree",
-        archiveWorkspace: "Arquivar workspace",
+        archiveWorkspace: "Arquivar conversa",
         newTab: "Nova aba",
         closeCurrentTab: "Fechar aba atual",
-        jumpToWorkspace: "Ir para workspace",
+        jumpToWorkspace: "Ir para a conversa",
         jumpToTab: "Ir para aba",
-        previousWorkspace: "Workspace anterior",
-        nextWorkspace: "Próximo workspace",
+        previousWorkspace: "Conversa anterior",
+        nextWorkspace: "Próxima conversa",
         previousTab: "Aba anterior",
         nextTab: "Próxima aba",
         splitPaneRight: "Dividir painel à direita",
@@ -3902,7 +3906,7 @@ export const ptBR: TranslationResources = {
         },
       },
       workspaces: {
-        unavailable: "Conecte-se a este host para gerenciar workspaces",
+        unavailable: "Conecte-se a este host para gerenciar conversas",
       },
       terminalProfiles: {
         unavailable: "Conecte-se a este host para gerenciar perfis de terminal",

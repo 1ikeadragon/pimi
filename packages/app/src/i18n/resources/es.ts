@@ -261,9 +261,9 @@ export const es: TranslationResources = {
       notePlaceholder: "Nota opcional para el agente",
       openIn: "Abrir el chat en",
       noWorkspace:
-        "No hay workspace para {{repo}} en este host. Inicia un nuevo workspace y elige allí el pull request.",
+        "No hay ningún chat para {{repo}} en este host. Inicia un chat nuevo y elige allí el pull request.",
       thisRepository: "este repositorio",
-      newWorkspace: "Nuevo workspace",
+      newWorkspace: "Nuevo chat",
       openChat: "Abrir en el chat",
       preparing: "Preparando…",
       onThisBranch: "En esta rama",
@@ -279,7 +279,7 @@ export const es: TranslationResources = {
       files: "Archivos",
       noFiles: "Esta solicitud de cambios no tiene archivos modificados.",
       checkoutUnsupported:
-        "Los diffs de worktrees locales se abren desde el panel Cambios del workspace.",
+        "Los diffs de worktrees locales se abren desde el panel Cambios del chat.",
       filterPlaceholder: "Filtrar archivos",
       filterClear: "Borrar filtro",
       unviewedOnly: "Sin ver",
@@ -296,7 +296,7 @@ export const es: TranslationResources = {
       askInChat: "Preguntar en el chat",
       annotations_one: "{{count}} anotación",
       annotations_other: "{{count}} anotaciones",
-      noWorkspace: "No hay workspace para {{repo}} en este host",
+      noWorkspace: "No hay ningún chat para {{repo}} en este host",
       askUnavailable: "Abre primero los archivos anotados; sus parches no están cargados.",
       detached_one: "{{count}} hilo no está en este diff",
       detached_other: "{{count}} hilos no están en este diff",
@@ -359,7 +359,7 @@ export const es: TranslationResources = {
       daemonClientUnavailable: "ClienteDaemonno disponible",
       daemonClientDisconnected: "El clienteDaemonestá desconectado",
       noFileFound: "No se encontró ningún archivo para{{token}}",
-      folderOutsideWorkspace: "{{path}} está fuera de este espacio de trabajo",
+      folderOutsideWorkspace: "{{path}} está fuera de esta carpeta",
       unexpectedDictationError: "Se produjo un error inesperado al manejar el dictado.",
     },
     connectionStatus: {
@@ -377,7 +377,7 @@ export const es: TranslationResources = {
       close: "Cerrar menú",
     },
     commandCenter: {
-      placeholder: "Buscar comandos, archivos, espacios de trabajo y agentes...",
+      placeholder: "Buscar comandos, archivos, chats y agentes...",
       filePlaceholder: "Buscar archivos...",
       commands: "Commands",
       commandsPlaceholder: "Type a command or setting...",
@@ -399,7 +399,7 @@ export const es: TranslationResources = {
       noMatches: "No hay coincidencias",
       actions: "Comportamiento",
       files: "Archivos",
-      workspaces: "Espacios de trabajo",
+      workspaces: "Chats",
       agents: "Agentes",
       newAgent: "Nuevo agente",
       open: "Abrir {{name}}",
@@ -723,11 +723,11 @@ export const es: TranslationResources = {
       copyTurn: "Copiar turno",
       copyMessage: "Copiar mensaje",
       forkMenu: "Bifurcar mensaje",
-      forkInNewTab: "Bifurcar en una pestaña nueva",
-      forkInNewWorkspace: "Bifurcar en un espacio de trabajo nuevo",
+      forkInNewTab: "Bifurcar como pestaña",
+      forkInNewWorkspace: "Bifurcar en un chat nuevo",
       forkWithProvider: "Bifurcar con otro proveedor",
       forkNoOtherProviders: "No hay otros proveedores disponibles en este host.",
-      forkMissingWorkspace: "Este agente no está en un espacio de trabajo.",
+      forkMissingWorkspace: "Este agente no está en un chat.",
       forkFailed: "No se pudo bifurcar el chat",
       openFile: "Abrir archivo",
       copied: "Copiado",
@@ -819,7 +819,7 @@ export const es: TranslationResources = {
     searchPlaceholder: "Buscar sesiones...",
     scope: {
       host: "Sesiones en {{host}}",
-      workspace: "Este espacio de trabajo",
+      workspace: "Este chat",
     },
     filters: {
       all: "Todo",
@@ -852,14 +852,14 @@ export const es: TranslationResources = {
   },
   workspace: {
     route: {
-      loading: "Cargando espacio de trabajo",
+      loading: "Cargando chat",
       connecting: "Conectando",
       hostOffline: "{{hostName}}está desconectado",
       cannotReachHost: "No se puede alcanzar{{hostName}}",
       hostStatus: "Estado deHost:{{status}}",
       manageHost: "Administrar host",
       recovery: {
-        archivedTitle: "Espacio de trabajo archivado",
+        archivedTitle: "Chat archivado",
         restoreDescription:
           "Restaura {{workspaceName}} para volver a sus agentes. Su worktree usará la rama {{branch}}.",
         restoreWithoutBranchDescription:
@@ -868,10 +868,10 @@ export const es: TranslationResources = {
           "{{workspaceName}} está archivado. Desarchívalo para volver a abrirlo.",
         restoreAction: "Restaurar",
         unarchiveAction: "Desarchivar",
-        restoringTitle: "Restaurando espacio de trabajo",
+        restoringTitle: "Restaurando chat",
         restoringAction: "Restaurando...",
-        unavailableTitle: "Espacio de trabajo no disponible",
-        checkFailedTitle: "No se pudo comprobar el espacio de trabajo",
+        unavailableTitle: "Chat no disponible",
+        checkFailedTitle: "No se pudo comprobar el chat",
       },
     },
     hoverCard: {
@@ -935,7 +935,7 @@ export const es: TranslationResources = {
         noVisibleFiles: "No hay archivos visibles",
       },
       states: {
-        unavailable: "Workspaceno está disponible",
+        unavailable: "El chat no está disponible",
         loading: "Cargando archivos...",
       },
       errors: {
@@ -988,7 +988,7 @@ export const es: TranslationResources = {
     browser: {
       unavailable: {
         title: "El navegador es solo para escritorio",
-        subtitle: "Abra este espacio de trabajo en Electron para usar el navegador integrado.",
+        subtitle: "Abre este chat en Electron para usar el navegador integrado.",
       },
       session: "Sesión de navegador{{browserId}}",
       controls: {
@@ -1047,11 +1047,11 @@ export const es: TranslationResources = {
         terminal: "Terminal",
         browser: "Navegador",
         agent: "Agent",
-        workspace: "Workspace",
+        workspace: "Chat",
       },
       switcher: {
         trigger: "Cambiar pestañas ({{count}}abierto)",
-        title: "Pestañas del workspace",
+        title: "Pestañas del chat",
         searchPlaceholder: "Pestañas de búsqueda",
       },
       menu: {
@@ -1151,22 +1151,22 @@ export const es: TranslationResources = {
     },
     header: {
       actions: {
-        workspaceActions: "AccionesWorkspace",
-        workspaceActionsUnhealthy: "Acciones del workspace, hay un servicio con problemas",
+        workspaceActions: "Acciones del chat",
+        workspaceActionsUnhealthy: "Acciones del chat, hay un servicio con problemas",
         newAgent: "Nuevo agente",
         newTerminal: "Nueva terminal",
         newBrowser: "Nueva pestaña del navegador",
         importSession: "Importar sesión",
-        copyPath: "Copiar ruta del espacio de trabajo",
+        renameChat: "Cambiar nombre del chat",
+        copyPath: "Copiar ruta del worktree",
         copyBranchName: "Copiar nombre de sucursal",
         showSetup: "Mostrar configuración",
       },
       toasts: {
-        workspacePathUnavailable: "La rutaWorkspaceaún no está disponible",
+        workspacePathUnavailable: "La ruta del worktree aún no está disponible",
         branchNameUnavailable: "Nombre de la sucursal no disponible",
-        terminalQueued:
-          "Preparando el espacio de trabajo, abriendo la terminal cuando esté listo...",
-        workspacePathCopiedLabel: "RutaWorkspace",
+        terminalQueued: "Preparando el worktree, se abrirá el terminal cuando esté listo...",
+        workspacePathCopiedLabel: "Ruta del worktree",
         branchNameCopiedLabel: "Nombre de la sucursal",
       },
     },
@@ -1253,7 +1253,7 @@ export const es: TranslationResources = {
           success: "Actualizado",
         },
         archive: {
-          label: "Archivar espacio de trabajo",
+          label: "Archivar chat",
           pending: "Archivando...",
           success: "Archivado",
         },
@@ -1321,7 +1321,7 @@ export const es: TranslationResources = {
           mergePrNoGithub:
             "FusionarPRno está disponible en este momento porqueGitHubno está conectado",
           archiveNotWorktree:
-            "El archivo no está disponible aquí porque este espacio de trabajo no se creó como un árbol de trabajoPimi",
+            "El archivado no está disponible aquí porque este chat no se creó como un worktree de Pimi",
           mergePrNoForge:
             "Fusionar {{noun}} no está disponible en este momento porque {{brand}} no está conectado",
           mergePrMissing:
@@ -1415,7 +1415,7 @@ export const es: TranslationResources = {
         modifiedFile: "Modificado",
         commits: {
           title: "Commits",
-          countLabel: "{{count}} commits del espacio de trabajo",
+          countLabel: "{{count}} commits del chat",
           noneAhead: "Aún no hay commits por delante de {{baseRef}}",
           fileDiffEmpty: "No hay cambios para mostrar",
           fileDiffError: "Error al cargar el diff del archivo",
@@ -1427,9 +1427,9 @@ export const es: TranslationResources = {
       openInEditor: {
         open: "Abierto",
         chooseEditor: "Elige editor",
-        openIn: "Abrir espacio de trabajo en{{target}}",
+        openIn: "Abrir carpeta en {{target}}",
         openFileIn: "Open {{fileName}} in {{target}}",
-        failedOpen: "No se pudo abrir el espacio de trabajo",
+        failedOpen: "No se pudo abrir la carpeta",
       },
       pr: {
         actions: {
@@ -1585,8 +1585,8 @@ export const es: TranslationResources = {
       save: "Guardar",
       delete: "Eliminar",
       deleteTitle: "¿Eliminar {{name}}?",
-      deleteMessage_one: "Esto quita la etiqueta de {{count}} espacio de trabajo en este host.",
-      deleteMessage_other: "Esto quita la etiqueta de {{count}} espacios de trabajo en este host.",
+      deleteMessage_one: "Esto quita la etiqueta de {{count}} chat en este host.",
+      deleteMessage_other: "Esto quita la etiqueta de {{count}} chats en este host.",
       offline: "Este host está desconectado.",
     },
   },
@@ -1657,8 +1657,8 @@ export const es: TranslationResources = {
       },
     },
     filterEmpty: {
-      title: "Ningún espacio de trabajo coincide",
-      description: "Cambia o borra los filtros de la barra lateral para ver espacios de trabajo.",
+      title: "Ningún chat coincide",
+      description: "Cambia o borra los filtros de la barra lateral para ver chats.",
       clear: "Borrar filtros",
     },
     pinned: {
@@ -1671,7 +1671,7 @@ export const es: TranslationResources = {
     },
     actions: {
       addProject: "Agregar proyecto",
-      newWorkspace: "Nuevo espacio de trabajo",
+      newWorkspace: "Nuevo chat",
       hosts: "Hosts",
       settings: "Ajustes",
       closeSidebar: "Cerrar barra lateral",
@@ -1723,7 +1723,7 @@ export const es: TranslationResources = {
       },
       toasts: {
         hostDisconnected: "Hostno está conectado",
-        removeFailed: "No se pudieron eliminar algunos espacios de trabajo",
+        removeFailed: "No se pudieron eliminar algunos chats",
       },
       empty: {
         title: "Aún no hay proyectos",
@@ -1745,49 +1745,52 @@ export const es: TranslationResources = {
         pending: "Pendientes: {{count}}",
       },
       actions: {
-        menu: "AccionesWorkspace",
-        newWorkspace: "Nuevo espacio de trabajo",
+        menu: "Acciones del chat",
+        newWorkspace: "Nuevo chat",
         showMore: "Mostrar más",
         showLess: "Mostrar menos",
-        createWorkspaceFor: "Crea un nuevo espacio de trabajo para{{projectName}}",
+        createWorkspaceFor: "Inicia un chat nuevo en {{projectName}}",
         copyPath: "Copiar ruta",
         copyBranchName: "Copiar nombre de sucursal",
-        rename: "Cambiar nombre del espacio de trabajo",
+        rename: "Cambiar nombre del chat",
         pin: "Anclar arriba",
         unpin: "Desanclar",
         archive: "Archivo",
-        archiveWorkspace: "Archivar espacio de trabajo",
+        archiveWorkspace: "Archivar chat",
         hideFromSidebar: "Ocultar de la barra lateral",
         archiving: "Archivando...",
         hiding: "Ocultación...",
       },
       confirmations: {
-        hideTitle: "¿Ocultar espacio de trabajo?",
+        hideTitle: "¿Ocultar chat?",
         hideMessage:
           '¿Ocultar "{{workspaceName}}" de la barra lateral?\n\nLos archivos en el disco no se cambiarán.',
         hideConfirm: "Esconder",
         cancel: "Cancelar",
+        archiveSiblingChats_one: "Esto también archiva 1 chat más que comparte este worktree.",
+        archiveSiblingChats_other:
+          "Esto también archiva otros {{count}} chats que comparten este worktree.",
       },
       rename: {
-        title: "Cambiar nombre del espacio de trabajo",
+        title: "Cambiar nombre del chat",
         submit: "Rebautizar",
         invalidBranchName: "Nombre de sucursal no válido",
       },
       toasts: {
-        workspacePathUnavailable: "RutaWorkspaceno disponible",
+        workspacePathUnavailable: "Ruta del worktree no disponible",
         pathCopied: "Ruta copiada",
         branchNameCopied: "Nombre de la sucursal copiado",
         hostDisconnected: "Hostno está conectado",
-        hideFailed: "No se pudo ocultar el espacio de trabajo",
-        archiveFailed: "No se pudo archivar el espacio de trabajo",
-        archived: "Espacio de trabajo archivado",
+        hideFailed: "No se pudo ocultar el chat",
+        archiveFailed: "No se pudo archivar el chat",
+        archived: "Chat archivado",
         undoArchive: "Deshacer",
         undoArchiveFailed: "No se pudo deshacer el archivado",
       },
     },
   },
   newWorkspace: {
-    title: "Nuevo espacio de trabajo",
+    title: "Nuevo chat",
     create: "Crear",
     isolation: {
       local: "Local",
@@ -2052,7 +2055,7 @@ export const es: TranslationResources = {
   },
   branchSwitcher: {
     failedToLoad: "No se pudieron cargar las ramas. Vuelve a abrir el selector para reintentarlo.",
-    triggerTooltip: "Cambiar rama del espacio de trabajo",
+    triggerTooltip: "Cambiar rama del chat",
     currentBranch: "Sucursal actual:{{branchName}}. Presione para cambiar de rama.",
     placeholder: "Cambiar de rama...",
     searchPlaceholder: "Filtrar ramas...",
@@ -2071,7 +2074,7 @@ export const es: TranslationResources = {
     stashRestored: "Se restauraron los cambios ocultos",
   },
   agentAutocomplete: {
-    searchingWorkspace: "Buscando espacio de trabajo...",
+    searchingWorkspace: "Buscando en la carpeta...",
     loadingCommands: "Cargando comandos...",
     noFiles: "No se encontraron archivos ni directorios",
     noCommands: "No se encontraron comandos",
@@ -2095,14 +2098,14 @@ export const es: TranslationResources = {
     dialogFilterName: "Imágenes",
   },
   workspaceSetup: {
-    title: "Crear espacio de trabajo",
+    title: "Nuevo chat",
     errors: {
       failedCreateWorktree: "No se pudo crear el árbol de trabajo",
       failedOpenProject: "No se pudo abrir el proyecto",
       selectModel: "Selecciona un modelo",
       hostDisconnected: "Hostno está conectado",
-      pendingRequired: "No hay ninguna configuración de espacio de trabajo pendiente",
-      composerStateRequired: "Se requiere el estado del compositor de configuraciónWorkspace",
+      pendingRequired: "No hay ninguna configuración de chat pendiente",
+      composerStateRequired: "Se requiere el estado del compositor de configuración del chat",
     },
   },
   onboarding: {
@@ -2234,7 +2237,7 @@ export const es: TranslationResources = {
       noProviders: "No hay proveedores disponibles en el host seleccionado",
       modelDefaultsLoading: "Los valores predeterminados del modelo aún se están cargando",
       noModelAvailable: "No hay ningún modelo disponible para el proveedor seleccionado",
-      workspaceDirectoryNotFound: "DirectorioWorkspaceno encontrado",
+      workspaceDirectoryNotFound: "Carpeta no encontrada",
       hostDisconnected: "Hostno está conectado",
     },
   },
@@ -2522,7 +2525,7 @@ export const es: TranslationResources = {
       entry: "Ejecución de ataque",
       title: "Ataque",
       noRun:
-        "No hay ejecución de ataque en este espacio de trabajo. Inicia una desde la app de escritorio.",
+        "No hay ninguna ejecución de ataque en este chat. Inicia una desde la app de escritorio.",
     },
     batchFix: {
       selectOpen: "Seleccionar abiertos",
@@ -2890,7 +2893,7 @@ export const es: TranslationResources = {
           source: "Código fuente",
         },
       },
-      directoryMissing: "No se encontró el directorio de Workspace.",
+      directoryMissing: "Carpeta no encontrada.",
       loading: "Cargando archivo...",
       noPreview: "No hay vista previa disponible",
       binaryPreviewUnavailable: "Vista previa binaria no disponible",
@@ -2922,8 +2925,8 @@ export const es: TranslationResources = {
     },
     files: {
       label: "Archivos",
-      subtitle: "Archivos del espacio de trabajo",
-      tooltip: "Explorar archivos del espacio de trabajo",
+      subtitle: "Archivos del chat",
+      tooltip: "Explorar archivos del chat",
       chooseFile: "Elige un archivo",
     },
     pullRequest: {
@@ -2939,7 +2942,7 @@ export const es: TranslationResources = {
       commitSubtitle: "Diferencias del commit",
       uncommittedSubtitle: "Cambios sin confirmar",
       baseSubtitle: "Comparado con {{baseRef}}",
-      directoryMissing: "No se encontró el directorio de Workspace.",
+      directoryMissing: "Carpeta no encontrada.",
       empty: "Sin cambios",
       loadError: "No se pudieron cargar las diferencias",
     },
@@ -3266,7 +3269,7 @@ export const es: TranslationResources = {
       agents: "Agents",
       metadata: "Modelos de Pimi",
       voice: "Voz",
-      workspaces: "Workspaces",
+      workspaces: "Chats",
       providers: "Proveedores",
       usage: "Uso",
       terminals: "Terminals",
@@ -3339,12 +3342,12 @@ export const es: TranslationResources = {
     },
     plugins: pluginSettings.es,
     metadataGeneration: {
-      autoNaming: "Nombrar chats y espacios de trabajo automáticamente",
+      autoNaming: "Nombrar chats y ramas automáticamente",
       autoNamingHint:
         "Genera títulos y nombres de ramas de nuevos árboles de trabajo a partir del primer mensaje. Se conservan los nombres que edites.",
       title: "Modelos de Pimi",
       description:
-        "Elige el modelo que Pimi usa para títulos de espacios de trabajo, nombres de ramas, mensajes de commit y borradores de pull requests",
+        "Elige los modelos que Pimi usa para los títulos de chats, mensajes de commit, pull requests, Describe it y Ask Pimi",
       selection: "Selección de modelo",
       automatic: "Automática",
       preferred: "Manual",
@@ -3367,7 +3370,7 @@ export const es: TranslationResources = {
         "{{provider}} está desactivado o no instalado. Pimi no usará otro modelo para esto",
       features: {
         title: "Títulos de chats",
-        branchName: "Títulos de espacios de trabajo y ramas",
+        branchName: "Nombres de ramas",
         commitMessage: "Mensajes de commit",
         pullRequest: "Texto de pull requests",
         automation: "Descríbelo",
@@ -3690,7 +3693,7 @@ export const es: TranslationResources = {
       },
       sections: {
         general: "General",
-        workspaces: "Proyectos y espacios de trabajo",
+        workspaces: "Proyectos y chats",
         tabsPanes: "Pestañas y paneles",
         layout: "Diseño",
         editor: "Editor",
@@ -3698,15 +3701,15 @@ export const es: TranslationResources = {
       },
       help: {
         openProject: "Abrir proyecto",
-        newWorkspace: "Nuevo espacio de trabajo",
+        newWorkspace: "Nuevo chat",
         newWorktree: "Nuevo árbol de trabajo",
-        archiveWorkspace: "Archivar espacio de trabajo",
+        archiveWorkspace: "Archivar chat",
         newTab: "Nueva pestaña",
         closeCurrentTab: "Cerrar pestaña actual",
-        jumpToWorkspace: "Saltar al espacio de trabajo",
+        jumpToWorkspace: "Saltar al chat",
         jumpToTab: "Saltar a la pestaña",
-        previousWorkspace: "Espacio de trabajo anterior",
-        nextWorkspace: "Siguiente espacio de trabajo",
+        previousWorkspace: "Chat anterior",
+        nextWorkspace: "Chat siguiente",
         previousTab: "Pestaña anterior",
         nextTab: "Pestaña siguiente",
         splitPaneRight: "Panel dividido a la derecha",
@@ -3924,7 +3927,7 @@ export const es: TranslationResources = {
         },
       },
       workspaces: {
-        unavailable: "Connect to this host to manage workspaces",
+        unavailable: "Conéctate a este host para gestionar los chats",
       },
       terminalProfiles: {
         unavailable: "Connect to this host to manage terminal profiles",

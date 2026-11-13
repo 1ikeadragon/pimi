@@ -259,9 +259,9 @@ export const ko: TranslationResources = {
       notePlaceholder: "에이전트에게 남길 메모 (선택)",
       openIn: "채팅을 열 위치",
       noWorkspace:
-        "이 호스트에 {{repo}}의 워크스페이스가 없습니다. 새 워크스페이스를 시작하고 그곳에서 풀 리퀘스트를 선택하세요.",
+        "이 호스트에 {{repo}}의 채팅이 없습니다. 새 채팅을 시작하고 거기서 풀 리퀘스트를 선택하세요.",
       thisRepository: "이 저장소",
-      newWorkspace: "새 워크스페이스",
+      newWorkspace: "새 채팅",
       openChat: "채팅에서 열기",
       preparing: "준비 중…",
       onThisBranch: "이 브랜치에서",
@@ -276,7 +276,7 @@ export const ko: TranslationResources = {
       retry: "다시 시도",
       files: "파일",
       noFiles: "이 변경 요청에는 변경된 파일이 없습니다.",
-      checkoutUnsupported: "로컬 worktree diff는 워크스페이스의 변경 사항 창에서 엽니다.",
+      checkoutUnsupported: "로컬 worktree diff는 채팅의 변경 사항 창에서 열립니다.",
       filterPlaceholder: "파일 필터",
       filterClear: "필터 지우기",
       unviewedOnly: "보지 않음",
@@ -295,7 +295,7 @@ export const ko: TranslationResources = {
       askInChat: "채팅에서 질문",
       annotations_one: "주석 {{count}}개",
       annotations_other: "주석 {{count}}개",
-      noWorkspace: "이 호스트에 {{repo}}의 워크스페이스가 없습니다",
+      noWorkspace: "이 호스트에 {{repo}}의 채팅이 없습니다",
       askUnavailable: "주석이 있는 파일을 먼저 여세요. 해당 패치가 로드되지 않았습니다.",
       detached_one: "스레드 {{count}}개가 이 diff에 없습니다",
       detached_other: "스레드 {{count}}개가 이 diff에 없습니다",
@@ -358,7 +358,7 @@ export const ko: TranslationResources = {
       daemonClientUnavailable: "데몬 클라이언트를 사용할 수 없습니다",
       daemonClientDisconnected: "데몬 클라이언트 연결이 끊어졌습니다",
       noFileFound: "{{token}}에 해당하는 파일을 찾을 수 없습니다",
-      folderOutsideWorkspace: "{{path}}은(는) 이 워크스페이스 밖에 있습니다",
+      folderOutsideWorkspace: "{{path}}은(는) 이 폴더 밖에 있습니다",
       unexpectedDictationError: "받아쓰기를 처리하는 중 예기치 않은 오류가 발생했습니다.",
     },
     connectionStatus: {
@@ -376,7 +376,7 @@ export const ko: TranslationResources = {
       close: "메뉴 닫기",
     },
     commandCenter: {
-      placeholder: "명령, 파일, 워크스페이스 및 에이전트 검색...",
+      placeholder: "명령, 파일, 채팅, 에이전트 검색...",
       filePlaceholder: "파일 검색...",
       commands: "Commands",
       commandsPlaceholder: "Type a command or setting...",
@@ -398,7 +398,7 @@ export const ko: TranslationResources = {
       noMatches: "일치 항목 없음",
       actions: "작업",
       files: "파일",
-      workspaces: "워크스페이스",
+      workspaces: "채팅",
       agents: "에이전트",
       newAgent: "새 에이전트",
       open: "{{name}} 열기",
@@ -719,11 +719,11 @@ export const ko: TranslationResources = {
       copyTurn: "턴 복사",
       copyMessage: "메시지 복사",
       forkMenu: "여기에서 채팅 분기",
-      forkInNewTab: "새 탭으로 분기",
-      forkInNewWorkspace: "새 워크스페이스로 분기",
+      forkInNewTab: "탭으로 분기",
+      forkInNewWorkspace: "새 채팅으로 분기",
       forkWithProvider: "다른 제공업체로 분기",
       forkNoOtherProviders: "이 호스트에서 사용할 수 있는 다른 제공업체가 없습니다.",
-      forkMissingWorkspace: "이 에이전트는 워크스페이스에 속해 있지 않습니다.",
+      forkMissingWorkspace: "이 에이전트는 채팅에 없습니다.",
       forkFailed: "채팅을 분기하지 못했습니다.",
       openFile: "파일 열기",
       copied: "복사됨",
@@ -815,7 +815,7 @@ export const ko: TranslationResources = {
     searchPlaceholder: "세션 검색...",
     scope: {
       host: "{{host}}의 세션",
-      workspace: "이 워크스페이스",
+      workspace: "이 채팅",
     },
     filters: {
       all: "전체",
@@ -848,14 +848,14 @@ export const ko: TranslationResources = {
   },
   workspace: {
     route: {
-      loading: "워크스페이스 불러오는 중",
+      loading: "채팅 불러오는 중",
       connecting: "연결 중",
       hostOffline: "{{hostName}}이(가) 오프라인입니다",
       cannotReachHost: "{{hostName}}에 연결할 수 없습니다",
       hostStatus: "호스트 상태: {{status}}",
       manageHost: "호스트 관리",
       recovery: {
-        archivedTitle: "워크스페이스가 보관되었습니다",
+        archivedTitle: "채팅이 보관됨",
         restoreDescription:
           "{{workspaceName}}를 복원하여 에이전트로 돌아갑니다. 워크트리는 {{branch}} 브랜치를 사용합니다.",
         restoreWithoutBranchDescription:
@@ -863,10 +863,10 @@ export const ko: TranslationResources = {
         unarchiveDescription: "{{workspaceName}}가 보관되었습니다. 다시 열려면 보관을 취소하세요.",
         restoreAction: "복원",
         unarchiveAction: "보관 취소",
-        restoringTitle: "워크스페이스 복원 중",
+        restoringTitle: "채팅 복원 중",
         restoringAction: "복원 중...",
-        unavailableTitle: "워크스페이스를 사용할 수 없습니다",
-        checkFailedTitle: "워크스페이스를 확인하지 못했습니다",
+        unavailableTitle: "채팅을 사용할 수 없음",
+        checkFailedTitle: "채팅을 확인할 수 없습니다",
       },
     },
     hoverCard: {
@@ -930,7 +930,7 @@ export const ko: TranslationResources = {
         noVisibleFiles: "표시되는 파일이 없습니다.",
       },
       states: {
-        unavailable: "워크스페이스를 사용할 수 없습니다",
+        unavailable: "채팅을 사용할 수 없습니다",
         loading: "파일 불러오는 중...",
       },
       errors: {
@@ -983,7 +983,7 @@ export const ko: TranslationResources = {
     browser: {
       unavailable: {
         title: "브라우저는 데스크톱 전용입니다",
-        subtitle: "내장 브라우저를 사용하려면 이 워크스페이스를 Electron에서 여세요.",
+        subtitle: "내장 브라우저를 사용하려면 이 채팅을 Electron에서 여세요.",
       },
       session: "브라우저 세션 {{browserId}}",
       controls: {
@@ -1042,11 +1042,11 @@ export const ko: TranslationResources = {
         terminal: "터미널",
         browser: "브라우저",
         agent: "에이전트",
-        workspace: "워크스페이스",
+        workspace: "채팅",
       },
       switcher: {
         trigger: "탭 전환 ({{count}}개 열림)",
-        title: "워크스페이스 탭",
+        title: "채팅 탭",
         searchPlaceholder: "탭 검색",
       },
       menu: {
@@ -1144,21 +1144,22 @@ export const ko: TranslationResources = {
     },
     header: {
       actions: {
-        workspaceActions: "워크스페이스 작업",
-        workspaceActionsUnhealthy: "워크스페이스 작업, 비정상 서비스가 있습니다",
+        workspaceActions: "채팅 작업",
+        workspaceActionsUnhealthy: "채팅 작업, 비정상 서비스가 있습니다",
         newAgent: "새 에이전트",
         newTerminal: "새 터미널",
         newBrowser: "새 브라우저 탭",
         importSession: "세션 가져오기",
-        copyPath: "워크스페이스 경로 복사",
+        renameChat: "채팅 이름 바꾸기",
+        copyPath: "worktree 경로 복사",
         copyBranchName: "브랜치 이름 복사",
         showSetup: "설정 표시",
       },
       toasts: {
-        workspacePathUnavailable: "워크스페이스 경로를 아직 사용할 수 없습니다",
+        workspacePathUnavailable: "worktree 경로를 아직 사용할 수 없습니다",
         branchNameUnavailable: "브랜치 이름을 사용할 수 없습니다",
-        terminalQueued: "워크스페이스 준비 중, 준비되면 터미널을 엽니다...",
-        workspacePathCopiedLabel: "워크스페이스 경로",
+        terminalQueued: "worktree 준비 중, 준비되면 터미널을 엽니다...",
+        workspacePathCopiedLabel: "worktree 경로",
         branchNameCopiedLabel: "브랜치 이름",
       },
     },
@@ -1246,7 +1247,7 @@ export const ko: TranslationResources = {
           success: "업데이트됨",
         },
         archive: {
-          label: "워크스페이스 보관",
+          label: "채팅 보관",
           pending: "보관하는 중...",
           success: "보관됨",
         },
@@ -1302,7 +1303,7 @@ export const ko: TranslationResources = {
             "이 브랜치가 이미 {{baseRef}}와 최신 상태이므로 업데이트를 사용할 수 없습니다",
           mergePrNoGithub: "GitHub가 연결되어 있지 않아 지금은 PR 병합을 사용할 수 없습니다",
           archiveNotWorktree:
-            "이 워크스페이스가 Pimi 워크트리로 생성되지 않아 여기서 보관을 사용할 수 없습니다",
+            "이 채팅은 Pimi worktree로 만들어지지 않아 여기서는 보관할 수 없습니다",
           mergePrNoForge:
             "{{brand}}가 연결되어 있지 않기 때문에 지금은 {{noun}} 병합을 사용할 수 없습니다.",
           mergePrMissing: "아직 풀 리퀘스트가 없어 PR 병합을 사용할 수 없습니다",
@@ -1389,7 +1390,7 @@ export const ko: TranslationResources = {
         modifiedFile: "수정됨",
         commits: {
           title: "커밋",
-          countLabel: "워크스페이스 커밋 {{count}}개",
+          countLabel: "채팅 커밋 {{count}}개",
           noneAhead: "아직 {{baseRef}}보다 앞서 커밋이 없습니다.",
           fileDiffEmpty: "표시할 변경사항이 없습니다.",
           fileDiffError: "파일 diff를 불러오지 못했습니다.",
@@ -1401,9 +1402,9 @@ export const ko: TranslationResources = {
       openInEditor: {
         open: "열기",
         chooseEditor: "편집기 선택",
-        openIn: "{{target}}에서 워크스페이스 열기",
+        openIn: "{{target}}에서 폴더 열기",
         openFileIn: "{{target}}에서 {{fileName}} 열기",
-        failedOpen: "워크스페이스를 열지 못했습니다",
+        failedOpen: "폴더를 열지 못했습니다",
       },
       pr: {
         actions: {
@@ -1556,8 +1557,8 @@ export const ko: TranslationResources = {
       save: "저장",
       delete: "삭제",
       deleteTitle: "{{name}}을(를) 삭제할까요?",
-      deleteMessage_one: "이 호스트의 워크스페이스 {{count}}개에서 레이블을 제거합니다.",
-      deleteMessage_other: "이 호스트의 워크스페이스 {{count}}개에서 레이블을 제거합니다.",
+      deleteMessage_one: "이 호스트의 채팅 {{count}}개에서 라벨을 제거합니다.",
+      deleteMessage_other: "이 호스트의 채팅 {{count}}개에서 라벨을 제거합니다.",
       offline: "이 호스트는 오프라인입니다.",
     },
   },
@@ -1628,8 +1629,8 @@ export const ko: TranslationResources = {
       },
     },
     filterEmpty: {
-      title: "일치하는 워크스페이스가 없습니다",
-      description: "워크스페이스를 보려면 사이드바 필터를 변경하거나 지우세요.",
+      title: "일치하는 채팅이 없습니다",
+      description: "사이드바 필터를 변경하거나 지워 채팅을 확인하세요.",
       clear: "필터 지우기",
     },
     pinned: {
@@ -1642,7 +1643,7 @@ export const ko: TranslationResources = {
     },
     actions: {
       addProject: "프로젝트 추가",
-      newWorkspace: "새 워크스페이스",
+      newWorkspace: "새 채팅",
       hosts: "호스트",
       settings: "설정",
       closeSidebar: "사이드바 닫기",
@@ -1694,7 +1695,7 @@ export const ko: TranslationResources = {
       },
       toasts: {
         hostDisconnected: "호스트가 연결되어 있지 않습니다",
-        removeFailed: "일부 워크스페이스를 제거하지 못했습니다",
+        removeFailed: "일부 채팅을 제거하지 못했습니다",
       },
       empty: {
         title: "아직 프로젝트가 없습니다",
@@ -1716,49 +1717,52 @@ export const ko: TranslationResources = {
         pending: "대기 중: {{count}}개",
       },
       actions: {
-        menu: "워크스페이스 작업",
-        newWorkspace: "새 워크스페이스",
+        menu: "채팅 작업",
+        newWorkspace: "새 채팅",
         showMore: "더 보기",
         showLess: "간략히 보기",
-        createWorkspaceFor: "{{projectName}}을(를) 위한 새 워크스페이스 생성",
+        createWorkspaceFor: "{{projectName}}에서 새 채팅 시작",
         copyPath: "경로 복사",
         copyBranchName: "브랜치 이름 복사",
-        rename: "워크스페이스 이름 변경",
+        rename: "채팅 이름 바꾸기",
         pin: "상단에 고정",
         unpin: "고정 해제",
         archive: "보관",
-        archiveWorkspace: "워크스페이스 보관",
+        archiveWorkspace: "채팅 보관",
         hideFromSidebar: "사이드바에서 숨기기",
         archiving: "보관하는 중...",
         hiding: "숨기는 중...",
       },
       confirmations: {
-        hideTitle: "워크스페이스를 숨길까요?",
+        hideTitle: "채팅을 숨길까요?",
         hideMessage:
           '"{{workspaceName}}"을(를) 사이드바에서 숨길까요?\n\n디스크의 파일은 변경되지 않습니다.',
         hideConfirm: "숨기기",
         cancel: "취소",
+        archiveSiblingChats_one: "이 worktree를 공유하는 다른 채팅 1개도 함께 보관됩니다.",
+        archiveSiblingChats_other:
+          "이 worktree를 공유하는 다른 채팅 {{count}}개도 함께 보관됩니다.",
       },
       rename: {
-        title: "워크스페이스 이름 변경",
+        title: "채팅 이름 바꾸기",
         submit: "이름 변경",
         invalidBranchName: "잘못된 브랜치 이름",
       },
       toasts: {
-        workspacePathUnavailable: "워크스페이스 경로를 사용할 수 없습니다",
+        workspacePathUnavailable: "worktree 경로를 사용할 수 없습니다",
         pathCopied: "경로가 복사되었습니다",
         branchNameCopied: "브랜치 이름이 복사되었습니다",
         hostDisconnected: "호스트가 연결되어 있지 않습니다",
-        hideFailed: "워크스페이스를 숨기지 못했습니다",
-        archiveFailed: "워크스페이스를 보관하지 못했습니다.",
-        archived: "워크스페이스를 보관했습니다",
+        hideFailed: "채팅을 숨기지 못했습니다",
+        archiveFailed: "채팅을 보관하지 못했습니다",
+        archived: "채팅이 보관되었습니다",
         undoArchive: "실행 취소",
         undoArchiveFailed: "보관을 취소하지 못했습니다",
       },
     },
   },
   newWorkspace: {
-    title: "새 워크스페이스",
+    title: "새 채팅",
     create: "생성",
     isolation: {
       local: "로컬",
@@ -2016,7 +2020,7 @@ export const ko: TranslationResources = {
   },
   branchSwitcher: {
     failedToLoad: "브랜치를 불러오지 못했습니다. 선택기를 다시 열어 재시도하세요.",
-    triggerTooltip: "워크스페이스 브랜치 전환",
+    triggerTooltip: "채팅 브랜치 전환",
     currentBranch: "현재 브랜치: {{branchName}}. 브랜치를 전환하려면 누르세요.",
     placeholder: "브랜치 전환...",
     searchPlaceholder: "브랜치 필터...",
@@ -2035,7 +2039,7 @@ export const ko: TranslationResources = {
     stashRestored: "스태시된 변경 사항이 복원되었습니다",
   },
   agentAutocomplete: {
-    searchingWorkspace: "워크스페이스 검색 중...",
+    searchingWorkspace: "폴더 검색 중...",
     loadingCommands: "명령 불러오는 중...",
     noFiles: "파일 또는 디렉터리를 찾을 수 없습니다",
     noCommands: "명령을 찾을 수 없습니다",
@@ -2059,14 +2063,14 @@ export const ko: TranslationResources = {
     dialogFilterName: "이미지",
   },
   workspaceSetup: {
-    title: "워크스페이스 생성",
+    title: "새 채팅",
     errors: {
       failedCreateWorktree: "워크트리를 생성하지 못했습니다",
       failedOpenProject: "프로젝트를 열지 못했습니다",
       selectModel: "모델을 선택하세요",
       hostDisconnected: "호스트가 연결되어 있지 않습니다",
-      pendingRequired: "대기 중인 워크스페이스 설정이 없습니다",
-      composerStateRequired: "워크스페이스 설정 작성기 상태가 필요합니다",
+      pendingRequired: "대기 중인 채팅 설정이 없습니다",
+      composerStateRequired: "채팅 설정 컴포저 상태가 필요합니다",
     },
   },
   onboarding: {
@@ -2198,7 +2202,7 @@ export const ko: TranslationResources = {
       noProviders: "선택한 호스트에 사용 가능한 프로바이더가 없습니다",
       modelDefaultsLoading: "모델 기본값을 아직 불러오는 중입니다",
       noModelAvailable: "선택한 프로바이더에 사용 가능한 모델이 없습니다",
-      workspaceDirectoryNotFound: "워크스페이스 디렉터리를 찾을 수 없습니다",
+      workspaceDirectoryNotFound: "폴더를 찾을 수 없습니다",
       hostDisconnected: "호스트가 연결되어 있지 않습니다",
     },
   },
@@ -2483,7 +2487,7 @@ export const ko: TranslationResources = {
     phone: {
       entry: "공격 실행",
       title: "공격",
-      noRun: "이 작업 공간에 공격 실행이 없습니다. 데스크톱 앱에서 시작하세요.",
+      noRun: "이 채팅에는 공격 실행이 없습니다. 데스크톱 앱에서 시작하세요.",
     },
     batchFix: {
       selectOpen: "열린 항목 선택",
@@ -2847,7 +2851,7 @@ export const ko: TranslationResources = {
           source: "소스",
         },
       },
-      directoryMissing: "워크스페이스 디렉터리를 찾을 수 없습니다.",
+      directoryMissing: "폴더를 찾을 수 없습니다.",
       loading: "파일 불러오는 중...",
       noPreview: "사용 가능한 미리보기가 없습니다",
       binaryPreviewUnavailable: "바이너리 미리보기를 사용할 수 없습니다",
@@ -2879,8 +2883,8 @@ export const ko: TranslationResources = {
     },
     files: {
       label: "파일",
-      subtitle: "워크스페이스 파일",
-      tooltip: "워크스페이스 파일 탐색",
+      subtitle: "채팅 파일",
+      tooltip: "채팅 파일 탐색",
       chooseFile: "파일 선택",
     },
     pullRequest: {
@@ -2896,7 +2900,7 @@ export const ko: TranslationResources = {
       commitSubtitle: "커밋 diff",
       uncommittedSubtitle: "커밋되지 않은 변경 사항",
       baseSubtitle: "{{baseRef}}와 비교",
-      directoryMissing: "워크스페이스 디렉터리를 찾을 수 없습니다.",
+      directoryMissing: "폴더를 찾을 수 없습니다.",
       empty: "변경사항 없음",
       loadError: "Diff를 불러오지 못했습니다.",
     },
@@ -3222,7 +3226,7 @@ export const ko: TranslationResources = {
       agents: "에이전트",
       metadata: "Pimi 모델",
       voice: "음성",
-      workspaces: "워크스페이스",
+      workspaces: "채팅",
       providers: "프로바이더",
       usage: "사용량",
       terminals: "터미널",
@@ -3294,12 +3298,12 @@ export const ko: TranslationResources = {
     },
     plugins: pluginSettings.ko,
     metadataGeneration: {
-      autoNaming: "채팅과 작업 공간 이름 자동 지정",
+      autoNaming: "채팅과 브랜치 이름 자동 지정",
       autoNamingHint:
         "첫 메시지에서 제목과 새 작업 트리의 브랜치 이름을 생성합니다. 직접 편집한 이름은 유지됩니다.",
       title: "Pimi 모델",
       description:
-        "워크스페이스 제목, 브랜치 이름, 커밋 메시지 및 풀 리퀘스트 초안에 사용할 모델을 선택하세요",
+        "Pimi가 채팅 제목, 커밋 메시지, 풀 리퀘스트, Describe it, Ask Pimi에 사용하는 모델을 선택합니다",
       selection: "모델 선택",
       automatic: "자동",
       preferred: "수동",
@@ -3322,7 +3326,7 @@ export const ko: TranslationResources = {
         "{{provider}}이(가) 꺼져 있거나 설치되지 않았습니다. Pimi는 이 기능에 다른 모델을 사용하지 않습니다",
       features: {
         title: "채팅 제목",
-        branchName: "작업 공간 제목과 브랜치",
+        branchName: "브랜치 이름",
         commitMessage: "커밋 메시지",
         pullRequest: "풀 리퀘스트 텍스트",
         automation: "Describe it",
@@ -3638,7 +3642,7 @@ export const ko: TranslationResources = {
       },
       sections: {
         general: "일반",
-        workspaces: "프로젝트 및 워크스페이스",
+        workspaces: "프로젝트 및 채팅",
         tabsPanes: "탭 및 창",
         layout: "레이아웃",
         editor: "편집기",
@@ -3646,15 +3650,15 @@ export const ko: TranslationResources = {
       },
       help: {
         openProject: "프로젝트 열기",
-        newWorkspace: "새 워크스페이스",
+        newWorkspace: "새 채팅",
         newWorktree: "새 워크트리",
-        archiveWorkspace: "워크스페이스 보관",
+        archiveWorkspace: "채팅 보관",
         newTab: "새 탭",
         closeCurrentTab: "현재 탭 닫기",
-        jumpToWorkspace: "워크스페이스로 이동",
+        jumpToWorkspace: "채팅으로 이동",
         jumpToTab: "탭으로 이동",
-        previousWorkspace: "이전 워크스페이스",
-        nextWorkspace: "다음 워크스페이스",
+        previousWorkspace: "이전 채팅",
+        nextWorkspace: "다음 채팅",
         previousTab: "이전 탭",
         nextTab: "다음 탭",
         splitPaneRight: "창을 오른쪽으로 분할",
@@ -3871,7 +3875,7 @@ export const ko: TranslationResources = {
         },
       },
       workspaces: {
-        unavailable: "워크스페이스를 관리하려면 이 호스트에 연결하세요",
+        unavailable: "채팅을 관리하려면 이 호스트에 연결하세요",
       },
       terminalProfiles: {
         unavailable: "터미널 프로필을 관리하려면 이 호스트에 연결하세요",

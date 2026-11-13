@@ -8,9 +8,9 @@ category: Workspaces
 
 # Git worktrees
 
-Git worktrees are one kind of workspace.
+Git worktrees are one way to back a chat.
 
-A [workspace](/docs/workspaces) is the place where a task happens. When that workspace is backed by a git worktree, Pimi creates a separate directory on a separate branch so parallel agents never step on each other.
+A [chat](/docs/workspaces) is the place where a task happens; its environment is called a workspace in the CLI and MCP tools. When that chat is backed by a git worktree, Pimi creates a separate directory on a separate branch so parallel agents never step on each other.
 
 This page covers the git-specific details: where worktrees live, how branches are chosen, and how to configure setup hooks, scripts, terminals, and long-running services through `pimi.json`.
 

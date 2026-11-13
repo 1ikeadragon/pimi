@@ -261,9 +261,9 @@ export const ja: TranslationResources = {
       notePlaceholder: "エージェントへのメモ（任意）",
       openIn: "チャットを開く場所",
       noWorkspace:
-        "このホストに {{repo}} のワークスペースがありません。新しいワークスペースを作成し、そこでプルリクエストを選択してください。",
+        "このホストに {{repo}} のチャットがありません。新しいチャットを開始し、そこでプルリクエストを選んでください。",
       thisRepository: "このリポジトリ",
-      newWorkspace: "新しいワークスペース",
+      newWorkspace: "新しいチャット",
       openChat: "チャットで開く",
       preparing: "準備中…",
       onThisBranch: "このブランチ上",
@@ -278,8 +278,7 @@ export const ja: TranslationResources = {
       retry: "再試行",
       files: "ファイル",
       noFiles: "この変更リクエストには変更されたファイルがありません。",
-      checkoutUnsupported:
-        "ローカル Worktree の差分は、ワークスペースの「変更」ペインから開きます。",
+      checkoutUnsupported: "ローカルのworktree差分はチャットの変更ペインから開きます。",
       filterPlaceholder: "ファイルを絞り込む",
       filterClear: "絞り込みを解除",
       unviewedOnly: "未閲覧",
@@ -298,7 +297,7 @@ export const ja: TranslationResources = {
       askInChat: "チャットで質問",
       annotations_one: "{{count}} 件のアノテーション",
       annotations_other: "{{count}} 件のアノテーション",
-      noWorkspace: "このホストに {{repo}} のワークスペースがありません",
+      noWorkspace: "このホストに {{repo}} のチャットがありません",
       askUnavailable: "先に注釈付きのファイルを開いてください。パッチが読み込まれていません。",
       detached_one: "{{count}} 件のスレッドがこの差分にありません",
       detached_other: "{{count}} 件のスレッドがこの差分にありません",
@@ -361,7 +360,7 @@ export const ja: TranslationResources = {
       daemonClientUnavailable: "デーモンクライアントが利用できません",
       daemonClientDisconnected: "デーモンクライアントが切断されています",
       noFileFound: "{{token}}のファイルが見つかりません",
-      folderOutsideWorkspace: "{{path}} はこのワークスペースの外にあります",
+      folderOutsideWorkspace: "{{path}} はこのフォルダの外にあります",
       unexpectedDictationError: "音声入力処理中に予期しないエラーが発生しました。",
     },
     connectionStatus: {
@@ -379,7 +378,7 @@ export const ja: TranslationResources = {
       close: "メニューを閉じる",
     },
     commandCenter: {
-      placeholder: "コマンド、ファイル、ワークスペース、エージェントを検索...",
+      placeholder: "コマンド、ファイル、チャット、エージェントを検索...",
       filePlaceholder: "ファイルを検索...",
       commands: "Commands",
       commandsPlaceholder: "Type a command or setting...",
@@ -401,7 +400,7 @@ export const ja: TranslationResources = {
       noMatches: "一致なし",
       actions: "アクション",
       files: "ファイル",
-      workspaces: "ワークスペース",
+      workspaces: "チャット",
       agents: "エージェント",
       newAgent: "新しいエージェント",
       open: "{{name}}を開く",
@@ -725,11 +724,11 @@ export const ja: TranslationResources = {
       copyTurn: "ターンをコピー",
       copyMessage: "メッセージをコピー",
       forkMenu: "メッセージをフォーク",
-      forkInNewTab: "新しいタブにフォーク",
-      forkInNewWorkspace: "新しいワークスペースにフォーク",
+      forkInNewTab: "タブとしてフォーク",
+      forkInNewWorkspace: "新しいチャットにフォーク",
       forkWithProvider: "別のプロバイダーでフォーク",
       forkNoOtherProviders: "このホストでは他のプロバイダーを利用できません。",
-      forkMissingWorkspace: "このエージェントはワークスペース内にありません。",
+      forkMissingWorkspace: "このエージェントはチャット内にありません。",
       forkFailed: "チャットのフォークに失敗しました",
       openFile: "ファイルを開く",
       copied: "コピーしました",
@@ -821,7 +820,7 @@ export const ja: TranslationResources = {
     searchPlaceholder: "セッションを検索...",
     scope: {
       host: "{{host}} のセッション",
-      workspace: "このワークスペース",
+      workspace: "このチャット",
     },
     filters: {
       all: "すべて",
@@ -854,14 +853,14 @@ export const ja: TranslationResources = {
   },
   workspace: {
     route: {
-      loading: "ワークスペースを読み込み中",
+      loading: "チャットを読み込み中",
       connecting: "接続中",
       hostOffline: "{{hostName}}はオフラインです",
       cannotReachHost: "{{hostName}}に到達できません",
       hostStatus: "ホストの状態: {{status}}",
       manageHost: "ホストを管理",
       recovery: {
-        archivedTitle: "ワークスペースはアーカイブ済みです",
+        archivedTitle: "チャットはアーカイブ済みです",
         restoreDescription:
           "{{workspaceName}} を復元してエージェントに戻ります。worktree ではブランチ {{branch}} を使用します。",
         restoreWithoutBranchDescription:
@@ -870,10 +869,10 @@ export const ja: TranslationResources = {
           "{{workspaceName}} はアーカイブされています。再度開くにはアーカイブを解除してください。",
         restoreAction: "復元",
         unarchiveAction: "アーカイブを解除",
-        restoringTitle: "ワークスペースを復元中",
+        restoringTitle: "チャットを復元中",
         restoringAction: "復元中...",
-        unavailableTitle: "ワークスペースを利用できません",
-        checkFailedTitle: "ワークスペースを確認できませんでした",
+        unavailableTitle: "チャットを利用できません",
+        checkFailedTitle: "チャットを確認できませんでした",
       },
     },
     hoverCard: {
@@ -937,7 +936,7 @@ export const ja: TranslationResources = {
         noVisibleFiles: "表示可能なファイルなし",
       },
       states: {
-        unavailable: "ワークスペースが利用できません",
+        unavailable: "チャットが利用できません",
         loading: "ファイルを読み込み中...",
       },
       errors: {
@@ -990,7 +989,7 @@ export const ja: TranslationResources = {
     browser: {
       unavailable: {
         title: "ブラウザはデスクトップ専用です",
-        subtitle: "組み込みブラウザを使用するには、このワークスペースをElectronで開いてください。",
+        subtitle: "組み込みブラウザを使用するには、このチャットをElectronで開いてください。",
       },
       session: "ブラウザセッション{{browserId}}",
       controls: {
@@ -1049,11 +1048,11 @@ export const ja: TranslationResources = {
         terminal: "ターミナル",
         browser: "ブラウザ",
         agent: "エージェント",
-        workspace: "ワークスペース",
+        workspace: "チャット",
       },
       switcher: {
         trigger: "タブを切り替え（{{count}}件開いています）",
-        title: "ワークスペースのタブ",
+        title: "チャットのタブ",
         searchPlaceholder: "タブを検索",
       },
       menu: {
@@ -1150,21 +1149,22 @@ export const ja: TranslationResources = {
     },
     header: {
       actions: {
-        workspaceActions: "ワークスペースアクション",
-        workspaceActionsUnhealthy: "ワークスペースアクション、異常なサービスがあります",
+        workspaceActions: "チャットアクション",
+        workspaceActionsUnhealthy: "チャットアクション、異常なサービスがあります",
         newAgent: "新しいエージェント",
         newTerminal: "新しいターミナル",
         newBrowser: "新しいブラウザタブ",
         importSession: "セッションをインポート",
-        copyPath: "ワークスペースパスをコピー",
+        renameChat: "チャットの名前を変更",
+        copyPath: "worktreeのパスをコピー",
         copyBranchName: "ブランチ名をコピー",
         showSetup: "セットアップを表示",
       },
       toasts: {
-        workspacePathUnavailable: "ワークスペースパスはまだ利用できません",
+        workspacePathUnavailable: "worktreeのパスはまだ利用できません",
         branchNameUnavailable: "ブランチ名が利用できません",
-        terminalQueued: "ワークスペースを準備中、準備ができたらターミナルを開きます...",
-        workspacePathCopiedLabel: "ワークスペースパス",
+        terminalQueued: "worktreeを準備中、準備ができたらターミナルを開きます...",
+        workspacePathCopiedLabel: "worktreeのパス",
         branchNameCopiedLabel: "ブランチ名",
       },
     },
@@ -1251,7 +1251,7 @@ export const ja: TranslationResources = {
           success: "更新しました",
         },
         archive: {
-          label: "ワークスペースをアーカイブ",
+          label: "チャットをアーカイブ",
           pending: "アーカイブ中...",
           success: "アーカイブしました",
         },
@@ -1309,7 +1309,7 @@ export const ja: TranslationResources = {
           updateCurrent: "このブランチはすでに{{baseRef}}と最新の状態のため、更新は利用できません",
           mergePrNoGithub: "GitHubが接続されていないため、PRのマージは現在利用できません",
           archiveNotWorktree:
-            "このワークスペースはPimiワークツリーとして作成されていないため、アーカイブはここでは利用できません",
+            "このチャットはPimiのworktreeとして作成されていないため、ここではアーカイブできません",
           mergePrNoForge: "{{brand}}が接続されていないため、{{noun}}のマージは現在利用できません",
           mergePrMissing: "プルリクエストがまだないため、PRのマージは利用できません",
           mergePrDraft: "プルリクエストがまだドラフトのため、PRのマージは利用できません",
@@ -1397,7 +1397,7 @@ export const ja: TranslationResources = {
         modifiedFile: "変更済み",
         commits: {
           title: "コミット",
-          countLabel: "ワークスペースのコミット数: {{count}}",
+          countLabel: "チャットのコミット数: {{count}}",
           noneAhead: "{{baseRef}} より先のコミットはまだありません",
           fileDiffEmpty: "表示する変更はありません",
           fileDiffError: "ファイル差分の読み込みに失敗しました",
@@ -1409,9 +1409,9 @@ export const ja: TranslationResources = {
       openInEditor: {
         open: "開く",
         chooseEditor: "エディタを選択",
-        openIn: "{{target}}でワークスペースを開く",
+        openIn: "{{target}}でフォルダを開く",
         openFileIn: "{{target}}で{{fileName}}を開く",
-        failedOpen: "ワークスペースを開けませんでした",
+        failedOpen: "フォルダを開けませんでした",
       },
       pr: {
         actions: {
@@ -1564,8 +1564,8 @@ export const ja: TranslationResources = {
       save: "保存",
       delete: "削除",
       deleteTitle: "{{name}}を削除しますか？",
-      deleteMessage_one: "このホストの{{count}}個のワークスペースからラベルを削除します。",
-      deleteMessage_other: "このホストの{{count}}個のワークスペースからラベルを削除します。",
+      deleteMessage_one: "このホストの{{count}}件のチャットからラベルを削除します。",
+      deleteMessage_other: "このホストの{{count}}件のチャットからラベルを削除します。",
       offline: "このホストはオフラインです。",
     },
   },
@@ -1636,9 +1636,8 @@ export const ja: TranslationResources = {
       },
     },
     filterEmpty: {
-      title: "一致するワークスペースがありません",
-      description:
-        "ワークスペースを表示するにはサイドバーのフィルターを変更またはクリアしてください。",
+      title: "一致するチャットがありません",
+      description: "サイドバーのフィルターを変更または解除してチャットを表示します。",
       clear: "フィルターをクリア",
     },
     pinned: {
@@ -1651,7 +1650,7 @@ export const ja: TranslationResources = {
     },
     actions: {
       addProject: "プロジェクトを追加",
-      newWorkspace: "新しいワークスペース",
+      newWorkspace: "新しいチャット",
       hosts: "ホスト",
       settings: "設定",
       closeSidebar: "サイドバーを閉じる",
@@ -1703,7 +1702,7 @@ export const ja: TranslationResources = {
       },
       toasts: {
         hostDisconnected: "ホストが接続されていません",
-        removeFailed: "一部のワークスペースの削除に失敗しました",
+        removeFailed: "一部のチャットの削除に失敗しました",
       },
       empty: {
         title: "プロジェクトがまだありません",
@@ -1725,49 +1724,52 @@ export const ja: TranslationResources = {
         pending: "保留中: {{count}}",
       },
       actions: {
-        menu: "ワークスペースアクション",
-        newWorkspace: "新しいワークスペース",
+        menu: "チャットアクション",
+        newWorkspace: "新しいチャット",
         showMore: "さらに表示",
         showLess: "表示を減らす",
-        createWorkspaceFor: "{{projectName}}の新しいワークスペースを作成",
+        createWorkspaceFor: "{{projectName}}で新しいチャットを開始",
         copyPath: "パスをコピー",
         copyBranchName: "ブランチ名をコピー",
-        rename: "ワークスペースの名前を変更",
+        rename: "チャットの名前を変更",
         pin: "上部に固定",
         unpin: "固定解除",
         archive: "アーカイブ",
-        archiveWorkspace: "ワークスペースをアーカイブ",
+        archiveWorkspace: "チャットをアーカイブ",
         hideFromSidebar: "サイドバーから非表示",
         archiving: "アーカイブ中...",
         hiding: "非表示にしています...",
       },
       confirmations: {
-        hideTitle: "ワークスペースを非表示にしますか？",
+        hideTitle: "チャットを非表示にしますか？",
         hideMessage:
           '"{{workspaceName}}"をサイドバーから非表示にしますか？\n\nディスク上のファイルは変更されません。',
         hideConfirm: "非表示",
         cancel: "キャンセル",
+        archiveSiblingChats_one: "このworktreeを共有する他のチャット1件もアーカイブされます。",
+        archiveSiblingChats_other:
+          "このworktreeを共有する他のチャット{{count}}件もアーカイブされます。",
       },
       rename: {
-        title: "ワークスペースの名前を変更",
+        title: "チャットの名前を変更",
         submit: "名前を変更",
         invalidBranchName: "無効なブランチ名",
       },
       toasts: {
-        workspacePathUnavailable: "ワークスペースパスが利用できません",
+        workspacePathUnavailable: "worktreeのパスが利用できません",
         pathCopied: "パスをコピーしました",
         branchNameCopied: "ブランチ名をコピーしました",
         hostDisconnected: "ホストが接続されていません",
-        hideFailed: "ワークスペースの非表示に失敗しました",
-        archiveFailed: "ワークスペースのアーカイブに失敗しました",
-        archived: "ワークスペースをアーカイブしました",
+        hideFailed: "チャットの非表示に失敗しました",
+        archiveFailed: "チャットのアーカイブに失敗しました",
+        archived: "チャットをアーカイブしました",
         undoArchive: "元に戻す",
         undoArchiveFailed: "アーカイブを元に戻せませんでした",
       },
     },
   },
   newWorkspace: {
-    title: "新しいワークスペース",
+    title: "新しいチャット",
     create: "作成",
     isolation: {
       local: "ローカル",
@@ -2025,7 +2027,7 @@ export const ja: TranslationResources = {
   },
   branchSwitcher: {
     failedToLoad: "ブランチを読み込めませんでした。選択画面を開き直してお試しください。",
-    triggerTooltip: "ワークスペースのブランチを切り替え",
+    triggerTooltip: "チャットのブランチを切り替え",
     currentBranch: "現在のブランチ: {{branchName}}。押してブランチを切り替えてください。",
     placeholder: "ブランチを切り替え...",
     searchPlaceholder: "ブランチをフィルタ...",
@@ -2044,7 +2046,7 @@ export const ja: TranslationResources = {
     stashRestored: "スタッシュした変更を復元しました",
   },
   agentAutocomplete: {
-    searchingWorkspace: "ワークスペースを検索中...",
+    searchingWorkspace: "フォルダを検索中...",
     loadingCommands: "コマンドを読み込み中...",
     noFiles: "ファイルまたはディレクトリが見つかりません",
     noCommands: "コマンドが見つかりません",
@@ -2068,14 +2070,14 @@ export const ja: TranslationResources = {
     dialogFilterName: "画像",
   },
   workspaceSetup: {
-    title: "ワークスペースを作成",
+    title: "新しいチャット",
     errors: {
       failedCreateWorktree: "ワークツリーの作成に失敗しました",
       failedOpenProject: "プロジェクトを開けませんでした",
       selectModel: "モデルを選択してください",
       hostDisconnected: "ホストが接続されていません",
-      pendingRequired: "保留中のワークスペースセットアップがありません",
-      composerStateRequired: "ワークスペースセットアップのコンポーザー状態が必要です",
+      pendingRequired: "保留中のチャットセットアップがありません",
+      composerStateRequired: "チャットセットアップのコンポーザー状態が必要です",
     },
   },
   onboarding: {
@@ -2208,7 +2210,7 @@ export const ja: TranslationResources = {
       noProviders: "選択したホストで利用可能なプロバイダーがありません",
       modelDefaultsLoading: "モデルのデフォルトをまだ読み込んでいます",
       noModelAvailable: "選択したプロバイダーで利用可能なモデルがありません",
-      workspaceDirectoryNotFound: "ワークスペースディレクトリが見つかりません",
+      workspaceDirectoryNotFound: "フォルダが見つかりません",
       hostDisconnected: "ホストが接続されていません",
     },
   },
@@ -2496,8 +2498,7 @@ export const ja: TranslationResources = {
     phone: {
       entry: "アタック実行",
       title: "アタック",
-      noRun:
-        "このワークスペースにアタック実行はありません。デスクトップアプリから開始してください。",
+      noRun: "このチャットにアタック実行がありません。デスクトップアプリから開始してください。",
     },
     batchFix: {
       selectOpen: "未対応を選択",
@@ -2865,7 +2866,7 @@ export const ja: TranslationResources = {
           source: "ソース",
         },
       },
-      directoryMissing: "ワークスペースディレクトリが見つかりません。",
+      directoryMissing: "フォルダが見つかりません。",
       loading: "ファイルを読み込み中...",
       noPreview: "プレビューが利用できません",
       binaryPreviewUnavailable: "バイナリプレビューが利用できません",
@@ -2897,8 +2898,8 @@ export const ja: TranslationResources = {
     },
     files: {
       label: "ファイル",
-      subtitle: "ワークスペースのファイル",
-      tooltip: "ワークスペースのファイルを参照",
+      subtitle: "チャットのファイル",
+      tooltip: "チャットのファイルを参照",
       chooseFile: "ファイルを選択",
     },
     pullRequest: {
@@ -2915,7 +2916,7 @@ export const ja: TranslationResources = {
       commitSubtitle: "コミット差分",
       uncommittedSubtitle: "未コミットの変更",
       baseSubtitle: "{{baseRef}} との比較",
-      directoryMissing: "ワークスペースディレクトリが見つかりません。",
+      directoryMissing: "フォルダが見つかりません。",
       empty: "変更はありません",
       loadError: "差分の読み込みに失敗しました",
     },
@@ -3242,7 +3243,7 @@ export const ja: TranslationResources = {
       agents: "エージェント",
       metadata: "Pimi モデル",
       voice: "音声",
-      workspaces: "ワークスペース",
+      workspaces: "チャット",
       providers: "プロバイダー",
       usage: "使用状況",
       terminals: "ターミナル",
@@ -3315,12 +3316,12 @@ export const ja: TranslationResources = {
     },
     plugins: pluginSettings.ja,
     metadataGeneration: {
-      autoNaming: "チャットとワークスペースに自動で名前を付ける",
+      autoNaming: "チャットとブランチに自動で名前を付ける",
       autoNamingHint:
         "最初のメッセージからタイトルと新しいワークツリーのブランチ名を生成します。編集した名前は維持されます。",
       title: "Pimi モデル",
       description:
-        "ワークスペースのタイトル、ブランチ名、コミットメッセージ、プルリクエストの下書きに使用するモデルを選択します",
+        "Pimiがチャットのタイトル、コミットメッセージ、プルリクエスト、Describe it、Ask Pimiに使用するモデルを選択します",
       selection: "モデル選択",
       automatic: "自動",
       preferred: "手動",
@@ -3343,7 +3344,7 @@ export const ja: TranslationResources = {
         "{{provider}} はオフ、または未インストールです。Pimi はこの機能で別のモデルを使いません",
       features: {
         title: "チャットのタイトル",
-        branchName: "ワークスペースのタイトルとブランチ",
+        branchName: "ブランチ名",
         commitMessage: "コミットメッセージ",
         pullRequest: "プルリクエストの文面",
         automation: "Describe it",
@@ -3659,7 +3660,7 @@ export const ja: TranslationResources = {
       },
       sections: {
         general: "一般",
-        workspaces: "プロジェクト＆ワークスペース",
+        workspaces: "プロジェクト＆チャット",
         tabsPanes: "タブ＆ペイン",
         layout: "レイアウト",
         editor: "エディター",
@@ -3667,15 +3668,15 @@ export const ja: TranslationResources = {
       },
       help: {
         openProject: "プロジェクトを開く",
-        newWorkspace: "新しいワークスペース",
+        newWorkspace: "新しいチャット",
         newWorktree: "新しいワークツリー",
-        archiveWorkspace: "ワークスペースをアーカイブ",
+        archiveWorkspace: "チャットをアーカイブ",
         newTab: "新しいタブ",
         closeCurrentTab: "現在のタブを閉じる",
-        jumpToWorkspace: "ワークスペースにジャンプ",
+        jumpToWorkspace: "チャットにジャンプ",
         jumpToTab: "タブにジャンプ",
-        previousWorkspace: "前のワークスペース",
-        nextWorkspace: "次のワークスペース",
+        previousWorkspace: "前のチャット",
+        nextWorkspace: "次のチャット",
         previousTab: "前のタブ",
         nextTab: "次のタブ",
         splitPaneRight: "右にペインを分割",
@@ -3895,7 +3896,7 @@ export const ja: TranslationResources = {
         },
       },
       workspaces: {
-        unavailable: "ワークスペースを管理するにはこのホストに接続してください",
+        unavailable: "チャットを管理するにはこのホストに接続してください",
       },
       terminalProfiles: {
         unavailable: "ターミナルプロファイルを管理するにはこのホストに接続してください",

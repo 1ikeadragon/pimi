@@ -259,9 +259,9 @@ export const ar: TranslationResources = {
       notePlaceholder: "ملاحظة اختيارية للوكيل",
       openIn: "فتح المحادثة في",
       noWorkspace:
-        "لا توجد مساحة عمل لـ {{repo}} على هذا المضيف. ابدأ مساحة عمل جديدة واختر طلب السحب هناك.",
+        "لا توجد محادثة لـ {{repo}} على هذا المضيف. ابدأ محادثة جديدة واختر طلب السحب فيها.",
       thisRepository: "هذا المستودع",
-      newWorkspace: "مساحة عمل جديدة",
+      newWorkspace: "محادثة جديدة",
       openChat: "فتح في المحادثة",
       preparing: "جارٍ التحضير…",
       onThisBranch: "على هذا الفرع",
@@ -276,7 +276,7 @@ export const ar: TranslationResources = {
       retry: "إعادة المحاولة",
       files: "الملفات",
       noFiles: "لا تحتوي طلب التغيير هذا على ملفات متغيرة.",
-      checkoutUnsupported: "تُفتح فروقات Worktree المحلية من لوحة التغييرات في مساحة العمل.",
+      checkoutUnsupported: "تُفتح فروقات worktree المحلية من لوحة التغييرات في المحادثة.",
       filterPlaceholder: "تصفية الملفات",
       filterClear: "مسح التصفية",
       unviewedOnly: "غير المعروضة",
@@ -293,7 +293,7 @@ export const ar: TranslationResources = {
       askInChat: "اسأل في المحادثة",
       annotations_one: "تعليق واحد ({{count}})",
       annotations_other: "{{count}} تعليقات",
-      noWorkspace: "لا توجد مساحة عمل لـ {{repo}} على هذا المضيف",
+      noWorkspace: "لا توجد محادثة لـ {{repo}} على هذا المضيف",
       askUnavailable: "افتح الملفات المعلّق عليها أولًا؛ لم يتم تحميل تصحيحاتها.",
       detached_one: "مناقشة واحدة ({{count}}) ليست ضمن هذه الفروقات",
       detached_other: "{{count}} مناقشات ليست ضمن هذه الفروقات",
@@ -356,7 +356,7 @@ export const ar: TranslationResources = {
       daemonClientUnavailable: "عميل Daemon غير متوفر",
       daemonClientDisconnected: "تم قطع اتصال عميل Daemon",
       noFileFound: "لم يتم العثور على ملف لـ{{token}}",
-      folderOutsideWorkspace: "{{path}} خارج مساحة العمل هذه",
+      folderOutsideWorkspace: "{{path}} خارج هذا المجلد",
       unexpectedDictationError: "حدث خطأ غير متوقع أثناء معالجة الإملاء.",
     },
     connectionStatus: {
@@ -374,7 +374,7 @@ export const ar: TranslationResources = {
       close: "إغلاق القائمة",
     },
     commandCenter: {
-      placeholder: "ابحث في الأوامر والملفات ومساحات العمل والوكلاء...",
+      placeholder: "ابحث عن الأوامر والملفات والمحادثات والوكلاء...",
       filePlaceholder: "البحث في الملفات...",
       commands: "Commands",
       commandsPlaceholder: "Type a command or setting...",
@@ -396,7 +396,7 @@ export const ar: TranslationResources = {
       noMatches: "لا توجد مباريات",
       actions: "الإجراءات",
       files: "الملفات",
-      workspaces: "مساحات العمل",
+      workspaces: "المحادثات",
       agents: "الوكلاء",
       newAgent: "وكيل جديد",
       open: "فتح {{name}}",
@@ -716,11 +716,11 @@ export const ar: TranslationResources = {
       copyTurn: "نسخ بدوره",
       copyMessage: "انسخ الرسالة",
       forkMenu: "تفريع الرسالة",
-      forkInNewTab: "تفريع في تبويب جديد",
-      forkInNewWorkspace: "تفريع في مساحة عمل جديدة",
+      forkInNewTab: "تفريع كتبويب",
+      forkInNewWorkspace: "تفريع في محادثة جديدة",
       forkWithProvider: "تفرّع باستخدام مزوّد آخر",
       forkNoOtherProviders: "لا توجد مزوّدات أخرى متاحة على هذا المضيف.",
-      forkMissingWorkspace: "هذا الوكيل ليس في مساحة عمل.",
+      forkMissingWorkspace: "هذا الوكيل ليس في محادثة.",
       forkFailed: "فشل تفريع المحادثة",
       openFile: "افتح الملف",
       copied: "منقول",
@@ -812,7 +812,7 @@ export const ar: TranslationResources = {
     searchPlaceholder: "البحث في الجلسات...",
     scope: {
       host: "الجلسات على {{host}}",
-      workspace: "مساحة العمل هذه",
+      workspace: "هذه المحادثة",
     },
     filters: {
       all: "الجميع",
@@ -845,14 +845,14 @@ export const ar: TranslationResources = {
   },
   workspace: {
     route: {
-      loading: "جارٍ تحميل مساحة العمل",
+      loading: "جارٍ تحميل المحادثة",
       connecting: "الاتصال",
       hostOffline: "{{hostName}}غير متواجد حالياً",
       cannotReachHost: "لا يمكن الوصول إلى{{hostName}}",
       hostStatus: "حالة Host:{{status}}",
       manageHost: "إدارة المضيف",
       recovery: {
-        archivedTitle: "مساحة العمل مؤرشفة",
+        archivedTitle: "المحادثة مؤرشفة",
         restoreDescription:
           "استعد {{workspaceName}} للعودة إلى وكلائها. ستستخدم شجرة العمل الفرع {{branch}}.",
         restoreWithoutBranchDescription:
@@ -860,10 +860,10 @@ export const ar: TranslationResources = {
         unarchiveDescription: "{{workspaceName}} مؤرشفة. ألغِ أرشفتها لفتحها مجددًا.",
         restoreAction: "استعادة",
         unarchiveAction: "إلغاء الأرشفة",
-        restoringTitle: "جارٍ استعادة مساحة العمل",
+        restoringTitle: "جارٍ استعادة المحادثة",
         restoringAction: "جارٍ الاستعادة...",
-        unavailableTitle: "مساحة العمل غير متاحة",
-        checkFailedTitle: "تعذر التحقق من مساحة العمل",
+        unavailableTitle: "المحادثة غير متاحة",
+        checkFailedTitle: "تعذّر التحقق من المحادثة",
       },
     },
     hoverCard: {
@@ -927,7 +927,7 @@ export const ar: TranslationResources = {
         noVisibleFiles: "لا توجد ملفات مرئية",
       },
       states: {
-        unavailable: "Workspace غير متوفر",
+        unavailable: "المحادثة غير متاحة",
         loading: "جارٍ تحميل الملفات...",
       },
       errors: {
@@ -980,7 +980,7 @@ export const ar: TranslationResources = {
     browser: {
       unavailable: {
         title: "المتصفح مخصص لسطح المكتب فقط",
-        subtitle: "افتح مساحة العمل هذه في Electron لاستخدام المتصفح المدمج.",
+        subtitle: "افتح هذه المحادثة في Electron لاستخدام المتصفح المدمج.",
       },
       session: "جلسة المتصفح{{browserId}}",
       controls: {
@@ -1039,11 +1039,11 @@ export const ar: TranslationResources = {
         terminal: "Terminal",
         browser: "المتصفح",
         agent: "Agent",
-        workspace: "Workspace",
+        workspace: "المحادثة",
       },
       switcher: {
         trigger: "تبديل علامات التبويب (فتح{{count}})",
-        title: "علامات تبويب الـ Workspace",
+        title: "تبويبات المحادثة",
         searchPlaceholder: "علامات تبويب البحث",
       },
       menu: {
@@ -1142,21 +1142,22 @@ export const ar: TranslationResources = {
     },
     header: {
       actions: {
-        workspaceActions: "إجراءات Workspace",
-        workspaceActionsUnhealthy: "إجراءات Workspace، توجد خدمة غير سليمة",
+        workspaceActions: "إجراءات المحادثة",
+        workspaceActionsUnhealthy: "إجراءات المحادثة، توجد خدمة غير سليمة",
         newAgent: "وكيل جديد",
         newTerminal: "محطة جديدة",
         newBrowser: "علامة تبويب متصفح جديدة",
         importSession: "جلسة الاستيراد",
-        copyPath: "نسخ مسار مساحة العمل",
+        renameChat: "إعادة تسمية المحادثة",
+        copyPath: "نسخ مسار worktree",
         copyBranchName: "انسخ اسم الفرع",
         showSetup: "إظهار الإعداد",
       },
       toasts: {
-        workspacePathUnavailable: "مسار Workspace غير متاح بعد",
+        workspacePathUnavailable: "مسار worktree غير متاح بعد",
         branchNameUnavailable: "اسم الفرع غير متوفر",
-        terminalQueued: "تحضير مساحة العمل، وفتح الوحدة الطرفية عندما تكون جاهزة...",
-        workspacePathCopiedLabel: "مسار Workspace",
+        terminalQueued: "جارٍ تجهيز worktree، وسيُفتح الطرفية عند الجاهزية...",
+        workspacePathCopiedLabel: "مسار worktree",
         branchNameCopiedLabel: "اسم الفرع",
       },
     },
@@ -1243,7 +1244,7 @@ export const ar: TranslationResources = {
           success: "تم التحديث",
         },
         archive: {
-          label: "أرشفة مساحة العمل",
+          label: "أرشفة المحادثة",
           pending: "أرشفة...",
           success: "مؤرشف",
         },
@@ -1294,7 +1295,7 @@ export const ar: TranslationResources = {
           updateDirty: "التحديث غير متاح أثناء وجود تغييرات محلية، لذا قم بتنفيذها أو تخزينها أولاً",
           updateCurrent: "التحديث غير متاح لأن هذا الفرع محدث بالفعل باستخدام{{baseRef}}",
           mergePrNoGithub: "دمج PR غير متاح الآن لأن GitHub غير متصل",
-          archiveNotWorktree: "الأرشيف غير متاح هنا لأنه لم يتم إنشاء مساحة العمل هذه كشجرة عمل Pimi",
+          archiveNotWorktree: "الأرشفة غير متاحة هنا لأن هذه المحادثة لم تُنشأ كـ worktree في Pimi",
           mergePrNoForge: "دمج {{noun}} غير متاح الآن لأن {{brand}} غير متصل",
           mergePrMissing: "دمج PR غير متاح لأنه لا يوجد طلب سحب حتى الآن",
           mergePrDraft: "دمج PR غير متاح لأن طلب السحب لا يزال مسودة",
@@ -1379,7 +1380,7 @@ export const ar: TranslationResources = {
         modifiedFile: "معدّل",
         commits: {
           title: "الإيداعات",
-          countLabel: "{{count}} من إيداعات مساحة العمل",
+          countLabel: "{{count}} من عمليات الإيداع في المحادثة",
           noneAhead: "لا توجد إيداعات متقدمة على {{baseRef}} بعد",
           fileDiffEmpty: "لا توجد تغييرات لعرضها",
           fileDiffError: "تعذّر تحميل فروق الملف",
@@ -1391,9 +1392,9 @@ export const ar: TranslationResources = {
       openInEditor: {
         open: "يفتح",
         chooseEditor: "اختر المحرر",
-        openIn: "افتح مساحة العمل في{{target}}",
+        openIn: "فتح المجلد في {{target}}",
         openFileIn: "Open {{fileName}} in {{target}}",
-        failedOpen: "فشل في فتح مساحة العمل",
+        failedOpen: "تعذّر فتح المجلد",
       },
       pr: {
         actions: {
@@ -1546,8 +1547,8 @@ export const ar: TranslationResources = {
       save: "حفظ",
       delete: "حذف",
       deleteTitle: "حذف {{name}}؟",
-      deleteMessage_one: "سيؤدي هذا إلى إزالة التسمية من {{count}} مساحة عمل على هذا المضيف.",
-      deleteMessage_other: "سيؤدي هذا إلى إزالة التسمية من {{count}} مساحات عمل على هذا المضيف.",
+      deleteMessage_one: "يزيل هذا التسمية من {{count}} محادثة على هذا المضيف.",
+      deleteMessage_other: "يزيل هذا التسمية من {{count}} محادثات على هذا المضيف.",
       offline: "هذا المضيف غير متصل.",
     },
   },
@@ -1618,8 +1619,8 @@ export const ar: TranslationResources = {
       },
     },
     filterEmpty: {
-      title: "لا توجد مساحات عمل مطابقة",
-      description: "غيّر عوامل تصفية الشريط الجانبي أو امسحها لعرض مساحات العمل.",
+      title: "لا توجد محادثات مطابقة",
+      description: "غيّر مرشحات الشريط الجانبي أو امسحها لعرض المحادثات.",
       clear: "مسح عوامل التصفية",
     },
     pinned: {
@@ -1632,7 +1633,7 @@ export const ar: TranslationResources = {
     },
     actions: {
       addProject: "إضافة مشروع",
-      newWorkspace: "مساحة عمل جديدة",
+      newWorkspace: "محادثة جديدة",
       hosts: "المضيفون",
       settings: "إعدادات",
       closeSidebar: "إغلاق الشريط الجانبي",
@@ -1684,7 +1685,7 @@ export const ar: TranslationResources = {
       },
       toasts: {
         hostDisconnected: "Host غير متصل",
-        removeFailed: "فشل في إزالة بعض مساحات العمل",
+        removeFailed: "تعذّرت إزالة بعض المحادثات",
       },
       empty: {
         title: "لا توجد مشاريع حتى الآن",
@@ -1706,49 +1707,53 @@ export const ar: TranslationResources = {
         pending: "قيد الانتظار: {{count}}",
       },
       actions: {
-        menu: "إجراءات Workspace",
-        newWorkspace: "مساحة عمل جديدة",
+        menu: "إجراءات المحادثة",
+        newWorkspace: "محادثة جديدة",
         showMore: "عرض المزيد",
         showLess: "عرض أقل",
-        createWorkspaceFor: "قم بإنشاء مساحة عمل جديدة لـ{{projectName}}",
+        createWorkspaceFor: "ابدأ محادثة جديدة في {{projectName}}",
         copyPath: "نسخ المسار",
         copyBranchName: "انسخ اسم الفرع",
-        rename: "إعادة تسمية مساحة العمل",
+        rename: "إعادة تسمية المحادثة",
         pin: "تثبيت في الأعلى",
         unpin: "إلغاء التثبيت",
         archive: "أرشيف",
-        archiveWorkspace: "أرشفة مساحة العمل",
+        archiveWorkspace: "أرشفة المحادثة",
         hideFromSidebar: "إخفاء من الشريط الجانبي",
         archiving: "أرشفة...",
         hiding: "إخفاء...",
       },
       confirmations: {
-        hideTitle: "إخفاء مساحة العمل؟",
+        hideTitle: "إخفاء المحادثة؟",
         hideMessage:
           'إخفاء "{{workspaceName}}" من الشريط الجانبي؟\n\n لن يتم تغيير الملفات الموجودة على القرص.',
         hideConfirm: "يخفي",
         cancel: "يلغي",
+        archiveSiblingChats_one:
+          "يؤدي هذا أيضًا إلى أرشفة محادثة أخرى واحدة تشترك في هذا الـ worktree.",
+        archiveSiblingChats_other:
+          "يؤدي هذا أيضًا إلى أرشفة {{count}} محادثات أخرى تشترك في هذا الـ worktree.",
       },
       rename: {
-        title: "إعادة تسمية مساحة العمل",
+        title: "إعادة تسمية المحادثة",
         submit: "إعادة تسمية",
         invalidBranchName: "اسم الفرع غير صالح",
       },
       toasts: {
-        workspacePathUnavailable: "مسار Workspace غير متوفر",
+        workspacePathUnavailable: "مسار worktree غير متاح",
         pathCopied: "تم نسخ المسار",
         branchNameCopied: "تم نسخ اسم الفرع",
         hostDisconnected: "Host غير متصل",
-        hideFailed: "فشل في إخفاء مساحة العمل",
-        archiveFailed: "فشل في أرشفة مساحة العمل",
-        archived: "تمت أرشفة مساحة العمل",
+        hideFailed: "تعذّر إخفاء المحادثة",
+        archiveFailed: "تعذّرت أرشفة المحادثة",
+        archived: "تمت أرشفة المحادثة",
         undoArchive: "تراجع",
         undoArchiveFailed: "تعذّر التراجع عن الأرشفة",
       },
     },
   },
   newWorkspace: {
-    title: "مساحة عمل جديدة",
+    title: "محادثة جديدة",
     create: "يخلق",
     isolation: {
       local: "محلي",
@@ -2003,7 +2008,7 @@ export const ar: TranslationResources = {
   },
   branchSwitcher: {
     failedToLoad: "تعذّر تحميل الفروع. أعد فتح قائمة الفروع للمحاولة مرة أخرى.",
-    triggerTooltip: "تبديل فرع مساحة العمل",
+    triggerTooltip: "تبديل فرع المحادثة",
     currentBranch: "الفرع الحالي:{{branchName}}. اضغط لتبديل الفرع.",
     placeholder: "تبديل الفرع...",
     searchPlaceholder: "تصفية الفروع...",
@@ -2021,7 +2026,7 @@ export const ar: TranslationResources = {
     stashRestored: "تمت استعادة التغييرات المخفية",
   },
   agentAutocomplete: {
-    searchingWorkspace: "جارٍ البحث في مساحة العمل...",
+    searchingWorkspace: "جارٍ البحث في المجلد...",
     loadingCommands: "جارٍ تحميل الأوامر...",
     noFiles: "لم يتم العثور على ملفات أو أدلة",
     noCommands: "لم يتم العثور على أي أوامر",
@@ -2045,14 +2050,14 @@ export const ar: TranslationResources = {
     dialogFilterName: "الصور",
   },
   workspaceSetup: {
-    title: "إنشاء مساحة عمل",
+    title: "محادثة جديدة",
     errors: {
       failedCreateWorktree: "فشل في إنشاء شجرة العمل",
       failedOpenProject: "فشل في فتح المشروع",
       selectModel: "اختر نموذجا",
       hostDisconnected: "Host غير متصل",
-      pendingRequired: "لا يوجد إعداد معلق لمساحة العمل",
-      composerStateRequired: "مطلوب حالة مؤلف إعداد Workspace",
+      pendingRequired: "لا يوجد إعداد محادثة قيد الانتظار",
+      composerStateRequired: "حالة مُنشئ إعداد المحادثة مطلوبة",
     },
   },
   onboarding: {
@@ -2184,7 +2189,7 @@ export const ar: TranslationResources = {
       noProviders: "لا يوجد موفري خدمة متاحين على المضيف المحدد",
       modelDefaultsLoading: "لا يزال يتم تحميل الإعدادات الافتراضية للنموذج",
       noModelAvailable: "لا يوجد نموذج متاح للموفر المحدد",
-      workspaceDirectoryNotFound: "لم يتم العثور على دليل Workspace",
+      workspaceDirectoryNotFound: "المجلد غير موجود",
       hostDisconnected: "Host غير متصل",
     },
   },
@@ -2467,7 +2472,7 @@ export const ar: TranslationResources = {
     phone: {
       entry: "تشغيل الهجوم",
       title: "الهجوم",
-      noRun: "لا يوجد تشغيل هجوم في مساحة العمل هذه. ابدأ واحدًا من تطبيق سطح المكتب.",
+      noRun: "لا توجد عملية هجوم في هذه المحادثة. ابدأ واحدة من تطبيق سطح المكتب.",
     },
     batchFix: {
       selectOpen: "اختر المفتوحة",
@@ -2830,7 +2835,7 @@ export const ar: TranslationResources = {
           source: "المصدر",
         },
       },
-      directoryMissing: "لم يتم العثور على دليل Workspace.",
+      directoryMissing: "المجلد غير موجود.",
       loading: "جارٍ تحميل الملف...",
       noPreview: "لا تتوفر معاينة",
       binaryPreviewUnavailable: "المعاينة الثنائية غير متاحة",
@@ -2862,8 +2867,8 @@ export const ar: TranslationResources = {
     },
     files: {
       label: "الملفات",
-      subtitle: "ملفات مساحة العمل",
-      tooltip: "تصفح ملفات مساحة العمل",
+      subtitle: "ملفات المحادثة",
+      tooltip: "استعراض ملفات المحادثة",
       chooseFile: "اختر ملفًا",
     },
     pullRequest: {
@@ -2879,7 +2884,7 @@ export const ar: TranslationResources = {
       commitSubtitle: "فروقات الالتزام",
       uncommittedSubtitle: "تغييرات غير ملتزم بها",
       baseSubtitle: "مقارنة مع {{baseRef}}",
-      directoryMissing: "لم يتم العثور على دليل Workspace.",
+      directoryMissing: "المجلد غير موجود.",
       empty: "لا توجد تغييرات",
       loadError: "فشل تحميل الفروقات",
     },
@@ -3240,7 +3245,7 @@ export const ar: TranslationResources = {
       agents: "Agents",
       metadata: "نماذج Pimi",
       voice: "الصوت",
-      workspaces: "Workspaces",
+      workspaces: "المحادثات",
       providers: "مقدمي الخدمات",
       usage: "الاستخدام",
       terminals: "Terminals",
@@ -3312,12 +3317,12 @@ export const ar: TranslationResources = {
     },
     plugins: pluginSettings.ar,
     metadataGeneration: {
-      autoNaming: "تسمية المحادثات ومساحات العمل تلقائيًا",
+      autoNaming: "تسمية المحادثات والفروع تلقائيًا",
       autoNamingHint:
         "إنشاء العناوين وأسماء فروع مساحات العمل الجديدة من الطلب الأول. تُحفظ الأسماء التي تعدّلها.",
       title: "نماذج Pimi",
       description:
-        "اختر النموذج الذي يستخدمه Pimi لعناوين مساحات العمل وأسماء الفروع ورسائل الالتزام ومسودات طلبات السحب",
+        "اختر النماذج التي يستخدمها Pimi لعناوين المحادثات ورسائل الإيداع وطلبات السحب وDescribe it وAsk Pimi",
       selection: "اختيار النموذج",
       automatic: "تلقائي",
       preferred: "يدوي",
@@ -3339,7 +3344,7 @@ export const ar: TranslationResources = {
       unavailable: "{{provider}} متوقف أو غير مثبّت. لن يستخدم Pimi نموذجًا آخر لهذا",
       features: {
         title: "عناوين المحادثات",
-        branchName: "عناوين مساحات العمل والفروع",
+        branchName: "أسماء الفروع",
         commitMessage: "رسائل الـ commit",
         pullRequest: "نص طلبات السحب",
         automation: "Describe it",
@@ -3653,7 +3658,7 @@ export const ar: TranslationResources = {
       },
       sections: {
         general: "عام",
-        workspaces: "المشاريع ومساحات العمل",
+        workspaces: "المشاريع والمحادثات",
         tabsPanes: "علامات التبويب والأجزاء",
         layout: "التخطيط",
         editor: "المحرر",
@@ -3661,15 +3666,15 @@ export const ar: TranslationResources = {
       },
       help: {
         openProject: "مشروع مفتوح",
-        newWorkspace: "مساحة عمل جديدة",
+        newWorkspace: "محادثة جديدة",
         newWorktree: "شجرة عمل جديدة",
-        archiveWorkspace: "أرشفة مساحة العمل",
+        archiveWorkspace: "أرشفة المحادثة",
         newTab: "علامة تبويب جديدة",
         closeCurrentTab: "إغلاق علامة التبويب الحالية",
-        jumpToWorkspace: "انتقل إلى مساحة العمل",
+        jumpToWorkspace: "انتقال إلى المحادثة",
         jumpToTab: "انتقل إلى علامة التبويب",
-        previousWorkspace: "مساحة العمل السابقة",
-        nextWorkspace: "مساحة العمل التالية",
+        previousWorkspace: "المحادثة السابقة",
+        nextWorkspace: "المحادثة التالية",
         previousTab: "علامة التبويب السابقة",
         nextTab: "علامة التبويب التالية",
         splitPaneRight: "تقسيم الجزء الأيمن",
@@ -3885,7 +3890,7 @@ export const ar: TranslationResources = {
         },
       },
       workspaces: {
-        unavailable: "Connect to this host to manage workspaces",
+        unavailable: "اتصل بهذا المضيف لإدارة المحادثات",
       },
       terminalProfiles: {
         unavailable: "Connect to this host to manage terminal profiles",
