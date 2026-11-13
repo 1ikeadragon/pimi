@@ -1,0 +1,7 @@
+{
+  "id": "repo-map",
+  "name": "Repo Map",
+  "requirements": {
+    "pimi": ">=0.17.39"
+  }
+}

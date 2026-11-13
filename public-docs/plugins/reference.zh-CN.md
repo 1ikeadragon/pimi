@@ -209,22 +209,26 @@ SDK 根入口（`@pimi/plugin`）只包含共享数据、schema 和与运行时�
 
 Pimi 为客户端代码提供以下模块：
 
-| 模块                     | 用于                                                                                         |
-| ------------------------ | -------------------------------------------------------------------------------------------- |
-| `@pimi/plugin`           | 共享数据、`defineRpc`、`defineSettings`、`defineAttachmentSource`、`RpcInput` 和 `RpcOutput` |
-| `@pimi/plugin/client/ui` | Pimi UI 组件和 UI hook                                                                       |
-| `@pimi/plugin/client`    | 客户端贡献 context、`usePimi`、`useRpc`、`useSettings` 和数据 hook                           |
-| `@tanstack/react-query`  | 请求状态和缓存                                                                               |
-| `react`                  | 组件和 hook                                                                                  |
-| `react/jsx-runtime`      | 编译后的 JSX                                                                                 |
-| `react-native`           | 跨平台 UI                                                                                    |
-| `zod`                    | 共享 schema                                                                                  |
+| 模块                             | 用于                                                                                         |
+| -------------------------------- | -------------------------------------------------------------------------------------------- |
+| `@pimi/plugin`                   | 共享数据、`defineRpc`、`defineSettings`、`defineAttachmentSource`、`RpcInput` 和 `RpcOutput` |
+| `@pimi/plugin/client/ui`         | Pimi UI 组件和 UI hook                                                                       |
+| `@pimi/plugin/client`            | 客户端贡献 context、`usePimi`、`useRpc`、`useSettings` 和数据 hook                           |
+| `@tanstack/react-query`          | 请求状态和缓存                                                                               |
+| `react`                          | 组件和 hook                                                                                  |
+| `react/jsx-runtime`              | 编译后的 JSX                                                                                 |
+| `react-native`                   | 跨平台 UI                                                                                    |
+| `react-native-svg`               | 绘图：`Svg`、`Rect`、`Path`、`Text` 以及该包的其余组件                                       |
+| `react-native-reanimated`        | 动画                                                                                         |
+| `react-native-gesture-handler`   | 拖动、捏合和点按手势                                                                         |
+| `react-native-safe-area-context` | 安全区域内边距                                                                               |
+| `zod`                            | 共享 schema                                                                                  |
 
 宿主拥有与之配套的 React 和渲染器版本。SDK 的 React peer 范围允许补丁版本差异，以便工具链和 Node 使用者使用；它不会改变应用固定的 React 版本，也不保证与其他宿主的渲染器兼容。
 
 这些确切的模块标识符使用宿主的运行时实例。请求其他宿主模块的客户端包会以 `Module "<name>" is not available in plugin client code` 失败。
 
-不要导入 `lucide-react-native`、`react-native-svg` 或 DOM 库。把贡献的 `icon` 字段设为一个 [Lucide 图标名称](https://lucide.dev/icons/)、内联 SVG 或组件；Pimi 会校验图标并渲染它。参见[图标](#icons)。
+插件包不会经过 Pimi 的 Babel 步骤，所以插件中的 Reanimated worklet 无法编译。手势请使用 `Gesture.Pan().runOnJS(true)` 加 `useState` 驱动的样式，`plugin-examples/repo-map` 就是这样做的。不要导入 `lucide-react-native`、`react-native-unistyles` 或 DOM 库。把贡献的 `icon` 字段设为一个 [Lucide 图标名称](https://lucide.dev/icons/)、内联 SVG 或组件；Pimi 会校验图标并渲染它。参见[图标](#icons)。
 
 ### 跨平台规则 {#cross-platform-rules}
 
@@ -513,6 +517,84 @@ export default function contribute(client: PluginClientContext) {
 ## 生命周期钩子 {#lifecycle-hooks}
 
 使用 `server.addHook(name, handler)` 注册异步处理函数。请参阅[钩子](/docs/plugins/hooks)，了解命名、载荷、顺序、错误处理和完整示例。
+
+## 更改应用界面 {#extension-points}
+
+插件可以替换、包裹 Pimi 自身界面中命名的位置，或向其中添加内容。每个位置称为一个扩展点。Pimi 拥有数据和状态，插件决定它的外观。各扩展点的 id 及其接收的 props 是 `@pimi/plugin/client` 中的 `PluginComponentPoints`、`PluginSlots` 和 `PluginMenus` 类型。
+
+```tsx
+export default function contribute(client: PluginClientContext) {
+  // 替换：用户的聊天消息变成气泡。
+  client.overrideComponent("chat.userMessage", ({ message, Original }) =>
+    message ? <Bubble text={message} /> : <Original />,
+  );
+  // 包裹：保留每个工作区行，并在旁边添加内容。
+  client.wrapComponent("sidebar.workspaceRow", ({ props, children }) => (
+    <Row>
+      {children}
+      <Branch name={props.branch} />
+    </Row>
+  ));
+  // 添加：设置侧边栏中的一行。
+  client.addToSlot("settings.sidebar", { id: "mine", Component: MySettingsRow });
+  return () => {};
+}
+```
+
+| 调用                                           | 效果                                                                      |
+| ---------------------------------------------- | ------------------------------------------------------------------------- |
+| `overrideComponent(id, Component, options?)`   | 替换该扩展点。组件接收该扩展点的 props 和 `Original`。                    |
+| `wrapComponent(id, Wrapper, options?)`         | 包裹它。包裹组件接收 `{ props, children, Original }`，并渲染 `children`。 |
+| `addToSlot(id, { id, order?, Component })`     | 在插槽处追加界面，按 `order`、插件 id 和条目 id 排序。                    |
+| `addMenuItem({ menu, id, title, icon?, run })` | 向核心菜单添加条目：`file-tree-row` 或 `sidebar-workspace-row`。          |
+| `unstable.overrideComponent(id, Component)`    | 以 Pimi 的内部 props 访问任意扩展点。不受支持；props 会随版本自由变化。   |
+
+`Original` 是向内的下一层：另一个插件的替换，否则是 Pimi 自己的组件。渲染它即可保留原有行为。传入该扩展点 props 的一个子集可以改变它收到的内容，例如在 `chat.assistantMessage` 上使用 `<Original markdown={edited} />`。扩展点只接受它能映射回 Pimi 组件的 props，例如聊天消息的文本、状态和阶段，其余会被忽略。
+
+规则：
+
+- **每个扩展点只有一个替换；所有包裹都会生效。** 多个插件替换同一个扩展点时，`order` 最高者生效，相同时取插件 id 字母序最后者。包裹按 `order` 嵌套，最小者在最外层。落选的插件会列在插件页面。
+- **抛出错误的层会回退。** Pimi 把每个插件层放进错误边界。抛出错误时会渲染向内的下一层，最终回到 Pimi 自己的组件，并在插件页面显示错误。
+- **替换作用于整个应用。** 与主题一样，它们作用于整个应用，而不是某一台主机的工作区。如果同一个插件安装在多台主机上，只有一个安装生效：其界面最近使用的主机，否则取 id 最靠前的主机。添加一台带有界面插件的远程主机会改变所有地方的界面，插件页面会标出这类插件。
+- **安全模式显示 Pimi 自己的界面。** 在插件页面开启，或用 `?safe=1` 打开网页或桌面渲染器。插件继续运行；每个扩展点都渲染 Pimi 的组件。
+- **注意开销。** 聊天行和侧边栏行上的扩展点会按行渲染。保持包裹组件轻量，并缓存你计算的结果。
+
+### 宿主 hook
+
+每个插件组件都可以从 `@pimi/plugin/client` 调用这些 hook：界面、设置、面板、替换和插槽。
+
+| Hook                                                                         | 返回                                                                                                    |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `useWorkspaces(serverId?)`                                                   | 某台主机的工作区快照（默认是插件所在的主机）                                                            |
+| `useAgents({ serverId?, workspaceId? })`                                     | Agent 快照                                                                                              |
+| `useProjects(serverId?)`                                                     | 至少有一个工作区的项目                                                                                  |
+| `useActiveContext()`                                                         | 当前路由的 `{ serverId, workspaceId, agentId, pathname }`                                               |
+| `useAgentTimeline(agentId, { tail? })`                                       | Agent 聊天中最新的若干行，只读                                                                          |
+| `useCheckoutStatus(cwd)`、`useCheckoutDiff(cwd, compare)`、`useCommits(cwd)` | Git 状态，形如 `{ status, data, error, refetch }`                                                       |
+| `useTheme()`                                                                 | 所有颜色、间距、圆角、字号和字体族                                                                      |
+| `useLayout()`                                                                | `{ compact, platform, isElectron, window }`                                                             |
+| `useNavigation()`                                                            | `openWorkspace`、`openAgent`、`openFile`、`openDiff`、`openScreen`、`openSettings`、`openPanel`、`back` |
+| `useClientStorage()`                                                         | 每个插件、每台设备的 JSON 存储：`get`、`set`、`delete`、`keys`                                          |
+
+`client.navigation` 和 `client.storage` 在组件之外提供相同的对象。`PluginHostProps.theme` 与 `useTheme()` 返回的是同一个完整的 `PluginTheme`。
+
+`useActiveContext().agentId` 只在 Agent 路由上设置；作为工作区标签页打开的 Agent 不会设置它。
+
+### 仓库数据
+
+每个插件以 `pimi` 持有的 `PimiApi` 带有 `files`、`git` 和 `search` 命名空间。它们以工作区目录（`workspace.directory`）作为 `cwd`。
+
+```ts
+const status = await pimi.git.status(cwd);
+const entries = await pimi.files.list(cwd, "src");
+const file = await pimi.files.read(cwd, "src/index.ts");
+```
+
+`plugin-examples/repo-map` 用这些部件构建了整个仓库的树图。
+
+### 服务端存储
+
+`server.storage` 是插件私有的 JSON 键值存储：`get`、`set`、`delete` 和 `keys(prefix?)`。`server.dataDirectory` 是插件自己的文件目录。两者都位于 daemon 主机的 `$PIMI_HOME/plugin-data/<pluginId>/` 下，插件被移除时一并删除。
 
 ## 界面和侧边栏项 {#screens-and-sidebar-items}
 
@@ -1085,6 +1167,26 @@ export default function contribute(client: PluginClientContext) {
 
 `appearance` 为 `"light"` 或 `"dark"`。Pimi 用它选择对应的表面、状态、diff、语法高亮、终端和阴影的推导方式。
 
+要在配色之外进一步控制，添加 `tokens`。它会合并到 Pimi 根据 `colors` 构建的主题之上：
+
+```ts
+client.addTheme({
+  id: "roomy",
+  name: "Roomy",
+  appearance: "dark",
+  colors: {
+    /* … */
+  },
+  tokens: {
+    colors: { statusSuccess: "#a6e3a1" },
+    spacing: { 2: 10, 3: 14 },
+    borderRadius: { md: 10 },
+  },
+});
+```
+
+`tokens.colors`、`tokens.spacing` 和 `tokens.borderRadius` 使用 `useTheme()` 返回的 `theme.colors`、`theme.spacing` 和 `theme.borderRadius` 中的名称。Pimi 没有的名称会让整个主题在插件加载时被拒绝。颜色为十六进制字符串。字号和字体族不是 token：它们由用户的外观设置决定，并覆盖在每个主题之上。
+
 同一时间只有一个贡献的主题处于启用状态。选择一个主题会保存这项选择；如果之后插件被停用或移除，Pimi 会退回到默认主题，而不会让应用失去配色。
 
 主题需要一个支持它们的宿主。在 `addTheme` 之前发布的客户端无法执行该客户端入口，并会报告 `client.addTheme is not a function`。请更新客户端。
@@ -1514,8 +1616,11 @@ client.addCommandCenterItem({
 | `title`    | 是       | 搜索结果的标题。                                    |
 | `icon`     | 是       | Lucide 名称、`{ svg }` 或组件。参见[图标](#icons)。 |
 | `keywords` | 否       | 额外的 Command Center 搜索词。                      |
+| `shortcut` | 否       | 键盘组合，例如 `mod+shift+m`。见下文。              |
 | `context`  | 是       | `global`、`workspace` 或 `agent`。                  |
 | `onSelect` | 是       | 对应上下文的客户端回调。                            |
+
+`shortcut` 把条目绑定到一个按键组合。用小写书写，以 `+` 连接：修饰键为 `mod`（macOS 上是 Cmd，其他系统是 Ctrl）、`ctrl`、`alt`、`shift` 和 `cmd`，后面跟一个按键。多步组合的各步之间用空格分隔。每一步必须包含 `mod`、`ctrl`、`alt` 或 `cmd`，这样用户输入时不会误触发。该绑定会出现在 设置 → 快捷键 中，用户可以重新绑定或清除。同一组合上的内置快捷键优先，并且该行会注明这一点。只有条目的上下文存在（例如已打开工作区）时，按下组合键才会运行该条目；否则按键交给应用处理。快捷键作用于用户当前所在的主机。
 
 全局条目出现在该安装所选择的主机上。只有当该主机有一个处于活动状态的缓存工作区时，工作区条目才会出现。只有当获得焦点的工作区标签页是一个 Agent，或者是一个缓存记录属于该工作区的 Agent 上下文插件面板时，Agent 条目才会出现。缺少上下文时条目会被移除，而不是调用插件去获取上下文。
 

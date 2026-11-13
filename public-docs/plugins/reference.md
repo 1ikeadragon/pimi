@@ -240,16 +240,20 @@ dependencies. `/client/host` is private to the app host; plugins cannot import i
 
 Pimi provides these modules to client code:
 
-| Module                   | Use it for                                                                                        |
-| ------------------------ | ------------------------------------------------------------------------------------------------- |
-| `@pimi/plugin`           | Shared data, `defineRpc`, `defineSettings`, `defineAttachmentSource`, `RpcInput`, and `RpcOutput` |
-| `@pimi/plugin/client/ui` | Pimi UI components and UI hooks                                                                   |
-| `@pimi/plugin/client`    | Client contribution contexts, `usePimi`, `useRpc`, `useSettings`, and data hooks                  |
-| `@tanstack/react-query`  | Request state and caching                                                                         |
-| `react`                  | Components and hooks                                                                              |
-| `react/jsx-runtime`      | Compiled JSX                                                                                      |
-| `react-native`           | Cross-platform UI                                                                                 |
-| `zod`                    | Shared schemas                                                                                    |
+| Module                           | Use it for                                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `@pimi/plugin`                   | Shared data, `defineRpc`, `defineSettings`, `defineAttachmentSource`, `RpcInput`, and `RpcOutput` |
+| `@pimi/plugin/client/ui`         | Pimi UI components and UI hooks                                                                   |
+| `@pimi/plugin/client`            | Client contribution contexts, `usePimi`, `useRpc`, `useSettings`, and data hooks                  |
+| `@tanstack/react-query`          | Request state and caching                                                                         |
+| `react`                          | Components and hooks                                                                              |
+| `react/jsx-runtime`              | Compiled JSX                                                                                      |
+| `react-native`                   | Cross-platform UI                                                                                 |
+| `react-native-svg`               | Drawing: `Svg`, `Rect`, `Path`, `Text`, and the rest of the package                               |
+| `react-native-reanimated`        | Animation                                                                                         |
+| `react-native-gesture-handler`   | Pan, pinch, and tap gestures                                                                      |
+| `react-native-safe-area-context` | Safe-area insets                                                                                  |
+| `zod`                            | Shared schemas                                                                                    |
 
 The host owns its paired React and renderer versions. The SDK's React peer range permits patch
 versions for tooling and Node consumers; it does not change the app's pinned React version or
@@ -257,7 +261,9 @@ guarantee compatibility with another host's renderer.
 
 These exact module specifiers use the host's runtime instances. A client bundle that requests another host module fails with `Module "<name>" is not available in plugin client code`.
 
-Do not import `lucide-react-native`, `react-native-svg`, or DOM libraries. Set contribution `icon` fields to a [Lucide icon name](https://lucide.dev/icons/), inline SVG, or a component; Pimi validates the icon and renders it. See [Icons](#icons).
+Plugin bundles skip Pimi's Babel step, so a Reanimated worklet in a plugin does not compile. Use
+`Gesture.Pan().runOnJS(true)` and the `useState`-driven style for gestures, as
+`plugin-examples/repo-map` does. Do not import `lucide-react-native`, `react-native-unistyles`, or DOM libraries. Set contribution `icon` fields to a [Lucide icon name](https://lucide.dev/icons/), inline SVG, or a component; Pimi validates the icon and renders it. See [Icons](#icons).
 
 ### Cross-platform rules
 
@@ -634,6 +640,105 @@ Cleanup can be async. Release timers, watchers, sockets, and other resources cre
 ## Lifecycle hooks
 
 Register async handlers with `server.addHook(name, handler)`. See [Hooks](/docs/plugins/hooks) for names, payloads, ordering, errors, and complete examples.
+
+## Change the app's UI {#extension-points}
+
+A plugin can replace, wrap, or add to named places in Pimi's own interface. Each place is an
+extension point. Pimi owns the data and state; the plugin owns how it looks. The ids and the props
+each point receives are the `PluginComponentPoints`, `PluginSlots`, and `PluginMenus` types in
+`@pimi/plugin/client`.
+
+```tsx
+export default function contribute(client: PluginClientContext) {
+  // Replace: the user's chat messages become bubbles.
+  client.overrideComponent("chat.userMessage", ({ message, Original }) =>
+    message ? <Bubble text={message} /> : <Original />,
+  );
+  // Wrap: keep each workspace row, add something beside it.
+  client.wrapComponent("sidebar.workspaceRow", ({ props, children }) => (
+    <Row>
+      {children}
+      <Branch name={props.branch} />
+    </Row>
+  ));
+  // Add: a row in the Settings sidebar.
+  client.addToSlot("settings.sidebar", { id: "mine", Component: MySettingsRow });
+  return () => {};
+}
+```
+
+| Call                                           | Effect                                                                                    |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `overrideComponent(id, Component, options?)`   | Replaces the point. The component receives the point's props and `Original`.              |
+| `wrapComponent(id, Wrapper, options?)`         | Wraps it. The wrapper receives `{ props, children, Original }` and renders `children`.    |
+| `addToSlot(id, { id, order?, Component })`     | Appends UI at a slot, in `order` then plugin and item id.                                 |
+| `addMenuItem({ menu, id, title, icon?, run })` | Adds an item to a core menu: `file-tree-row` or `sidebar-workspace-row`.                  |
+| `unstable.overrideComponent(id, Component)`    | Reaches any extension point with Pimi's internal props. Unsupported; props change freely. |
+
+`Original` is the next layer in: another plugin's replacement, else Pimi's own component. Render it
+to keep the original behavior. Pass a partial of the point's props to change what it receives, for
+example `<Original markdown={edited} />` on `chat.assistantMessage`. A point honors the props it can
+map back to Pimi's component, such as the text, status, and phase of a chat message, and ignores the
+rest.
+
+Rules:
+
+- **One replacement per point; every wrapper applies.** When several plugins replace one point, the
+  highest `order` wins and ties go to the last plugin id alphabetically. Wrappers nest with the
+  lowest `order` outermost. The losing plugins are listed on the Plugins page.
+- **A layer that throws falls back.** Pimi puts each plugin layer in an error boundary. A throw
+  renders the next layer in, ends at Pimi's own component, and shows the error on the Plugins page.
+- **Overrides are app-wide.** Like themes, they apply to the whole app, not to one host's
+  workspaces. If a plugin is installed on several hosts, one installation contributes: the host its
+  screens last used, else the first host by id. Adding a remote host that has a UI plugin changes the
+  UI everywhere, and the Plugins page marks plugins that do so.
+- **Safe mode shows Pimi's own UI.** Turn it on from the Plugins page, or open the web or desktop
+  renderer with `?safe=1`. Plugins keep running; every point renders Pimi's component.
+- **Mind the cost.** Points on chat rows and sidebar rows render per row. Keep wrappers cheap and
+  memoize what you compute.
+
+### Host hooks
+
+Every plugin component can call these from `@pimi/plugin/client`: screens, settings, panels,
+overrides, and slots.
+
+| Hook                                                                         | Returns                                                                                                 |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `useWorkspaces(serverId?)`                                                   | Workspace snapshots of a host (the plugin's host by default)                                            |
+| `useAgents({ serverId?, workspaceId? })`                                     | Agent snapshots                                                                                         |
+| `useProjects(serverId?)`                                                     | Projects that have a workspace                                                                          |
+| `useActiveContext()`                                                         | `{ serverId, workspaceId, agentId, pathname }` of the route                                             |
+| `useAgentTimeline(agentId, { tail? })`                                       | The newest rows of an agent's chat, read-only                                                           |
+| `useCheckoutStatus(cwd)`, `useCheckoutDiff(cwd, compare)`, `useCommits(cwd)` | Git state as `{ status, data, error, refetch }`                                                         |
+| `useTheme()`                                                                 | Every color, spacing, radius, font size, and family                                                     |
+| `useLayout()`                                                                | `{ compact, platform, isElectron, window }`                                                             |
+| `useNavigation()`                                                            | `openWorkspace`, `openAgent`, `openFile`, `openDiff`, `openScreen`, `openSettings`, `openPanel`, `back` |
+| `useClientStorage()`                                                         | Per-plugin, per-device JSON storage: `get`, `set`, `delete`, `keys`                                     |
+
+`client.navigation` and `client.storage` expose the same objects outside components.
+`PluginHostProps.theme` is the same full `PluginTheme` that `useTheme()` returns.
+
+`useActiveContext().agentId` is set on agent routes only; an agent open as a workspace tab does not
+set it.
+
+### Repository data
+
+`PimiApi`, which every plugin holds as `pimi`, has `files`, `git`, and `search` namespaces. They take
+the workspace directory (`workspace.directory`) as `cwd`.
+
+```ts
+const status = await pimi.git.status(cwd);
+const entries = await pimi.files.list(cwd, "src");
+const file = await pimi.files.read(cwd, "src/index.ts");
+```
+
+`plugin-examples/repo-map` builds a whole-repository treemap from these pieces.
+
+### Server storage
+
+`server.storage` is JSON key-value storage private to the plugin: `get`, `set`, `delete`, and
+`keys(prefix?)`. `server.dataDirectory` is the plugin's own directory for files. Both live under
+`$PIMI_HOME/plugin-data/<pluginId>/` on the daemon host and are deleted when the plugin is removed.
 
 ## Screens and sidebar items
 
@@ -1291,6 +1396,29 @@ colors, and the terminal without listing them.
 `appearance` is `"light"` or `"dark"`. Pimi uses it to select the matching surface, status,
 diff, syntax, terminal, and shadow derivation.
 
+For control beyond the palette, add `tokens`. It merges over the theme Pimi built from `colors`:
+
+```ts
+client.addTheme({
+  id: "roomy",
+  name: "Roomy",
+  appearance: "dark",
+  colors: {
+    /* … */
+  },
+  tokens: {
+    colors: { statusSuccess: "#a6e3a1" },
+    spacing: { 2: 10, 3: 14 },
+    borderRadius: { md: 10 },
+  },
+});
+```
+
+`tokens.colors`, `tokens.spacing`, and `tokens.borderRadius` take names from `useTheme()` and
+`theme.colors`, `theme.spacing`, and `theme.borderRadius`. A name Pimi does not have rejects the
+whole theme when the plugin loads. Colors are hex strings. Font sizes and families are not tokens:
+the user's Appearance settings own them and apply over every theme.
+
 Only one contributed theme is active at a time. Selecting one persists the choice; if the plugin is
 later disabled or removed, Pimi falls back to the default theme rather than leaving the app
 unpainted.
@@ -1800,6 +1928,7 @@ client.addCommandCenterItem({
 | `title`    | Yes      | Search result title.                                       |
 | `icon`     | Yes      | Lucide name, `{ svg }`, or component. See [Icons](#icons). |
 | `keywords` | No       | Additional Command Center search terms.                    |
+| `shortcut` | No       | A keyboard chord such as `mod+shift+m`. See below.         |
 | `context`  | Yes      | `global`, `workspace`, or `agent`.                         |
 | `onSelect` | Yes      | Client-side callback for the matching context.             |
 
@@ -1816,6 +1945,14 @@ Every callback receives:
 | `workspace`               | Workspace and agent | Synchronous workspace snapshot.                                                                                 |
 | `agent`                   | Agent               | Synchronous matching agent snapshot.                                                                            |
 | `openPanel(id, options?)` | Workspace and agent | Opens a registered panel in the callback's current context. Pass `{ location: "explorer" }` to target Explorer. |
+
+A `shortcut` binds the item to a key chord. Write chords in lowercase, joined with `+`: modifiers
+`mod` (Cmd on macOS, Ctrl elsewhere), `ctrl`, `alt`, `shift`, and `cmd`, then one key. Separate
+steps of a multi-step chord with a space. A chord needs `mod`, `ctrl`, `alt`, or `cmd`, so it does not
+fire while the user types. The binding appears under Settings, Shortcuts, where the user can rebind
+or clear it. A built-in shortcut on the same chord wins, and the row says so. Pressing the chord
+runs the item only when the item's context exists, for example a workspace is open; otherwise the
+key reaches the app. Shortcuts apply on the host the user is looking at.
 
 An agent callback may open either an agent panel or a workspace panel. A workspace callback may open only a workspace panel. Unknown screen and panel IDs fail visibly. Use `pimi` for normal workspace, agent, provider, and daemon-config operations. Use `rpc` for plugin-specific filesystem, credential, vendor, or daemon-local work.
 

@@ -11,7 +11,13 @@
     "allowSyntheticDefaultImports": true,
     "noEmit": true,
     "types": ["node"],
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "paths": {
+      "react-native-svg": ["../app/node_modules/react-native-svg"],
+      "react-native-gesture-handler": ["../app/node_modules/react-native-gesture-handler"],
+      "react-native-reanimated": ["../app/node_modules/react-native-reanimated"],
+      "react-native-safe-area-context": ["../app/node_modules/react-native-safe-area-context"]
+    }
   },
   "include": ["../../plugin-examples/**/*.ts", "../../plugin-examples/**/*.tsx"]
 }
