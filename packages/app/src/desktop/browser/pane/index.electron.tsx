@@ -348,6 +348,7 @@ function buildAnnotationMarkerScript(markers: readonly BrowserAnnotationMarker[]
       var markers = ${payload};
       if (window.__pimiAnnotationMarkers) { window.__pimiAnnotationMarkers.update(markers); return true; }
       var host = document.createElement('div');
+      host.setAttribute('data-pimi-annotation-markers', '');
       host.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;z-index:2147483646;pointer-events:none;';
       (document.body || document.documentElement).appendChild(host);
       var badges = [];

@@ -316,6 +316,19 @@ function buildElementSelectorScript(sessionToken: string): string {
         });
         return out;
       }
+      // Pimi's numbered marker overlay lives in the page body; a selected body or container must
+      // not hand it to the agent as page content.
+      function readPageContent(el) {
+        var overlays = [].slice.call(document.querySelectorAll('[data-pimi-annotation-markers]'));
+        overlays.forEach(function(overlay) { overlay.style.display = 'none'; });
+        var text = (el.innerText || '').substring(0, 500);
+        overlays.forEach(function(overlay) { overlay.style.display = ''; });
+        var clone = el.cloneNode(true);
+        [].slice.call(clone.querySelectorAll('[data-pimi-annotation-markers]')).forEach(function(overlay) {
+          overlay.parentNode.removeChild(overlay);
+        });
+        return { text: text, outerHTML: clone.outerHTML.substring(0, 2000) };
+      }
       function onClick(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -328,13 +341,14 @@ function buildElementSelectorScript(sessionToken: string): string {
           attrs[el.attributes[i].name] = el.attributes[i].value;
         }
         var rect = el.getBoundingClientRect();
+        var content = readPageContent(el);
         var result = {
           tag: el.tagName.toLowerCase(),
-          text: (el.innerText || '').substring(0, 500),
+          text: content.text,
           selector: buildSelector(el),
           attributes: attrs,
           url: location.href,
-          outerHTML: el.outerHTML.substring(0, 2000),
+          outerHTML: content.outerHTML,
           computedStyles: getRelevantStyles(el),
           __pimiSessionToken: sessionToken,
           boundingRect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
