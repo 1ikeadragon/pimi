@@ -2,6 +2,15 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.39 - 2026-11-14
+
+- Android: fixed a crash on startup ("main" has not been registered). The app now registers its root component before copying old storage.
+- Remote SSH: faster connects through one shared SSH connection per host, with keepalive. Direct links are tried before routed ones.
+- Remote SSH: remove the Pimi daemon from a host from its page (Danger zone), keeping or deleting its data, or remove the host from Pimi only.
+- Remote SSH: Claude works on hosts where you sign in as root. A blank folder search lists your home folders, and absolute paths outside home work. New chats open on the last host you used.
+- Modes: Haiku 4.5 no longer offers Auto. Changing mode after changing effort no longer restarts Claude. Preferences are saved only after the daemon accepts them, and a failure shows a toast.
+- Quieter remote link: daemon config is only resent when it changes, identical reads share one request, and automation drafts are pushed instead of polled.
+
 ## 0.17.38 - 2026-11-13
 
 - Cross-host subagents: from one chat an agent can start subagents on this machine and on any host saved in the app (SSH, paired or relay), e.g. "start one here and one on my-vps". Remote children show as cards with a host badge and in the Subagents track, and report back when they finish. SSH hosts go through the app's own SSH link, so password and passphrase sign-in work; the link lives while the desktop app runs.
