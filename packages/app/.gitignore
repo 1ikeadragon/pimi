@@ -5,6 +5,8 @@ node_modules/
 
 # Expo
 .expo/
+# Written by metro.config.cjs
+metro-generated/
 dist/
 web-build/
 expo-env.d.ts

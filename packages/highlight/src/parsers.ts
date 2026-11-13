@@ -44,6 +44,23 @@ import { nixLanguage } from "./nix/language.js";
 import { parser as svelteBaseParser } from "./svelte/parser.js";
 import { configureNesting, defaultNesting } from "./svelte/nesting.js";
 
+/**
+ * Builds a value on first use. Each grammar is an import with a large parse table; a bundler that
+ * evaluates imports where they are used (the app's web bundle) then loads a grammar only when a
+ * file of that language is first highlighted.
+ */
+function lazy<T>(make: () => T): () => T {
+  let value: T | undefined;
+  let made = false;
+  return () => {
+    if (!made) {
+      value = make();
+      made = true;
+    }
+    return value as T;
+  };
+}
+
 function language(parser: Parser): Language {
   return new Language(defineLanguageFacet(), parser);
 }
@@ -53,82 +70,84 @@ function legacy(mode: Parameters<typeof StreamLanguage.define>[0]): Language {
 }
 
 // Shared instances for languages reached through several extensions or file names.
-const diffLanguage = legacy(diff);
-const shellLanguage = legacy(shell);
-const rubyLanguage = legacy(ruby);
-const propertiesLanguage = legacy(properties);
-const dockerLanguage = legacy(dockerFile);
-const cmakeLanguage = legacy(cmake);
+const diffLanguage = lazy(() => legacy(diff));
+const shellLanguage = lazy(() => legacy(shell));
+const rubyLanguage = lazy(() => legacy(ruby));
+const propertiesLanguage = lazy(() => legacy(properties));
+const dockerLanguage = lazy(() => legacy(dockerFile));
+const cmakeLanguage = lazy(() => legacy(cmake));
 
-const languagesByExtension: Record<string, Language> = {
+const languagesByExtension: Record<string, () => Language> = {
   // JavaScript/TypeScript
-  js: language(jsParser),
-  jsx: language(jsParser.configure({ dialect: "jsx" })),
-  ts: language(jsParser.configure({ dialect: "ts" })),
-  tsx: language(jsParser.configure({ dialect: "ts jsx" })),
-  mjs: language(jsParser),
-  cjs: language(jsParser),
-  mts: language(jsParser.configure({ dialect: "ts" })),
-  cts: language(jsParser.configure({ dialect: "ts" })),
+  js: lazy(() => language(jsParser)),
+  jsx: lazy(() => language(jsParser.configure({ dialect: "jsx" }))),
+  ts: lazy(() => language(jsParser.configure({ dialect: "ts" }))),
+  tsx: lazy(() => language(jsParser.configure({ dialect: "ts jsx" }))),
+  mjs: lazy(() => language(jsParser)),
+  cjs: lazy(() => language(jsParser)),
+  mts: lazy(() => language(jsParser.configure({ dialect: "ts" }))),
+  cts: lazy(() => language(jsParser.configure({ dialect: "ts" }))),
   // C / C++ / Objective-C
-  c: language(cppParser),
-  h: language(cppParser),
-  cc: language(cppParser),
-  cpp: language(cppParser),
-  cxx: language(cppParser),
-  hpp: language(cppParser),
-  hxx: language(cppParser),
-  m: language(cppParser),
-  mm: language(cppParser),
+  c: lazy(() => language(cppParser)),
+  h: lazy(() => language(cppParser)),
+  cc: lazy(() => language(cppParser)),
+  cpp: lazy(() => language(cppParser)),
+  cxx: lazy(() => language(cppParser)),
+  hpp: lazy(() => language(cppParser)),
+  hxx: lazy(() => language(cppParser)),
+  m: lazy(() => language(cppParser)),
+  mm: lazy(() => language(cppParser)),
   // JSON
-  json: language(jsonParser),
-  jsonc: language(jsonParser),
-  json5: language(jsonParser),
+  json: lazy(() => language(jsonParser)),
+  jsonc: lazy(() => language(jsonParser)),
+  json5: lazy(() => language(jsonParser)),
   // CSS
-  css: language(cssParser),
-  scss: language(cssParser),
-  less: language(cssParser),
-  sass: legacy(sass),
+  css: lazy(() => language(cssParser)),
+  scss: lazy(() => language(cssParser)),
+  less: lazy(() => language(cssParser)),
+  sass: lazy(() => legacy(sass)),
   // HTML
-  html: language(htmlParser),
-  htm: language(htmlParser),
+  html: lazy(() => language(htmlParser)),
+  htm: lazy(() => language(htmlParser)),
   // Svelte
-  svelte: language(svelteBaseParser.configure({ wrap: configureNesting(defaultNesting) })),
+  svelte: lazy(() =>
+    language(svelteBaseParser.configure({ wrap: configureNesting(defaultNesting) })),
+  ),
   // Astro
-  astro: language(astroParser),
+  astro: lazy(() => language(astroParser)),
   // Vue
-  vue: language(vueParser),
+  vue: lazy(() => language(vueParser)),
   // XML
-  xml: language(xmlParser),
-  svg: language(xmlParser),
-  plist: language(xmlParser),
+  xml: lazy(() => language(xmlParser)),
+  svg: lazy(() => language(xmlParser)),
+  plist: lazy(() => language(xmlParser)),
   // Java
-  java: language(javaParser),
+  java: lazy(() => language(javaParser)),
   // Python
-  py: language(pythonParser),
+  py: lazy(() => language(pythonParser)),
   // Go
-  go: language(goParser),
+  go: lazy(() => language(goParser)),
   // PHP
-  php: language(phpParser),
+  php: lazy(() => language(phpParser)),
   // YAML
-  yaml: language(yamlParser),
-  yml: language(yamlParser),
+  yaml: lazy(() => language(yamlParser)),
+  yml: lazy(() => language(yamlParser)),
   // Rust
-  rs: language(rustParser),
+  rs: lazy(() => language(rustParser)),
   // Swift
-  swift: StreamLanguage.define(swift),
+  swift: lazy(() => StreamLanguage.define(swift)),
   // Dart
-  dart: StreamLanguage.define(dart),
+  dart: lazy(() => StreamLanguage.define(dart)),
   // C#
-  cs: csharpLanguage,
+  cs: lazy(() => csharpLanguage),
   // Nix
-  nix: nixLanguage,
+  nix: lazy(() => nixLanguage),
   // Elixir
-  ex: language(elixirParser),
-  exs: language(elixirParser),
+  ex: lazy(() => language(elixirParser)),
+  exs: lazy(() => language(elixirParser)),
   // Markdown
-  md: language(markdownParser),
-  mdx: language(markdownParser),
+  md: lazy(() => language(markdownParser)),
+  mdx: lazy(() => language(markdownParser)),
   // Diffs and patches
   diff: diffLanguage,
   patch: diffLanguage,
@@ -139,49 +158,49 @@ const languagesByExtension: Record<string, Language> = {
   fish: shellLanguage,
   ksh: shellLanguage,
   // JVM
-  kt: legacy(kotlin),
-  kts: legacy(kotlin),
-  scala: legacy(scala),
-  sc: legacy(scala),
-  groovy: legacy(groovy),
-  gradle: legacy(groovy),
-  clj: legacy(clojure),
-  cljs: legacy(clojure),
-  edn: legacy(clojure),
+  kt: lazy(() => legacy(kotlin)),
+  kts: lazy(() => legacy(kotlin)),
+  scala: lazy(() => legacy(scala)),
+  sc: lazy(() => legacy(scala)),
+  groovy: lazy(() => legacy(groovy)),
+  gradle: lazy(() => legacy(groovy)),
+  clj: lazy(() => legacy(clojure)),
+  cljs: lazy(() => legacy(clojure)),
+  edn: lazy(() => legacy(clojure)),
   // Scripting
   rb: rubyLanguage,
   rake: rubyLanguage,
   gemspec: rubyLanguage,
-  lua: legacy(lua),
-  pl: legacy(perl),
-  pm: legacy(perl),
-  ps1: legacy(powerShell),
-  psm1: legacy(powerShell),
-  r: legacy(r),
-  jl: legacy(julia),
+  lua: lazy(() => legacy(lua)),
+  pl: lazy(() => legacy(perl)),
+  pm: lazy(() => legacy(perl)),
+  ps1: lazy(() => legacy(powerShell)),
+  psm1: lazy(() => legacy(powerShell)),
+  r: lazy(() => legacy(r)),
+  jl: lazy(() => legacy(julia)),
   // Functional
-  hs: legacy(haskell),
-  ml: legacy(oCaml),
-  mli: legacy(oCaml),
-  fs: legacy(fSharp),
-  fsx: legacy(fSharp),
-  erl: legacy(erlang),
-  hrl: legacy(erlang),
+  hs: lazy(() => legacy(haskell)),
+  ml: lazy(() => legacy(oCaml)),
+  mli: lazy(() => legacy(oCaml)),
+  fs: lazy(() => legacy(fSharp)),
+  fsx: lazy(() => legacy(fSharp)),
+  erl: lazy(() => legacy(erlang)),
+  hrl: lazy(() => legacy(erlang)),
   // Data, config and schemas
-  sql: legacy(sql({})),
-  toml: legacy(toml),
+  sql: lazy(() => legacy(sql({}))),
+  toml: lazy(() => legacy(toml)),
   ini: propertiesLanguage,
   cfg: propertiesLanguage,
   conf: propertiesLanguage,
   properties: propertiesLanguage,
   env: propertiesLanguage,
-  proto: legacy(protobuf),
+  proto: lazy(() => legacy(protobuf)),
   cmake: cmakeLanguage,
   dockerfile: dockerLanguage,
 };
 
 // Files recognized by their whole name, which have no extension or a misleading one.
-const languagesByFilename: Record<string, Language> = {
+const languagesByFilename: Record<string, () => Language> = {
   dockerfile: dockerLanguage,
   containerfile: dockerLanguage,
   "cmakelists.txt": cmakeLanguage,
@@ -195,18 +214,18 @@ const languagesByFilename: Record<string, Language> = {
   ".env": propertiesLanguage,
   ".gitconfig": propertiesLanguage,
   ".editorconfig": propertiesLanguage,
-  "nginx.conf": legacy(nginx),
+  "nginx.conf": lazy(() => legacy(nginx)),
 };
 
 export function getLanguageForFile(filename: string): Language | null {
   const name = filename.split(/[\\/]/).pop()?.toLowerCase() ?? "";
   const byName =
     languagesByFilename[name] ?? (name.startsWith(".env.") ? propertiesLanguage : null);
-  if (byName) return byName;
-  if (name.startsWith("dockerfile.")) return dockerLanguage;
+  if (byName) return byName();
+  if (name.startsWith("dockerfile.")) return dockerLanguage();
   const ext = name.includes(".") ? name.split(".").pop() : undefined;
   if (!ext) return null;
-  return languagesByExtension[ext] ?? null;
+  return languagesByExtension[ext]?.() ?? null;
 }
 
 export function getParserForFile(filename: string): Parser | null {

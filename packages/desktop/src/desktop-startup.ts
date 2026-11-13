@@ -1,8 +1,10 @@
 export interface DesktopStartupDependencies {
   hasPendingGuiLaunchRequest: boolean;
   runCliPassthroughIfRequested: () => Promise<boolean>;
-  inheritLoginShellEnv: () => void;
-  bootstrapGui: () => Promise<void>;
+  /** Starts resolving the login-shell environment. The promise never rejects. */
+  inheritLoginShellEnv: () => Promise<void>;
+  /** Receives the environment promise; it must await it before anything that spawns a child. */
+  bootstrapGui: (loginShellEnvReady: Promise<void>) => Promise<void>;
 }
 
 export async function runDesktopStartup(deps: DesktopStartupDependencies): Promise<void> {
@@ -10,6 +12,5 @@ export async function runDesktopStartup(deps: DesktopStartupDependencies): Promi
     return;
   }
 
-  deps.inheritLoginShellEnv();
-  await deps.bootstrapGui();
+  await deps.bootstrapGui(deps.inheritLoginShellEnv());
 }
