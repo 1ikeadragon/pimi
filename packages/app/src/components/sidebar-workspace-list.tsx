@@ -142,7 +142,7 @@ import {
 } from "@/utils/sidebar-project-row-model";
 import { redirectIfArchivingActiveWorkspace } from "@/utils/sidebar-workspace-archive-redirect";
 import { openExternalUrl } from "@/utils/open-external-url";
-import { useWorkspaceArchive } from "@/workspace/use-workspace-archive";
+import { useArchiveChat } from "@/components/sidebar/use-archive-chat";
 import { removeProjectFromHosts } from "@/projects/project-remove";
 import {
   isWeb as platformIsWeb,
@@ -1275,7 +1275,7 @@ function WorkspaceRowWithMenu({
     });
   }, [selected, workspace]);
 
-  const archiveController = useWorkspaceArchive({
+  const archiveController = useArchiveChat({
     serverId: workspace.serverId,
     workspaceId: workspace.workspaceId,
     workspaceKind: workspace.workspaceKind,

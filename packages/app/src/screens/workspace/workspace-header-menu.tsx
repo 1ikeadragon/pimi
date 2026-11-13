@@ -3,7 +3,7 @@ import React, { useCallback, useMemo } from "react";
 import { View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useTranslation } from "@/i18n/use-translation";
-import { Copy, Ellipsis, Globe, Import as ImportIcon, Settings } from "lucide-react-native";
+import { Copy, Ellipsis, Globe, Import as ImportIcon, Pencil, Settings } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { TerminalProfile } from "@pimi/protocol/messages";
 import {
@@ -36,12 +36,14 @@ const ThemedCopy = withUnistyles(Copy);
 const ThemedGlobe = withUnistyles(Globe);
 const ThemedImport = withUnistyles(ImportIcon);
 const ThemedSettings = withUnistyles(Settings);
+const ThemedPencil = withUnistyles(Pencil);
 
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 const MENU_NEW_BROWSER_ICON = <ThemedGlobe size={16} uniProps={mutedColorMapping} />;
 const MENU_IMPORT_ICON = <ThemedImport size={16} uniProps={mutedColorMapping} />;
 const MENU_COPY_ICON = <ThemedCopy size={16} uniProps={mutedColorMapping} />;
+const MENU_RENAME_ICON = <ThemedPencil size={16} uniProps={mutedColorMapping} />;
 const MENU_SETTINGS_ICON = <ThemedSettings size={16} uniProps={mutedColorMapping} />;
 function WorkspaceHeaderMenuTriggerIcon() {
   return (
@@ -82,6 +84,7 @@ export interface WorkspaceHeaderWorkspaceActions {
   onCopyWorkspacePath: () => void;
   onCopyBranchName: () => void;
   onOpenSetupTab: () => void;
+  onRenameChat: () => void;
 }
 
 function WorkspaceHeaderWorkspaceActionItems({
@@ -93,10 +96,18 @@ function WorkspaceHeaderWorkspaceActionItems({
   onCopyWorkspacePath,
   onCopyBranchName,
   onOpenSetupTab,
+  onRenameChat,
 }: WorkspaceHeaderWorkspaceActions) {
   const { t } = useTranslation();
   return (
     <>
+      <DropdownMenuItem
+        testID="workspace-header-rename-chat"
+        leading={MENU_RENAME_ICON}
+        onSelect={onRenameChat}
+      >
+        {t("workspace.header.actions.renameChat")}
+      </DropdownMenuItem>
       <DropdownMenuItem
         testID="workspace-header-copy-path"
         leading={MENU_COPY_ICON}

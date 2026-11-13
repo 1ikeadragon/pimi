@@ -51,8 +51,8 @@ const pimiSteps = {
     description: "Use your existing credentials to work with pull requests and merge requests.",
   },
   firstChat: {
-    label: "First workspace",
-    title: "Open your first workspace",
+    label: "First chat",
+    title: "Open your first chat",
     description: "Choose a project or add a folder, then start a chat with an agent.",
   },
 } satisfies Partial<
@@ -295,7 +295,7 @@ function usePrimaryAction(input: {
   const { checkedCount, isAdding } = projectSuggestions;
   if (step === "welcome") return { label: "Get started", busy: false, onPress: onAdvance };
   if (step === "firstChat") {
-    return { label: pimi ? "New workspace" : "Start a chat", busy: false, onPress: onStartChat };
+    return { label: pimi ? "New chat" : "Start a chat", busy: false, onPress: onStartChat };
   }
   const advanceLabel = isLast ? t("onboarding.setup.finish") : t("onboarding.setup.continue");
   // Rows leave the list as they are added, so the count can reach zero while adding.

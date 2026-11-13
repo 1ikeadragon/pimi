@@ -60,8 +60,8 @@ export const hostWorkspacesSettings = defineSettingsPage(
   () => [
     {
       id: "workspaces.autoArchive",
-      title: "Archive merged PR workspaces",
-      keywords: ["pull request", "merge", "cleanup", "worktree", "automatic"],
+      title: "Archive chats after their PR merges",
+      keywords: ["chat", "pull request", "merge", "cleanup", "worktree", "automatic"],
     },
   ],
 );

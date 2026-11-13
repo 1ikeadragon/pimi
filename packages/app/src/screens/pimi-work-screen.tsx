@@ -12,6 +12,7 @@ import { closePimiWork } from "@/navigation/pimi-work";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { useWorkspaceFields } from "@/stores/session-store-hooks";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
+import { resolveChatTitle, useWorkspacePrimaryChat } from "@/chats/primary-chat";
 import { useHostRuntimeConnectionStatus } from "@/runtime/host-runtime";
 import type { SidebarWorkspacePlacement } from "@/hooks/sidebar-workspaces-view-model";
 
@@ -50,7 +51,7 @@ export function PimiWorkScreen() {
         inPimiTitlebar
         rightContent={
           <>
-            <ToolbarButton label="Refresh workspaces" onPress={refreshAll}>
+            <ToolbarButton label="Refresh chats" onPress={refreshAll}>
               <DensityIcon icon={RefreshCw} size="sm" color="foregroundMuted" />
             </ToolbarButton>
             {close}
@@ -63,7 +64,7 @@ export function PimiWorkScreen() {
         ))}
         {workspacePlacements.length === 0 ? (
           <Text style={styles.empty}>
-            {isInitialLoad ? "Loading workspaces…" : "No workspaces on connected hosts."}
+            {isInitialLoad ? "Loading chats…" : "No chats on connected hosts."}
           </Text>
         ) : null}
       </ScrollView>
@@ -79,7 +80,12 @@ function WorkspaceCard({ placement }: { placement: SidebarWorkspacePlacement }) 
   );
   const connection = useHostRuntimeConnectionStatus(placement.serverId);
   const branch = summary?.currentBranch?.trim();
-  const name = summary?.name ?? "Workspace";
+  const primaryChat = useWorkspacePrimaryChat(placement.serverId, placement.workspaceId);
+  const name = resolveChatTitle({
+    primaryTitle: primaryChat?.title,
+    workspaceTitle: summary?.name,
+    fallback: "New chat",
+  });
   const workspaceKind = summary?.workspaceKind ?? placement.workspaceKind;
   const status = summary?.status.replaceAll("_", " ") ?? "Status unavailable";
   const diff = summary?.diffStat;
@@ -122,7 +128,7 @@ function WorkspaceCard({ placement }: { placement: SidebarWorkspacePlacement }) 
       </Text>
       <View style={styles.actions}>
         <Button size="sm" variant="secondary" onPress={openWorkspace}>
-          Open workspace
+          Open chat
         </Button>
         <Button size="sm" variant="outline" onPress={reviewChanges}>
           Review changes

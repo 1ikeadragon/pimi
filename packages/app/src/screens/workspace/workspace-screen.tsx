@@ -157,6 +157,8 @@ import {
 } from "@/desktop/browser/open-url";
 import { clearVisibleWorkspaceKey, setVisibleWorkspaceKey } from "./visible-workspace";
 import { getDesktopHost } from "@/desktop/host";
+import { useWorkspacePrimaryChat } from "@/chats/primary-chat";
+import { WorkspaceRenameModal } from "@/components/workspace-rename-modal";
 import { usePimiWorkspaceReview } from "@/desktop/use-pimi-workspace-review";
 import { buildProviderCommand } from "@/utils/provider-command-templates";
 import { generateDraftId } from "@/stores/draft-keys";
@@ -357,6 +359,46 @@ function useSyncWorkspaceActiveBrowser(input: {
   }, [focusedBrowserId, input.workspaceId]);
 }
 
+function chatDocumentTitle(title: string): string {
+  return title || "Chat";
+}
+
+function WorkspaceChatRenameDialog({
+  serverId,
+  workspace,
+  visible,
+  isRouteFocused,
+  onClose,
+}: {
+  serverId: string;
+  workspace: WorkspaceDescriptor | null | undefined;
+  visible: boolean;
+  isRouteFocused: boolean;
+  onClose: () => void;
+}) {
+  const renamable = useMemo(
+    () =>
+      workspace
+        ? {
+            serverId,
+            workspaceId: workspace.id,
+            name: workspace.name,
+            title: workspace.title ?? null,
+          }
+        : null,
+    [serverId, workspace],
+  );
+  if (!renamable) return null;
+  return (
+    <WorkspaceRenameModal
+      visible={visible && isRouteFocused}
+      workspace={renamable}
+      onClose={onClose}
+      testID="workspace-header-rename-modal"
+    />
+  );
+}
+
 function WorkspaceDocumentTitleEffect({
   label,
   titleState,
@@ -527,6 +569,7 @@ interface WorkspaceHeaderTitleBarProps {
   onCopyWorkspacePath: () => void;
   onCopyBranchName: () => void;
   onOpenSetupTab: () => void;
+  onRenameChat: () => void;
 }
 
 function WorkspaceHeaderTitleBarBase({
@@ -543,9 +586,9 @@ function WorkspaceHeaderTitleBarBase({
   onCopyWorkspacePath,
   onCopyBranchName,
   onOpenSetupTab,
+  onRenameChat,
 }: WorkspaceHeaderTitleBarProps) {
   const actionsInBar = resolveWorkspaceActionPlacement(useWindowLayout()) === "vertical-bar";
-  const pimi = Boolean(getDesktopHost()?.showPimiWorkspace);
   return (
     <View style={styles.headerTitleContainer}>
       {isLoading ? (
@@ -554,12 +597,11 @@ function WorkspaceHeaderTitleBarBase({
         </View>
       ) : (
         <View style={styles.headerTitleTextGroup}>
-          <ScreenTitle testID="workspace-header-title">
-            {pimi && isSubtitleDistinct ? subtitle : title}
-          </ScreenTitle>
+          <ScreenTitle testID="workspace-header-title">{title}</ScreenTitle>
           <WorkspaceHeaderProjectRow
-            subtitle={pimi && isSubtitleDistinct ? title : subtitle}
+            subtitle={subtitle}
             isSubtitleDistinct={isSubtitleDistinct}
+            branch={currentBranchName}
             serverId={normalizedServerId}
           />
         </View>
@@ -575,6 +617,7 @@ function WorkspaceHeaderTitleBarBase({
             onCopyWorkspacePath={onCopyWorkspacePath}
             onCopyBranchName={onCopyBranchName}
             onOpenSetupTab={onOpenSetupTab}
+            onRenameChat={onRenameChat}
           />
         </View>
       )}
@@ -722,8 +765,13 @@ function buildWorkspaceHeaderCheckoutState(input: {
 function deriveWorkspaceHeaderFields(input: {
   workspace: WorkspaceDescriptor | null;
   checkoutState: WorkspaceHeaderCheckoutState;
+  primaryChat: { title: string | null } | null;
 }): WorkspaceHeaderFields {
-  const renderState = resolveWorkspaceHeaderRenderState(input);
+  const renderState = resolveWorkspaceHeaderRenderState({
+    workspace: input.workspace,
+    checkoutState: input.checkoutState,
+    primaryChatTitle: input.primaryChat?.title ?? null,
+  });
   if (renderState.kind !== "ready") {
     return {
       isWorkspaceHeaderLoading: true,
@@ -1342,6 +1390,7 @@ function WorkspaceScreenContent({
     hasHydratedWorkspaces,
     recovery: workspaceRecovery.state,
   });
+  const primaryChat = useWorkspacePrimaryChat(normalizedServerId, normalizedWorkspaceId);
   const workspaceHeaderCheckoutState = buildWorkspaceHeaderCheckoutState({
     isCheckoutStatusLoading,
     isError: checkoutQuery.isError,
@@ -1357,6 +1406,7 @@ function WorkspaceScreenContent({
   } = deriveWorkspaceHeaderFields({
     workspace: workspaceDescriptor,
     checkoutState: workspaceHeaderCheckoutState,
+    primaryChat,
   });
   const showMobileAgent = usePanelStore((state) => state.showMobileAgent);
 
@@ -2358,6 +2408,9 @@ function WorkspaceScreenContent({
     }
   }, [currentBranchName, toast, t]);
 
+  const [isRenameChatOpen, setIsRenameChatOpen] = useState(false);
+  const handleOpenRenameChat = useCallback(() => setIsRenameChatOpen(true), []);
+  const handleCloseRenameChat = useCallback(() => setIsRenameChatOpen(false), []);
   const handleOpenSetupTab = useCallback(() => {
     if (!persistenceKey) {
       return;
@@ -3076,8 +3129,8 @@ function WorkspaceScreenContent({
     if (!isRouteFocused || isNative || typeof document === "undefined" || activeTabDescriptor) {
       return;
     }
-    document.title = "Workspace";
-  }, [activeTabDescriptor, isRouteFocused]);
+    document.title = chatDocumentTitle(workspaceHeaderTitle);
+  }, [activeTabDescriptor, isRouteFocused, workspaceHeaderTitle]);
   const buildPaneContentModel = useCallback(
     (input: {
       tab: WorkspaceTabDescriptor;
@@ -3493,6 +3546,7 @@ function WorkspaceScreenContent({
         onCopyWorkspacePath={handleCopyWorkspacePath}
         onCopyBranchName={handleCopyBranchName}
         onOpenSetupTab={handleOpenSetupTab}
+        onRenameChat={handleOpenRenameChat}
       />
     ),
     [
@@ -3501,6 +3555,7 @@ function WorkspaceScreenContent({
       handleCopyBranchName,
       handleCopyWorkspacePath,
       handleOpenSetupTab,
+      handleOpenRenameChat,
       isWorkspaceHeaderLoading,
       normalizedServerId,
       openImportSheet,
@@ -3612,6 +3667,7 @@ function WorkspaceScreenContent({
           title={editorTitle ?? workspaceHeaderTitle}
           subtitle={editorTitle ? "" : workspaceHeaderSubtitle}
           isSubtitleDistinct={!editorTitle && isWorkspaceHeaderSubtitleDistinct}
+          currentBranchName={currentBranchName}
           serverId={normalizedServerId}
           onToggleExplorer={handleToggleExplorerSidebar}
           explorerToggleLabel={explorerSidebarToggleLabel}
@@ -3635,6 +3691,7 @@ function WorkspaceScreenContent({
             onCopyWorkspacePath={handleCopyWorkspacePath}
             onCopyBranchName={handleCopyBranchName}
             onOpenSetupTab={handleOpenSetupTab}
+            onRenameChat={handleOpenRenameChat}
           />
         </CompactWorkspaceHeader>
       );
@@ -3654,6 +3711,7 @@ function WorkspaceScreenContent({
       handleCopyWorkspacePath,
       handleCreateBrowserTab,
       handleCreateTerminalWithProfile,
+      handleOpenRenameChat,
       handleOpenSetupTab,
       handleToggleExplorerSidebar,
       isMobile,
@@ -4032,6 +4090,13 @@ function WorkspaceScreenContent({
           onClose={closeImportSheet}
           onImportedAgent={handleImportedAgent}
           onImported={navigateToImportedAgent}
+        />
+        <WorkspaceChatRenameDialog
+          serverId={normalizedServerId}
+          workspace={workspaceDescriptor}
+          visible={isRenameChatOpen}
+          isRouteFocused={isRouteFocused}
+          onClose={handleCloseRenameChat}
         />
         <WorkspaceTabRenameModal
           renamingTab={isRouteFocused ? renamingTab : null}

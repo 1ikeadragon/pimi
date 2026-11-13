@@ -1,3 +1,4 @@
+import { resolveChatTitle } from "@/chats/primary-chat";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 
 export type WorkspaceHeaderCheckoutState =
@@ -41,12 +42,20 @@ function areHeaderLabelsEquivalent(
   return normalizedA === normalizedB;
 }
 
-export function resolveWorkspaceHeader(input: { workspace: WorkspaceDescriptor }): {
+export function resolveWorkspaceHeader(input: {
+  workspace: WorkspaceDescriptor;
+  /** The primary chat's own title, the same string its tab and sidebar row show. */
+  primaryChatTitle: string | null;
+}): {
   title: string;
   subtitle: string;
 } {
   return {
-    title: input.workspace.name,
+    title: resolveChatTitle({
+      primaryTitle: input.primaryChatTitle,
+      workspaceTitle: input.workspace.name,
+      fallback: "New chat",
+    }),
     subtitle: input.workspace.projectDisplayName,
   };
 }
@@ -54,12 +63,16 @@ export function resolveWorkspaceHeader(input: { workspace: WorkspaceDescriptor }
 export function resolveWorkspaceHeaderRenderState(input: {
   workspace: WorkspaceDescriptor | null;
   checkoutState: WorkspaceHeaderCheckoutState;
+  primaryChatTitle: string | null;
 }): WorkspaceHeaderRenderState {
   if (!input.workspace) {
     return { kind: "skeleton" };
   }
 
-  const header = resolveWorkspaceHeader({ workspace: input.workspace });
+  const header = resolveWorkspaceHeader({
+    workspace: input.workspace,
+    primaryChatTitle: input.primaryChatTitle,
+  });
   const checkout = input.checkoutState.kind === "ready" ? input.checkoutState.checkout : null;
   const currentBranchName =
     checkout?.isGit && checkout.currentBranch !== "HEAD"

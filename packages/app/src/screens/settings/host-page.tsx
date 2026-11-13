@@ -1006,7 +1006,7 @@ function AutoArchiveMergedWorkspacesCard({ serverId }: { serverId: string }) {
       void patchConfig({ autoArchiveAfterMerge: next }).catch((error) => {
         console.error("[HostPage] Failed to update auto-archive after merge", error);
         Alert.alert(
-          "Unable to update workspaces",
+          "Unable to update chats",
           error instanceof Error ? error.message : String(error),
         );
       });
@@ -1020,15 +1020,15 @@ function AutoArchiveMergedWorkspacesCard({ serverId }: { serverId: string }) {
     <View style={settingsStyles.card} testID="host-page-auto-archive-merged-workspaces-card">
       <SettingAnchor id="workspaces.autoArchive" style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Archive merged PR workspaces</Text>
+          <Text style={settingsStyles.rowTitle}>Archive chats after their PR merges</Text>
           <Text style={settingsStyles.rowHint}>
-            Automatically archive clean Pimi workspaces after their pull request is merged
+            Automatically archive clean Pimi chats after their pull request is merged
           </Text>
         </View>
         <Switch
           value={config?.autoArchiveAfterMerge === true}
           onValueChange={handleValueChange}
-          accessibilityLabel="Archive merged PR workspaces"
+          accessibilityLabel="Archive chats after their PR merges"
           testID="host-page-auto-archive-merged-workspaces-switch"
         />
       </SettingAnchor>
