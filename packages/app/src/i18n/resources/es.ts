@@ -584,6 +584,13 @@ export const es: TranslationResources = {
     working: {
       stopping: "Deteniendo",
       waitingApproval: "Esperando tu aprobación",
+      steps: {
+        one: "{{count}} paso",
+        other: "{{count}} pasos",
+      },
+      failed: "{{count}} con error",
+      showSteps: "Mostrar pasos",
+      hideSteps: "Ocultar pasos",
       starting: "Iniciando {{provider}}…",
       sending: "Enviando",
       thinking: "Pensando",

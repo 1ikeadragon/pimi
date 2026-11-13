@@ -576,6 +576,13 @@ export const en = {
     working: {
       stopping: "Stopping",
       waitingApproval: "Waiting for your approval",
+      steps: {
+        one: "{{count}} step",
+        other: "{{count}} steps",
+      },
+      failed: "{{count}} failed",
+      showSteps: "Show steps",
+      hideSteps: "Hide steps",
       starting: "Starting {{provider}}…",
       sending: "Sending",
       thinking: "Thinking",

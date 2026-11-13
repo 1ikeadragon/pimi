@@ -202,11 +202,13 @@ export function createStreamPresentation() {
       projection.groupsByHostId,
     );
     const retainedGroupHosts = historyGroupHosts;
+    // Calls the status line owns have no row to replace or anchor to.
+    const withheldIds = new Set(projection.liveRun?.calls.map((call) => call.id));
     return {
       ...result,
       readingRowReplacements: {
         get(id) {
-          if (result.turns.nestedItemIds.has(id)) return undefined;
+          if (withheldIds.has(id) || result.turns.nestedItemIds.has(id)) return undefined;
           const groupHost = liveGroupHosts.get(id) ?? retainedGroupHosts.get(id) ?? id;
           return (
             result.turns.hostIdByHiddenRowId.get(id) ??

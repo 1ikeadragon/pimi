@@ -580,6 +580,13 @@ export const ar: TranslationResources = {
     working: {
       stopping: "جارٍ الإيقاف",
       waitingApproval: "في انتظار موافقتك",
+      steps: {
+        one: "{{count}} خطوة",
+        other: "{{count}} خطوات",
+      },
+      failed: "فشل {{count}}",
+      showSteps: "إظهار الخطوات",
+      hideSteps: "إخفاء الخطوات",
       starting: "جارٍ تشغيل {{provider}}…",
       sending: "جارٍ الإرسال",
       thinking: "يفكر",
