@@ -1,4 +1,5 @@
-import { basename } from "node:path";
+import { readFile, stat } from "node:fs/promises";
+import { basename, dirname } from "node:path";
 import type {
   UsageAgentTreeChat,
   UsageAgentTreeSubagent,
@@ -32,11 +33,13 @@ interface Bucket {
   pricedTokens: number;
   costUsd: number | null;
   events: number;
+  firstTs: number;
   lastTs: number;
 }
 
 interface OwnerInfo {
   agentId: string;
+  cwd: string;
   title: string | null;
   parentAgentId: string | null;
 }
@@ -150,21 +153,23 @@ export class UsageReader {
     return out;
   }
 
-  breakdown(
+  async breakdown(
     query: UsageQuery,
     groupBy: UsageGroupBy,
-  ): { totals: UsageAggregate; activeDays: number; rows: UsageBreakdownRow[] } {
+  ): Promise<{ totals: UsageAggregate; activeDays: number; rows: UsageBreakdownRow[] }> {
     const bucketKind = groupBy === "day" || groupBy === "hour" ? groupBy : "none";
     const rows = this.buckets(query, bucketKind);
     const owners = this.loadOwners();
-    const projects = groupBy === "project" ? this.loadProjects() : null;
+    // A project's tokens are attributed per chat, by the same directory the chat list shows.
+    const chatCwds = groupBy === "project" ? chatCwdsOf(rows, owners) : null;
+    const projects = chatCwds ? await this.loadProjects(chatCwds.values()) : null;
 
     const totals = emptyAccumulator();
     const groups = new Map<string, { label: string; acc: Accumulator }>();
     for (const bucket of rows) {
       const chatKey = chatKeyOf(bucket);
       add(totals, bucket, chatKey);
-      const group = groupOf(bucket, groupBy, owners, projects);
+      const group = groupOf(bucket, groupBy, owners, projects, chatCwds);
       if (group === null) continue;
       let entry = groups.get(group.key);
       if (!entry) {
@@ -189,13 +194,16 @@ export class UsageReader {
     return { totals: finish(totals), activeDays, rows: result };
   }
 
-  agentTree(query: UsageQuery): UsageAgentTreeChat[] {
+  async agentTree(query: UsageQuery): Promise<UsageAgentTreeChat[]> {
     const chats = collectChats(this.buckets(query, "none"));
     const owners = this.loadOwners();
-    const projects = this.loadProjects();
+    const chatCwds = new Map<string, string | null>();
+    for (const [key, chat] of chats) chatCwds.set(key, chatCwd(chat, owners.get(key) ?? null));
+    const projects = await this.loadProjects(chatCwds.values());
     const built = new Map<string, UsageAgentTreeChat>();
     for (const [key, chat] of chats) {
       const owner = owners.get(key) ?? null;
+      const cwd = chatCwds.get(key) ?? null;
       const subagents: UsageAgentTreeSubagent[] = [...chat.children.entries()].map(
         ([id, child]) => ({
           id,
@@ -210,8 +218,8 @@ export class UsageReader {
         provider: chat.provider,
         agentId: owner?.agentId ?? null,
         title: owner?.title ?? null,
-        cwd: chat.cwd,
-        project: projects.resolve(chat.cwd)?.label ?? null,
+        cwd,
+        project: projects.resolve(cwd)?.label ?? null,
         outsidePimi: owner === null,
         lastActiveAt: chat.lastTs,
         usage: finish(chat.own),
@@ -237,14 +245,14 @@ export class UsageReader {
     if (query.provider !== null) params.push(query.provider);
     const rows = this.database.db
       .prepare(
-        `SELECT provider, model, session_id, subagent_id, parent_session_id, MAX(cwd) AS cwd,
+        `SELECT provider, model, session_id, subagent_id, parent_session_id, cwd,
            ${bucketExpression} AS bucket,
            SUM(input) AS input, SUM(cache_read) AS cache_read, SUM(cache_write) AS cache_write,
            SUM(output) AS output, SUM(reasoning) AS reasoning, SUM(total) AS total,
            SUM(CASE WHEN cost_usd IS NOT NULL THEN total ELSE 0 END) AS priced,
-           SUM(cost_usd) AS cost, COUNT(*) AS events, MAX(ts) AS last_ts
+           SUM(cost_usd) AS cost, COUNT(*) AS events, MIN(ts) AS first_ts, MAX(ts) AS last_ts
          FROM usage_events WHERE ts >= ? ${providerClause}
-         GROUP BY provider, model, session_id, subagent_id, parent_session_id, bucket`,
+         GROUP BY provider, model, session_id, subagent_id, parent_session_id, cwd, bucket`,
       )
       .all(...params);
     return rows.map((row) => ({
@@ -264,6 +272,7 @@ export class UsageReader {
       pricedTokens: Number(row.priced),
       costUsd: row.cost === null ? null : Number(row.cost),
       events: Number(row.events),
+      firstTs: Number(row.first_ts),
       lastTs: Number(row.last_ts),
     }));
   }
@@ -304,7 +313,7 @@ export class UsageReader {
     const owners = new Map<string, OwnerInfo>();
     const rows = this.database.db
       .prepare(
-        `SELECT id, persistence_provider, provider_session_id,
+        `SELECT id, cwd, persistence_provider, provider_session_id,
            json_extract(json, '$.title') AS title,
            json_extract(json, '$.labels."${PARENT_AGENT_ID_LABEL}"') AS parent
          FROM agents WHERE provider_session_id IS NOT NULL AND persistence_provider IS NOT NULL`,
@@ -313,6 +322,7 @@ export class UsageReader {
     for (const row of rows) {
       owners.set(`${String(row.persistence_provider)}:${String(row.provider_session_id)}`, {
         agentId: String(row.id),
+        cwd: String(row.cwd),
         title: typeof row.title === "string" && row.title.trim() ? row.title : null,
         parentAgentId: typeof row.parent === "string" && row.parent ? row.parent : null,
       });
@@ -320,7 +330,7 @@ export class UsageReader {
     return owners;
   }
 
-  private loadProjects(): ProjectLookup {
+  private async loadProjects(cwds: Iterable<string | null>): Promise<ProjectLookup> {
     const projects = new Map<string, string>();
     const roots: { path: string; projectId: string }[] = [];
     const rows = this.database.db
@@ -347,14 +357,30 @@ export class UsageReader {
       }
     }
     roots.sort((a, b) => b.path.length - a.path.length);
+    const rootPaths = new Set(roots.map((root) => root.path));
+    const repoRoots = await findRepoRoots(cwds);
+    const byRoot = (cwd: string) => {
+      for (const root of roots) {
+        if (cwd === root.path || cwd.startsWith(`${root.path}/`)) return root;
+      }
+      return null;
+    };
     return {
       resolve(cwd) {
         if (!cwd) return null;
-        for (const root of roots) {
-          if (cwd === root.path || cwd.startsWith(`${root.path}/`)) {
-            const label = projects.get(root.projectId);
-            if (label) return { key: root.projectId, label };
-          }
+        const match = byRoot(cwd);
+        // A folder project (for example ~) claims everything beneath it. Prefer the git repository
+        // the directory actually sits in, so ~/Research/Pimi/packages/app counts as Pimi.
+        const repo = repoRoots.get(cwd) ?? null;
+        if (repo !== null && (match === null || repo.length > match.path.length)) {
+          const registered = rootPaths.has(repo) ? byRoot(repo) : null;
+          const label = registered ? projects.get(registered.projectId) : undefined;
+          if (registered && label) return { key: registered.projectId, label };
+          return { key: `dir:${repo}`, label: basename(repo) || repo };
+        }
+        if (match) {
+          const label = projects.get(match.projectId);
+          if (label) return { key: match.projectId, label };
         }
         return { key: `dir:${cwd}`, label: basename(cwd) || cwd };
       },
@@ -362,12 +388,70 @@ export class UsageReader {
   }
 }
 
+// The git repository each directory sits in, found by walking up to a `.git`. A linked worktree's
+// `.git` is a file pointing into the main repository, so it resolves to the main checkout. Ancestor
+// lookups are shared between directories, so each directory is stat-ed once.
+async function findRepoRoots(cwds: Iterable<string | null>): Promise<Map<string, string | null>> {
+  const byDir = new Map<string, string | null>();
+  const find = async (dir: string): Promise<string | null> => {
+    const known = byDir.get(dir);
+    if (known !== undefined) return known;
+    let found: string | null = null;
+    const gitPath = `${dir}/.git`;
+    const info = await stat(gitPath).catch(() => null);
+    if (info) {
+      found = dir;
+      if (info.isFile()) {
+        const text = await readFile(gitPath, "utf8").catch(() => "");
+        const gitDir = /^gitdir:\s*(.+)$/m.exec(text)?.[1]?.trim();
+        const at = gitDir?.indexOf("/.git/worktrees/") ?? -1;
+        if (gitDir && at > 0) found = gitDir.slice(0, at);
+      }
+    } else {
+      const parent = dirname(dir);
+      found = parent === dir ? null : await find(parent);
+    }
+    byDir.set(dir, found);
+    return found;
+  };
+  for (const cwd of new Set(cwds)) if (cwd) await find(cwd);
+  return byDir;
+}
+
 interface ChatBuild {
   provider: string;
-  cwd: string | null;
+  cwdTokens: CwdTokens;
   lastTs: number;
   own: Accumulator;
   children: Map<string, Accumulator>;
+}
+
+interface CwdTally {
+  total: number;
+  firstTs: number;
+}
+
+// A transcript records the agent's cwd per message, so one chat can touch dozens of directories.
+// Parent-session directories are tallied apart from subagent ones; the parent's own directories win.
+interface CwdTokens {
+  parent: Map<string, CwdTally>;
+  subagent: Map<string, CwdTally>;
+}
+
+// The directory holding the most tokens; a tie goes to the one the chat visited first.
+function dominantCwd(tokens: CwdTokens): string | null {
+  const tally = tokens.parent.size > 0 ? tokens.parent : tokens.subagent;
+  let best: { cwd: string; tally: CwdTally } | null = null;
+  for (const [cwd, entry] of tally) {
+    if (
+      best === null ||
+      entry.total > best.tally.total ||
+      (entry.total === best.tally.total && entry.firstTs < best.tally.firstTs)
+    ) {
+      best = { cwd, tally: entry };
+    }
+  }
+  return best?.cwd ?? null;
 }
 
 function collectChats(rows: Bucket[]): Map<string, ChatBuild> {
@@ -378,7 +462,7 @@ function collectChats(rows: Bucket[]): Map<string, ChatBuild> {
     if (!chat) {
       chat = {
         provider: bucket.provider,
-        cwd: null,
+        cwdTokens: { parent: new Map(), subagent: new Map() },
         lastTs: 0,
         own: emptyAccumulator(),
         children: new Map(),
@@ -386,8 +470,17 @@ function collectChats(rows: Bucket[]): Map<string, ChatBuild> {
       chats.set(key, chat);
     }
     chat.lastTs = Math.max(chat.lastTs, bucket.lastTs);
-    // The parent's own cwd wins over a subagent's.
-    if (bucket.parentSessionId === null || chat.cwd === null) chat.cwd = bucket.cwd ?? chat.cwd;
+    if (bucket.cwd !== null) {
+      const byCwd =
+        bucket.parentSessionId === null ? chat.cwdTokens.parent : chat.cwdTokens.subagent;
+      const seen = byCwd.get(bucket.cwd);
+      if (seen) {
+        seen.total += bucket.total;
+        seen.firstTs = Math.min(seen.firstTs, bucket.firstTs);
+      } else {
+        byCwd.set(bucket.cwd, { total: bucket.total, firstTs: bucket.firstTs });
+      }
+    }
     add(chat.own, bucket, key);
     if (bucket.parentSessionId !== null) {
       const childId = bucket.subagentId ?? bucket.sessionId;
@@ -400,6 +493,19 @@ function collectChats(rows: Bucket[]): Map<string, ChatBuild> {
     }
   }
   return chats;
+}
+
+// The directory holding the chat's tokens. The owner agent's cwd is only where the chat was started,
+// not where the work happened, so it is the fallback when the transcript carries no cwd at all.
+function chatCwd(chat: ChatBuild, owner: OwnerInfo | null): string | null {
+  return dominantCwd(chat.cwdTokens) ?? owner?.cwd ?? null;
+}
+
+function chatCwdsOf(rows: Bucket[], owners: Map<string, OwnerInfo>): Map<string, string | null> {
+  const out = new Map<string, string | null>();
+  for (const [key, chat] of collectChats(rows))
+    out.set(key, chatCwd(chat, owners.get(key) ?? null));
+  return out;
 }
 
 // Pimi subagents are chats of their own, linked to the parent chat by label. Fold them under the
@@ -463,12 +569,16 @@ function groupOf(
   groupBy: UsageGroupBy,
   owners: Map<string, OwnerInfo>,
   projects: ProjectLookup | null,
+  chatCwds: Map<string, string | null> | null,
 ): { key: string; label: string } | null {
   switch (groupBy) {
     case "provider":
       return { key: bucket.provider, label: bucket.provider };
     case "model":
-      return { key: bucket.model ?? "unknown", label: bucket.model ?? "unknown" };
+      return {
+        key: bucket.model ?? "unknown",
+        label: bucket.model ?? "unknown",
+      };
     case "day":
     case "hour":
       return { key: bucket.bucket, label: bucket.bucket };
@@ -477,7 +587,12 @@ function groupOf(
       return pimi ? { key: "pimi", label: "Pimi" } : { key: "outside", label: "Outside Pimi" };
     }
     case "project":
-      return projects?.resolve(bucket.cwd) ?? { key: "unknown", label: "unknown" };
+      return (
+        projects?.resolve(chatCwds?.get(chatKeyOf(bucket)) ?? null) ?? {
+          key: "unknown",
+          label: "unknown",
+        }
+      );
     case "tool":
       return null;
   }
