@@ -355,3 +355,15 @@
 .spaces-dialog-actions > div {
   margin-left: auto;
 }
+
+.spaces-dialog-x {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  width: 32px;
+  min-height: 32px;
+}
+.spaces-card-heading {
+  padding-right: 36px;
+}

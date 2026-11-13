@@ -152,6 +152,8 @@ contextBridge.exposeInMainWorld("pimiDesktop", {
           return () => ipcRenderer.removeListener("pimi:workspace:activity", onChange);
         },
         dismissPimiWorkspace: () => ipcRenderer.send("pimi:workspace:dismiss"),
+        closePimiWorkspaceDialog: (): Promise<boolean> =>
+          ipcRenderer.invoke("pimi:workspace:close-dialog"),
         setPimiContentBounds: (bounds: PimiContentBounds) =>
           ipcRenderer.send("pimi:workspace:content-bounds", bounds),
         pimiLabels: {

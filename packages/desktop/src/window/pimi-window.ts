@@ -91,6 +91,7 @@ interface WorkspaceSurface {
   options: PimiWindowOptions;
   layout: WorkspaceLayout;
   section: PimiWorkspaceSection;
+  dialogOpen: boolean;
 }
 let workspace: WorkspaceSurface | undefined;
 let workspaceRuntime: Promise<PimiRuntimeResult> | undefined;
@@ -414,6 +415,7 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     options,
     layout: "hidden",
     section: "tasks",
+    dialogOpen: false,
   };
   const contents = view.webContents;
   const cleanupUnhosted = () => {
@@ -438,6 +440,9 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     if (section === surface.section) return;
     surface.section = section;
     surface.host?.webContents.send("pimi:workspace:section", section);
+  });
+  contents.ipc.on("pimi:workspace:dialog", (event, open: unknown) => {
+    if (event.senderFrame === contents.mainFrame) surface.dialogOpen = open === true;
   });
   contents.ipc.on("pimi:workspace:open-review", (event, value: unknown) => {
     if (
@@ -673,4 +678,11 @@ function dictateBrief(
       (error: Error) => finish(null, error),
     );
   });
+}
+
+/** Titlebar back closes a card open in the workspace before it leaves the section. */
+export function closePimiWorkspaceDialog(): boolean {
+  if (!workspace?.dialogOpen || workspace.view.webContents.isDestroyed()) return false;
+  workspace.view.webContents.send("pimi:workspace:close-dialog");
+  return true;
 }
