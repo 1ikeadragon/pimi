@@ -61,6 +61,7 @@ import {
   createDefaultLayout,
   DEFAULT_PANE_ID,
   selectExplorerSidebarPaneId,
+  canDismissPaneInLayout,
   useWorkspaceLayoutStore,
   type SplitNode,
   type SplitPane,
@@ -663,6 +664,19 @@ const SplitPaneView = memo(function SplitPaneView({
     [pane, uiTabs],
   );
   const paneTabs = useMemo(() => paneState.tabs.map((tab) => tab.descriptor), [paneState.tabs]);
+  // The last visible pane keeps its New launcher when its final tab closes, so that tab's close
+  // control would do nothing. Ask the same rule the layout enforces.
+  const paneCannotBeDismissed = useWorkspaceLayoutStore((state) => {
+    const workspaceLayout =
+      state.layoutByWorkspace[`${normalizedServerId}:${normalizedWorkspaceId}`];
+    return workspaceLayout
+      ? !canDismissPaneInLayout(
+          workspaceLayout,
+          pane.id,
+          selectExplorerSidebarPaneId(state, `${normalizedServerId}:${normalizedWorkspaceId}`),
+        )
+      : false;
+  });
   const activeTabDescriptor = paneState.activeTab?.descriptor ?? null;
   const desktopTabRowItems = useMemo<WorkspaceDesktopTabRowItem[]>(
     () =>
@@ -671,8 +685,13 @@ const SplitPaneView = memo(function SplitPaneView({
         isActive: tab.key === activeTabDescriptor?.key,
         isCloseHovered: hoveredCloseTabKey === tab.key,
         isClosingTab: closingTabIds.has(tab.tabId),
+        canClose: !(
+          paneCannotBeDismissed &&
+          paneTabs.length === 1 &&
+          tab.target.kind === "new_tab"
+        ),
       })),
-    [activeTabDescriptor?.key, closingTabIds, hoveredCloseTabKey, paneTabs],
+    [activeTabDescriptor?.key, closingTabIds, hoveredCloseTabKey, paneCannotBeDismissed, paneTabs],
   );
 
   useEffect(() => {
