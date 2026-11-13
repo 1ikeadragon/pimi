@@ -33,6 +33,7 @@ export interface UsageScannerOptions {
   logger: Logger;
   claudeRoot?: string;
   codexRoot?: string;
+  codexArchivedRoot?: string;
 }
 
 interface DiscoveredFile {
@@ -53,8 +54,18 @@ export function defaultClaudeProjectsRoot(): string {
   return join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "projects");
 }
 
+function codexHome(): string {
+  return process.env.CODEX_HOME?.trim() || join(homedir(), ".codex");
+}
+
 export function defaultCodexSessionsRoot(): string {
-  return join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "sessions");
+  return join(codexHome(), "sessions");
+}
+
+// Codex moves a thread's rollout here when the thread is archived, and Pimi archives the threads of
+// chats it closes. Compressed (.zst) rollouts in this folder are not read.
+export function defaultCodexArchivedRoot(): string {
+  return join(codexHome(), "archived_sessions");
 }
 
 // Reads provider transcripts (read-only) and upserts one usage_events row per provider request.
@@ -75,6 +86,7 @@ export class UsageScanner {
     this.roots = [
       { provider: "claude", root: options.claudeRoot ?? defaultClaudeProjectsRoot() },
       { provider: "codex", root: options.codexRoot ?? defaultCodexSessionsRoot() },
+      { provider: "codex", root: options.codexArchivedRoot ?? defaultCodexArchivedRoot() },
     ];
   }
 

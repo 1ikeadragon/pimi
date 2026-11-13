@@ -58,7 +58,7 @@ one-time import and are never read again.
 
 `pimi.db` also holds `usage_events` (one row per provider request), `usage_tool_calls` and
 `usage_scan_cursors`. The daemon scans Claude Code (`~/.claude/projects`, honoring
-`CLAUDE_CONFIG_DIR`) and Codex (`~/.codex/sessions`, honoring `CODEX_HOME`) transcripts read-only,
+`CLAUDE_CONFIG_DIR`) and Codex (`~/.codex/sessions` and `~/.codex/archived_sessions`, honoring `CODEX_HOME`; compressed `.zst` rollouts in the archive are not read) transcripts read-only,
 always on, resuming each file from a byte offset. The first scan is the backfill. Rows keep their
 history after the provider deletes the transcript (Claude Code removes them after 30 days).
 
