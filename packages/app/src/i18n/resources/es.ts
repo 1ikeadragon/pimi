@@ -2576,7 +2576,6 @@ export const es: TranslationResources = {
       desktopInputHint:
         "Desactivado: los agentes solo leen la ventana. Activado: pueden hacer clic, escribir y pulsar teclas solo en ella.",
       desktopElevated: "Se ejecuta como administrador, así que Pimi no puede controlarla.",
-      desktopAntiCheat: "Usa anti-cheat; Pimi nunca la controla.",
       desktopWarn:
         "Los agentes verán y podrán actuar en todo aquello en lo que esta ventana tenga la sesión iniciada.",
       desktopRelaunch: "Permitir que los agentes reinicien la app",

@@ -2559,7 +2559,6 @@ export const en = {
       desktopInputHint:
         "Off keeps agents to reading the window. On lets them click, type and press keys in it only.",
       desktopElevated: "Runs as administrator, so Pimi cannot drive it.",
-      desktopAntiCheat: "Uses anti-cheat; Pimi never drives it.",
       desktopWarn: "Agents will see and can act in everything this window is signed in to.",
       desktopRelaunch: "Let agents relaunch the app",
       desktopRelaunchHint:

@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
-using Microsoft.Win32;
 
 namespace PimiDesktopHelper
 {
@@ -147,26 +144,14 @@ namespace PimiDesktopHelper
 
     static class Safety
     {
-        static readonly HashSet<string> DenyExe = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "cmd.exe","powershell.exe","pwsh.exe","powershell_ise.exe","windowsterminal.exe","wt.exe","openconsole.exe","conhost.exe","wsl.exe","wslhost.exe","bash.exe","mintty.exe","git-bash.exe","alacritty.exe","wezterm-gui.exe","kitty.exe","conemu.exe","conemu64.exe","cmder.exe","tabby.exe","hyper.exe","warp.exe","fluentterminal.app.exe","putty.exe","kitty_portable.exe","mobaxterm.exe","securecrt.exe","termius.exe",
-            "mstsc.exe","msrdc.exe","quickassist.exe","teamviewer.exe","anydesk.exe","parsecd.exe","vncviewer.exe",
-            "regedit.exe","taskmgr.exe","mmc.exe","systemsettings.exe","control.exe","msconfig.exe","perfmon.exe","resmon.exe","eventvwr.exe","sechealthui.exe","useraccountcontrolsettings.exe","netplwiz.exe","rundll32.exe","systempropertiesadvanced.exe","optionalfeatures.exe","msiexec.exe","wscript.exe","cscript.exe","mshta.exe","dism.exe","diskpart.exe","procexp.exe","procexp64.exe","processhacker.exe","systeminformer.exe",
-            "pad.console.host.exe","pad.designer.exe","powertoys.exe",
-            "consent.exe","credentialuibroker.exe","logonui.exe","lockapp.exe","winlogon.exe","1password.exe","bitwarden.exe","keepass.exe","keepassxc.exe","lastpass.exe","dashlane.exe","nordpass.exe","protonpass.exe","enpass.exe","roboform.exe","keeperpasswordmanager.exe","authy desktop.exe",
-            "explorer.exe","startmenuexperiencehost.exe","searchhost.exe","shellexperiencehost.exe","textinputhost.exe","applicationframehost.exe"
-        };
-        static readonly HashSet<string> DenyClass = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "ConsoleWindowClass","CASCADIA_HOSTING_WINDOW_CLASS","PseudoConsoleWindow","mintty","Credential Dialog Xaml Host","Shell_TrayWnd","Shell_SecondaryTrayWnd","Progman","WorkerW"
-        };
+        static readonly HashSet<string> DenyExe = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        static readonly HashSet<string> DenyClass = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public static string Denied(Win w)
         {
             string exe = w.Exe ?? "";
-            if (DenyExe.Contains(exe) || exe.StartsWith("autohotkey") || exe.StartsWith("systemproperties")) return "deny";
+            if (DenyExe.Contains(exe)) return "deny";
             if (DenyClass.Contains(w.Class)) return "deny";
-            if (w.Aumid != null && (w.Aumid.StartsWith("windows.immersivecontrolpanel", StringComparison.OrdinalIgnoreCase))) return "deny";
             return null;
         }
 
@@ -202,106 +187,6 @@ namespace PimiDesktopHelper
             return false;
         }
 
-        // ---- anti-cheat ----
-        static readonly uint[] SteamIds = { 1808500, 1938090, 730, 2669320, 3405690, 1063730, 578080, 581320, 359550, 3058630, 1144200, 2073850, 1172470, 252490, 2767030, 2807960 };
-        static readonly string[] MarkerPrefixes = { "EasyAntiCheat", "EasyAntiCheat_EOS", "start_protected_game.exe", "BattlEye", "BEService", "EAAntiCheat", "AntiCheatExpert", "GameGuard", "xigncode", "mhyprot", "vgc", "FACEIT" };
-        static readonly HashSet<string> AcProcs = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "beservice.exe", "vgc.exe", "eaanticheat.gameservice.exe", "sguard64.exe" };
-        static readonly Dictionary<string, string> staticCache = new Dictionary<string, string>();
-
-        static bool IsAcProcName(string exe) { return exe.StartsWith("easyanticheat") || AcProcs.Contains(exe); }
-
-        public static string AntiCheat(Win w)
-        {
-            string r = AntiCheatStatic(w.Path);
-            if (r != null) return r;
-            var snap = Procs.Snapshot();
-            ProcEntry me;
-            if (snap.TryGetValue(w.Pid, out me))
-            {
-                ProcEntry par;
-                if (snap.TryGetValue(me.Parent, out par) && IsAcProcName(par.Exe)) return "anti_cheat";
-                foreach (var e in snap.Values) if (e.Parent == w.Pid && IsAcProcName(e.Exe)) return "anti_cheat";
-            }
-            return null;
-        }
-
-        public static string AntiCheatStatic(string exePath)
-        {
-            if (string.IsNullOrEmpty(exePath)) return null;
-            string r;
-            if (staticCache.TryGetValue(exePath, out r)) return r;
-            r = null;
-            try { r = ScanStatic(exePath); } catch { }
-            staticCache[exePath] = r;
-            return r;
-        }
-
-        static bool IsBoundary(string dir)
-        {
-            string d = dir.TrimEnd('\\').ToLowerInvariant();
-            if (d.Length <= 3) return true;
-            string name = System.IO.Path.GetFileName(d);
-            if (name == "program files" || name == "program files (x86)" || name == "windows" || name == "users" || name == "common" || name == "steamapps" || name == "epic games" || name == "windowsapps" || name == "programdata" || name == "appdata" || name == "local" || name == "locallow" || name == "roaming" || name == "programs" || name == "desktop" || name == "downloads" || name == "documents" || name == "temp") return true;
-            return false;
-        }
-
-        static string ScanStatic(string exePath)
-        {
-            string dir = System.IO.Path.GetDirectoryName(exePath);
-            // Steam app id
-            uint id = SteamAppId(dir);
-            if (id != 0 && SteamIds.Contains(id)) return "anti_cheat";
-            string cur = dir;
-            for (int i = 0; i < 4 && !string.IsNullOrEmpty(cur); i++)
-            {
-                if (i > 0 && IsBoundary(cur)) break;
-                string[] names;
-                try { names = Directory.GetFileSystemEntries(cur).Select(System.IO.Path.GetFileName).ToArray(); } catch { names = new string[0]; }
-                foreach (var n in names)
-                    foreach (var m in MarkerPrefixes)
-                        if (n.StartsWith(m, StringComparison.OrdinalIgnoreCase)) return "anti_cheat";
-                if (IsBoundary(cur)) break;
-                var p = Directory.GetParent(cur);
-                cur = p == null ? null : p.FullName;
-            }
-            return null;
-        }
-
-        public static uint SteamAppId(string dir)
-        {
-            try
-            {
-                string f = System.IO.Path.Combine(dir, "steam_appid.txt");
-                if (File.Exists(f))
-                {
-                    uint v;
-                    if (uint.TryParse(File.ReadAllText(f).Trim(), out v) && v != 0) return v;
-                }
-            }
-            catch { }
-            // steamapps\common\<installdir>\...
-            string low = dir.ToLowerInvariant();
-            int ix = low.IndexOf("\\steamapps\\common\\");
-            if (ix < 0) return 0;
-            string steamapps = dir.Substring(0, ix) + "\\steamapps";
-            string rest = dir.Substring(ix + "\\steamapps\\common\\".Length);
-            string installdir = rest.Split('\\')[0];
-            try
-            {
-                foreach (var acf in Directory.GetFiles(steamapps, "appmanifest_*.acf"))
-                {
-                    string txt = File.ReadAllText(acf);
-                    var m = Regex.Match(txt, "\"installdir\"\\s+\"([^\"]*)\"");
-                    if (m.Success && m.Groups[1].Value.Equals(installdir, StringComparison.OrdinalIgnoreCase))
-                    {
-                        var id = Regex.Match(System.IO.Path.GetFileName(acf), "appmanifest_(\\d+)\\.acf");
-                        if (id.Success) return uint.Parse(id.Groups[1].Value);
-                    }
-                }
-            }
-            catch { }
-            return 0;
-        }
     }
 }
 

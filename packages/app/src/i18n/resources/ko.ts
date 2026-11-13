@@ -2538,7 +2538,6 @@ export const ko: TranslationResources = {
       desktopInputHint:
         "끄면 에이전트는 창을 읽기만 합니다. 켜면 그 창 안에서만 클릭, 입력, 키 누르기를 할 수 있습니다.",
       desktopElevated: "관리자 권한으로 실행 중이라 Pimi가 조작할 수 없습니다.",
-      desktopAntiCheat: "안티치트를 사용합니다. Pimi는 절대 조작하지 않습니다.",
       desktopWarn: "에이전트는 이 창에 로그인된 모든 것을 보고 그 안에서 작업할 수 있습니다.",
       desktopRelaunch: "에이전트의 앱 재시작 허용",
       desktopRelaunchHint:

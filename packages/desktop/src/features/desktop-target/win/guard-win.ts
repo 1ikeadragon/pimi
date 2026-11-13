@@ -9,112 +9,9 @@ export interface WinWindowIdentity {
   windowClass?: string | null;
 }
 
-const DENIED_EXES: ReadonlySet<string> = new Set([
-  // Consoles and terminals
-  "cmd.exe",
-  "powershell.exe",
-  "pwsh.exe",
-  "powershell_ise.exe",
-  "windowsterminal.exe",
-  "wt.exe",
-  "openconsole.exe",
-  "conhost.exe",
-  "wsl.exe",
-  "wslhost.exe",
-  "bash.exe",
-  "mintty.exe",
-  "git-bash.exe",
-  "alacritty.exe",
-  "wezterm-gui.exe",
-  "kitty.exe",
-  "conemu.exe",
-  "conemu64.exe",
-  "cmder.exe",
-  "tabby.exe",
-  "hyper.exe",
-  "warp.exe",
-  "fluentterminal.app.exe",
-  "putty.exe",
-  "kitty_portable.exe",
-  "mobaxterm.exe",
-  "securecrt.exe",
-  "termius.exe",
-  // Remote control
-  "mstsc.exe",
-  "msrdc.exe",
-  "quickassist.exe",
-  "teamviewer.exe",
-  "anydesk.exe",
-  "parsecd.exe",
-  "vncviewer.exe",
-  // System tools
-  "regedit.exe",
-  "taskmgr.exe",
-  "mmc.exe",
-  "systemsettings.exe",
-  "control.exe",
-  "msconfig.exe",
-  "perfmon.exe",
-  "resmon.exe",
-  "eventvwr.exe",
-  "sechealthui.exe",
-  "useraccountcontrolsettings.exe",
-  "netplwiz.exe",
-  "rundll32.exe",
-  "systempropertiesadvanced.exe",
-  "optionalfeatures.exe",
-  "msiexec.exe",
-  "wscript.exe",
-  "cscript.exe",
-  "mshta.exe",
-  "dism.exe",
-  "diskpart.exe",
-  "procexp.exe",
-  "procexp64.exe",
-  "processhacker.exe",
-  "systeminformer.exe",
-  // Automation hosts
-  "pad.console.host.exe",
-  "pad.designer.exe",
-  "powertoys.exe",
-  // Credentials and secure UI
-  "consent.exe",
-  "credentialuibroker.exe",
-  "logonui.exe",
-  "lockapp.exe",
-  "winlogon.exe",
-  "1password.exe",
-  "bitwarden.exe",
-  "keepass.exe",
-  "keepassxc.exe",
-  "lastpass.exe",
-  "dashlane.exe",
-  "nordpass.exe",
-  "protonpass.exe",
-  "enpass.exe",
-  "roboform.exe",
-  "keeperpasswordmanager.exe",
-  "authy desktop.exe",
-  // The shell
-  "explorer.exe",
-  "startmenuexperiencehost.exe",
-  "searchhost.exe",
-  "shellexperiencehost.exe",
-  "textinputhost.exe",
-]);
+const DENIED_EXES: ReadonlySet<string> = new Set<string>();
 
-const DENIED_EXE_PREFIXES = ["autohotkey", "systemproperties"] as const;
-
-const DENIED_CLASSES: ReadonlySet<string> = new Set([
-  "consolewindowclass",
-  "cascadia_hosting_window_class",
-  "pseudoconsolewindow",
-  "mintty",
-  "credential dialog xaml host",
-  "shell_traywnd",
-  "progman",
-  "workerw",
-]);
+const DENIED_CLASSES: ReadonlySet<string> = new Set<string>();
 
 const REFUSED = "That app cannot be driven by an Attack run.";
 
@@ -135,10 +32,10 @@ export function forbiddenWinTarget(
 ): string | null {
   const appId = identity.appId.toLowerCase();
   const exe = exeNameOf(identity);
-  if (DENIED_EXES.has(exe) || DENIED_EXE_PREFIXES.some((prefix) => exe.startsWith(prefix))) {
+  if (DENIED_EXES.has(exe)) {
     return REFUSED;
   }
-  if (appId.startsWith("windows.immersivecontrolpanel") || appId.startsWith("com.pimi.")) {
+  if (appId.startsWith("com.pimi.")) {
     return REFUSED;
   }
   if (identity.windowClass && DENIED_CLASSES.has(identity.windowClass.toLowerCase())) {

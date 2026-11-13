@@ -43,11 +43,6 @@ namespace PimiDesktopHelper
                 try { var a = U.A; Console.WriteLine("{\"ok\":true,\"version\":\"1\",\"uia\":true,\"wgc\":" + (Wgc.Available() ? "true" : "false") + "}"); return 0; }
                 catch (Exception ex) { Console.WriteLine("{\"ok\":false,\"version\":\"1\",\"uia\":false,\"error\":\"" + ex.GetType().Name + "\"}"); return 1; }
             }
-            if (args.Length > 1 && args[0] == "--anticheat")
-            {
-                Console.WriteLine(Safety.AntiCheatStatic(args[1].ToLowerInvariant()) ?? "clear");
-                return 0;
-            }
             var stdin = new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(false));
             stdout = new StreamWriter(Console.OpenStandardOutput(), new UTF8Encoding(false)) { AutoFlush = true, NewLine = "\n" };
             In.Init();
@@ -118,11 +113,9 @@ namespace PimiDesktopHelper
             bool rp;
             var w = Wn.Resolve(t, out rp);
             if (rp) repin = new Dictionary<string, object> { { "hwnd", ((long)w.Hwnd).ToString() }, { "pid", (long)w.Pid }, { "processStartedAt", w.Started } };
-            if (lvl >= Lvl.Uia && w.Elevated) throw new HelperError("elevated_target", Wn.ElevatedMessage);
             if (lvl >= Lvl.Input && !t.AllowInput) throw new HelperError("refused", "Input is not enabled for this run.");
             if (lvl >= Lvl.Uia && N.IsHungAppWindow(w.Hwnd)) throw new HelperError("target_hung", "The target window is not responding.");
             Apps.Track(w);
-            if (lvl >= Lvl.Input && w.Elevated) throw new HelperError("elevated_target", Wn.ElevatedMessage);
             return w;
         }
 
@@ -168,7 +161,6 @@ namespace PimiDesktopHelper
                 Thread.Sleep(250);
             }
             bool marks = J.B(a, "marks", false), grid = J.B(a, "grid", false);
-            if (marks && w.Elevated) throw new HelperError("elevated_target", Wn.ElevatedMessage);
             Cap.Forced = J.S(a, "method");
             Shot shot;
             try { shot = Cap.Grab(w, true); } finally { Cap.Forced = null; }
@@ -245,7 +237,6 @@ namespace PimiDesktopHelper
                 }
                 else if (until == "text")
                 {
-                    if (w.Elevated) throw new HelperError("elevated_target", Wn.ElevatedMessage);
                     var r = U.Snapshot(w, new Dictionary<string, object> { { "maxNodes", 600 } }, ag, false);
                     if (text != null && ((string)r["tree"]).IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0) { ok = true; break; }
                     Thread.Sleep(250);

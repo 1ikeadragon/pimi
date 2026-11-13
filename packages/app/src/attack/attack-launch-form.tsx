@@ -427,7 +427,6 @@ function DesktopTargetSection({
     (window: DesktopTargetWindow): string | undefined => {
       const blocked = desktopBlockedReason(window);
       if (blocked === "elevated") return t("attack.form.desktopElevated");
-      if (blocked === "anti_cheat") return t("attack.form.desktopAntiCheat");
       return window.framework && window.framework !== "unknown" ? window.framework : undefined;
     },
     [t],

@@ -2551,7 +2551,6 @@ export const ja: TranslationResources = {
       desktopInputHint:
         "オフ:エージェントはウィンドウを読むだけです。オン:そのウィンドウ内でのみクリック、入力、キー操作ができます。",
       desktopElevated: "管理者として実行中のため、Pimiは操作できません。",
-      desktopAntiCheat: "アンチチートを使用しています。Pimiは操作しません。",
       desktopWarn:
         "エージェントは、このウィンドウでサインイン済みのすべての内容を見て、操作できます。",
       desktopRelaunch: "エージェントによるアプリの再起動を許可",

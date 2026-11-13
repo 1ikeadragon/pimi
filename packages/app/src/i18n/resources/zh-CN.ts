@@ -2493,7 +2493,6 @@ export const zhCN: TranslationResources = {
       desktopInput: "允许点击和输入",
       desktopInputHint: "关闭时智能体只读取窗口。开启后,它们只能在该窗口内点击、输入和按键。",
       desktopElevated: "以管理员身份运行,Pimi 无法操控它。",
-      desktopAntiCheat: "使用反作弊系统;Pimi 绝不会操控它。",
       desktopWarn: "智能体将看到并可在此窗口已登录的一切内容中执行操作。",
       desktopRelaunch: "允许智能体重新启动应用",
       desktopRelaunchHint:

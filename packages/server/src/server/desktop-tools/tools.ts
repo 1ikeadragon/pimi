@@ -219,7 +219,7 @@ function describeWindow(
     shape,
     result.foreground ? "foreground" : "background",
     result.responding ? "responding" : "NOT responding",
-    result.elevated ? "elevated (input is refused)" : null,
+    result.elevated ? "elevated" : null,
   ].filter(Boolean);
   const surfaces = result.surfaces.map(
     (surface) =>

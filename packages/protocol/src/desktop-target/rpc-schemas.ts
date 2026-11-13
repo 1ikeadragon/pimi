@@ -318,7 +318,6 @@ export const DesktopWindowInfoSchema = z.object({
   platform: DesktopPlatformSchema.optional(),
   framework: z.string().optional(),
   elevated: z.boolean().optional(),
-  // "anti_cheat": the window can be listed but never driven.
   blocked: z.string().nullable().optional(),
   win: DesktopWinIdentitySchema.nullable().optional(),
 });

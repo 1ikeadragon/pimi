@@ -154,6 +154,20 @@ function usageTokens(usage: AgentUsage): number {
   return Number.isFinite(sum) && sum > 0 ? Math.round(sum) : 0;
 }
 
+const GUARDRAIL_FALLBACK_MODEL = "claude-opus-4-6";
+
+const GUARDRAIL_REFUSAL_PATTERNS = [
+  /I (?:can't|cannot|won't|will not|am not able to|'m unable to) (?:help|assist|proceed|continue|do that|perform|execute|carry out|provide)/i,
+  /(?:against|violates?) (?:my|Anthropic'?s?) (?:guidelines|policies|safety|terms|usage|content)/i,
+  /(?:harmful|malicious|unethical|dangerous|illegal) (?:activity|action|purpose|intent|use)/i,
+  /I (?:must|need to) (?:decline|refuse|refrain)/i,
+  /(?:security testing|penetration testing|vulnerability) .{0,40}(?:not appropriate|not something|cannot|can't)/i,
+];
+
+function looksLikeGuardrailRefusal(text: string): boolean {
+  return GUARDRAIL_REFUSAL_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 function withoutScreenshotBytes(finding: Finding): Finding {
   return {
     ...finding,
@@ -189,6 +203,8 @@ export class AttackService {
   // its reporter has seen every finding the run already holds. Lost on restart: agents look again.
   private readonly shownFindingIdsByAgentId = new Map<string, Set<string>>();
   private readonly coverage: AttackCoverageTracker;
+  // Guardrail fallback: tracks agents switched to a fallback model, keyed by agentId -> original model.
+  private readonly guardrailFallbacks = new Map<string, string>();
   // Token reports coalesce: the newest run waits here for the next push slot.
   private readonly runPushes = new Map<
     string,
@@ -230,9 +246,19 @@ export class AttackService {
     this.unsubscribeAgents = this.agentManager.subscribe(
       (event) => {
         if (event.type !== "agent_stream") return;
+        const agentId = event.agentId;
         const stream = event.event;
-        if (stream.type !== "turn_completed" || !stream.usage) return;
-        this.recordUsage(event.agentId, stream.usage);
+        if (stream.type === "turn_completed") {
+          if (stream.usage) this.recordUsage(agentId, stream.usage);
+          this.restoreGuardrailFallback(agentId);
+          return;
+        }
+        if (stream.type === "timeline" && stream.item.type === "assistant_message") {
+          this.detectGuardrailRefusal(agentId, stream.item.text);
+        }
+        if (stream.type === "turn_failed") {
+          this.detectGuardrailRefusal(agentId, stream.error);
+        }
       },
       { replayState: false, includeInternal: true },
     );
@@ -252,6 +278,36 @@ export class AttackService {
     for (const push of this.runPushes.values()) if (push.timer) clearTimeout(push.timer);
     this.runPushes.clear();
     await this.coverage.stop();
+  }
+
+  // ---- guardrail fallback ----
+
+  private detectGuardrailRefusal(agentId: string, text: string): void {
+    if (!this.runIdByAgentId.has(agentId)) return;
+    if (this.guardrailFallbacks.has(agentId)) return;
+    if (!looksLikeGuardrailRefusal(text)) return;
+    const runId = this.runIdByAgentId.get(agentId)!;
+    const agent = this.agentManager.getAgent(agentId);
+    const currentModel = agent?.runtimeInfo?.model ?? agent?.config?.model;
+    if (!currentModel || currentModel === GUARDRAIL_FALLBACK_MODEL) return;
+    this.guardrailFallbacks.set(agentId, currentModel);
+    this.logger.info({ agentId, runId, from: currentModel, to: GUARDRAIL_FALLBACK_MODEL }, "Guardrail refusal detected, falling back");
+    void this.agentManager.setAgentModel(agentId, GUARDRAIL_FALLBACK_MODEL).then(
+      () => void this.audit(runId, "guardrail_fallback", agentId, `${currentModel} -> ${GUARDRAIL_FALLBACK_MODEL}`),
+      (error) => this.logger.warn({ err: error, agentId }, "Failed to set fallback model"),
+    );
+  }
+
+  private restoreGuardrailFallback(agentId: string): void {
+    const originalModel = this.guardrailFallbacks.get(agentId);
+    if (!originalModel) return;
+    this.guardrailFallbacks.delete(agentId);
+    const runId = this.runIdByAgentId.get(agentId);
+    this.logger.info({ agentId, runId, to: originalModel }, "Restoring model after guardrail fallback");
+    void this.agentManager.setAgentModel(agentId, originalModel).then(
+      () => { if (runId) void this.audit(runId, "guardrail_restored", agentId, `-> ${originalModel}`); },
+      (error) => this.logger.warn({ err: error, agentId }, "Failed to restore model after fallback"),
+    );
   }
 
   // ---- runs ----

@@ -90,10 +90,9 @@ export function isWarnTierTarget(target: AttackDesktopTarget): boolean {
   return WARN_BUNDLE_PREFIXES.some((prefix) => bundle.startsWith(prefix));
 }
 
-export type DesktopBlockedReason = "elevated" | "anti_cheat";
+export type DesktopBlockedReason = "elevated";
 
 export function desktopBlockedReason(window: DesktopTargetWindow): DesktopBlockedReason | null {
-  if (window.blocked === "anti_cheat") return "anti_cheat";
   if (window.elevated) return "elevated";
   return null;
 }

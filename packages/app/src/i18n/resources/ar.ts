@@ -2522,7 +2522,6 @@ export const ar: TranslationResources = {
       desktopInputHint:
         "عند الإيقاف يقرأ الوكلاء النافذة فقط. عند التشغيل يمكنهم النقر والكتابة وضغط المفاتيح داخلها فقط.",
       desktopElevated: "تعمل كمسؤول، لذلك لا يستطيع Pimi التحكم بها.",
-      desktopAntiCheat: "تستخدم مكافحة الغش؛ لا يتحكم Pimi بها أبدًا.",
       desktopWarn: "سيرى الوكلاء كل ما سُجّل الدخول إليه في هذه النافذة ويمكنهم التصرف فيه.",
       desktopRelaunch: "السماح للوكلاء بإعادة تشغيل التطبيق",
       desktopRelaunchHint:

@@ -115,7 +115,6 @@ namespace PimiDesktopHelper
             }
             if (Safety.Denied(fake) != null) throw new HelperError("blocked", "This app is on the never-drive list.");
             if (Safety.IsOwn(fake)) throw new HelperError("refused", "This is Pimi itself.");
-            if (fake.Path.Length > 0 && Safety.AntiCheatStatic(fake.Path) != null) throw new HelperError("blocked", "This game uses anti-cheat; it is not launched.");
         }
 
         static Win FindWindowOf(Target t)

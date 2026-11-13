@@ -2578,7 +2578,6 @@ export const fr: TranslationResources = {
       desktopInputHint:
         "Désactivé : les agents ne font que lire la fenêtre. Activé : ils peuvent cliquer, saisir et appuyer sur des touches dans celle-ci uniquement.",
       desktopElevated: "S'exécute en administrateur ; Pimi ne peut pas la piloter.",
-      desktopAntiCheat: "Utilise un anti-triche ; Pimi ne la pilote jamais.",
       desktopWarn:
         "Les agents verront et pourront agir dans tout ce à quoi cette fenêtre est connectée.",
       desktopRelaunch: "Autoriser les agents à relancer l'app",

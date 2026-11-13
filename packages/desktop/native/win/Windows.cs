@@ -203,14 +203,10 @@ namespace PimiDesktopHelper
                 w = pick;
                 repinned = true;
             }
-            if (Safety.Denied(w) != null) throw new HelperError("blocked", "This app is on the never-drive list (terminal, system tool, credential UI or shell).");
+            if (Safety.Denied(w) != null) throw new HelperError("blocked", "This app is on the never-drive list.");
             if (Safety.IsOwn(w)) throw new HelperError("refused", "This window belongs to Pimi itself.");
-            string ac = Safety.AntiCheat(w);
-            if (ac != null) { w.Blocked = ac; throw new HelperError("blocked", "This game uses anti-cheat; input and capture are refused."); }
             return w;
         }
-
-        public static string ElevatedMessage { get { return "This window runs as administrator. Pimi cannot drive it unless Pimi itself runs as administrator."; } }
 
         // ---- verbs ----
         public static Dictionary<string, object> WinEntry(Win w)
@@ -233,7 +229,6 @@ namespace PimiDesktopHelper
                 var w = Inspect(h);
                 if (w == null) continue;
                 if (Safety.Denied(w) != null || Safety.IsOwn(w)) continue;
-                w.Blocked = Safety.AntiCheat(w);
                 res.Add(WinEntry(w));
             }
             return new Dictionary<string, object> { { "windows", res } };

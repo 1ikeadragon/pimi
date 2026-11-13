@@ -2561,7 +2561,6 @@ export const ptBR: TranslationResources = {
       desktopInputHint:
         "Desligado: os agentes só leem a janela. Ligado: podem clicar, digitar e pressionar teclas somente nela.",
       desktopElevated: "Executa como administrador, então o Pimi não pode controlá-lo.",
-      desktopAntiCheat: "Usa anti-cheat; o Pimi nunca o controla.",
       desktopWarn: "Os agentes verão e poderão agir em tudo em que esta janela estiver conectada.",
       desktopRelaunch: "Permitir que os agentes reiniciem o app",
       desktopRelaunchHint:

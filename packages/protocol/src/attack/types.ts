@@ -277,6 +277,8 @@ export const AttackAuditActionSchema = z.enum([
   "finding_updated",
   "navigation_refused",
   "desktop_action",
+  "guardrail_fallback",
+  "guardrail_restored",
 ]);
 export type AttackAuditAction = z.infer<typeof AttackAuditActionSchema>;
 
