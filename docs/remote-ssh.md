@@ -6,22 +6,33 @@ Enter `user@devbox` and Pimi installs its daemon on that Linux machine, starts i
 
 Every step runs through your system `ssh`, so `~/.ssh/config`, `ProxyJump`, keys and your agent apply. Keys and your agent are used first. If the server asks for a password, passphrase or code, Pimi asks for it in the app and keeps it in memory until you quit. A first-seen host key is recorded in `known_hosts` (`StrictHostKeyChecking=accept-new`); a changed key is refused.
 
-1. **Probe.** `uname -s`/`-m`, `$HOME`, free disk, libc, Node versions, systemd, and whether a daemon already answers on `127.0.0.1:6767` and at which version.
+1. **Probe.** `uname -s`/`-m`, `$HOME`, free disk, libc, Node versions, systemd, and whether a daemon already answers on `127.0.0.1:6767` and at which version. Only a daemon at another version is also asked how many agents and terminals it has (it costs two Node starts on the remote), because only an upgrade needs the count.
 2. **Install when needed.** If no daemon runs at the desktop's version, Pimi installs it into `~/.pimi/runtime/<version>/`:
    - The bundle is `Pimi-daemon-linux-x64.tar.gz` or `-arm64.tar.gz`, attached to the GitHub release that matches the desktop version. The desktop downloads it only from a release GitHub reports as immutable (the check the app updater uses), verifies it against the SHA-256 GitHub computed for that asset, and caches it, so the desktop installer stays small. A release that is not immutable stops the install with an error before anything reaches the remote; the release's own `SHA256SUMS.txt` is not trusted.
    - The desktop sends it over `ssh` and the remote checks its SHA-256 before unpacking.
    - Node 24 or newer is required. Pimi uses the remote's `node` when it is new enough. Otherwise the remote downloads the official tarball for one pinned Node version from nodejs.org into `~/.pimi/runtime/node/` and checks it against the SHA-256 that ships inside the desktop (`REMOTE_NODE_SHA256`, taken from the GPG-signed `SHASUMS256.txt.asc`). The remote never fetches a checksum file.
    - node-pty ships Linux prebuilds for both architectures, so nothing compiles on the remote.
-3. **Start.** The daemon listens on `127.0.0.1` only, started with `setsid nohup`. It gets the `PATH` your own login shell has (read with `$SHELL -ilc`, 10 second limit), so agent CLIs you installed through `~/.bashrc` or `~/.zshrc`, such as opencode, claude or nvm's node, are found even though `ssh` runs without those files. The `PATH` is read when the daemon starts; restart it after installing a new CLI. Pimi waits until the WebSocket accepts clients, then tunnels with `ssh -W` as for any SSH host.
+3. **Start.** The daemon listens on `127.0.0.1` only, started with `setsid nohup`. It gets the `PATH` your own login shell has (read with `$SHELL -ilc`, 10 second limit), so agent CLIs you installed through `~/.bashrc` or `~/.zshrc`, such as opencode, claude or nvm's node, are found even though `ssh` runs without those files. The `PATH` is read when the daemon starts; restart it after installing a new CLI. Pimi waits until the WebSocket accepts clients, then tunnels with `ssh -W` as for any SSH host. The tunnel sends an ssh keepalive every 15 seconds and gives up after four misses.
 4. **Every connect repeats the check.** A stopped daemon is restarted, and a new desktop version upgrades the remote, which keeps the previous version for one rollback.
 
 Turn on **Keep the daemon running with systemd** in the dialog to use a `systemd --user` unit (`pimi-daemon.service`, `Restart=on-failure`) when the machine has one. The unit stops at logout unless you run `loginctl enable-linger <user>`.
+
+## Connection sharing
+
+On macOS and Linux every ssh Pimi starts for one machine (the probe, the app's tunnel, the agent endpoint's tunnels) shares one connection: `ControlMaster=auto`, `ControlPersist=60`, and a `ControlPath` of `/tmp/pimi-<uid>-<hash of PIMI_HOME>/m-%C`. That directory is mode 0700 and stays short because a unix socket path must be under 104 bytes. A reconnect costs a round trip instead of a TCP connect, key exchange and sign-in. Things to know:
+
+- These options are on the command line, so they override a `ControlMaster` or `ControlPath` in your `~/.ssh/config`. `PIMI_SSH_CONFIG` still applies.
+- The first ssh for a machine becomes the master and takes the sign-in prompt; the rest attach without one. Removing a machine ends its master.
+- One TCP connection carries all channels, so a dead path drops the app's tunnel and the agent endpoint's together. The master's keepalive finds it, and the app reconnects as it does for any dropped tunnel.
+- Close a tunnel by ending its stdin, as `startSshTunnel` does. Killing a `-W` client leaves the master holding the channel and the daemon's socket open, and the master never exits.
+- Quitting the app stops every master and removes the sockets. After a crash a master exits on its own once idle; a stale socket is replaced by the next connect.
+- Windows keeps one ssh per use: Win32-OpenSSH has no multiplexing.
 
 ## Sign-in prompts
 
 The desktop runs ssh with `SSH_ASKPASS_REQUIRE=force`, so ssh calls Pimi's askpass program only when it would otherwise prompt. The program (`bin/pimi-ssh-askpass` on macOS, the Windows helper exe in askpass mode) relays ssh's prompt text to the main process over a private socket or pipe, authenticated by a per-spawn token. The answer never goes through env, argv or disk. Three things are easy to get wrong:
 
-- Answers to password and passphrase prompts are cached in memory per machine and prompt; one-time codes are not. Every reconnect runs a probe ssh and a tunnel ssh, so without the cache each one would ask.
+- Answers to password and passphrase prompts are cached in memory per machine and prompt; one-time codes are not. A reconnect after the shared connection ended signs in again, so without the cache it would ask.
 - Cancelling kills that ssh at once (ssh would otherwise send empty passwords) and stops background reconnects from prompting again for that machine. Adding it or upgrading it again, or restarting the app, prompts again.
 - The Windows askpass must stay an exe. Win32-OpenSSH starts it with the server-controlled prompt on the command line, which a `.cmd` or script would hand to `cmd.exe`.
 

@@ -27,9 +27,10 @@ ws_ready() {
 }
 `;
 
-// $1 = daemon port. Prints one fact per line.
+// $1 = daemon port, $2 = the version the desktop needs. Prints one fact per line.
 export const PROBE_SCRIPT = `${PREAMBLE}
 PORT="$1"
+WANT_VERSION="$2"
 echo "os=$(uname -s 2>/dev/null)"
 echo "machine=$(uname -m 2>/dev/null)"
 echo "home=$HOME"
@@ -54,8 +55,9 @@ st="$(http_get "http://127.0.0.1:$PORT/api/status" | tr -d '\\n')"
 echo "status=$st"
 [ -n "$st" ] && ws_ready "$PORT" && echo "wsReady=1"
 [ -f "$PIMI_DIR/pimi.pid" ] && echo "lock=$(tr -d '\\n' < "$PIMI_DIR/pimi.pid")"
-# Work a running daemon has, so an upgrade never stops it silently.
-if [ -n "$st" ] && [ -f "$PIMI_DIR/pimi.pid" ] && [ -n "$PIMI_NODE" ]; then
+# Work a running daemon has, so an upgrade never stops it silently. Only an upgrade needs it, and
+# counting starts Node twice, so a daemon already at the wanted version skips it.
+if [ -n "$st" ] && [ -f "$PIMI_DIR/pimi.pid" ] && [ -n "$PIMI_NODE" ] && ! printf %s "$st" | grep -Fq '"version":"'"$WANT_VERSION"'"'; then
   CLI="$RUNTIME_DIR/current/node_modules/@pimi/cli/bin/pimi"
   if [ -f "$CLI" ]; then
     agents="$("$PIMI_NODE" "$CLI" agent ls --global --background --home "$PIMI_DIR" --json 2>/dev/null)"

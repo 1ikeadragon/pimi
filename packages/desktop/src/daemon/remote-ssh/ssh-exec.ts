@@ -1,7 +1,13 @@
 import { spawn } from "node:child_process";
 import type { Readable } from "node:stream";
-import { sshAuthModeArgs, validatePort, validateSshHost } from "@pimi/protocol/ssh-transport";
+import {
+  sshAuthModeArgs,
+  sshMultiplexArgs,
+  validatePort,
+  validateSshHost,
+} from "@pimi/protocol/ssh-transport";
 import { prepareSshAuth, sshTooOldForPasswords } from "./askpass.js";
+import { controlPathOption, sshConfigArgs } from "./control-master.js";
 import { RemoteSshError, errorFromRemoteScript, errorFromSshStderr } from "./errors.js";
 
 export interface SshTarget {
@@ -24,14 +30,7 @@ export interface SshRunOptions {
 
 const OUTPUT_LIMIT = 256 * 1024;
 
-/**
- * `-F <file>` for every ssh Pimi starts when PIMI_SSH_CONFIG is set. Without it ssh reads
- * ~/.ssh/config as usual; this is for a dedicated config, e.g. a throwaway test machine.
- */
-export function sshConfigArgs(env: NodeJS.ProcessEnv = process.env): string[] {
-  const file = env.PIMI_SSH_CONFIG?.trim();
-  return file ? ["-F", file] : [];
-}
+export { sshConfigArgs };
 
 /** Always the system ssh: it applies ~/.ssh/config, ProxyJump, keys and the agent. */
 export function buildSshExecArgs(
@@ -40,6 +39,7 @@ export function buildSshExecArgs(
   interactive: boolean,
 ): string[] {
   const host = validateSshHost(target.host);
+  const controlPath = controlPathOption();
   const args = [
     ...sshConfigArgs(),
     "-T",
@@ -55,6 +55,9 @@ export function buildSshExecArgs(
     "StrictHostKeyChecking=accept-new",
     "-o",
     "ClearAllForwardings=yes",
+    // Shared with the tunnel and every other ssh for this machine; a ControlMaster in the user's
+    // ~/.ssh/config loses to these command-line options.
+    ...(controlPath ? sshMultiplexArgs(controlPath) : []),
   ];
   if (target.sshPort !== undefined)
     args.push("-p", String(validatePort(target.sshPort, "SSH port")));
