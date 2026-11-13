@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import type { Readable } from "node:stream";
-import { validatePort, validateSshHost } from "@pimi/protocol/ssh-transport";
+import { sshAuthModeArgs, validatePort, validateSshHost } from "@pimi/protocol/ssh-transport";
 import { RemoteSshError, errorFromRemoteScript, errorFromSshStderr } from "./errors.js";
 
 export interface SshTarget {
@@ -33,13 +33,16 @@ export function sshConfigArgs(env: NodeJS.ProcessEnv = process.env): string[] {
 }
 
 /** Always the system ssh: it applies ~/.ssh/config, ProxyJump, keys and the agent. */
-export function buildSshExecArgs(target: SshTarget, remoteCommand: string): string[] {
+export function buildSshExecArgs(
+  target: SshTarget,
+  remoteCommand: string,
+  interactive: boolean,
+): string[] {
   const host = validateSshHost(target.host);
   const args = [
     ...sshConfigArgs(),
     "-T",
-    "-o",
-    "BatchMode=yes",
+    ...sshAuthModeArgs(interactive),
     "-o",
     "ConnectTimeout=10",
     "-o",
@@ -75,7 +78,7 @@ export function runSsh(
   options: SshRunOptions = {},
 ): Promise<SshRunResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn("ssh", buildSshExecArgs(target, remoteCommand), {
+    const child = spawn("ssh", buildSshExecArgs(target, remoteCommand, false), {
       stdio: [options.stdin ? "pipe" : "ignore", "pipe", "pipe"],
       windowsHide: true,
     });
