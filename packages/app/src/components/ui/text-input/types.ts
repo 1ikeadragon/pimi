@@ -12,6 +12,8 @@ export interface EditingTextInputHandle {
   /** Clear the editor and reset its intrinsic layout, preserving focus intent. */
   reset(): void;
   getNativeRef(): unknown;
+  /** The live selection, for editors that are not a native text input and so have no element to ask. */
+  getSelection?(): { start: number; end: number };
 }
 
 export interface EditingTextInputProps extends Omit<
