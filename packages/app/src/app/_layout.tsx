@@ -114,7 +114,10 @@ import { PIMI_TASKS_ROUTE } from "@/navigation/pimi-tasks";
 import { PIMI_REVIEW_ROUTE } from "@/navigation/pimi-review";
 import { PIMI_WORK_ROUTE } from "@/navigation/pimi-work";
 import { PimiVoiceBubble } from "@/desktop/pimi-voice-bubble";
-import { loadDesktopSettings } from "@/desktop/settings/desktop-settings";
+import {
+  loadDesktopSettings,
+  updatePersistedDesktopSettings,
+} from "@/desktop/settings/desktop-settings";
 import { DaemonVersionCalloutSource } from "@/desktop/daemon/version-callout-source";
 import { RosettaCalloutSource } from "@/desktop/updates/rosetta-callout-source";
 import { UpdateCalloutSource } from "@/desktop/updates/update-callout-source";
@@ -292,7 +295,17 @@ async function shouldStartBuiltInDaemon(): Promise<boolean> {
     return false;
   }
   const settings = await loadDesktopSettings();
-  return settings.daemon.manageBuiltInDaemon;
+  if (settings.daemon.manageBuiltInDaemon) {
+    return true;
+  }
+  // Recovery: daemon management was disabled (e.g. host removal) but no hosts
+  // are configured, so the app has nothing to connect to. Re-enable it so the
+  // user isn't stranded on the welcome screen with no way to start the daemon.
+  if (getHostRuntimeStore().getHosts().length === 0) {
+    await updatePersistedDesktopSettings({ daemon: { manageBuiltInDaemon: true } });
+    return true;
+  }
+  return false;
 }
 
 function HostRuntimeBootstrapProvider({ children }: { children: ReactNode }) {
