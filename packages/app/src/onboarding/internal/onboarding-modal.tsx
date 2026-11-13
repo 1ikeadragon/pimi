@@ -11,6 +11,7 @@ import {
   GitPullRequest,
   MessageCircle,
   Server,
+  Swords,
 } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import {
@@ -354,6 +355,7 @@ const pimiStepIcons = {
   machine: withUnistyles(Server),
   gitProviders: withUnistyles(GitPullRequest),
   projects: withUnistyles(FolderGit2),
+  attack: withUnistyles(Swords),
   firstChat: withUnistyles(MessageCircle),
 };
 const mutedIconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });

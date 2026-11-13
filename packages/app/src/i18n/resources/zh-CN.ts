@@ -2068,6 +2068,14 @@ export const zhCN: TranslationResources = {
           title: "让代理使用 Pimi",
           description: "让你的代理创建工作区并与其他代理对话",
         },
+        attack: {
+          label: "攻击模式",
+          title: "攻击模式",
+          description:
+            "对抗式 QA 与安全代理，用来测试你自己的应用。现在启用即可一次性授予所需的 macOS 权限。",
+          enable: "启用攻击模式",
+          notNow: "暂不启用",
+        },
         phone: {
           label: "移动端",
           title: "随身带上你的代理",
@@ -2467,6 +2475,22 @@ export const zhCN: TranslationResources = {
       label: "攻击",
       accessibilityLabel: "攻击模式",
       openProject: "请先打开项目以使用攻击模式。",
+    },
+    access: {
+      accessibility: "辅助功能",
+      screen: "屏幕录制",
+      granted: "已授权",
+      missing: "未授权",
+      openSettings: "打开系统设置",
+      reopenNote:
+        "macOS 只有在 Pimi 重新打开后才会应用屏幕录制权限。请在系统设置中授权，然后重新打开 Pimi。",
+      reopen: "重新打开 Pimi",
+    },
+    setup: {
+      title: "攻击模式",
+      label: "攻击权限",
+      hint: "检查或授予攻击模式所需的 macOS 权限。",
+      button: "设置攻击权限",
     },
     panels: {
       board: {

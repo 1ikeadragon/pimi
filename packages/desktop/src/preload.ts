@@ -342,6 +342,7 @@ contextBridge.exposeInMainWorld("pimiDesktop", {
     checkDataDir: (dir: string) => ipcRenderer.invoke("pimi:desktop-target:check-data-dir", dir),
     openSettings: (pane: "accessibility" | "screen") =>
       ipcRenderer.invoke("pimi:desktop-target:open-settings", pane),
+    relaunch: () => ipcRenderer.invoke("pimi:desktop-target:relaunch"),
   },
   browser: {
     setShortcutPolicy: (input: BrowserKeyboardPolicy) =>

@@ -2137,6 +2137,14 @@ export const fr: TranslationResources = {
           description:
             "Laissez vos agents créer des espaces de travail et parler à d'autres agents",
         },
+        attack: {
+          label: "Mode Attaque",
+          title: "Mode Attaque",
+          description:
+            "Des agents adverses de QA et de sécurité qui testent vos propres apps. Activez-le maintenant pour accorder d'un coup les accès macOS nécessaires.",
+          enable: "Activer le mode Attaque",
+          notNow: "Pas maintenant",
+        },
         phone: {
           label: "Mobile",
           title: "Emportez vos agents partout",
@@ -2550,6 +2558,22 @@ export const fr: TranslationResources = {
       label: "Attaque",
       accessibilityLabel: "Mode Attaque",
       openProject: "Ouvrez un projet pour utiliser le mode Attaque.",
+    },
+    access: {
+      accessibility: "Accessibilité",
+      screen: "Enregistrement de l'écran",
+      granted: "Accordé",
+      missing: "Non accordé",
+      openSettings: "Ouvrir les Réglages Système",
+      reopenNote:
+        "macOS n'applique l'enregistrement de l'écran qu'après la réouverture de Pimi. Accordez-le dans les Réglages Système, puis rouvrez Pimi.",
+      reopen: "Rouvrir Pimi",
+    },
+    setup: {
+      title: "Mode Attaque",
+      label: "Accès du mode Attaque",
+      hint: "Vérifiez ou accordez les accès macOS dont le mode Attaque a besoin.",
+      button: "Configurer les accès d'Attaque",
     },
     panels: {
       board: {

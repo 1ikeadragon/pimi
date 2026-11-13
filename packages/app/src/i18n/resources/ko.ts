@@ -2101,6 +2101,14 @@ export const ko: TranslationResources = {
           title: "에이전트가 Pimi를 사용하도록 허용",
           description: "에이전트가 워크스페이스를 만들고 다른 에이전트와 대화하게 하세요",
         },
+        attack: {
+          label: "어택 모드",
+          title: "어택 모드",
+          description:
+            "내 앱을 테스트하는 적대적 QA·보안 에이전트입니다. 지금 사용하면 필요한 macOS 권한을 한 번에 허용할 수 있습니다.",
+          enable: "어택 모드 사용",
+          notNow: "나중에",
+        },
         phone: {
           label: "모바일",
           title: "어디서나 에이전트와 함께",
@@ -2509,6 +2517,22 @@ export const ko: TranslationResources = {
       label: "어택",
       accessibilityLabel: "어택 모드",
       openProject: "어택 모드를 사용하려면 프로젝트를 여세요.",
+    },
+    access: {
+      accessibility: "손쉬운 사용",
+      screen: "화면 기록",
+      granted: "허용됨",
+      missing: "허용되지 않음",
+      openSettings: "시스템 설정 열기",
+      reopenNote:
+        "macOS는 Pimi를 다시 열어야 화면 기록을 적용합니다. 시스템 설정에서 허용한 뒤 Pimi를 다시 여세요.",
+      reopen: "Pimi 다시 열기",
+    },
+    setup: {
+      title: "어택 모드",
+      label: "어택 권한",
+      hint: "어택 모드에 필요한 macOS 권한을 확인하거나 허용합니다.",
+      button: "어택 권한 설정",
     },
     panels: {
       board: {

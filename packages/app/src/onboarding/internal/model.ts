@@ -4,6 +4,7 @@ export type OnboardingStepId =
   | "gitProviders"
   | "projects"
   | "orchestration"
+  | "attack"
   | "phone"
   | "welcome"
   | "machine"
@@ -15,6 +16,7 @@ const STEPS_WITHOUT_PHONE: readonly OnboardingStepId[] = [
   "providers",
   "projects",
   "orchestration",
+  "attack",
 ];
 const STEPS_WITH_PHONE: readonly OnboardingStepId[] = [...STEPS_WITHOUT_PHONE, "phone"];
 const PIMI_STEPS: readonly OnboardingStepId[] = [
@@ -23,6 +25,7 @@ const PIMI_STEPS: readonly OnboardingStepId[] = [
   "providers",
   "gitProviders",
   "projects",
+  "attack",
   "firstChat",
 ];
 
@@ -44,6 +47,8 @@ export interface OnboardingStepOptions {
   includePhoneStep: boolean;
   /** True on the desktop app, the only client that can open an SSH connection. */
   includeMachineStep: boolean;
+  /** True on a desktop app that can drive other apps, the only client Attack mode runs on. */
+  includeAttackStep: boolean;
 }
 
 export type OnboardingState =
@@ -112,7 +117,11 @@ export function createOnboardingModel(input: {
   function stepsFor(options: OnboardingStepOptions) {
     let steps = options.includePhoneStep ? STEPS_WITH_PHONE : STEPS_WITHOUT_PHONE;
     if (input.pimi) steps = PIMI_STEPS;
-    return options.includeMachineStep ? steps : steps.filter((step) => step !== "machine");
+    return steps.filter(
+      (step) =>
+        (step !== "machine" || options.includeMachineStep) &&
+        (step !== "attack" || options.includeAttackStep),
+    );
   }
 
   function setState(next: OnboardingState) {

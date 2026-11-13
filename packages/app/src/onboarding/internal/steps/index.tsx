@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import type { OnboardingStepId } from "../model";
 import type { OrchestrationSetupController } from "../orchestration-setup";
+import { AttackStep } from "./attack-step";
 import { AppearanceStep } from "./appearance-step";
 import { GitProvidersStep } from "./git-providers-step";
 import { MachineStep } from "./machine-step";
@@ -38,6 +39,8 @@ export function OnboardingStepContent({
       return <ProjectsStep serverId={serverId} suggestions={projectSuggestions} />;
     case "orchestration":
       return <OrchestrationStep setup={orchestration} />;
+    case "attack":
+      return <AttackStep />;
     case "phone":
       return <PhoneStep serverId={serverId} />;
     case "machine":

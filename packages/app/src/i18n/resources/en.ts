@@ -2125,6 +2125,14 @@ export const en = {
           title: "Let agents use Pimi",
           description: "Let your agents create workspaces and talk to other agents",
         },
+        attack: {
+          label: "Attack mode",
+          title: "Attack mode",
+          description:
+            "Adversarial QA and security agents that test your own apps. Enable it now to grant the macOS access they need in one go.",
+          enable: "Enable Attack mode",
+          notNow: "Not now",
+        },
         phone: {
           label: "Mobile",
           title: "Take your agents with you",
@@ -2531,6 +2539,22 @@ export const en = {
       label: "Attack",
       accessibilityLabel: "Attack Mode",
       openProject: "Open a project to use Attack Mode.",
+    },
+    access: {
+      accessibility: "Accessibility",
+      screen: "Screen Recording",
+      granted: "Granted",
+      missing: "Not granted",
+      openSettings: "Open System Settings",
+      reopenNote:
+        "macOS applies Screen Recording only after Pimi reopens. Grant it in System Settings, then reopen Pimi.",
+      reopen: "Reopen Pimi",
+    },
+    setup: {
+      title: "Attack mode",
+      label: "Attack permissions",
+      hint: "Check or grant the macOS access Attack mode needs.",
+      button: "Set up Attack permissions",
     },
     panels: {
       board: {
