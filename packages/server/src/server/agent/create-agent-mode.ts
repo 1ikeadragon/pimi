@@ -65,7 +65,7 @@ export function resolveAndValidateCreateAgentMode(
   }
 
   // Another provider's modes do not map onto this one's, so the agent starts in the target's own
-  // default mode, which asks before acting the way that provider normally does.
+  // default mode, which ProviderSnapshotManager fills in.
   return undefined;
 }
 

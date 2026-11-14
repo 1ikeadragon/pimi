@@ -57,21 +57,6 @@ export function getClaudeContextWindowMaxTokens(
   return findClaudeModel(modelId)?.contextWindowMaxTokens;
 }
 
-/**
- * The permission mode Claude Code's own user settings.json starts sessions in. Read-only:
- * Pimi never writes it. Project and local settings depend on the chat's cwd, which the
- * provider catalog does not have.
- */
-export async function readClaudeConfiguredPermissionMode(
-  logger: Logger,
-  configDir: string,
-): Promise<string | undefined> {
-  const settings = await readClaudeSettings(logger, configDir);
-  return isRecord(settings?.permissions)
-    ? readTrimmedString(settings.permissions.defaultMode)
-    : undefined;
-}
-
 export async function getClaudeModelsWithSettings(
   logger: Logger,
   configDir: string,

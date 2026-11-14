@@ -558,7 +558,7 @@ export class ProviderSnapshotManager {
     });
     const definition = this.requireProvider(input.provider);
     const parent = input.parent ? this.resolveParent(input.parent) : null;
-    return definition.resolveCreateConfig({
+    const resolved = definition.resolveCreateConfig({
       provider: input.provider,
       requestedMode: input.requestedMode,
       featureValues: input.featureValues,
@@ -566,6 +566,12 @@ export class ProviderSnapshotManager {
       unattended: input.unattended || parent?.isUnattended === true,
       availableModes: entry.modes ?? [],
     });
+    if (resolved.modeId !== undefined) return resolved;
+    // Nothing chose a mode: start in the provider's default, the one the new-chat screen
+    // preselects. Left unset, a session uses its adapter's fallback (Claude's asks every time).
+    const defaultModeId = entry.defaultModeId ?? undefined;
+    if (!defaultModeId || !entry.modes?.some((mode) => mode.id === defaultModeId)) return resolved;
+    return { ...resolved, modeId: defaultModeId };
   }
 
   async checkHarnessUpdates(force = false): Promise<ProviderHarnessUpdate[]> {
