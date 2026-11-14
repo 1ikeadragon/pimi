@@ -105,9 +105,18 @@ export function useStreamHistoryWindow(input: {
     },
     [items, start],
   );
+  // The boundary otherwise only moves toward 0, so a chat that was scrolled to its start
+  // would keep every revealed row mounted for as long as the reader follows the bottom.
+  const collapseToRecent = useCallback(() => {
+    setWindow((current) =>
+      current.boundaryItemId === initialBoundaryItemId
+        ? current
+        : { boundaryItemId: initialBoundaryItemId, initialized: true },
+    );
+  }, [initialBoundaryItemId]);
   const loadOlder = useCallback(async (): Promise<boolean> => {
     return revealLoadedHistory() || (await loadRemoteOlder());
   }, [loadRemoteOlder, revealLoadedHistory]);
 
-  return { start, hasLocalHistory: start > 0, revealLoadedHistory, loadOlder };
+  return { start, hasLocalHistory: start > 0, revealLoadedHistory, collapseToRecent, loadOlder };
 }

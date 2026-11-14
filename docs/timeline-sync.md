@@ -15,10 +15,33 @@ trusted the chat rebuilds from the provider under a new epoch, exactly as before
 [provider switch](agent-lifecycle.md#switching-providers) the rows from earlier providers are
 kept as `carried` rows.
 
-Pagination bounds each read, not total resident history. Active and idle agents retain their
-projected transcript; archive releases it and later history reads rebuild it from the provider.
-Streaming overhead must remain proportional to the retained transcript. Cumulative text snapshots
-must be released after their deltas have been consumed.
+Pagination bounds each read. Resident history is bounded on the client and not yet on the daemon.
+Active and idle agents on the daemon retain their whole projected transcript; archive releases it
+and later history reads rebuild it from the provider. Streaming overhead must remain proportional to
+the retained transcript. Cumulative text snapshots must be released after their deltas have been
+consumed.
+
+The client keeps at most `RESIDENT_WINDOW_CAP` rows per chat (400 rows or 4 MB, in
+`timeline/resident-window.ts`). Past it, whole turns leave one end and the range moves with them:
+
+- Following the bottom (live rows, forward pages) drops the oldest turns, moves `startSeq` and sets
+  `hasOlder`.
+- Paging back past the cap drops the newest turns, moves `endSeq` and sets `hasNewer`. The chat is
+  then detached from the live tail: live stream rows are discarded (the daemon still has them) and
+  scrolling to the bottom pages forward with `direction: "after"` until `hasNewer` clears, then
+  live delivery resumes through the usual gap check.
+- Only the active view drives this. A retained hidden view reports a collapsed viewport as being
+  at the bottom, and treating that as a scroll to the end made hidden detached chats page forward
+  through their whole skipped history. A view that becomes active while detached returns to the
+  live tail with one tail fetch.
+- Cuts land only on a submitted prompt that starts a turn, because its single seq makes the new
+  range edge exact. A turn larger than the cap, or rows without a timeline position, are not cut.
+- Oldest-end trims wait while a mounted view reports the reader away from the bottom
+  (`reader-follow.ts`), since they shift every row above the viewport. They run when the reader
+  returns, which also re-collapses the mounted history window.
+
+Never slice the array without moving the range in the same store update
+(`trimAgentResidentWindow`).
 
 The invariants are:
 

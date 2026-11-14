@@ -166,6 +166,7 @@ import {
 import { PluginCatalogSync } from "@/plugins";
 import { NotificationOpenRouter } from "@/notification-open/react";
 import { ensureOsNotificationPermission } from "@/utils/os-notifications";
+import { installMemoryProbe } from "@/utils/memory-probe";
 
 polyfillCrypto();
 
@@ -1197,6 +1198,8 @@ function RootAppTree() {
     </GestureHandlerRootView>
   );
 }
+
+installMemoryProbe();
 
 export default function RootLayout() {
   useEffect(() => installWebScrollbarStyles(), []);

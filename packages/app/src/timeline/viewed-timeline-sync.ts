@@ -29,6 +29,7 @@ import {
 import { isTimelineResumeSnapshotAuthoritative } from "./timeline-sync-plan";
 import { replaceWithCanonicalStream } from "@/types/stream";
 import type { TurnLivenessTransition } from "./turn-liveness";
+import { isReaderFollowingEnd } from "./reader-follow";
 
 export interface TimelineReplicaStorage {
   readTimeline(serverId: string, agentId: string): Promise<CachedTimeline | undefined>;
@@ -402,7 +403,12 @@ export function createViewedTimelineOwner(input: {
     setAgentStreamState: (...args) => useSessionStore.getState().setAgentStreamState(...args),
     setAgentTimelineCursor: (...args) => useSessionStore.getState().setAgentTimelineCursor(...args),
     recoverTimelineGap: (agentId, cursor) => sync.recoverGap(agentId, cursor),
-    onCommitted: (agentId) => input.replica.timelineUpdated(agentId),
+    onCommitted: (agentId) => {
+      if (isReaderFollowingEnd(input.serverId, agentId)) {
+        useSessionStore.getState().trimAgentResidentWindow(input.serverId, agentId, "oldest");
+      }
+      input.replica.timelineUpdated(agentId);
+    },
   });
   return {
     ...sync,
@@ -415,7 +421,20 @@ export function createViewedTimelineOwner(input: {
         recoverGap: (agentId, cursor) => sync.recoverGap(agentId, cursor),
         drainQueuedAgentMessage: input.drainQueuedAgentMessage,
       });
-      if (accepted) input.replica.timelineUpdated(payload.agentId);
+      if (accepted) {
+        // Rows added at the newer end push the oldest turns out; a backward page pushes the
+        // newest turns out and leaves the reader detached from the live tail.
+        if (payload.direction === "before") {
+          useSessionStore
+            .getState()
+            .trimAgentResidentWindow(input.serverId, payload.agentId, "newest");
+        } else if (isReaderFollowingEnd(input.serverId, payload.agentId)) {
+          useSessionStore
+            .getState()
+            .trimAgentResidentWindow(input.serverId, payload.agentId, "oldest");
+        }
+        input.replica.timelineUpdated(payload.agentId);
+      }
     },
     applyStreamEvent(agentId, event) {
       streamQueue.enqueue(agentId, event);
