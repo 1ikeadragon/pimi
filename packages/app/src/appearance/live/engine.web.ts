@@ -1,5 +1,4 @@
 import type { LiveBackdrop } from "./backdrops";
-import { WAVES_FRAGMENT } from "./waves.frag";
 
 // The live backdrop is one WebGL canvas behind the whole window shell: every region of the app
 // shows the same frame, so there is nothing to copy and no edge between regions.
@@ -23,21 +22,12 @@ const MAX_STEP_S = 0.1;
 
 interface Program {
   gl: WebGLRenderingContext;
+  handle: WebGLProgram;
   resolution: WebGLUniformLocation | null;
   time: WebGLUniformLocation | null;
   limit: WebGLUniformLocation | null;
   light: WebGLUniformLocation | null;
-  colors: Record<keyof LiveBackdrop["colors"], WebGLUniformLocation | null>;
 }
-
-const COLOR_UNIFORMS: Record<keyof LiveBackdrop["colors"], string> = {
-  skyTop: "u_sky_top",
-  skyLow: "u_sky_low",
-  glow: "u_glow",
-  far: "u_far",
-  near: "u_near",
-  crest: "u_crest",
-};
 
 function parseHex(hex: string): [number, number, number] {
   const value = Number.parseInt(hex.slice(1), 16);
@@ -51,14 +41,45 @@ function compile(gl: WebGLRenderingContext, type: number, source: string): WebGL
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     console.error("[live-backdrop] shader compile failed", gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
     return null;
   }
   return shader;
 }
 
-function buildProgram(gl: WebGLRenderingContext): Program | null {
+/**
+ * Why this fragment source does not compile and link on this machine, or null when it does. Null
+ * as well when WebGL is unavailable: there is nothing to check against, and nothing will draw.
+ */
+export function findFragmentProblem(source: string): string | null {
+  const gl = document.createElement("canvas").getContext("webgl");
+  if (!gl) return null;
+  const vertex = gl.createShader(gl.VERTEX_SHADER);
+  const fragment = gl.createShader(gl.FRAGMENT_SHADER);
+  const program = gl.createProgram();
+  if (!vertex || !fragment || !program) return "WebGL could not create a shader";
+  gl.shaderSource(vertex, VERTEX);
+  gl.compileShader(vertex);
+  gl.shaderSource(fragment, source);
+  gl.compileShader(fragment);
+  let problem: string | null = null;
+  if (!gl.getShaderParameter(fragment, gl.COMPILE_STATUS)) {
+    problem = gl.getShaderInfoLog(fragment)?.trim() || "compile failed";
+  } else {
+    gl.attachShader(program, vertex);
+    gl.attachShader(program, fragment);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      problem = gl.getProgramInfoLog(program)?.trim() || "link failed";
+    }
+  }
+  gl.getExtension("WEBGL_lose_context")?.loseContext();
+  return problem;
+}
+
+function buildProgram(gl: WebGLRenderingContext, source: string): Program | null {
   const vertex = compile(gl, gl.VERTEX_SHADER, VERTEX);
-  const fragment = compile(gl, gl.FRAGMENT_SHADER, WAVES_FRAGMENT);
+  const fragment = compile(gl, gl.FRAGMENT_SHADER, source);
   const program = gl.createProgram();
   if (!vertex || !fragment || !program) return null;
   gl.attachShader(program, vertex);
@@ -76,17 +97,13 @@ function buildProgram(gl: WebGLRenderingContext): Program | null {
   gl.enableVertexAttribArray(0);
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   const at = (name: string) => gl.getUniformLocation(program, name);
-  const colors = {} as Program["colors"];
-  for (const key of Object.keys(COLOR_UNIFORMS) as (keyof typeof COLOR_UNIFORMS)[]) {
-    colors[key] = at(COLOR_UNIFORMS[key]);
-  }
   return {
     gl,
+    handle: program,
     resolution: at("u_resolution"),
     time: at("u_time"),
     limit: at("u_limit"),
     light: at("u_light"),
-    colors,
   };
 }
 
@@ -121,9 +138,9 @@ class LiveBackdropEngine {
       preserveDrawingBuffer: true,
       powerPreference: "low-power",
     });
-    this.program = gl ? buildProgram(gl) : null;
+    this.program = gl ? buildProgram(gl, this.backdrop.fragment) : null;
     if (!this.program) {
-      // No WebGL: the shell's static CSS gradient stays visible.
+      // No WebGL, or a shader that does not build: the shell's static CSS backdrop stays visible.
       this.canvas.style.visibility = "hidden";
       return;
     }
@@ -151,10 +168,21 @@ class LiveBackdropEngine {
     this.program = null;
   }
 
-  /** Switching between live themes only changes uniforms. */
+  /** Switching between themes that share a shader only changes uniforms. */
   setBackdrop(backdrop: LiveBackdrop): void {
     if (this.backdrop === backdrop) return;
+    const rebuild = backdrop.fragment !== this.backdrop.fragment;
     this.backdrop = backdrop;
+    if (rebuild) {
+      const program = this.program ? buildProgram(this.program.gl, backdrop.fragment) : null;
+      if (!program) {
+        this.pause();
+        this.program = null;
+        this.canvas.style.visibility = "hidden";
+        return;
+      }
+      this.program = program;
+    }
     this.applyUniforms();
     if (this.rafId === 0) this.render();
   }
@@ -165,9 +193,13 @@ class LiveBackdropEngine {
     const { gl } = program;
     gl.uniform1f(program.limit, backdrop.limit * LIMIT_MARGIN);
     gl.uniform1f(program.light, backdrop.scheme === "light" ? 1 : 0);
-    for (const key of Object.keys(COLOR_UNIFORMS) as (keyof typeof COLOR_UNIFORMS)[]) {
-      const [r, g, b] = parseHex(backdrop.colors[key]);
-      gl.uniform3f(program.colors[key], r, g, b);
+    for (const [name, value] of Object.entries(backdrop.uniforms)) {
+      const location = gl.getUniformLocation(program.handle, name);
+      if (typeof value === "number") gl.uniform1f(location, value);
+      else if (typeof value === "string") gl.uniform3f(location, ...parseHex(value));
+      else if (value.length === 2) gl.uniform2f(location, value[0], value[1]);
+      else if (value.length === 3) gl.uniform3f(location, value[0], value[1], value[2]);
+      else gl.uniform4f(location, value[0], value[1], value[2], value[3]);
     }
   }
 
@@ -181,7 +213,7 @@ class LiveBackdropEngine {
 
   private readonly onContextRestored = (): void => {
     const gl = this.canvas.getContext("webgl");
-    const program = gl ? buildProgram(gl) : null;
+    const program = gl ? buildProgram(gl, this.backdrop.fragment) : null;
     if (!program) return;
     this.lost = false;
     this.program = program;

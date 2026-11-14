@@ -838,6 +838,19 @@ plugin registers: a name the base theme lacks, or a value of the wrong type, rej
 contribution. It carries colors, spacing, and radius. Font sizes and families are not tokens:
 `applyAppearance` rewrites them on every registered theme from the user's settings.
 
+`backdrop` uses the same declaration and renderer as the built-in themes (`BackdropSpec`,
+`builtin-backdrops.ts`): image, video, or shader. The files cannot be read by
+the app, so the plugin compiler reads them (`createBackdropAssetPlugin` in `compiler-build.ts`):
+`import x from "./a.png"` or `./a.mp4` becomes a size- and signature-checked data URL (a video is
+turned into a blob URL once, in `apply-backdrop.ts`), `./a.frag` becomes GLSL text. `buildPluginTheme` applies `overWindowBackdrop`, the same helper the built-in sky themes use;
+`apply-backdrop.ts` writes `--pimi-backdrop`/`--pimi-veil` on the root and marks
+`data-appearance="plugin-backdrop"`, which `appearance.css` treats like a built-in. `WindowBackdrop` (`window-backdrop.web.tsx`)
+draws the moving layer: one `<video>`, never remounted, or the shader engine in
+`appearance/live/`. Tide is a video; only plugins use the shader. A shader is compiled once when
+the theme registers, so a broken one fails the plugin with the driver's message and never reaches
+the engine. The `limit` default comes from `mutedForeground`'s luminance; the engine cannot clamp
+an arbitrary shader, so the shader must apply `u_limit` itself.
+
 The selection persists as `theme: "plugin"` plus a `pluginThemeId` of `<pluginId>/theme/<themeId>`,
 so equal themes on several hosts coalesce the way sidebar contributions do. Two hosts can answer
 that id with different palettes, so picking a theme records its host through

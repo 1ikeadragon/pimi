@@ -84,12 +84,46 @@ export interface PluginThemeTokens {
   borderRadius?: Readonly<Record<string, number>>;
 }
 
+/**
+ * A shader uniform value: a float, a hex color (`vec3`), or two to four numbers (`vec2` to `vec4`).
+ * Names start with `u_`; `u_resolution`, `u_time`, `u_limit` and `u_light` are set by Pimi.
+ */
+export type PluginThemeUniform = number | string | readonly number[];
+
+/**
+ * One backdrop painted behind the whole window. A theme with a backdrop makes the window surfaces
+ * clear, so the picture shows through the titlebar, sidebar and content. Web and desktop only.
+ *
+ * `image`, `poster` and `veil` are the contents of a webp, png or jpg file imported by the plugin
+ * (`import sky from "./sky.webp"`), at most 512 KiB each. `video` is an mp4 or webm file, at most
+ * 8 MiB, played muted and looped; `poster` is the still shown under reduced motion and while it
+ * loads. `fragment` is GLSL ES 1.00 fragment source (`import fragment from "./waves.frag"`), at
+ * most 32 KiB. The veil sits over the picture. Text contrast is the author's job: see `limit` on a
+ * shader backdrop and the veil on the others.
+ */
+export type PluginThemeBackdrop =
+  | { kind: "image"; image: string; veil?: string }
+  | { kind: "video"; video: string; poster: string; veil?: string }
+  | {
+      kind: "shader";
+      fragment: string;
+      /** Must equal the theme's `appearance`. */
+      scheme: "light" | "dark";
+      /**
+       * Luminance cap (dark) or floor (light) the shader keeps every pixel inside, passed as
+       * `u_limit`. Defaults to the most the theme's `mutedForeground` text can sit on at 4.5:1.
+       */
+      limit?: number;
+      uniforms?: Readonly<Record<string, PluginThemeUniform>>;
+    };
+
 export interface PluginThemeContribution<Text extends PluginText = string> {
   id: string;
   name: Text;
   appearance: "light" | "dark";
   colors: PluginThemeColors;
   tokens?: PluginThemeTokens;
+  backdrop?: PluginThemeBackdrop;
 }
 
 export interface PluginAttachmentSourceContribution<Text extends PluginText = string> {

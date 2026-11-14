@@ -43,3 +43,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Ocean surface waves 03
+
+The Tide theme backdrop (`packages/app/public/pimi-textures/tide.mp4` and `tide-poster.webp`) is cut from "Ocean surface waves 03.ogv" by Mostafameraji, released under CC0 1.0 Universal (public domain dedication). Re-encoded as a seamless loop.
+
+Source: https://commons.wikimedia.org/wiki/File:Ocean_surface_waves_03.ogv

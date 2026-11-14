@@ -3,8 +3,10 @@ export type {
   PluginTheme,
   PluginWorkspaceSnapshot,
   PluginAgentSnapshot,
+  PluginThemeBackdrop,
   PluginThemeColors,
   PluginThemeContribution,
+  PluginThemeUniform,
   PluginAttachmentSourceContribution,
   PluginTimelineData,
   PluginTimelineItem,
@@ -38,3 +40,15 @@ export {
   type PluginSerializableIcon,
   type PluginSvgIcon,
 } from "./icons.js";
+export {
+  backdropImageMime,
+  backdropVideoMime,
+  findBackdropImageProblem,
+  findBackdropShaderSourceProblem,
+  findBackdropVideoProblem,
+  PLUGIN_BACKDROP_IMAGE_DATA_URL,
+  PLUGIN_BACKDROP_IMAGE_MAX_BYTES,
+  PLUGIN_BACKDROP_SHADER_MAX_BYTES,
+  PLUGIN_BACKDROP_VIDEO_DATA_URL,
+  PLUGIN_BACKDROP_VIDEO_MAX_BYTES,
+} from "./backdrop.js";

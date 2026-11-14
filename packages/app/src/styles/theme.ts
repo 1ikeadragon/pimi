@@ -1074,7 +1074,7 @@ const pimiCatppuccinMocha = buildDarkTheme(
 // Backdrop themes: appearance.css paints one sky (or the live Tide canvas) across the whole window
 // shell, on web only. Structural surfaces go clear so it runs unbroken behind the titlebar, sidebar
 // and content, and region dividers become a hairline. Native has no backdrop and keeps solid colours.
-function overWindowBackdrop<
+export function overWindowBackdrop<
   Colors extends { surfaceWindow: string; surfaceChrome: string; borderWindow: string },
 >(colors: Colors, hairline: string): Colors {
   if (Platform.OS !== "web") return colors;

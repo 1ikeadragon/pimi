@@ -1419,6 +1419,85 @@ client.addTheme({
 whole theme when the plugin loads. Colors are hex strings. Font sizes and families are not tokens:
 the user's Appearance settings own them and apply over every theme.
 
+### Window backdrops
+
+Add `backdrop` to paint one picture behind the whole window, as Day, Dusk, Night, Dawn, and Tide
+do. The theme's window surfaces and sidebar become clear and region dividers become a hairline, so
+the titlebar, sidebar, and content share the picture. Cards, popovers, and sheets keep solid
+surfaces. Backdrops draw on desktop and web; on mobile the theme keeps its flat colors.
+
+A backdrop is an image with an optional veil, a muted looping video with a poster, or a live
+shader. Import the files from your plugin's `client/` directory. The plugin compiler reads and
+checks them when the plugin builds, so nothing is fetched at runtime and a bad file fails the
+plugin with its name:
+
+```ts
+import sky from "./client/sky.webp";
+import skyVeil from "./client/sky-veil.webp";
+import waves from "./client/waves.frag";
+
+declare module "*.webp" {
+  const dataUrl: string;
+  export default dataUrl;
+} // in client/assets.d.ts
+
+client.addTheme({
+  /* id, name, appearance, colors */
+  backdrop: { kind: "image", image: sky, veil: skyVeil },
+});
+
+client.addTheme({
+  /* id, name, appearance, colors */
+  backdrop: { kind: "video", video: sea, poster: seaPoster, veil: seaVeil },
+});
+
+client.addTheme({
+  /* id, name, appearance, colors */
+  backdrop: {
+    kind: "shader",
+    fragment: waves,
+    scheme: "dark", // must equal `appearance`
+    uniforms: { u_tint: "#1f6f78", u_speed: 0.6 },
+  },
+});
+```
+
+| Field      | Limit                                                                                    |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| `image`    | webp, png, or jpg, at most 512 KiB. Drawn to cover the window, anchored top right.       |
+| `video`    | mp4 (H.264) or webm, at most 8 MiB. Played muted and looped; no audio track needed.      |
+| `poster`   | Image for a `video`, same formats and cap. Shown under reduced motion and while loading. |
+| `veil`     | Same formats and cap. Optional; drawn over `image` or `video` with the same sizing.      |
+| `fragment` | GLSL ES 1.00 fragment source, at most 32 KiB. Not a path or URL: import it as above.     |
+| `uniforms` | At most 16, named `u_*`: a float, a hex color (`vec3`), or 2-4 numbers (`vec2`-`vec4`).  |
+| `limit`    | Optional number from 0 to 1, passed to the shader as `u_limit`. See below.               |
+
+Pimi sets `u_resolution` (`vec2`, pixels), `u_time` (`float`, seconds), `u_limit`, and `u_light`
+(`0` for dark, `1` for light) itself; you cannot declare them in `uniforms`. The shader draws at
+most 1.25x pixel density and Pimi shrinks its buffer on a slow GPU, so keep it smooth and cheap.
+
+**Text contrast is your job.** Text sits directly on the backdrop, so every pixel must stay readable
+under `foreground` and `mutedForeground`:
+
+- Images and video: make `veil` a wash of the theme's `background`, opaque enough to hold 4.5:1
+  text under the brightest part of the art (for video, the brightest frame). No veil is fine if the
+  art is already calm.
+- Shaders: `limit` is the relative luminance (0 black, 1 white) every pixel must stay under for a
+  dark theme, or over for a light one. It defaults to the highest value that keeps
+  `mutedForeground` at 4.5:1. Pimi does not clamp your output; end the shader with a guard, as in
+  `plugin-examples/aurora-backdrop/client/aurora.frag`. Under a tight cap, saturated blues read as
+  bright; pale colors get scaled to grey.
+
+Animation pauses when the window is blurred or hidden. Under reduced motion a video shows its
+`poster` and a shader holds one still frame. `prefers-contrast: more` and forced colors stop the
+video or shader; a video theme then shows its poster and a shader theme its flat `background`
+color. One `<video>` element serves every video theme, so switching themes or screens never
+restarts or flickers it. A shader that fails to compile or link rejects the plugin on load with
+the driver's message, and the theme does not appear. If WebGL is unavailable later, or the context
+is lost, the window shows the flat `background` color.
+
+`plugin-examples/aurora-backdrop` has one theme of each kind (shader, image, video).
+
 Only one contributed theme is active at a time. Selecting one persists the choice; if the plugin is
 later disabled or removed, Pimi falls back to the default theme rather than leaving the app
 unpainted.

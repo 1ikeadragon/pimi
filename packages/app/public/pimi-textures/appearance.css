@@ -44,44 +44,21 @@
   --pimi-glass: #262945cc;
 }
 
-/* Backdrop themes. One sky fills the whole window shell and every structural surface above it is
-   clear (theme.ts), so titlebar, sidebar and content share the same picture. The veil is a wash of
-   the theme's surface colour, drawn over the art with the same sizing: it is just strong enough,
-   pixel by pixel, to hold body text at AA anywhere in the window. To swap the art, replace the
-   image and its veil (any image or gradient works as a veil). */
-:root[data-appearance="sky-day"] {
-  --pimi-backdrop: url("/pimi-textures/sky-day.webp");
-  --pimi-veil: url("/pimi-textures/sky-day-veil.webp");
-}
-
-:root[data-appearance="sky-dawn"] {
-  --pimi-backdrop: url("/pimi-textures/sky-dawn.webp");
-  --pimi-veil: url("/pimi-textures/sky-dawn-veil.webp");
-}
-
-:root[data-appearance="sky-dusk"] {
-  --pimi-backdrop: url("/pimi-textures/sky-dusk.webp");
-  --pimi-veil: url("/pimi-textures/sky-dusk-veil.webp");
-}
-
-:root[data-appearance="sky-night"] {
-  --pimi-backdrop: url("/pimi-textures/sky-night.webp");
-  --pimi-veil: url("/pimi-textures/sky-night-veil.webp");
-}
-
-/* Tide is drawn live on a canvas above this layer; the gradient shows only if WebGL is unavailable. */
-:root[data-appearance="tide"] {
-  --pimi-backdrop:
-    radial-gradient(ellipse at 78% 14%, #1f6f7833, transparent 60%),
-    linear-gradient(to top, #0a2229, #03070a 75%);
-}
+/* Backdrop themes (Day, Dawn, Dusk, Night, Tide, and plugin themes with a backdrop). One picture
+   fills the whole window shell and every structural surface above it is clear (theme.ts), so
+   titlebar, sidebar and content share it. --pimi-backdrop and --pimi-veil are written on the root
+   by apply-backdrop.ts from the theme's backdrop declaration (builtin-backdrops.ts for Pimi's own
+   themes). The veil is a wash of the theme's surface colour, drawn over the art with the same
+   sizing: just strong enough, pixel by pixel, to hold body text at AA anywhere in the window. A
+   video theme's still layer is its poster; its video and veil are drawn by WindowBackdrop. */
 
 :root:is(
   [data-appearance="sky-day"],
   [data-appearance="sky-dawn"],
   [data-appearance="sky-dusk"],
   [data-appearance="sky-night"],
-  [data-appearance="tide"]
+  [data-appearance="tide"],
+  [data-appearance="plugin-backdrop"]
 ) {
   --pimi-ink: none;
   --pimi-material: none;
@@ -138,7 +115,8 @@
     [data-appearance="sky-dawn"],
     [data-appearance="sky-dusk"],
     [data-appearance="sky-night"],
-    [data-appearance="tide"]
+    [data-appearance="tide"],
+    [data-appearance="plugin-backdrop"]
   )
   #pimi-console-content[inert] {
   visibility: hidden;

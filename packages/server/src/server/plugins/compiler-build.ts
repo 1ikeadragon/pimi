@@ -1,4 +1,11 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
+import {
+  backdropImageMime,
+  backdropVideoMime,
+  findBackdropImageProblem,
+  findBackdropShaderSourceProblem,
+  findBackdropVideoProblem,
+} from "@pimi/plugin";
 import { readPluginManifest } from "./manifest.js";
 import { assertPluginCompatibility } from "@pimi/protocol/plugin-requirements";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
@@ -345,6 +352,40 @@ function checkSharedDependencies(inputs: Metafile["inputs"], pluginDirectory: st
   }
 }
 
+// `import sky from "./sky.webp"` yields a data URL, `import clip from "./tide.mp4"` the same for a
+// video, and `import fragment from "./waves.frag"` GLSL source, for a theme backdrop. The files are
+// read and checked here, when the plugin builds: nothing is fetched at runtime and an oversized or
+// mislabelled file fails the plugin with its name.
+function createBackdropAssetPlugin(): Plugin {
+  return {
+    name: "pimi-plugin-backdrop-assets",
+    setup(buildContext) {
+      buildContext.onLoad(
+        { filter: /\.(?:webp|png|jpe?g|mp4|webm|frag|glsl)$/ },
+        async ({ path: file }) => {
+          const bytes = await readFile(file);
+          const name = path.basename(file);
+          const fail = (problem: string) =>
+            new Error(`Invalid theme backdrop file "${name}": ${problem}`);
+          if (/\.(?:frag|glsl)$/.test(file)) {
+            const problem = findBackdropShaderSourceProblem(bytes.toString("utf8"));
+            if (problem) throw fail(problem);
+            return { contents: bytes, loader: "text" };
+          }
+          const isVideo = /\.(?:mp4|webm)$/.test(file);
+          const problem = isVideo
+            ? findBackdropVideoProblem(bytes)
+            : findBackdropImageProblem(bytes);
+          if (problem) throw fail(problem);
+          const mime = (isVideo ? backdropVideoMime(bytes) : backdropImageMime(bytes)) ?? "";
+          const dataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+          return { contents: `export default ${JSON.stringify(dataUrl)};`, loader: "js" };
+        },
+      );
+    },
+  };
+}
+
 async function compileTarget(entryPath: string, target: PluginBuildTarget): Promise<string> {
   const { build } = loadEsbuild();
   // Use native canonical paths throughout: TypeScript expands Windows short names
@@ -371,7 +412,10 @@ async function compileTarget(entryPath: string, target: PluginBuildTarget): Prom
       target === "client"
         ? [...new Set([...PLUGIN_SDK_SPECIFIERS, ...PLUGIN_CLIENT_HOST_MODULES])]
         : SERVER_HOST_MODULES,
-    plugins: [createRuntimeBoundaryPlugin(target, pluginDirectory)],
+    plugins: [
+      createRuntimeBoundaryPlugin(target, pluginDirectory),
+      ...(target === "client" ? [createBackdropAssetPlugin()] : []),
+    ],
     metafile: true,
     logLevel: "silent",
     treeShaking: true,
