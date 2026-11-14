@@ -1012,22 +1012,22 @@ function buildImportedTimelineRows(entries: readonly ImportedTimelineEntry[]): A
 
 function resolveImportedAgentTitle(
   config: AgentSessionConfig,
-  timelineRows: readonly AgentTimelineRow[],
+  firstPrompt: string | null,
 ): string | null {
-  const initialPrompt = getFirstUserMessageTextFromRows(timelineRows);
-  if (!initialPrompt) {
+  if (!firstPrompt) {
     return null;
   }
   const { explicitTitle, provisionalTitle } = resolveCreateAgentTitles({
     configTitle: config.title,
-    initialPrompt,
+    initialPrompt: firstPrompt,
   });
   return explicitTitle ?? provisionalTitle ?? null;
 }
 
-function getFirstUserMessageTextFromRows(rows: readonly AgentTimelineRow[]): string | null {
-  for (const row of rows) {
-    const item = row.item;
+function getFirstUserMessageTextFromImport(
+  entries: readonly ImportedTimelineEntry[],
+): string | null {
+  for (const { item } of entries) {
     if (item.type !== "user_message") {
       continue;
     }
@@ -2154,29 +2154,33 @@ export class AgentManager {
       const importedConfig = await this.normalizeConfig(
         stripInternalPimiMcpServer(imported.config),
       );
-      const importedTimeline: ImportedTimelineEntry[] = [];
-      for (const entry of imported.timeline) {
-        const item = await this.storeProviderImages(resolvedAgentId, entry.item);
-        if (item) importedTimeline.push({ ...entry, item });
-      }
-      const timelineRows = buildImportedTimelineRows(importedTimeline);
-      const initialTitle = resolveImportedAgentTitle(importedConfig, timelineRows);
+      // A windowed provider replays only the newest turns; registration records them and leaves
+      // the older ones to be paged in, exactly as for a resumed chat.
+      const history: AgentStreamEvent[] = [
+        ...(imported.providerSubagentEvents ?? []),
+        ...imported.timeline.map(
+          (entry): AgentStreamEvent => ({
+            type: "timeline",
+            item: entry.item,
+            provider: input.provider,
+            ...(entry.timestamp ? { timestamp: entry.timestamp } : {}),
+          }),
+        ),
+      ];
+      const initialTitle = resolveImportedAgentTitle(
+        importedConfig,
+        imported.firstPrompt ?? getFirstUserMessageTextFromImport(imported.timeline),
+      );
 
       handedToRegistration = true;
       const agent = await this.registerSession(imported.session, importedConfig, resolvedAgentId, {
         labels: input.labels,
         workspaceId: input.workspaceId,
-        timelineRows,
-        timelineNextSeq: timelineRows.length + 1,
         persistence: imported.persistence,
-        historyPrimed: true,
+        importedHistory: history,
         initialTitle,
         publishWhenReady: true,
       });
-      for (const event of imported.providerSubagentEvents ?? []) {
-        const update = await this.applyProviderSubagentEvent(agent.id, event);
-        if (update) this.dispatch({ type: "provider_subagent", event: update });
-      }
       return agent;
     } finally {
       if (!handedToRegistration) {
@@ -4888,6 +4892,8 @@ export class AgentManager {
       timelineNextSeq?: number;
       persistence?: AgentPersistenceHandle;
       historyPrimed?: boolean;
+      /** The replay of an imported session, recorded before the agent is published. */
+      importedHistory?: AgentStreamEvent[];
       lastUsage?: AgentUsage;
       lastError?: string;
       attention?: AttentionState;
@@ -4951,17 +4957,7 @@ export class AgentManager {
       registered = true;
       // Initialize previousStatus to track transitions
       this.previousStatuses.set(resolvedAgentId, managed.lifecycle);
-      if (session.initialTimeline?.length) {
-        if (!managed.historyPrimed) {
-          // Legacy/imported chats need their existing history before startup rows.
-          await this.primeTimelineFromLegacyProviderHistory(managed, false, startupHistory);
-        } else {
-          for (const entry of buildImportedTimelineRows(session.initialTimeline)) {
-            this.recordTimeline(managed.id, entry.item, { timestamp: entry.timestamp });
-          }
-        }
-        this.refreshSessionPersistence(managed);
-      }
+      await this.recordRegistrationHistory(managed, options?.importedHistory, startupHistory);
       await this.refreshRuntimeInfo(managed, { emit: false });
       this.assertAgentRegistrationActive(managed);
       await this.persistInitialSnapshot(
@@ -4996,6 +4992,28 @@ export class AgentManager {
       }
       throw error;
     }
+  }
+
+  /** Record the history a session arrives with before its agent is published. */
+  private async recordRegistrationHistory(
+    managed: ActiveManagedAgent,
+    importedHistory: AgentStreamEvent[] | undefined,
+    startupHistory: AgentStreamEvent[],
+  ): Promise<void> {
+    if (importedHistory) {
+      await this.primeTimelineFromLegacyProviderHistory(managed, false, importedHistory);
+    }
+    const initialTimeline = managed.session.initialTimeline;
+    if (!initialTimeline?.length) return;
+    if (!managed.historyPrimed) {
+      // Legacy/imported chats need their existing history before startup rows.
+      await this.primeTimelineFromLegacyProviderHistory(managed, false, startupHistory);
+    } else {
+      for (const entry of buildImportedTimelineRows(initialTimeline)) {
+        this.recordTimeline(managed.id, entry.item, { timestamp: entry.timestamp });
+      }
+    }
+    this.refreshSessionPersistence(managed);
   }
 
   private async resolvePendingProviderContext(
