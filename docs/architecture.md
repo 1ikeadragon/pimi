@@ -465,7 +465,7 @@ $PIMI_HOME/
 └── daemon.log                                  # Daemon trace logs (rotated)
 ```
 
-The supervisor alone publishes its ready worker's endpoint in `pimi.pid`, clears it before respawn, and fails if any worker exits before first readiness. CLI home selection trusts only that live record; config expresses desired state, never an endpoint fallback. POSIX home stop signals the captured supervisor without TCP. Windows graceful stop and ordinary RPCs trust the published endpoint. This metadata is not cryptographic listener ownership: edited endpoints, copied identities, PID reuse, and address takeover races remain outside that guarantee. A stale heartbeat never permits reclaiming a live lock.
+The supervisor alone publishes its ready worker's endpoint in `pimi.pid`, clears it before respawn, and fails the first start if the worker exits before readiness (a bad config or taken port reaches the launcher); a later replacement that dies before readiness is retried with backoff. CLI home selection trusts only that live record; config expresses desired state, never an endpoint fallback. POSIX home stop signals the captured supervisor without TCP. Windows graceful stop and ordinary RPCs trust the published endpoint. This metadata is not cryptographic listener ownership: edited endpoints, copied identities, PID reuse, and address takeover races remain outside that guarantee. A stale heartbeat never permits reclaiming a live lock.
 
 Worker restart retains supervisor arguments/environment and rereads the configuration file. Updating a package and observing its new worker version do not refresh the running supervisor code; the launcher owns full-process replacement. See [CLI lifecycle contracts](../public-docs/cli.md#daemon-management).
 

@@ -201,6 +201,11 @@ export function runSupervisor(options: SupervisorOptions): SupervisorController 
   let pendingKeepTerminals = false;
   let exiting = false;
   let lifecycleFailed = false;
+  // First start fails fast so a bad config or taken port reaches the launcher; once a worker
+  // has been ready, a replacement that dies during startup is retried with backoff instead.
+  let everReady = false;
+  let unreadyExits = 0;
+  let respawnTimer: NodeJS.Timeout | null = null;
   let publication = Promise.resolve();
   let forceKillTimer: NodeJS.Timeout | null = null;
   const durableLog = createDurableLog(options.logFile, (message) => {
@@ -371,6 +376,8 @@ export function runSupervisor(options: SupervisorOptions): SupervisorController 
 
       if (lifecycleMessage.type === "pimi:ready") {
         reachedReady = true;
+        everReady = true;
+        unreadyExits = 0;
         writeLifecycleLog("Worker ready", { listen: lifecycleMessage.listen });
         publication = publication
           .then(() =>
@@ -426,6 +433,10 @@ export function runSupervisor(options: SupervisorOptions): SupervisorController 
         const exitDescriptor = describeExit(code, signal);
         writeLifecycleLog("Worker exited", { code, signal, exit: exitDescriptor });
 
+        if (!reachedReady && retryUnreadyWorker(exitDescriptor)) {
+          return;
+        }
+
         if (lifecycleFailed || (!reachedReady && !shuttingDown)) {
           log(`Worker exited before successful readiness (${exitDescriptor}). Supervisor exiting.`);
           exitSupervisor(1);
@@ -470,6 +481,23 @@ export function runSupervisor(options: SupervisorOptions): SupervisorController 
         return;
       });
     });
+  };
+
+  const retryUnreadyWorker = (exitDescriptor: string): boolean => {
+    if (lifecycleFailed || shuttingDown || !everReady || !restartOnCrash) {
+      return false;
+    }
+    const delayMs = Math.min(30_000, 1000 * 2 ** unreadyExits++);
+    restarting = false;
+    pendingKeepTerminals = false;
+    log(`Worker exited before readiness (${exitDescriptor}). Retrying in ${delayMs / 1000} s...`);
+    respawnTimer = setTimeout(() => {
+      respawnTimer = null;
+      if (!shuttingDown) {
+        spawnWorker();
+      }
+    }, delayMs);
+    return true;
   };
 
   const requestWorkerShutdown = (reason: string): void => {
@@ -527,6 +555,10 @@ export function runSupervisor(options: SupervisorOptions): SupervisorController 
     shuttingDown = true;
     restarting = false;
     pendingKeepTerminals = shutdownOptions.keepTerminals === true;
+    if (respawnTimer) {
+      clearTimeout(respawnTimer);
+      respawnTimer = null;
+    }
     writeLifecycleLog("Supervisor shutdown requested", {
       reason,
       keepTerminals: pendingKeepTerminals,
