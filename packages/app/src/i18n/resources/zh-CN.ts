@@ -1551,6 +1551,7 @@ export const zhCN: TranslationResources = {
       description: "请检查网络连接后重试。",
     },
   },
+  tasks: en.tasks,
   sidebar: {
     statusGroupAccessibility: "{{label}} 分组",
     statusBucket: {
@@ -3304,6 +3305,7 @@ export const zhCN: TranslationResources = {
         commitMessage: "提交信息",
         pullRequest: "拉取请求文本",
         automation: "Describe it",
+        task: en.settings.pimiModels.features.task,
         askPimi: "Ask Pimi",
       },
     },

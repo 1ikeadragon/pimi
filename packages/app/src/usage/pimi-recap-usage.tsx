@@ -1,16 +1,16 @@
 // Pimi. Apache-2.0.
-import type { PimiRecap, PimiRecapPeriod } from "@pimi/protocol/pimi-task";
-import { ChevronRight, GitMerge, ListChecks } from "lucide-react-native";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import type { PimiRecapPeriod } from "@pimi/protocol/pimi-task";
+import { ChevronRight, ListChecks } from "lucide-react-native";
+import { useCallback, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
-import { getDesktopHost } from "@/desktop/host";
-import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
-import { openPimiReview, pullRequestUrlToSource } from "@/navigation/pimi-review";
+import { useTasks, type AggregatedTask } from "@/hooks/use-tasks";
+import { useTranslation } from "@/i18n/use-translation";
+import { pushPimiTask } from "@/navigation/pimi-tasks";
 import { UsageMessage } from "./usage-section";
 
 const periods: SegmentedControlOption<PimiRecapPeriod>[] = [
@@ -23,6 +23,18 @@ const rangeFormat = new Intl.DateTimeFormat(undefined, {
   year: "numeric",
 });
 const dayFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+const RECAP_PAGE_SIZE = 100;
+
+/** Monday-to-Monday week, local time. */
+function weekRange(period: PimiRecapPeriod): { start: Date; end: Date } {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const daysSinceMonday = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - daysSinceMonday - (period === "last-week" ? 7 : 0));
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7);
+  return { start, end };
+}
 
 export function PimiRecapUsage() {
   const [period, setPeriod] = useState<PimiRecapPeriod>("last-week");
@@ -32,9 +44,7 @@ export function PimiRecapUsage() {
         <View style={styles.header}>
           <View style={styles.heading}>
             <Text style={styles.title}>What shipped</Text>
-            <Text style={styles.muted}>
-              Done tasks and merges from pull requests linked in Pimi.
-            </Text>
+            <Text style={styles.muted}>Tasks marked done.</Text>
           </View>
           <SegmentedControl options={periods} value={period} onValueChange={setPeriod} />
         </View>
@@ -45,160 +55,69 @@ export function PimiRecapUsage() {
 }
 
 function RecapPeriod({ period }: { period: PimiRecapPeriod }) {
-  const read = getDesktopHost()?.getPimiRecap;
-  const [recap, setRecap] = useState<PimiRecap>();
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const retry = useCallback(() => {
-    setFailed(false);
-    setAttempt((value) => value + 1);
-  }, []);
+  const { t } = useTranslation();
+  const { loadState, isError, refetch } = useTasks();
+  const { start, end } = useMemo(() => weekRange(period), [period]);
 
-  useEffect(() => {
-    if (!read) return;
-    let active = true;
-    const load = async () => {
-      try {
-        const value = await read(period);
-        if (active) setRecap(value);
-      } catch {
-        if (active) setFailed(true);
-      }
-    };
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [attempt, period, read]);
+  const done = useMemo(() => {
+    if (loadState.status !== "loaded") return [];
+    return loadState.data
+      .filter((task) => {
+        if (task.status !== "done" || !task.completedAt) return false;
+        const time = Date.parse(task.completedAt);
+        return time >= start.getTime() && time < end.getTime();
+      })
+      .sort((a, b) => Date.parse(b.completedAt ?? "") - Date.parse(a.completedAt ?? ""));
+  }, [end, loadState, start]);
 
-  if (!read) return <UsageMessage text="Recap is available in Pimi Desktop." />;
-  if (failed) {
-    return (
-      <View style={styles.heading}>
-        <UsageMessage text="Couldn’t load the recap." />
-        <View style={styles.retry}>
-          <Button variant="outline" onPress={retry}>
-            Try again
-          </Button>
+  if (loadState.status !== "loaded") {
+    if (isError) {
+      return (
+        <View style={styles.heading}>
+          <UsageMessage text="Couldn’t load the recap." />
+          <View style={styles.retry}>
+            <Button variant="outline" onPress={refetch}>
+              Try again
+            </Button>
+          </View>
         </View>
-      </View>
-    );
+      );
+    }
+    return <UsageMessage text="Loading recap…" />;
   }
-  if (!recap) return <UsageMessage text="Loading recap…" />;
 
-  const range = rangeFormat.formatRange(
-    new Date(recap.startsAt),
-    new Date(Date.parse(recap.endsBefore) - 1),
-  );
+  const range = rangeFormat.formatRange(start, new Date(end.getTime() - 1));
+  const shown = done.slice(0, RECAP_PAGE_SIZE);
   return (
     <>
       <Text style={styles.date} testID="pimi-recap-range">
         {range}
       </Text>
       <View style={styles.groups}>
-        <RecapGroup
-          title="Done tasks"
-          icon={ListChecks}
-          count={recap.taskCount}
-          shown={recap.tasks.length}
-          empty="No tasks marked done."
-        >
-          {recap.tasks.map((task) => (
-            <RecapRow
-              key={task.id}
-              title={task.title}
-              time={task.completedAt}
-              kind="task"
-              target={task.id}
-            />
-          ))}
-        </RecapGroup>
-        <RecapGroup
-          title="Merged PRs"
-          icon={GitMerge}
-          count={recap.pullRequestCount}
-          shown={recap.pullRequests.length}
-          empty="No linked PRs merged."
-        >
-          {recap.pullRequests.map((pr) => {
-            const [, owner, repo, , number] = new URL(pr.url).pathname.split("/");
-            const reference = `${owner}/${repo} #${number}`;
-            return (
-              <RecapRow
-                key={pr.url}
-                title={pr.title ?? reference}
-                subtitle={pr.title ? reference : undefined}
-                time={pr.mergedAt}
-                kind="review-pr"
-                target={pr.url}
-              />
-            );
-          })}
-        </RecapGroup>
+        <View style={styles.group}>
+          <View style={styles.groupHeader}>
+            <DensityIcon icon={ListChecks} size="sm" color="foregroundMuted" />
+            <Text style={styles.groupTitle}>Done tasks</Text>
+            <Text style={styles.count}>{done.length.toLocaleString()}</Text>
+          </View>
+          {shown.length > 0 ? (
+            shown.map((task) => <RecapRow key={`${task.serverId}:${task.id}`} task={task} />)
+          ) : (
+            <Text style={[styles.muted, styles.groupNote]}>{t("tasks.recap.none")}</Text>
+          )}
+          {shown.length < done.length ? (
+            <Text style={[styles.muted, styles.groupNote]}>
+              Showing the latest {shown.length.toLocaleString()} of {done.length.toLocaleString()}.
+            </Text>
+          ) : null}
+        </View>
       </View>
-      {recap.hasUndatedCompletions ? (
-        <Text style={styles.muted}>
-          Entries without a recorded completion or merge date still appear in Tasks.
-        </Text>
-      ) : null}
     </>
   );
 }
 
-function RecapGroup({
-  title,
-  icon,
-  count,
-  shown,
-  empty,
-  children,
-}: {
-  title: string;
-  icon: typeof ListChecks;
-  count: number;
-  shown: number;
-  empty: string;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.group}>
-      <View style={styles.groupHeader}>
-        <DensityIcon icon={icon} size="sm" color="foregroundMuted" />
-        <Text style={styles.groupTitle}>{title}</Text>
-        <Text style={styles.count}>{count.toLocaleString()}</Text>
-      </View>
-      {shown ? children : <Text style={[styles.muted, styles.groupNote]}>{empty}</Text>}
-      {shown < count ? (
-        <Text style={[styles.muted, styles.groupNote]}>
-          Showing the latest {shown.toLocaleString()} of {count.toLocaleString()}.
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-function RecapRow({
-  title,
-  subtitle,
-  time,
-  kind,
-  target,
-}: {
-  title: string;
-  subtitle?: string;
-  time: string;
-  kind: "task" | "review-pr";
-  target: string;
-}) {
-  const localServerId = useLocalDaemonServerId();
-  const open = useCallback(() => {
-    if (kind === "task") {
-      getDesktopHost()?.showPimiWorkspace?.({ view: kind, id: target });
-      return;
-    }
-    const source = localServerId ? pullRequestUrlToSource(target, localServerId) : null;
-    if (source) openPimiReview(source);
-  }, [kind, localServerId, target]);
+function RecapRow({ task }: { task: AggregatedTask }) {
+  const open = useCallback(() => pushPimiTask(task.serverId, task.id), [task.id, task.serverId]);
   return (
     <PressHighlight
       style={styles.row}
@@ -208,15 +127,12 @@ function RecapRow({
     >
       <View style={styles.rowText}>
         <Text style={styles.rowTitle} numberOfLines={2}>
-          {title}
+          {task.title}
         </Text>
-        {subtitle ? (
-          <Text style={styles.muted} numberOfLines={1}>
-            {subtitle}
-          </Text>
-        ) : null}
       </View>
-      <Text style={styles.muted}>{dayFormat.format(new Date(time))}</Text>
+      <Text style={styles.muted}>
+        {dayFormat.format(new Date(task.completedAt ?? task.updatedAt))}
+      </Text>
       <DensityIcon icon={ChevronRight} size="sm" color="foregroundMuted" />
     </PressHighlight>
   );

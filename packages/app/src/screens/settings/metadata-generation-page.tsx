@@ -25,6 +25,7 @@ const FEATURE_ROWS: readonly PimiModelFeature[] = [
   "commitMessage",
   "pullRequest",
   "automation",
+  "task",
   "askPimi",
 ];
 

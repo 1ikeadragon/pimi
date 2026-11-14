@@ -1579,6 +1579,7 @@ export const ja: TranslationResources = {
       description: "接続を確認してもう一度お試しください。",
     },
   },
+  tasks: en.tasks,
   sidebar: {
     statusGroupAccessibility: "{{label}} グループ",
     statusBucket: {
@@ -3381,6 +3382,7 @@ export const ja: TranslationResources = {
         commitMessage: "コミットメッセージ",
         pullRequest: "プルリクエストの文面",
         automation: "Describe it",
+        task: en.settings.pimiModels.features.task,
         askPimi: "Ask Pimi",
       },
     },

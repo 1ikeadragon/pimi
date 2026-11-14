@@ -1578,6 +1578,7 @@ export const ru: TranslationResources = {
       description: "Проверьте подключение и попробуйте снова.",
     },
   },
+  tasks: en.tasks,
   sidebar: {
     statusGroupAccessibility: "Группа «{{label}}»",
     statusBucket: {
@@ -3388,6 +3389,7 @@ export const ru: TranslationResources = {
         commitMessage: "Сообщения коммитов",
         pullRequest: "Текст pull request",
         automation: "Describe it",
+        task: en.settings.pimiModels.features.task,
         askPimi: "Ask Pimi",
       },
     },

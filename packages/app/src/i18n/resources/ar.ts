@@ -1562,6 +1562,7 @@ export const ar: TranslationResources = {
       description: "تحقق من اتصالك وحاول مرة أخرى.",
     },
   },
+  tasks: en.tasks,
   sidebar: {
     statusGroupAccessibility: "مجموعة {{label}}",
     statusBucket: {
@@ -3380,6 +3381,7 @@ export const ar: TranslationResources = {
         commitMessage: "رسائل الـ commit",
         pullRequest: "نص طلبات السحب",
         automation: "Describe it",
+        task: en.settings.pimiModels.features.task,
         askPimi: "Ask Pimi",
       },
     },

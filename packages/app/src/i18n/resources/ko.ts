@@ -1572,6 +1572,7 @@ export const ko: TranslationResources = {
       description: "연결을 확인한 후 다시 시도하세요.",
     },
   },
+  tasks: en.tasks,
   sidebar: {
     statusGroupAccessibility: "{{label}} 그룹",
     statusBucket: {
@@ -3362,6 +3363,7 @@ export const ko: TranslationResources = {
         commitMessage: "커밋 메시지",
         pullRequest: "풀 리퀘스트 텍스트",
         automation: "Describe it",
+        task: en.settings.pimiModels.features.task,
         askPimi: "Ask Pimi",
       },
     },

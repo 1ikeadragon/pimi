@@ -1593,6 +1593,7 @@ export const fr: TranslationResources = {
       description: "Vérifiez votre connexion et réessayez.",
     },
   },
+  tasks: en.tasks,
   sidebar: {
     statusGroupAccessibility: "Groupe {{label}}",
     statusBucket: {
@@ -3410,6 +3411,7 @@ export const fr: TranslationResources = {
         commitMessage: "Messages de commit",
         pullRequest: "Texte des pull requests",
         automation: "Décrivez-le",
+        task: en.settings.pimiModels.features.task,
         askPimi: "Ask Pimi",
       },
     },
