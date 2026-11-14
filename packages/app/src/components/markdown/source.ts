@@ -130,6 +130,10 @@ function workspaceHoverTitle(link: Link, markup: string, workspaceRoot?: string)
   return link.url.slice(workspaceRoot.length + 1);
 }
 
+// Bidi embeddings and isolates let agent text reorder what follows it, so "evil.txt" can read as
+// "txt.live". Markdown has no use for them.
+const BIDI_CONTROLS = /[\u202A-\u202E\u2066-\u2069]/g;
+
 /** Preserve source spelling; adapt workspace images, spoiler delimiters, and entity text. */
 export function prepareMarkdownSource(
   source: string,
@@ -142,7 +146,7 @@ export function prepareMarkdownSource(
     forgeReferencePattern?: string;
   } = {},
 ) {
-  source = normalizeMarkdownHtml(source);
+  source = normalizeMarkdownHtml(source.replace(BIDI_CONTROLS, ""));
   const images: MarkdownImage[] = [];
   let tree: Root | undefined;
   const getTree = () =>

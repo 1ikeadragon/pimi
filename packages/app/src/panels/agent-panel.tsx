@@ -44,7 +44,7 @@ import { annotationsOf, type RestoredChips } from "@/composer/chips/model";
 import { RewindComposerRestoreProvider } from "@/components/rewind/composer-restore";
 import { useAgentDescriptor } from "@/agent-presentation";
 import { useToastHost, type ToastApi, type ToastState } from "@/components/toast-host";
-import type { WorkspaceComposerAttachment } from "@/attachments/types";
+import type { AttachmentMetadata, WorkspaceComposerAttachment } from "@/attachments/types";
 import {
   useHasProviderHandoff,
   buildAgentWorkspaceAttachmentScopeKey,
@@ -1275,11 +1275,21 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
     [setDraftAttachments],
   );
 
+  const restoreRewoundImages = useCallback(
+    (images: readonly AttachmentMetadata[]) => {
+      if (images.length === 0) return;
+      const added = images.map((metadata) => ({ kind: "image" as const, metadata }));
+      setDraftAttachments((current) => [...current, ...added]);
+    },
+    [setDraftAttachments],
+  );
+
   const content = (
     <RewindComposerRestoreProvider
       textSource={agentInputDraft.textSource}
       setText={agentInputDraft.replaceText}
       restoreChips={restoreRewoundChips}
+      restoreImages={restoreRewoundImages}
       onRewindComplete={handleRewindComplete}
     >
       <View style={styles.root}>

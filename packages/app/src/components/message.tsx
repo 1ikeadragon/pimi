@@ -351,9 +351,16 @@ const UserMessageBase = memo(function UserMessage({
   const getMessageContent = useCallback(() => message, [message]);
   const handleRewind = useCallback(
     (input: { mode: RewindMode; rewoundText: string }) => {
-      return rewindMutation.rewindAgent({ ...input, rewoundAttachments: attachments });
+      const rewoundImages = standaloneItems.flatMap(({ slot }) =>
+        slot.state === "ready" ? [slot.metadata] : [],
+      );
+      return rewindMutation.rewindAgent({
+        ...input,
+        rewoundAttachments: attachments,
+        rewoundImages,
+      });
     },
-    [attachments, rewindMutation],
+    [attachments, rewindMutation, standaloneItems],
   );
 
   const containerStyle = useMemo(

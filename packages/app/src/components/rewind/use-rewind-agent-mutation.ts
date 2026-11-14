@@ -1,4 +1,5 @@
 import type { AgentAttachment } from "@pimi/protocol/messages";
+import type { AttachmentMetadata } from "@/attachments/types";
 import { planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
 import { useCallback } from "react";
 import { useTranslation } from "@/i18n/use-translation";
@@ -22,6 +23,7 @@ interface RewindAgentInput {
   mode: RewindMode;
   rewoundText: string;
   rewoundAttachments: readonly AgentAttachment[];
+  rewoundImages: readonly AttachmentMetadata[];
 }
 
 export function useRewindAgentMutation(input: UseRewindAgentMutationInput): {
@@ -54,7 +56,11 @@ export function useRewindAgentMutation(input: UseRewindAgentMutationInput): {
       if (!shouldRestoreComposerForRewindMode(variables.mode)) {
         return;
       }
-      composerRestore?.completeRewind(variables.rewoundText, variables.rewoundAttachments);
+      composerRestore?.completeRewind(
+        variables.rewoundText,
+        variables.rewoundAttachments,
+        variables.rewoundImages,
+      );
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t("rewind.errors.failed"));

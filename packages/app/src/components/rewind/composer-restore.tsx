@@ -1,11 +1,16 @@
 import { restoreSentChips, type RestoredChips } from "@/composer/chips/model";
 import { generateMessageId } from "@/types/stream";
 import type { AgentAttachment } from "@pimi/protocol/messages";
+import type { AttachmentMetadata } from "@/attachments/types";
 import type { ComposerTextSource } from "@/composer/text-source";
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
 interface RewindComposerRestoreContextValue {
-  completeRewind: (text: string, attachments: readonly AgentAttachment[]) => void;
+  completeRewind: (
+    text: string,
+    attachments: readonly AgentAttachment[],
+    images: readonly AttachmentMetadata[],
+  ) => void;
 }
 
 interface RewindComposerRestoreProviderProps {
@@ -13,6 +18,8 @@ interface RewindComposerRestoreProviderProps {
   setText: (text: string) => void;
   /** Restores the sent message's chips into the draft: gives the text and its annotations. */
   restoreChips: (restore: (reservedSlots: readonly number[]) => RestoredChips) => RestoredChips;
+  /** Puts the sent message's images back into the draft. */
+  restoreImages: (images: readonly AttachmentMetadata[]) => void;
   onRewindComplete: () => void;
   children: ReactNode;
 }
@@ -23,11 +30,16 @@ export function RewindComposerRestoreProvider({
   textSource,
   setText,
   restoreChips,
+  restoreImages,
   onRewindComplete,
   children,
 }: RewindComposerRestoreProviderProps) {
   const completeRewind = useCallback(
-    (rewoundText: string, attachments: readonly AgentAttachment[]) => {
+    (
+      rewoundText: string,
+      attachments: readonly AgentAttachment[],
+      images: readonly AttachmentMetadata[],
+    ) => {
       const currentText = textSource.getSnapshot();
       if (currentText.length > 0) {
         onRewindComplete();
@@ -36,10 +48,11 @@ export function RewindComposerRestoreProvider({
       const restored = restoreChips((reserved) =>
         restoreSentChips({ text: rewoundText, attachments, reserved, newId: generateMessageId }),
       );
+      restoreImages(images);
       setText(restored.text);
       onRewindComplete();
     },
-    [onRewindComplete, restoreChips, setText, textSource],
+    [onRewindComplete, restoreChips, restoreImages, setText, textSource],
   );
 
   const value = useMemo(() => ({ completeRewind }), [completeRewind]);
