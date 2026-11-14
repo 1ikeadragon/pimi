@@ -53,6 +53,7 @@ import { ChatSection } from "@/screens/settings/chat/chat-section";
 import { SidebarNavSection } from "@/screens/settings/sidebar/sidebar-nav-section";
 import { SendingSection } from "@/screens/settings/general/sending-section";
 import { useAppSettings } from "@/hooks/use-settings";
+import { Switch } from "@/components/ui/switch";
 import { useHostRuntimeIsConnected, useHosts } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
 import {
@@ -304,8 +305,34 @@ function GeneralSection() {
   const { t } = useTranslation();
   return (
     <SettingsSection title={t("settings.general.title")}>
-      <View style={settingsStyles.card}>{isNative ? null : <ShowSetupAgainRow />}</View>
+      <View style={settingsStyles.card}>
+        <StreamerModeRow />
+        {isNative ? null : <ShowSetupAgainRow />}
+      </View>
     </SettingsSection>
+  );
+}
+
+function StreamerModeRow() {
+  const { t } = useTranslation();
+  const { settings, updateSettings } = useAppSettings();
+  const toggle = useCallback(
+    (streamerMode: boolean) => void updateSettings({ streamerMode }),
+    [updateSettings],
+  );
+  return (
+    <SettingAnchor id="general.streamer" style={settingsStyles.row}>
+      <View style={settingsStyles.rowContent}>
+        <Text style={settingsStyles.rowTitle}>{t("settings.general.streamer.label")}</Text>
+        <Text style={settingsStyles.rowHint}>{t("settings.general.streamer.description")}</Text>
+      </View>
+      <Switch
+        value={settings.streamerMode}
+        onValueChange={toggle}
+        accessibilityLabel={t("settings.general.streamer.label")}
+        testID="settings-streamer-mode"
+      />
+    </SettingAnchor>
   );
 }
 

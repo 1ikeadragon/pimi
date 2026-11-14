@@ -14,6 +14,7 @@ import {
   useHostRuntimeIsConnected,
   useHosts,
 } from "@/runtime/host-runtime";
+import { useAppSettings } from "@/hooks/use-settings";
 import { useUsageSetting } from "./setting";
 import { usageCopy } from "./copy";
 import {
@@ -117,17 +118,62 @@ async function refreshReports(queryClient: QueryClient, serverId: string): Promi
   });
 }
 
-function toQueryState(query: {
-  data: UsageReportEntry[] | undefined;
-  error: unknown;
-  isFetching: boolean;
-}): UsageQueryState {
-  return { data: query.data, error: query.error, isFetching: query.isFetching };
+function toQueryState(
+  query: {
+    data: UsageReportEntry[] | undefined;
+    error: unknown;
+    isFetching: boolean;
+  },
+  streamerMode: boolean,
+): UsageQueryState {
+  return {
+    data: query.data && hideAccounts(query.data, streamerMode),
+    error: query.error,
+    isFetching: query.isFetching,
+  };
+}
+
+// Streamer mode shows this in place of every provider account (usually an email).
+const HIDDEN_ACCOUNT = "••••••";
+const hiddenReports = new WeakMap<UsageReportEntry[], UsageReportEntry[]>();
+const hiddenLabels = new WeakMap<ReadonlyMap<string, string>, ReadonlyMap<string, string>>();
+
+function useStreamerMode(): boolean {
+  return useAppSettings().settings.streamerMode;
+}
+
+/** The same reports with each account label masked; cached per list so identity stays stable. */
+function hideAccounts(entries: UsageReportEntry[], streamerMode: boolean): UsageReportEntry[] {
+  if (!streamerMode) return entries;
+  let hidden = hiddenReports.get(entries);
+  if (!hidden) {
+    hidden = entries.map((entry) =>
+      entry.account.label
+        ? { ...entry, account: { ...entry.account, label: HIDDEN_ACCOUNT } }
+        : entry,
+    );
+    hiddenReports.set(entries, hidden);
+  }
+  return hidden;
+}
+
+function hideAccountLabels(
+  labels: ReadonlyMap<string, string>,
+  streamerMode: boolean,
+): ReadonlyMap<string, string> {
+  if (!streamerMode) return labels;
+  let hidden = hiddenLabels.get(labels);
+  if (!hidden) {
+    hidden = new Map([...labels.keys()].map((provider) => [provider, HIDDEN_ACCOUNT]));
+    hiddenLabels.set(labels, hidden);
+  }
+  return hidden;
 }
 
 /** Usage reports for one host, as shown on its settings page. */
 export function useHostUsage(serverId: string): { view: UsageView; refresh: () => void } {
   const setting = useUsageSetting(serverId);
+  const streamerMode = useStreamerMode();
   const queryClient = useQueryClient();
   const isConnected = useHostRuntimeIsConnected(serverId);
   const query = useFetchQuery({
@@ -147,7 +193,7 @@ export function useHostUsage(serverId: string): { view: UsageView; refresh: () =
       hostLabel,
       enabled: setting.ready ? setting.enabled : undefined,
       isConnected,
-      query: toQueryState(query),
+      query: toQueryState(query, streamerMode),
     },
     t,
   );
@@ -162,6 +208,7 @@ const NO_PROVIDER_ACCOUNTS: ReadonlyMap<string, string> = new Map();
  */
 export function useProviderAccountLabels(serverId: string | null): ReadonlyMap<string, string> {
   const setting = useUsageSetting(serverId);
+  const streamerMode = useStreamerMode();
   const isConnected = useHostRuntimeIsConnected(serverId ?? "");
   const query = useFetchQuery({
     queryKey: [...hostUsageQueryKey(serverId ?? ""), "provider-accounts"] as const,
@@ -173,7 +220,7 @@ export function useProviderAccountLabels(serverId: string | null): ReadonlyMap<s
     dataShape: "value",
     staleTimeMs: REPORTS_STALE_TIME_MS,
   });
-  return query.data ?? NO_PROVIDER_ACCOUNTS;
+  return hideAccountLabels(query.data ?? NO_PROVIDER_ACCOUNTS, streamerMode);
 }
 
 const NO_REPORTS: UsageReportEntry[] = [];
@@ -189,6 +236,7 @@ export function useUsageHostReports({
   shouldPoll = false,
 }: UsageHostReportsInput): UsageReportEntry[] {
   const setting = useUsageSetting(serverId);
+  const streamerMode = useStreamerMode();
   const queryClient = useQueryClient();
   const query = useFetchQuery({
     enabled: setting.enabled,
@@ -198,7 +246,7 @@ export function useUsageHostReports({
     staleTimeMs: REPORTS_STALE_TIME_MS,
     refetchInterval: shouldPoll ? REPORTS_REFETCH_INTERVAL_MS : false,
   });
-  return setting.enabled ? (query.data ?? NO_REPORTS) : NO_REPORTS;
+  return setting.enabled ? hideAccounts(query.data ?? NO_REPORTS, streamerMode) : NO_REPORTS;
 }
 
 /**
@@ -208,6 +256,7 @@ export function useUsageHostReports({
 export function useAgentUsage(serverId: string, agentId: string): AgentUsageView {
   const queryClient = useQueryClient();
   const canReport = useHostReportsUsage(serverId);
+  const streamerMode = useStreamerMode();
   const queryKey = agentUsageQueryKey(serverId, agentId);
   const query = useFetchQuery({
     queryKey,
@@ -227,7 +276,7 @@ export function useAgentUsage(serverId: string, agentId: string): AgentUsageView
     staleTimeMs: REPORTS_STALE_TIME_MS,
   });
   const { t } = useTranslation();
-  return resolveAgentUsageView({ canReport, query: toQueryState(query) }, t);
+  return resolveAgentUsageView({ canReport, query: toQueryState(query, streamerMode) }, t);
 }
 
 /** Whether a host is connected and reports usage, read without fetching anything. */

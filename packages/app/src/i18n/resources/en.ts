@@ -3748,6 +3748,10 @@ export const en = {
         description: "Walk through appearance, providers, projects and phone pairing again",
         action: "Show setup again",
       },
+      streamer: {
+        label: "Streamer mode",
+        description: "Hide provider account emails",
+      },
       browserData: {
         title: "Browser data",
         siteData: "Cookies and site data",

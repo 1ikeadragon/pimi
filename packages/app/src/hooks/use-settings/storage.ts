@@ -101,6 +101,8 @@ export interface AppSettings {
   autoExpandReasoning: boolean;
   /** Resources tab: reverse-resolve remote IPs into hostnames. */
   resolveNetworkNames: boolean;
+  /** Hides the provider accounts (emails) Pimi reads, for screen sharing. */
+  streamerMode: boolean;
   chatDisplay: ChatDisplay;
   chatOutlineEnabled: boolean;
   pimiVoiceButton: boolean;
@@ -160,6 +162,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   usage: DEFAULT_USAGE_PREFERENCES,
   autoExpandReasoning: false,
   resolveNetworkNames: false,
+  streamerMode: false,
   chatDisplay: "collapseTurns",
   chatOutlineEnabled: true,
   pimiVoiceButton: true,
@@ -244,6 +247,7 @@ const StoredAppSettingsSchema = z
     usage: UsagePreferencesSchema,
     autoExpandReasoning: z.boolean().catch(false),
     resolveNetworkNames: z.boolean().catch(false),
+    streamerMode: z.boolean().catch(false),
     chatDisplay: z.enum(["full", "collapseToolCalls", "collapseTurns"]).catch("full"),
     chatOutlineEnabled: z.boolean().catch(true),
     pimiVoiceButton: z.boolean().catch(true),
