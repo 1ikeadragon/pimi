@@ -1,10 +1,15 @@
 import { isDeepStrictEqual } from "node:util";
 
+import { detectProviderInstalls } from "../provider-config-dirs.js";
 import type { DaemonConfigStore } from "../daemon-config-store.js";
 import type {
   AgentManagerProviderState,
   ProviderSnapshotManager,
 } from "./provider-snapshot-manager.js";
+
+// How often the host is rescanned for signed-in installs, so one that is signed out or removed
+// leaves the picker, and a new one joins it, without a daemon restart.
+const DETECTED_INSTALLS_SCAN_MS = 30_000;
 
 export function attachMutableProviderConfigOwner(options: {
   store: DaemonConfigStore;
@@ -44,7 +49,30 @@ export function attachMutableProviderConfigOwner(options: {
     commit?.();
   });
 
+  let scanning = false;
+  const scanInstalls = async (): Promise<void> => {
+    // A config apply in flight owns the provider state until it commits.
+    if (scanning || commitPendingProviderChange) return;
+    scanning = true;
+    try {
+      const prepared = options.providerSnapshotManager.prepareDetectedInstalls(
+        await detectProviderInstalls(),
+      );
+      if (!prepared || commitPendingProviderChange) return;
+      options.updateProviderRegistry(prepared.agentManagerState);
+      prepared.commit();
+    } catch {
+      // The next scan retries; a failed scan leaves the registered providers as they were.
+    } finally {
+      scanning = false;
+    }
+  };
+  void scanInstalls();
+  const scanTimer = setInterval(() => void scanInstalls(), DETECTED_INSTALLS_SCAN_MS);
+  scanTimer.unref();
+
   return () => {
+    clearInterval(scanTimer);
     unsubscribeApply();
     unsubscribeChange();
   };

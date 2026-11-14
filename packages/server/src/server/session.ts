@@ -3210,8 +3210,6 @@ export class Session {
         return this.providerCatalogSession.handleProviderDiagnosticRequest(msg);
       case "usage.list_reports.request":
         return this.usageSession.handleListReports(msg);
-      case "provider.config_dirs.detect.request":
-        return this.usageSession.handleDetectConfigDirs(msg);
       case "usage.provider_accounts.list.request":
         return this.usageSession.handleListProviderAccounts(msg);
       case "usage.get_summary.request":

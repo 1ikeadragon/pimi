@@ -640,7 +640,25 @@ export async function findCodexMicrosoftStoreBinary(): Promise<string | null> {
 export async function findDefaultCodexBinary(): Promise<string | null> {
   const pathBinary = await findExecutable("codex");
   if (pathBinary) return pathBinary;
-  return await findCodexMicrosoftStoreBinary();
+  return (await findCodexMicrosoftStoreBinary()) ?? (await findCodexMacAppBinary());
+}
+
+// The ChatGPT desktop app bundles a Codex CLI, so Codex works on a Mac with no `codex` on PATH.
+async function findCodexMacAppBinary(): Promise<string | null> {
+  if (process.platform !== "darwin") return null;
+  for (const root of ["/Applications", path.join(os.homedir(), "Applications")]) {
+    const candidate = path.join(
+      root,
+      "ChatGPT.app",
+      "Contents",
+      "Resources",
+      "codex-cli",
+      "bin",
+      "codex",
+    );
+    if (await probeExecutable(candidate)) return candidate;
+  }
+  return null;
 }
 
 async function resolveCodexLaunchPrefix(runtimeSettings?: ProviderRuntimeSettings): Promise<{
