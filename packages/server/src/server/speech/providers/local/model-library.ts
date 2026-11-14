@@ -75,9 +75,7 @@ export class LocalSpeechModelLibrary {
         const state = await this.getState(spec.id);
         if (state.status !== "installed") return { spec, state };
         const directory = path.resolve(getSherpaOnnxModelDir(this.modelsDir, spec.id));
-        const archiveVerified = spec.archiveSha256
-          ? await hasVerifiedSherpaOnnxArchive(directory, spec.archiveSha256)
-          : false;
+        const archiveVerified = await hasVerifiedSherpaOnnxArchive(directory, spec.archiveSha256);
         return { spec, state, installation: { directory, archiveVerified } };
       }),
     );

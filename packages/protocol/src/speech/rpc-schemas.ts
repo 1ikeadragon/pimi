@@ -146,10 +146,7 @@ export const LocalSpeechModelSchema = z
     languages: z.array(z.string()),
     downloadSizeBytes: z.number(),
     archiveUrl: z.url({ protocol: /^https$/ }),
-    archiveSha256: z
-      .string()
-      .regex(/^[a-f0-9]{64}$/)
-      .optional(),
+    archiveSha256: z.string().regex(/^[a-f0-9]{64}$/),
     installation: z
       .object({
         directory: z.string(),

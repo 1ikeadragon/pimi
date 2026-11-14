@@ -79,12 +79,9 @@ function InstalledVoiceModel({
     [archiveSha256, archiveUrl, directory],
   );
 
-  let status = t("settings.voice.installation.noPublishedDigest");
-  if (archiveSha256) {
-    status = installation.archiveVerified
-      ? t("settings.voice.installation.verified")
-      : t("settings.voice.installation.unrecorded");
-  }
+  const status = installation.archiveVerified
+    ? t("settings.voice.installation.verified")
+    : t("settings.voice.installation.unrecorded");
   return (
     <SettingsCollapsibleRow label={label} summary={status} testID={`voice-installation-${id}`}>
       <SettingsRow label={t("settings.voice.installation.location")} hint={hints.directory}>
@@ -102,9 +99,7 @@ function InstalledVoiceModel({
       <SettingsRow label={t("settings.voice.installation.source")} hint={hints.source}>
         <ExternalLink href={archiveUrl} label={t("settings.voice.installation.openSource")} />
       </SettingsRow>
-      {archiveSha256 ? (
-        <SettingsRow label={t("settings.voice.installation.checksum")} hint={hints.checksum} />
-      ) : null}
+      <SettingsRow label={t("settings.voice.installation.checksum")} hint={hints.checksum} />
     </SettingsCollapsibleRow>
   );
 }

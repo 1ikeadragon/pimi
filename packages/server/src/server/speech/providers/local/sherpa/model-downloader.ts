@@ -218,9 +218,7 @@ export async function ensureSherpaOnnxModel(
       });
     }
     options.onProgress?.({ phase: "extracting" });
-    if (spec.archiveSha256) {
-      await verifyArchive(archivePath, spec.archiveSha256, options.signal);
-    }
+    await verifyArchive(archivePath, spec.archiveSha256, options.signal);
 
     logger.info(
       {
@@ -250,12 +248,10 @@ export async function ensureSherpaOnnxModel(
         );
       }
 
-      if (spec.archiveSha256) {
-        await writeFile(path.join(extractedModelDir, archiveReceipt), spec.archiveSha256, {
-          flag: "wx",
-          mode: 0o600,
-        });
-      }
+      await writeFile(path.join(extractedModelDir, archiveReceipt), spec.archiveSha256, {
+        flag: "wx",
+        mode: 0o600,
+      });
 
       logger.info(
         {

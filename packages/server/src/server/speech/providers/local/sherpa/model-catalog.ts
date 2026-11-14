@@ -36,8 +36,9 @@ interface SherpaOnnxCatalogEntryBase {
   // Release archive size used for download progress and Settings.
   downloadSizeBytes: number;
   archiveUrl: string;
-  // Published by GitHub in the sherpa-onnx release asset digest field.
-  archiveSha256?: string;
+  // From the GitHub release asset digest where published. The whisper and dolphin digests
+  // were computed from the asset on 2026-11-14 (GitHub publishes none for them).
+  archiveSha256: string;
   extractedDir: string;
   defaultFor?: DefaultModelRole;
 }
@@ -295,6 +296,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["en"],
     downloadSizeBytes: 118_071_777,
     ...releaseArchive("asr-models", "sherpa-onnx-whisper-tiny.en"),
+    archiveSha256: "2bd6cf965c8bb3e068ef9fa2191387ee63a9dfa2a4e37582a8109641c20005dd",
     engine: whisperEngine("tiny.en"),
   },
   "whisper-base": {
@@ -304,6 +306,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: WHISPER_LANGUAGES,
     downloadSizeBytes: 207_557_382,
     ...releaseArchive("asr-models", "sherpa-onnx-whisper-base"),
+    archiveSha256: "911b2083efd7c0dca2ac3b358b75222660dc09fb716d64fbfc417ba6c99ff3de",
     engine: whisperEngine("base"),
   },
   "whisper-turbo": {
@@ -313,6 +316,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: [...WHISPER_LANGUAGES, "yue"],
     downloadSizeBytes: 563_790_207,
     ...releaseArchive("asr-models", "sherpa-onnx-whisper-turbo"),
+    archiveSha256: "b11acbbcd660b44a8e0df33724feb5aaa709cf65668f2823d59f656312544f22",
     engine: whisperEngine("turbo"),
   },
   "sense-voice-int8": {
@@ -332,6 +336,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: DOLPHIN_LANGUAGES,
     downloadSizeBytes: 80_671_385,
     ...releaseArchive("asr-models", "sherpa-onnx-dolphin-base-ctc-multi-lang-int8-2025-04-02"),
+    archiveSha256: "6f23da2303c3c2e5fa6445c450fa2a7133cd57e3da070ae5f97ab9e0dfbb4a54",
     engine: { family: "dolphin", model: "model.int8.onnx", tokens: "tokens.txt" },
   },
   "giga-am-v3-ru": {

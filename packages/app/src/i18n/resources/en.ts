@@ -3712,7 +3712,6 @@ export const en = {
         title: "Installed models",
         verified: "Archive SHA-256 verified at install",
         unrecorded: "Verification not recorded",
-        noPublishedDigest: "No published checksum",
         location: "Installed on this host",
         reveal: "Reveal",
         source: "Catalog download source",
