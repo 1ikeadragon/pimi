@@ -791,6 +791,8 @@ export interface AgentMetricsSnapshot {
   timelineStats: {
     totalItems: number;
     maxItemsPerAgent: number;
+    /** Resident projected rows for the chats holding the most, to spot unbounded growth. */
+    largestTimelines: Array<{ agentId: string; items: number }>;
   };
 }
 
@@ -1350,6 +1352,7 @@ export class AgentManager {
     let withActiveForegroundTurn = 0;
     let totalItems = 0;
     let maxItemsPerAgent = 0;
+    const timelineSizes: Array<{ agentId: string; items: number }> = [];
 
     for (const agent of this.agents.values()) {
       byLifecycle[agent.lifecycle] = (byLifecycle[agent.lifecycle] ?? 0) + 1;
@@ -1364,6 +1367,7 @@ export class AgentManager {
 
       const len = this.timelineStore.getItems(agent.id).length;
       totalItems += len;
+      timelineSizes.push({ agentId: agent.id, items: len });
       if (len > maxItemsPerAgent) {
         maxItemsPerAgent = len;
       }
@@ -1377,6 +1381,7 @@ export class AgentManager {
       timelineStats: {
         totalItems,
         maxItemsPerAgent,
+        largestTimelines: timelineSizes.sort((a, b) => b.items - a.items).slice(0, 3),
       },
     };
   }

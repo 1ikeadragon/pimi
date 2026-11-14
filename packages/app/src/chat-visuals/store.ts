@@ -15,6 +15,12 @@ export type ChatVisual =
  */
 const visuals = new Map<string, ChatVisual>();
 
+/**
+ * Map order is recency. Past this many, the least recently opened or read visual is dropped;
+ * a tab whose visual was dropped reopens from its reply, which still owns the source.
+ */
+const MAX_REMEMBERED_VISUALS = 64;
+
 /** Two 32-bit FNV-1a passes. The same visual always gets the same id, so reopening it finds its tab. */
 function documentId(text: string): string {
   let forward = 0x811c9dc5;
@@ -41,10 +47,19 @@ function visualText(visual: ChatVisual): string {
 
 export function rememberChatVisual(visual: ChatVisual): string {
   const id = `${visual.kind}-${documentId(visualText(visual))}`;
+  visuals.delete(id);
   visuals.set(id, visual);
+  for (const oldest of visuals.keys()) {
+    if (visuals.size <= MAX_REMEMBERED_VISUALS) break;
+    visuals.delete(oldest);
+  }
   return id;
 }
 
 export function readChatVisual(id: string): ChatVisual | null {
-  return visuals.get(id) ?? null;
+  const visual = visuals.get(id);
+  if (!visual) return null;
+  visuals.delete(id);
+  visuals.set(id, visual);
+  return visual;
 }

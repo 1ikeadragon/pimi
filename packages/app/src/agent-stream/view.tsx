@@ -128,6 +128,8 @@ import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { cardStyles } from "@/styles/card";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
 import { useRetainedPanelActive } from "@/components/retained-panel";
+import { reportMountedRows } from "@/utils/memory-probe";
+import { useResidentWindowFollow } from "./use-resident-window-follow";
 import { useStreamHistoryWindow } from "./use-stream-history-window";
 import { PluginTimelineItemView, useInstalledTimelineTransform } from "@/plugins/timeline";
 
@@ -595,6 +597,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       start: historyWindowStart,
       hasLocalHistory,
       revealLoadedHistory,
+      collapseToRecent,
       loadOlder,
     } = useStreamHistoryWindow({
       items: presentation.tail,
@@ -622,6 +625,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       effectiveTurnPresentation.startedAt,
       historyWindowStart,
     ]);
+    const mountedRowCount = baseRenderModel.history.length;
+    useEffect(() => {
+      reportMountedRows(agentId, {
+        mountedRows: mountedRowCount,
+        historyStart: historyWindowStart,
+      });
+      return () => reportMountedRows(agentId, null);
+    }, [agentId, mountedRowCount, historyWindowStart]);
     const streamLayout = useMemo(
       () =>
         layoutStream({
@@ -642,6 +653,16 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const handleTimelineHistoryLoadError = useCallback(() => {
       toast?.error(t("agentStream.historyLoadFailed"));
     }, [t, toast]);
+    // Child transcripts bring their own pagination and are not session-store timelines.
+    useResidentWindowFollow({
+      enabled: historyPagination === undefined,
+      serverId: resolvedServerId,
+      agentId,
+      nearBottom,
+      isTimelineDetached,
+      collapseHistoryWindow: collapseToRecent,
+      onForwardLoadError: handleTimelineHistoryLoadError,
+    });
     // Chat find and the chat outline address messages, and an assistant message is a
     // group of block rows, so these hold message ids and never row ids. Only the head
     // changes per streamed delta, so the history set is keyed on mounted history alone.

@@ -1,4 +1,5 @@
 import equal from "fast-deep-equal";
+import { trimResidentTail, type ResidentTrimEnd } from "@/timeline/resident-window";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
@@ -580,6 +581,11 @@ interface SessionStoreActions {
       acknowledgedClientMessageIds: string[];
     },
   ) => void;
+  /**
+   * Cuts the resident tail back to its cap, dropping whole turns from `end` and moving the
+   * range, `hasOlder` and `hasNewer` in the same update. A no-op within the cap.
+   */
+  trimAgentResidentWindow: (serverId: string, agentId: string, end: ResidentTrimEnd) => void;
 
   // Initializing agents
   setInitializingAgents: (
@@ -1484,6 +1490,40 @@ export const useSessionStore = create<SessionStore>()(
                 agentAuthoritativeHistoryApplied: nextAuthoritative,
                 agentHistorySyncGeneration: nextSyncGeneration,
                 messageSubmissions,
+              },
+            },
+          };
+        });
+      },
+
+      trimAgentResidentWindow: (serverId, agentId, end) => {
+        set((prev) => {
+          const session = prev.sessions[serverId];
+          if (!session) return prev;
+          const tail = session.agentStreamTail.get(agentId);
+          const range = session.agentTimelineCursor.get(agentId);
+          if (!tail || !range) return prev;
+          if (session.agentAuthoritativeHistoryApplied.get(agentId) !== true) return prev;
+          const trimmed = trimResidentTail({ tail, cursor: range, end });
+          if (!trimmed) return prev;
+          const nextTail = new Map(session.agentStreamTail).set(agentId, trimmed.tail);
+          const nextCursor = new Map(session.agentTimelineCursor).set(agentId, trimmed.cursor);
+          const nextHasOlder = trimmed.older
+            ? new Map(session.agentTimelineHasOlder).set(agentId, true)
+            : session.agentTimelineHasOlder;
+          const nextHasNewer = trimmed.newer
+            ? new Map(session.agentTimelineHasNewer).set(agentId, true)
+            : session.agentTimelineHasNewer;
+          return {
+            ...prev,
+            sessions: {
+              ...prev.sessions,
+              [serverId]: {
+                ...session,
+                agentStreamTail: nextTail,
+                agentTimelineCursor: nextCursor,
+                agentTimelineHasOlder: nextHasOlder,
+                agentTimelineHasNewer: nextHasNewer,
               },
             },
           };
