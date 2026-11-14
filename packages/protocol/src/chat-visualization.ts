@@ -161,9 +161,11 @@ function visualizationBrief(guide: string): string {
 export const PIMI_VISUALIZATION_BRIEF = visualizationBrief("load the pimi-visualize skill");
 
 /** For providers that cannot read skills but have Pimi's tools: routing, and the guide tool for the formats. */
-export const PIMI_VISUALIZATION_TOOL_BRIEF = `${visualizationBrief(
-  `call ${PIMI_VISUALIZATION_GUIDE_TOOL}`,
-)}\nIf that tool is unavailable, still draw a diagram, flow, or sequence as a ${PIMI_VIEW_FENCE} block, never as ASCII art.`;
+export const PIMI_VISUALIZATION_TOOL_BRIEF = [
+  visualizationBrief(`call ${PIMI_VISUALIZATION_GUIDE_TOOL}`),
+  `If that tool is unavailable, draw a diagram, flow, or state machine as a ${PIMI_VIEW_FENCE} block like this one, never as ASCII art:`,
+  ...fenced(PIMI_VIEW_FENCE, JSON.stringify(FLOW_EXAMPLE)),
+].join("\n");
 
 /** Written from the parsers' own constants, so the prompt and the parsers cannot disagree. The guide tool returns it to providers without skills, and the pimi-visualize skill ships it inside SKILL.md. */
 export const PIMI_VISUALIZATION_INSTRUCTIONS = [

@@ -43,15 +43,12 @@ export async function registerSharedBridge(context) {
   }
   async function installDefinition(definition) {
     const signature = JSON.stringify(definition);
-    const known = definitions.get(definition.name);
-    if (known && JSON.stringify(known) !== signature)
-      throw new Error(`Conflicting Pimi tool definition: ${definition.name}`);
     const old = registrations.get(definition.name);
-    if (old) {
-      if (old.signature !== signature)
-        throw new Error(`Conflicting Pimi tool definition: ${definition.name}`);
-      return;
-    }
+    if (old?.signature === signature) return;
+    // Every Pimi daemon bound to this service runs the same tool code under a name, and a call
+    // always goes to the calling session's own daemon. A newer release words a tool differently,
+    // so the latest definition replaces the old one instead of failing the bind.
+    await old?.registration.dispose();
     const registration = await context.tool.transform((editor) => {
       editor.add({
         name: `pimi_${definition.name}`,
