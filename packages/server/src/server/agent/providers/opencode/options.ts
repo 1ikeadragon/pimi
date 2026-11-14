@@ -48,10 +48,20 @@ export interface OpenCodePermissionRule {
   action: "ask" | "allow" | "deny";
 }
 
+/** A bare session (titles, branch names, commit text) runs with every tool denied. */
+const BARE_OPENCODE_PERMISSION_RULE: OpenCodePermissionRule = {
+  permission: "*",
+  pattern: "*",
+  action: "deny",
+};
+
 export function buildOpenCodePermissionRules(
   options: OpenCodeProviderOptions | undefined,
   toolPolicy: ToolPolicy | undefined,
+  bare?: boolean,
 ): OpenCodePermissionRule[] | undefined {
+  // OpenCode leaves a tool it denies outright out of the tool list it sends the model.
+  if (bare) return [BARE_OPENCODE_PERMISSION_RULE];
   const grants =
     toolPolicy?.preapproved.map((grant) => ({
       permission: `${grant.server}_${grant.tool}`,

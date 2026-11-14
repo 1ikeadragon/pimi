@@ -102,12 +102,14 @@ import {
   type ProviderSubagentStoreEvent,
 } from "./provider-subagents/store.js";
 import { AgentBackgroundWorkStore, type AgentBackgroundWorkItem } from "./background-work/index.js";
-import { LAZY_TOOL_GROUP_NAMES } from "./tools/lazy-tool-groups.js";
+import { LAZY_TOOL_GROUP_NAMES, lazyPimiToolCatalog } from "./tools/lazy-tool-groups.js";
 import { withTimeout } from "../../utils/promise-timeout.js";
 import { extractAttention } from "../persistence-hooks.js";
 import {
   PIMI_VISUALIZATION_BRIEF,
+  PIMI_VISUALIZATION_GUIDE_TOOL,
   PIMI_VISUALIZATION_INSTRUCTIONS,
+  PIMI_VISUALIZATION_TOOL_BRIEF,
 } from "@pimi/protocol/chat-visualization";
 import { buildAgentForkContextAttachment, MAX_FORK_CONTEXT_CHARS } from "./activity-curator.js";
 import { isChatHistoryAttachment } from "./prompt-attachments.js";
@@ -161,7 +163,7 @@ function pimiActionInstructions(input: {
   policy: ProviderPimiToolsPolicy | undefined;
   provider: string;
   hostToolsEnabled: boolean;
-  toolLoading: "deferred" | "loader" | "full";
+  toolLoading: "deferred" | "loader";
 }): string[] {
   const { policy } = input;
   if (!isPimiToolPolicyEnabled(policy)) {
@@ -182,7 +184,7 @@ function pimiActionInstructions(input: {
   }
   if (isPimiToolEnabled(policy, "create_agent")) {
     instructions.push(
-      'When the user asks for another agent, a worker, a second opinion, or another provider or model to do or answer something ("ask another agent", "use opencode to", "split this between two agents"), or for parallel workers, call create_agent once per worker, even one on your own provider, with a focused initialPrompt. Pimi shows each as a card the user can open; your built-in subagent tool (Task or Agent) and an agent CLI run from a shell (claude, codex, opencode, gemini) show the user nothing, so never use either for a worker the user asked for or to get another model\'s answer. Keep the built-in subagent tool for your own lookups. Follow up with send_agent_prompt, and report here when the completion notification arrives.',
+      'When the user asks for another agent, a worker, a second opinion, or another provider or model to do or answer something ("ask another agent", "use opencode to", "split this between two agents"), or for parallel workers, call create_agent once per worker, even on your own provider, with a focused initialPrompt. Pimi shows each as a card. Your built-in subagent tool (Task or Agent) and agent CLIs run from a shell (claude, codex, opencode, gemini) show the user nothing: never use them for a worker the user asked for or another model\'s answer, only for your own lookups. Follow up with send_agent_prompt; report here when the completion notification arrives.',
     );
   }
   if (isPimiToolEnabled(policy, "browser_show")) {
@@ -1307,11 +1309,11 @@ export class AgentManager {
     return this.pimiToolPolicies.get(agentId);
   }
 
-  /** How the provider receives Pimi's tools: deferred by itself, behind the loader, or all listed (native bridges). */
-  private pimiToolLoading(provider: string): "deferred" | "loader" | "full" {
-    const capabilities = this.clients.get(provider)?.capabilities;
-    if (capabilities?.defersMcpTools === true) return "deferred";
-    return capabilities?.supportsNativePimiTools === true ? "full" : "loader";
+  /** How the provider receives Pimi's tools: deferred by itself, or the core tools plus a loader. */
+  private pimiToolLoading(provider: string): "deferred" | "loader" {
+    return this.clients.get(provider)?.capabilities?.defersMcpTools === true
+      ? "deferred"
+      : "loader";
   }
 
   /** Whether the agent's provider receives Pimi's tools through the lazy loader. */
@@ -1873,7 +1875,8 @@ export class AgentManager {
   ): Promise<ManagedAgent> {
     this.assertAcceptingAgentRegistrations();
     const resolvedAgentId = validateAgentId(agentId ?? this.idFactory(), "createAgent");
-    const withoutAppTools = config.internal === true && options.withoutAppTools === true;
+    const withoutAppTools =
+      config.internal === true && (options.withoutAppTools === true || config.bare === true);
     if (this.pluginLifecycle && !config.internal) {
       const request = await this.pluginLifecycle.before("agent.create.before", {
         config,
@@ -7085,6 +7088,11 @@ export class AgentManager {
       interactiveChat &&
       this.clients.get(storedConfig.provider)?.capabilities.readsBundledSkills === true &&
       (await this.isSkillAvailable("pimi-visualize"));
+    const guideToolReady =
+      this.pimiToolsEnabled && isPimiToolEnabled(pimiToolPolicy, PIMI_VISUALIZATION_GUIDE_TOOL);
+    let visualizationInstructions = PIMI_VISUALIZATION_INSTRUCTIONS;
+    if (visualizeSkillReady) visualizationInstructions = PIMI_VISUALIZATION_BRIEF;
+    else if (guideToolReady) visualizationInstructions = PIMI_VISUALIZATION_TOOL_BRIEF;
     const pimiInstructions = interactiveChat
       ? [
           PIMI_SCOPE_INSTRUCTIONS,
@@ -7094,7 +7102,7 @@ export class AgentManager {
             hostToolsEnabled: this.pimiToolsEnabled,
             toolLoading: this.pimiToolLoading(storedConfig.provider),
           }),
-          visualizeSkillReady ? PIMI_VISUALIZATION_BRIEF : PIMI_VISUALIZATION_INSTRUCTIONS,
+          visualizationInstructions,
         ]
       : [];
     const canRecallMemory =
@@ -7194,7 +7202,7 @@ export class AgentManager {
           callerAgentId: agentId,
           pimiToolPolicy,
         });
-        if (useNativeTools) context.pimiTools = catalog;
+        if (useNativeTools) context.pimiTools = lazyPimiToolCatalog(catalog);
       } catch (error) {
         this.detachPluginTools(agentId);
         throw error;

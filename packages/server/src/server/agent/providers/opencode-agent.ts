@@ -1486,6 +1486,7 @@ export class OpenCodeAgentClient implements AgentClient {
     const permission = buildOpenCodePermissionRules(
       openCodeConfig.providerOptions,
       openCodeConfig.toolPolicy,
+      openCodeConfig.bare,
     );
 
     try {
@@ -1597,7 +1598,11 @@ export class OpenCodeAgentClient implements AgentClient {
     config: OpenCodeAgentConfig,
     sessionId: string,
   ): Promise<void> {
-    const permission = buildOpenCodePermissionRules(config.providerOptions, config.toolPolicy);
+    const permission = buildOpenCodePermissionRules(
+      config.providerOptions,
+      config.toolPolicy,
+      config.bare,
+    );
     if (!permission) return;
     const response = readOpenCodeRecord(
       await client.session.update({ sessionID: sessionId, directory: config.cwd, permission }),

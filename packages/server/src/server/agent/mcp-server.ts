@@ -8,7 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { addModelVisibleStructuredContent } from "./tools/pimi-tool-serialization.js";
-import { createLazyLoaderTools, splitToolsForLazyLoading } from "./tools/lazy-tool-groups.js";
+import { lazyPimiToolCatalog } from "./tools/lazy-tool-groups.js";
 import { createPimiToolCatalog, type PimiToolHostDependencies } from "./tools/pimi-tools.js";
 import type { PimiToolDefinition, PimiToolResult } from "./tools/types.js";
 
@@ -68,18 +68,10 @@ export async function createAgentMcpServer(
   const execute = (name: string, args: unknown, signal?: AbortSignal) =>
     catalog.executeTool(name, args, { signal });
   if (!loading.lazyTools) return createToolMcpServer(catalog.tools.values(), execute);
-  const { listed, groups } = splitToolsForLazyLoading(catalog.tools.values());
-  const loaderTools = new Map(
-    createLazyLoaderTools(groups, new Set(listed.map((tool) => tool.name)), execute).map((tool) => [
-      tool.name,
-      tool,
-    ]),
-  );
-  const route = (name: string, args: unknown, signal?: AbortSignal) => {
-    const loaderTool = loaderTools.get(name);
-    return loaderTool ? loaderTool.handler(args, { signal }) : execute(name, args, signal);
-  };
-  const server = createToolMcpServer([...listed, ...loaderTools.values()], route);
+  const lazy = lazyPimiToolCatalog(catalog);
+  const route = (name: string, args: unknown, signal?: AbortSignal) =>
+    lazy.executeTool(name, args, { signal });
+  const server = createToolMcpServer(lazy.tools.values(), route);
   // The tool list is short on purpose, but an agent that already knows a tool's name (resumed
   // history, a stale schema) can still call it directly instead of hitting "Tool X not found".
   server.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {

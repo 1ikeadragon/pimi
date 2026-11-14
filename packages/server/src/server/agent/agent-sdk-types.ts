@@ -636,6 +636,13 @@ export interface AgentSessionConfig {
    * They are used for ephemeral system tasks like commit/PR generation.
    */
   internal?: boolean;
+  /**
+   * A minimal one-shot session for structured generation (titles, branch names, commit text).
+   * Requires `internal`. The provider launches with a tiny system prompt and no tools, skills,
+   * plugins, MCP servers or user instruction files, and still uses the user's own provider auth.
+   * Runtime-only: never persisted.
+   */
+  bare?: boolean;
 }
 
 export interface AgentLaunchContext {

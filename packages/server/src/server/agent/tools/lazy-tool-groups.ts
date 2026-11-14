@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { PIMI_VISUALIZATION_GUIDE_TOOL } from "@pimi/protocol/chat-visualization";
 
-import type { PimiToolDefinition, PimiToolResult } from "./types.js";
+import type { PimiToolCatalog, PimiToolDefinition, PimiToolResult } from "./types.js";
 
 /**
- * Providers that send every MCP tool schema on every turn (Codex, OpenCode, ACP agents) get only
+ * Providers that send every tool schema on every turn (Codex, OpenCode, OMP, ACP agents) get only
  * these tools listed. Everything else sits behind `pimi_tools` and `call_pimi_tool`, so a chat that
  * never touches automations does not pay for their schemas.
  */
@@ -14,8 +15,6 @@ const DEFAULT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "get_agent_status",
   "cancel_agent",
   "list_providers",
-  "list_models",
-  "list_hosts",
   "list_workspaces",
   "create_workspace",
   "recall_project_memory",
@@ -23,6 +22,7 @@ const DEFAULT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "create_pimi_task",
   "suggest_pimi_review",
   "browser_show",
+  PIMI_VISUALIZATION_GUIDE_TOOL,
 ]);
 
 const LOADER_TOOL_NAME = "pimi_tools";
@@ -36,6 +36,8 @@ const GROUP_BY_TOOL: Readonly<Record<string, string>> = {
   kill_agent: "agents",
   list_profiles: "profiles",
   inspect_provider: "profiles",
+  list_models: "profiles",
+  list_hosts: "workspaces",
   archive_workspace: "workspaces",
   rename_workspace: "workspaces",
   list_workspace_scripts: "scripts",
@@ -156,4 +158,32 @@ export function createLazyLoaderTools(
       },
     },
   ];
+}
+
+/**
+ * The catalog a provider that sends every tool schema each turn sees: the core tools and the
+ * loader. A tool outside them stays callable by name, so an agent that already knows it (resumed
+ * history, a stale schema) is not refused.
+ */
+export function lazyPimiToolCatalog(catalog: PimiToolCatalog): PimiToolCatalog {
+  const { listed, groups } = splitToolsForLazyLoading(catalog.tools.values());
+  const loaderTools = new Map(
+    createLazyLoaderTools(groups, new Set(listed.map((tool) => tool.name)), (name, args, signal) =>
+      catalog.executeTool(name, args, { signal }),
+    ).map((tool) => [tool.name, tool]),
+  );
+  const tools = new Map<string, PimiToolDefinition>([
+    ...listed.map((tool): [string, PimiToolDefinition] => [tool.name, tool]),
+    ...loaderTools,
+  ]);
+  return {
+    tools,
+    getTool: (name) => tools.get(name) ?? catalog.getTool(name),
+    executeTool: (name, input, context) => {
+      const loaderTool = loaderTools.get(name);
+      return loaderTool
+        ? loaderTool.handler(input, context ?? {})
+        : catalog.executeTool(name, input, context);
+    },
+  };
 }

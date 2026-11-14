@@ -130,6 +130,7 @@ export async function generateBranchNameFromFirstAgentContext(
       agentConfigOverrides: {
         title: "Branch name generator",
         internal: true,
+        bare: true,
       },
     });
     return {

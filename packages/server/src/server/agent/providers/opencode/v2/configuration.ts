@@ -22,6 +22,8 @@ export function features(config: AgentSessionConfig): AgentFeature[] {
   ];
 }
 export function permissionRules(config: AgentSessionConfig): PermissionRuleset {
+  // A bare session (titles, branch names, commit text) runs with every tool denied.
+  if (config.bare) return [{ action: "*", resource: "*", effect: "deny" }];
   const rules =
     buildOpenCodePermissionRules(
       OpenCodeProviderOptionsSchema.parse(config.providerOptions ?? {}),

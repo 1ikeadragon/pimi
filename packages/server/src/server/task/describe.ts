@@ -81,7 +81,7 @@ export async function describeTask(input: {
     maxRetries: 1,
     persistSession: false,
     logger: input.logger,
-    agentConfigOverrides: { title: "Task description generator", internal: true },
+    agentConfigOverrides: { title: "Task description generator", internal: true, bare: true },
   });
   return result.description.trim();
 }

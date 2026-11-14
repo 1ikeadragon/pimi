@@ -52,6 +52,7 @@ export const LEGACY_SKILL_NAMES = [
   "pimi-artifacts",
   "pimi-shape-work",
   "pimi-walk-the-flow",
+  "pimi-work",
 ] as const;
 
 type SkillFiles = Map<string, string>;
@@ -265,9 +266,16 @@ export async function autoUpdateInstalledSkills(
   }
   if (status.state === "not-installed" && !installByDefault && renamed.length === 0) return status;
   const updated = await applySkills(targets, selection, nonDestructivePlan(status));
-  // Edited copies are kept: retireManagedSkill only removes files Pimi wrote and nobody changed.
-  for (const name of LEGACY_SKILL_NAMES) {
-    for (const home of homes) await retireManagedSkill(path.join(home, name));
+  // Edited copies are kept: retireManagedSkill only removes files Pimi wrote and nobody changed,
+  // and a skill without Pimi's manifest is never touched.
+  const shipped = new Set(status.available);
+  for (const home of homes) {
+    const entries = await fs.readdir(home, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !/^pimi(-|$)/.test(entry.name) || shipped.has(entry.name))
+        continue;
+      await retireManagedSkill(path.join(home, entry.name));
+    }
   }
   for (const { directory, successor } of renamed) {
     if (updated.installed.includes(successor) && !updated.ops.some((op) => op.name === successor))

@@ -73,7 +73,7 @@ export async function generateChatTitle(input: {
     maxRetries: 1,
     persistSession: false,
     logger: input.logger,
-    agentConfigOverrides: { title: "Chat title generator", internal: true },
+    agentConfigOverrides: { title: "Chat title generator", internal: true, bare: true },
   });
   return result.title.trim();
 }
