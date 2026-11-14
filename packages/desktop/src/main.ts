@@ -688,7 +688,14 @@ ipcMain.handle("pimi:browser:copy-element", (_event, payload: unknown) =>
 protocol.registerSchemesAsPrivileged([
   {
     scheme: APP_SCHEME,
-    privileges: { standard: true, secure: true, supportFetchAPI: true, codeCache: true },
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      codeCache: true,
+      // Chromium plays <video> from a custom scheme only with `stream` (the Tide theme).
+      stream: true,
+    },
   },
   {
     scheme: LEGACY_APP_SCHEME,
