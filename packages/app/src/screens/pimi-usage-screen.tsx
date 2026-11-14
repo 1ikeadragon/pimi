@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "@/i18n/use-translation";
 import { ScrollView, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { BackHeader } from "@/components/headers/back-header";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
@@ -24,7 +25,16 @@ import { isPimiAndroid } from "@/utils/pimi-mobile";
 type UsageTab = "overview" | "limits" | "sessions" | "recap";
 const PIMI_BACKGROUND = { "pimi-background": "" };
 
-export function PimiUsageScreen() {
+/**
+ * Settings renders this screen for one host: `hostServerId` pins the host and replaces the picker,
+ * the close button goes away, and `onBack` swaps the titlebar for a back header on compact.
+ */
+interface PimiUsageScreenProps {
+  hostServerId?: string;
+  onBack?: () => void;
+}
+
+export function PimiUsageScreen({ hostServerId, onBack }: PimiUsageScreenProps = {}) {
   const focused = useIsFocused();
   const covered = usePimiWorkspaceSection() !== null;
   const { t } = useTranslation();
@@ -39,12 +49,13 @@ export function PimiUsageScreen() {
     [t],
   );
   const close = useMemo(
-    () => (
-      <ToolbarButton label={t("usageOverview.close")} onPress={closePimiUsage}>
-        <DensityIcon icon={X} size="sm" color="foregroundMuted" />
-      </ToolbarButton>
-    ),
-    [t],
+    () =>
+      hostServerId ? undefined : (
+        <ToolbarButton label={t("usageOverview.close")} onPress={closePimiUsage}>
+          <DensityIcon icon={X} size="sm" color="foregroundMuted" />
+        </ToolbarButton>
+      ),
+    [t, hostServerId],
   );
   const {
     tab: requestedTab,
@@ -73,7 +84,15 @@ export function PimiUsageScreen() {
   if (!focused || covered) return <View style={styles.screen} />;
   return (
     <View style={styles.screen} dataSet={PIMI_BACKGROUND} testID="pimi-usage">
-      <MenuHeader title={t("usageOverview.title")} rightContent={close} inPimiTitlebar />
+      {onBack ? (
+        <BackHeader title={t("usageOverview.title")} onBack={onBack} />
+      ) : (
+        <MenuHeader
+          title={t("usageOverview.title")}
+          rightContent={close}
+          inPimiTitlebar={!hostServerId}
+        />
+      )}
       <View style={styles.toolbar}>
         <SegmentedControl options={visibleTabs} value={tab} onValueChange={setTab} />
       </View>
@@ -86,16 +105,25 @@ export function PimiUsageScreen() {
           }
         />
       )}
-      {tab === "overview" && <OverviewTab />}
-      {tab === "limits" && <ProviderLimits />}
+      {tab === "overview" && <OverviewTab pinnedServerId={hostServerId} />}
+      {tab === "limits" && <ProviderLimits pinnedServerId={hostServerId} />}
       {tab === "recap" && <PimiRecapUsage />}
     </View>
   );
 }
 
-function OverviewTab() {
+/** The host a tab shows: the pinned one inside Settings, otherwise the saved pick. */
+function useTabHost(pinnedServerId: string | undefined) {
+  const selection = useUsageHostSelection();
+  if (pinnedServerId) return { serverId: pinnedServerId, connectedHosts: [], select: noSelect };
+  return selection;
+}
+
+function noSelect(): void {}
+
+function OverviewTab({ pinnedServerId }: { pinnedServerId?: string }) {
   const { t } = useTranslation();
-  const { serverId } = useUsageHostSelection();
+  const { serverId } = useTabHost(pinnedServerId);
   return (
     <ScrollView style={styles.scroll}>
       <View style={styles.limits} testID="pimi-usage-overview">
@@ -109,9 +137,9 @@ function OverviewTab() {
   );
 }
 
-function ProviderLimits() {
+function ProviderLimits({ pinnedServerId }: { pinnedServerId?: string }) {
   const { t } = useTranslation();
-  const { serverId, connectedHosts, select } = useUsageHostSelection();
+  const { serverId, connectedHosts, select } = useTabHost(pinnedServerId);
   return (
     <ScrollView style={styles.scroll}>
       <View style={styles.limits} testID="pimi-usage-limits">

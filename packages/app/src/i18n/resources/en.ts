@@ -3474,6 +3474,7 @@ export const en = {
       metadata: "Pimi models",
       voice: "Voice & dictation",
       providers: "Providers",
+      usage: "Usage",
       terminals: "Terminals & language servers",
       plugins: "Plugins",
       host: "Host",

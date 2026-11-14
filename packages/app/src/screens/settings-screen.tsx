@@ -1,7 +1,6 @@
 import { useHardwareKeyboardPresent } from "@/keyboard";
 import { overridable, Slot } from "@/extension-points";
 import { UsageIcon } from "@/usage/icon";
-import { openPimiUsage } from "@/navigation/pimi-usage";
 import { useAddHost } from "@/hosts/add-host";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
@@ -66,6 +65,7 @@ import { WindowChromeRegion, WindowChromeSafeArea } from "@/utils/desktop-window
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { BackHeader } from "@/components/headers/back-header";
 import { PageLayout } from "@/components/page-layout";
+import { PimiUsageScreen } from "@/screens/pimi-usage-screen";
 import { KeyboardShortcutsSection } from "@/screens/settings/keyboard-shortcuts-section";
 import { EditorSection } from "@/screens/settings/editor-section";
 import { FilesSection } from "@/screens/settings/files-section";
@@ -233,6 +233,7 @@ type HostSectionItem = HostPageDeclaration & { icon: SettingsIcon };
 
 const HOST_SECTION_ICONS: Record<HostSectionSlug, SettingsIcon> = {
   providers: Boxes,
+  usage: UsageIcon,
   metadata: Sparkles,
   agents: Bot,
   voice: Mic,
@@ -249,6 +250,7 @@ const HOST_SECTION_ITEMS: HostSectionItem[] = HOST_SETTINGS_PAGES.map((page) =>
 function renderHostSettingsContent(
   view: Extract<SettingsView, { kind: "host" }>,
   onHostRemoved: () => void,
+  onBack: (() => void) | undefined,
 ): ReactNode {
   switch (view.section) {
     case "projects":
@@ -261,6 +263,8 @@ function renderHostSettingsContent(
       return <HostVoicePage serverId={view.serverId} />;
     case "providers":
       return <HostProvidersPage serverId={view.serverId} />;
+    case "usage":
+      return <PimiUsageScreen hostServerId={view.serverId} onBack={onBack} />;
     case "terminals":
       return <HostTerminalsPage serverId={view.serverId} />;
     case "plugins":
@@ -811,40 +815,6 @@ function SidebarHostSectionButton({
   );
 }
 
-interface SidebarLinkButtonProps {
-  label: string;
-  icon: ComponentType<{ size: number; color: string; strokeWidth?: number }>;
-  onPress: () => void;
-  testID: string;
-}
-
-/** A sidebar row that leaves Settings for another screen. */
-function SidebarLinkButton({
-  label,
-  icon: IconComponent,
-  onPress,
-  testID,
-}: SidebarLinkButtonProps) {
-  const { theme, rt } = useUnistyles();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      testID={testID}
-      style={sidebarItemStyle}
-    >
-      <IconComponent
-        size={densityIconSize(rt, "md")}
-        color={theme.colors.foregroundMuted}
-        strokeWidth={SIDEBAR_ICON_STROKE_WIDTH}
-      />
-      <Text style={sidebarStyles.label} numberOfLines={1}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 interface HostPickerProps {
   activeServerId: string | null;
   sortedHosts: HostProfile[];
@@ -1025,12 +995,6 @@ function SettingsSidebar({
               onSelect={onSelectHostSection}
             />
           ))}
-          <SidebarLinkButton
-            label={t("usageOverview.title")}
-            icon={UsageIcon}
-            onPress={openPimiUsage}
-            testID="settings-open-usage"
-          />
         </SidebarGroup>
       ) : (
         <SidebarGroup>
@@ -1294,7 +1258,11 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
         />
       );
     if (view.kind === "host") {
-      return renderHostSettingsContent(view, handleHostRemoved);
+      return renderHostSettingsContent(
+        view,
+        handleHostRemoved,
+        isCompactLayout ? handleBackFromDetail : undefined,
+      );
     }
     if (view.kind === "project") {
       return (
@@ -1364,12 +1332,19 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
     );
   }
 
+  // Usage scrolls and sizes itself, so it takes the pane instead of PageLayout's scroll column.
+  const fullPane = view.kind === "host" && view.section === "usage";
+
   if (isCompactLayout) {
     return (
       <View style={styles.container}>
-        <PageLayout title={detailTitle} onBack={handleBackFromDetail}>
-          {pageContent}
-        </PageLayout>
+        {fullPane ? (
+          pageContent
+        ) : (
+          <PageLayout title={detailTitle} onBack={handleBackFromDetail}>
+            {pageContent}
+          </PageLayout>
+        )}
       </View>
     );
   }
@@ -1394,13 +1369,17 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
         </WindowChromeRegion>
         <WindowChromeRegion corners="top-right">
           <View style={desktopStyles.contentPane} testID="settings-detail-pane">
-            <PageLayout
-              title={detailTitle}
-              titleTestID="settings-detail-header-title"
-              testID="settings-detail-scroll-body"
-            >
-              {pageContent}
-            </PageLayout>
+            {fullPane ? (
+              pageContent
+            ) : (
+              <PageLayout
+                title={detailTitle}
+                titleTestID="settings-detail-header-title"
+                testID="settings-detail-scroll-body"
+              >
+                {pageContent}
+              </PageLayout>
+            )}
           </View>
         </WindowChromeRegion>
       </View>
