@@ -138,7 +138,7 @@ export async function fanOutReconciledWorkspaceUpdates(input: {
   );
 }
 
-import { VoiceAssistantWebSocketServer } from "./websocket-server.js";
+import { isWebSocketSameOrigin, VoiceAssistantWebSocketServer } from "./websocket-server.js";
 import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
 import { LabelService } from "./labels/service.js";
 import { migrateWorkspaceLabels } from "./labels/migrate.js";
@@ -1981,6 +1981,17 @@ export async function createPimiDaemon(
     ): Promise<void> => {
       if (!mcpEnabled) {
         res.status(404).json({ error: "Agent MCP endpoint disabled" });
+        return;
+      }
+      // Same rule as /ws: agent harnesses send no Origin; a browser page must be an allowed origin.
+      const origin = req.header("origin");
+      if (
+        origin &&
+        !allowedOrigins.has("*") &&
+        !allowedOrigins.has(origin) &&
+        !isWebSocketSameOrigin(origin, req.header("host") ?? null)
+      ) {
+        res.status(403).json({ error: "Origin not allowed" });
         return;
       }
       const callerAgentIdRaw = req.query.callerAgentId;

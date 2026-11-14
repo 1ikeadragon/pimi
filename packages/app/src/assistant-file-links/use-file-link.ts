@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { parseAgentDeepLink } from "@pimi/protocol/agent-deep-link";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
+import { useSessionStore } from "@/stores/session-store";
 import { getDesktopHost } from "@/desktop/host";
 import { openPimiReview, pullRequestUrlToSource } from "@/navigation/pimi-review";
 import { isHttpUrl } from "@/utils/http-url";
@@ -343,8 +344,11 @@ async function dispatchExternalUrl(input: {
   const host = getDesktopHost();
   const agent = host?.showPimiWorkspace ? parseAgentDeepLink(input.url) : null;
   if (agent) {
-    navigateToAgent(agent);
-    host?.dismissPimiWorkspace?.();
+    // A link to a host this app has no session for would land on a screen that waits forever.
+    if (useSessionStore.getState().sessions[agent.serverId]) {
+      navigateToAgent(agent);
+      host?.dismissPimiWorkspace?.();
+    }
     return;
   }
   // A pull request link opens in Review. Cmd/Ctrl-click and middle-click still reach the system browser.

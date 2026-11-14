@@ -110,7 +110,10 @@ const FILE_TYPE_SAMPLE_BYTES = 8192;
 export const FILE_EXPLORER_STREAM_CHUNK_BYTES = 256 * 1024;
 export const MAX_EDITABLE_FILE_BYTES = 1024 * 1024;
 const READ_FILE_OPEN_FLAGS =
-  process.platform === "win32" ? constants.O_RDONLY : constants.O_RDONLY | constants.O_NOFOLLOW;
+  process.platform === "win32"
+    ? constants.O_RDONLY
+    : // O_NONBLOCK keeps a FIFO with no writer from blocking the open forever.
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK;
 const ACCESS_OUTSIDE_WORKSPACE_MESSAGE = "Access outside of workspace is not allowed";
 
 function fileRevision(stats: BigIntStats): string {

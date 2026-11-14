@@ -348,7 +348,7 @@ export class WorkspaceFilesSession {
         }
       }
     } catch (error) {
-      this.logger.error(
+      this.logger.warn(
         { err: error, cwd, path: requestedPath },
         `Failed to fulfill file explorer request for workspace ${cwd}`,
       );
@@ -471,7 +471,7 @@ export class WorkspaceFilesSession {
         },
       });
     } catch (error) {
-      this.logger.error(
+      this.logger.warn(
         { err: error, cwd, path: requestedPath },
         `Failed to issue download token for workspace ${cwd}`,
       );

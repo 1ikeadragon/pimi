@@ -1711,7 +1711,7 @@ export class VoiceAssistantWebSocketServer {
   }): Promise<void> {
     const { ws, message, pending } = params;
 
-    if (message.protocolVersion < 1) {
+    if (message.protocolVersion !== WS_PROTOCOL_VERSION) {
       this.clearPendingConnection(ws);
       pending.connectionLogger.warn(
         {
