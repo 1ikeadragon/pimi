@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { X } from "lucide-react-native";
 import { useIsCompactFormFactor } from "@/constants/layout";
@@ -11,13 +11,11 @@ const mutedIconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMute
 
 /**
  * What a tray pill lends the chip it wraps: while the pointer is on it (always, where there is no
- * pointer) the chip's type icon becomes the remove button, so the chip never changes size.
+ * pointer) the chip's type icon becomes the remove glyph, so the chip never changes size. The pill
+ * owns the press target; the chip only paints, because it sits inside the pill's open button.
  */
 interface ChipRemoval {
-  hovered: boolean;
-  disabled: boolean;
-  label: string;
-  onRemove: () => void;
+  active: boolean;
 }
 
 export const ChipRemovalContext = createContext<ChipRemoval | null>(null);
@@ -52,21 +50,14 @@ export function InlineChip({
   const removal = useContext(ChipRemovalContext);
   const compact = useIsCompactFormFactor();
   const touch = size === "tray" && (compact || isNative);
-  const showRemove = removal !== null && (removal.hovered || touch);
+  const showRemove = removal?.active === true;
   styles.useVariants({ size, touch, selected, focused });
   return (
     <View style={styles.chip} testID={testID}>
       {showRemove ? (
-        <Pressable
-          onPress={removal.onRemove}
-          disabled={removal.disabled}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={removal.label}
-          style={styles.iconSlot}
-        >
+        <View style={styles.iconSlot}>
           <ThemedX size={ICON_SIZE.xs} uniProps={mutedIconMapping} />
-        </Pressable>
+        </View>
       ) : (
         <View style={styles.iconSlot}>{icon}</View>
       )}

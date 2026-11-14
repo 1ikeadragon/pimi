@@ -7,7 +7,7 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
 import { ChipRemovalContext, InlineChip } from "@/components/ui/chip/inline-chip";
-import type { Theme } from "@/styles/theme";
+import { ICON_SIZE, type Theme } from "@/styles/theme";
 
 // Every attachment pill body — image thumbnail or labelled — renders at this
 // height so mixed attachment trays line up.
@@ -51,15 +51,7 @@ export function AttachmentPill({
   const handleBodyHoverOut = useCallback(() => setIsBodyHovered(false), []);
   const handleCloseHoverIn = useCallback(() => setIsCloseHovered(true), []);
   const handleCloseHoverOut = useCallback(() => setIsCloseHovered(false), []);
-  const removal = useMemo(
-    () => ({
-      hovered: isHovered,
-      disabled,
-      label: removeAccessibilityLabel,
-      onRemove,
-    }),
-    [disabled, isHovered, onRemove, removeAccessibilityLabel],
-  );
+  const removal = useMemo(() => ({ active: showRemove }), [showRemove]);
   const body = (
     <Pressable
       testID={testID}
@@ -75,7 +67,26 @@ export function AttachmentPill({
     </Pressable>
   );
   if (kind === "chip") {
-    return <ChipRemovalContext.Provider value={removal}>{body}</ChipRemovalContext.Provider>;
+    // The remove button overlays the chip's icon as a sibling of the open button: a button inside a
+    // button is invalid HTML and a hydration error on web.
+    const touch = isNative || isCompact;
+    return (
+      <View style={styles.wrapper}>
+        <ChipRemovalContext.Provider value={removal}>{body}</ChipRemovalContext.Provider>
+        {showRemove ? (
+          <Pressable
+            onPress={onRemove}
+            disabled={disabled}
+            onHoverIn={handleCloseHoverIn}
+            onHoverOut={handleCloseHoverOut}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={removeAccessibilityLabel}
+            style={touch ? styles.chipRemoveTouch : styles.chipRemove}
+          />
+        ) : null}
+      </View>
+    );
   }
   return (
     <View style={styles.wrapper}>
@@ -151,6 +162,20 @@ const iconForegroundMutedMapping = (theme: Theme) => ({ color: theme.colors.fore
 const styles = StyleSheet.create((theme) => ({
   wrapper: {
     position: "relative",
+  },
+  chipRemove: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: theme.spacing[1.5],
+    width: ICON_SIZE.xs,
+  },
+  chipRemoveTouch: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: theme.spacing[2],
+    width: ICON_SIZE.xs,
   },
   frame: {
     borderRadius: theme.borderRadius.md,
