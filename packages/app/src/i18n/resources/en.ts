@@ -3505,6 +3505,7 @@ export const en = {
       requests: "Requests",
       unknown: "Unknown",
       ipOnly: "IP only",
+      resolveNames: "Resolve names",
       trust: "Trust",
       untrust: "Untrust",
       reset: "Reset",

@@ -13,6 +13,7 @@ Settings > Resources lists the processes Pimi runs with their CPU and memory, an
 ## Limits
 
 - Connections are sampled. One that opens and closes between two samples is not seen. Samples run every 2 seconds while the tab is open, every 3 seconds while an agent or terminal job runs, and every 10 seconds otherwise.
+- Resolve names in the Network section turns on reverse DNS so IP-only rows show a hostname next to the IP. It is off by default and sends lookups to your DNS resolver only while on. Many addresses have no name, and a name can be wrong or generic.
 - Programs started by agents and terminals show an IP address unless Pimi can match it to a name. Names come from the daemon's own lookups and from a forward lookup of known hosts. Shared cloud addresses can belong to more than one site.
 - Only the trees Pimi owns are sampled: the daemon and what it starts, terminal programs, and the desktop app. A program that leaves its tree before the first sample, or runs under another user, is not seen.
 - UDP is seen only for connected sockets. DNS queries made by child programs are not seen.

@@ -5877,6 +5877,7 @@ export class DaemonClient {
     includeLocal?: boolean;
     limit?: number;
     appRootPid?: number;
+    resolveNames?: boolean;
   }): Promise<ResourcesSnapshot> {
     const payload =
       await this.sendNamespacedCorrelatedSessionRequest<"diagnostics.resources.snapshot.response">({
@@ -5885,6 +5886,7 @@ export class DaemonClient {
           includeLocal: options?.includeLocal,
           limit: options?.limit,
           appRootPid: options?.appRootPid,
+          resolveNames: options?.resolveNames,
         },
       });
     return payload.snapshot;

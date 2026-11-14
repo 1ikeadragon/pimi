@@ -99,6 +99,8 @@ export interface AppSettings {
   /** How usage reads and which windows the sidebar summary shows. */
   usage: UsagePreferences;
   autoExpandReasoning: boolean;
+  /** Resources tab: reverse-resolve remote IPs into hostnames. */
+  resolveNetworkNames: boolean;
   chatDisplay: ChatDisplay;
   chatOutlineEnabled: boolean;
   pimiVoiceButton: boolean;
@@ -157,6 +159,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   sidebarFooterItems: [],
   usage: DEFAULT_USAGE_PREFERENCES,
   autoExpandReasoning: false,
+  resolveNetworkNames: false,
   chatDisplay: "collapseTurns",
   chatOutlineEnabled: true,
   pimiVoiceButton: true,
@@ -240,6 +243,7 @@ const StoredAppSettingsSchema = z
     sidebarFooterItems: z.array(z.object({ key: z.string(), visible: z.boolean() })).catch([]),
     usage: UsagePreferencesSchema,
     autoExpandReasoning: z.boolean().catch(false),
+    resolveNetworkNames: z.boolean().catch(false),
     chatDisplay: z.enum(["full", "collapseToolCalls", "collapseTurns"]).catch("full"),
     chatOutlineEnabled: z.boolean().catch(true),
     pimiVoiceButton: z.boolean().catch(true),

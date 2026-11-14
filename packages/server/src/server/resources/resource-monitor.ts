@@ -11,6 +11,7 @@ import type {
 } from "@pimi/protocol/messages";
 import { listTerminalWorkerRecords } from "../../terminal/terminal-worker-record.js";
 import { createOsReader, type OsReader, type ProcessRow, type SocketRow } from "./os-reader.js";
+import { ReverseNames } from "./reverse-dns.js";
 import { baselineKey, isIpOnly, NetworkBaseline, type BaselineEntry } from "./network-baseline.js";
 
 // The Resources tab's source of truth: one poller over the OS process and socket tables, rooted
@@ -18,7 +19,7 @@ import { baselineKey, isIpOnly, NetworkBaseline, type BaselineEntry } from "./ne
 // desktop app when it asks). It sees every program by pid, in any language, but only what is
 // open when a sample runs: a connection shorter than the interval is missed. Hostnames of
 // children are not visible; an address is named only from this daemon's own DNS results, its own
-// sockets, and a forward lookup of the known hosts. There is no reverse DNS.
+// sockets, and a forward lookup of the known hosts. Reverse DNS runs only when a snapshot asks for names.
 //
 // Anything that wants these numbers (a memory watchdog, say) subscribes with `subscribe` and
 // gets each sample; policy lives with the subscriber, not here.
@@ -109,6 +110,7 @@ export class ResourceMonitor {
   private readonly connections = new Map<string, Connection>();
   private readonly listeners = new Set<(sample: ResourceSample) => void>();
   private readonly resolved = new Map<string, number>();
+  private readonly reverseNames = new ReverseNames();
   private tracked: TrackedProcess[] = [];
   private timer: NodeJS.Timeout | null = null;
   private running = false;
@@ -542,7 +544,7 @@ export class ResourceMonitor {
     return this.tracked.map(({ program: _program, ...entry }) => entry);
   }
 
-  destinations(): ResourceDestination[] {
+  destinations(resolveNames: boolean): ResourceDestination[] {
     const livePids = new Map<string, Set<number>>();
     for (const connection of this.connections.values()) {
       const set = livePids.get(connection.key) ?? new Set<number>();
@@ -556,11 +558,14 @@ export class ResourceMonitor {
       const agentId = pids
         ? ([...pids].map((pid) => agentByPid.get(pid)).find(Boolean) ?? null)
         : null;
+      const ipOnly = isIpOnly(entry);
+      const hostname = ipOnly && resolveNames ? this.reverseNames.name(entry.host) : null;
       all.push({
         key: entry.key,
         program: entry.program,
         host: entry.host,
         address: entry.address,
+        ...(hostname ? { hostname } : {}),
         port: entry.port,
         protocol: entry.protocol,
         firstSeenMs: entry.firstSeenMs,
@@ -568,7 +573,7 @@ export class ResourceMonitor {
         count: entry.count,
         trusted: entry.trusted,
         known: this.baseline.isKnown(entry),
-        ipOnly: isIpOnly(entry),
+        ipOnly: ipOnly && !hostname,
         live: pids !== undefined,
         pids: pids ? [...pids] : [],
         agentId,
