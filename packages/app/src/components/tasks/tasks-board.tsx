@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactElement } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View, type LayoutChangeEvent } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { TaskStatus } from "@pimi/protocol/task/types";
 import { TaskBoardCard, TASK_COLUMN_ATTRIBUTE } from "@/components/tasks/task-board-card";
@@ -9,7 +9,10 @@ import { useTranslation } from "@/i18n/use-translation";
 import type { TaskGroup } from "@/tasks/task-view-model";
 import type { TaskChatDirectory } from "@/tasks/use-chat-directory";
 
-const COLUMN_MIN_WIDTH = 236;
+const COLUMN_MIN_WIDTH = 240;
+const COLUMN_MAX_WIDTH = 360;
+const COLUMN_GAP = 12;
+const EDGE_WIDTH = 12;
 const COMPACT_COLUMN_WIDTH = 288;
 
 /**
@@ -30,6 +33,24 @@ export function TasksBoard({
   const [overStatus, setOverStatus] = useState<TaskStatus | null>(null);
   const [activeStatus, setActiveStatus] = useState<TaskStatus | null>(null);
   const handleDragOver = useCallback((status: TaskStatus | null) => setOverStatus(status), []);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => setViewportWidth(event.nativeEvent.layout.width),
+    [],
+  );
+  // Columns share the viewport equally between the min and max. The scroller sizes its content to
+  // max-content, so a flexible column would stretch to its widest card instead of the viewport.
+  const columnWidth = isCompact
+    ? COMPACT_COLUMN_WIDTH
+    : Math.min(
+        COLUMN_MAX_WIDTH,
+        Math.max(
+          COLUMN_MIN_WIDTH,
+          Math.floor(
+            (viewportWidth - 2 * EDGE_WIDTH - (columns.length + 1) * COLUMN_GAP) / columns.length,
+          ),
+        ),
+      );
   const handleDragActive = useCallback((status: TaskStatus | null) => setActiveStatus(status), []);
 
   return (
@@ -40,6 +61,7 @@ export function TasksBoard({
       contentContainerStyle={styles.columns}
       snapToInterval={isCompact ? COMPACT_COLUMN_WIDTH + 12 : undefined}
       decelerationRate="fast"
+      onLayout={handleLayout}
       testID="tasks-board"
     >
       <View style={styles.edgeStart} />
@@ -53,7 +75,7 @@ export function TasksBoard({
             {...({ dataSet: columnData } as object)}
             style={[
               styles.column,
-              isCompact ? styles.columnCompact : null,
+              { width: columnWidth },
               overStatus === status && styles.columnOver,
               // RN-web gives every View its own stacking context; the dragged card can only paint
               // over the other columns if its own column does.
@@ -103,8 +125,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "stretch",
   },
   column: {
-    flex: 1,
-    minWidth: COLUMN_MIN_WIDTH,
     minHeight: 320,
     gap: theme.spacing[3],
     padding: theme.spacing[2],
@@ -112,7 +132,6 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: 1,
     borderColor: "transparent",
   },
-  columnCompact: { flex: 0, width: COMPACT_COLUMN_WIDTH },
   columnOver: {
     backgroundColor: theme.colors.surface1,
     borderColor: theme.colors.borderAccent,
