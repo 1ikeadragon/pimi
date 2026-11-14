@@ -627,7 +627,7 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
     ...(config.providerCatalogRefreshTimeoutMs !== undefined
       ? { catalogRefreshTimeoutMs: config.providerCatalogRefreshTimeoutMs }
       : {}),
-    usage: { enabled: config.usageEnabled === true },
+    usage: { enabled: config.usageEnabled !== false },
     browserTools: { enabled: config.browserToolsEnabled ?? true },
     providers,
     metadataGeneration: resolveMetadataGeneration(config.metadataGeneration),

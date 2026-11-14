@@ -1,6 +1,5 @@
 import type { ListUsageReportsOptions } from "../../plugins/usage-sources/index.js";
 import type pino from "pino";
-import { detectProviderConfigDirectories } from "../../provider-config-dirs.js";
 import type { UsageScope } from "@pimi/plugin/server/usage";
 import type { UsageReportEntry } from "@pimi/protocol/messages";
 import type { SessionInboundMessage, SessionOutboundMessage } from "../../messages.js";
@@ -97,47 +96,6 @@ export class UsageSession {
       this.options.emit({
         type: "usage.provider_accounts.list.response",
         payload: { requestId: msg.requestId, error: errorMessage(error), accounts: [] },
-      });
-    }
-  }
-
-  async handleDetectConfigDirs(
-    msg: Extract<SessionInboundMessage, { type: "provider.config_dirs.detect.request" }>,
-  ): Promise<void> {
-    try {
-      const scopes = this.options.providerAccountScopes();
-      const found = await detectProviderConfigDirectories({
-        inUse: scopes.flatMap((scope) => {
-          const envKey = CONFIG_DIR_ENV_KEYS[scope.baseProvider];
-          const path = envKey ? scope.env[envKey] : undefined;
-          return envKey && path ? [{ envKey, path }] : [];
-        }),
-      });
-      const runtime = this.options.isEnabled() ? this.options.runtime : undefined;
-      const directories = await Promise.all(
-        found.map(async (directory) => {
-          try {
-            const [accountLabel] = runtime
-              ? await runtime.listProviderAccountLabels({
-                  kind: "session",
-                  provider: directory.provider,
-                  env: { ...processEnvStrings(), [directory.envKey]: directory.path },
-                })
-              : [];
-            return accountLabel ? Object.assign({}, directory, { accountLabel }) : directory;
-          } catch {
-            return directory;
-          }
-        }),
-      );
-      this.options.emit({
-        type: "provider.config_dirs.detect.response",
-        payload: { requestId: msg.requestId, error: null, directories },
-      });
-    } catch (error) {
-      this.options.emit({
-        type: "provider.config_dirs.detect.response",
-        payload: { requestId: msg.requestId, error: errorMessage(error), directories: [] },
       });
     }
   }
@@ -258,19 +216,6 @@ export class UsageSession {
       });
     }
   }
-}
-
-const CONFIG_DIR_ENV_KEYS: Record<string, string> = {
-  claude: "CLAUDE_CONFIG_DIR",
-  codex: "CODEX_HOME",
-};
-
-function processEnvStrings(): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(process.env).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string",
-    ),
-  );
 }
 
 function errorMessage(error: unknown): string {

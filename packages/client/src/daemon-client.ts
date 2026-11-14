@@ -6182,14 +6182,6 @@ export class DaemonClient {
     });
   }
 
-  async detectProviderConfigDirs(options?: { requestId?: string }) {
-    return this.sendNamespacedCorrelatedSessionRequest<"provider.config_dirs.detect.response">({
-      requestId: options?.requestId,
-      message: { type: "provider.config_dirs.detect.request" },
-      timeout: 30_000,
-    });
-  }
-
   async listUsageProviderAccounts(options?: { requestId?: string }) {
     return this.sendNamespacedCorrelatedSessionRequest<"usage.provider_accounts.list.response">({
       requestId: options?.requestId,

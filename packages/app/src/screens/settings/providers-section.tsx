@@ -561,21 +561,13 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
       addingCustomProvider || editProfile ? (
         <CustomProviderSheet
           key={editProfile?.id ?? "new"}
-          serverId={serverId}
           initial={editProfile}
           onSave={saveCustomProvider}
           onClose={closeCustomProvider}
           onDiagnostics={editProfile ? showDiagnostics : undefined}
         />
       ) : null,
-    [
-      addingCustomProvider,
-      closeCustomProvider,
-      editProfile,
-      saveCustomProvider,
-      serverId,
-      showDiagnostics,
-    ],
+    [addingCustomProvider, closeCustomProvider, editProfile, saveCustomProvider, showDiagnostics],
   );
 
   return (

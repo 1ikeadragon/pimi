@@ -1012,7 +1012,9 @@ function GroupProviderButton({
     return (
       <View style={styles.rowStateInline}>
         <ThemedAlertTriangle size={ICON_SIZE.sm} uniProps={foregroundMutedMapping} />
-        <Text style={styles.drillDownCount}>{t("modelSelector.error")}</Text>
+        <Text style={styles.drillDownCount}>
+          {selection.unavailable ? t("providerSelection.unavailable") : t("modelSelector.error")}
+        </Text>
       </View>
     );
   }, [selection, t]);

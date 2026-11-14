@@ -51,6 +51,7 @@ import type { ProviderRegistration } from "@pimi/plugin/server/provider";
 import { PluginAgentClientRegistry } from "./plugin-provider.js";
 import type { ProviderHarnessUpdate } from "@pimi/protocol/provider-harness-updates";
 import { HarnessUpdateCatalog } from "./harness-updates.js";
+import { buildDetectedProviderOverrides, type DetectedInstall } from "../provider-config-dirs.js";
 
 const DEFAULT_REFRESH_TIMEOUT_MS = 120_000;
 const MAX_REFRESH_TIMEOUT_MS = 2_147_483_647;
@@ -233,6 +234,18 @@ interface ProviderSnapshotTarget {
   catalogScope: ProviderCatalogScope;
 }
 
+function layerDetectedProviders(
+  overrides: Record<string, ProviderOverride> | undefined,
+  detected: Record<string, ProviderOverride>,
+): Record<string, ProviderOverride> | undefined {
+  if (Object.keys(detected).length === 0) return overrides;
+  const layered = { ...overrides };
+  for (const [id, install] of Object.entries(detected)) {
+    layered[id] = { ...install, ...layered[id] };
+  }
+  return layered;
+}
+
 export class ProviderSnapshotManager {
   private readonly catalogs = new Map<string, Map<AgentProvider, ProviderCatalog>>();
   private readonly harnessUpdates = new HarnessUpdateCatalog();
@@ -257,6 +270,10 @@ export class ProviderSnapshotManager {
   private runtimeSettings: AgentProviderRuntimeSettingsMap | undefined;
   private providerOverrides: Record<string, ProviderOverride> | undefined;
   private baseProviderOverrides: Record<string, ProviderOverride> | undefined;
+  // The user's providers as the config store last applied them, kept to rebuild after a rescan.
+  private lastMutableProviders: MutableDaemonConfig["providers"] | undefined;
+  // Providers registered from signed-in installs found on the host. Never persisted.
+  private detectedOverrides: Record<string, ProviderOverride> = {};
   private generation: RegistryGeneration;
   private providerClients: Record<AgentProvider, AgentClient>;
   private readonly ownedClients = new Set<AgentClient>();
@@ -632,13 +649,56 @@ export class ProviderSnapshotManager {
     mutableProviders: MutableDaemonConfig["providers"] | undefined,
     options: ApplyMutableProviderConfigOptions = {},
   ): PreparedMutableProviderConfig {
+    return this.prepareProviderConfig(mutableProviders, options, this.detectedOverrides);
+  }
+
+  /**
+   * Re-registers the providers backed by signed-in installs on the host. Returns null when the
+   * set is unchanged. A user override with the same id (hiding it, say) layers on top.
+   */
+  prepareDetectedInstalls(
+    installs: readonly DetectedInstall[],
+  ): PreparedMutableProviderConfig | null {
+    const userOverrides = applyMutableProviderConfigToOverrides(
+      this.baseProviderOverrides,
+      this.lastMutableProviders,
+    );
+    const takenIds = new Set<string>([
+      ...BUILTIN_PROVIDER_IDS,
+      ...Object.keys(this.pluginProviders.definitions()),
+    ]);
+    const usedDirectories = new Set<string>();
+    for (const [id, override] of Object.entries(userOverrides ?? {})) {
+      if (!override.extends) continue;
+      takenIds.add(id);
+    }
+    for (const env of [
+      process.env,
+      ...Object.values(this.runtimeSettings ?? {}).map((settings) => settings?.env),
+      ...Object.values(userOverrides ?? {}).map((override) => override.env),
+    ]) {
+      for (const key of ["CLAUDE_CONFIG_DIR", "CODEX_HOME"]) {
+        const value = env?.[key];
+        if (value) usedDirectories.add(resolve(value));
+      }
+    }
+    const detected = buildDetectedProviderOverrides({ installs, takenIds, usedDirectories });
+    if (isDeepStrictEqual(detected, this.detectedOverrides)) return null;
+    return this.prepareProviderConfig(this.lastMutableProviders, {}, detected);
+  }
+
+  private prepareProviderConfig(
+    mutableProviders: MutableDaemonConfig["providers"] | undefined,
+    options: ApplyMutableProviderConfigOptions,
+    detected: Record<string, ProviderOverride>,
+  ): PreparedMutableProviderConfig {
     const baseProviderOverrides = options.replace
       ? undefined
       : omitProviderOverrides(this.baseProviderOverrides, options.removeProviders ?? []);
     const runtimeSettings = options.replace ? undefined : this.runtimeSettings;
-    const providerOverrides = applyMutableProviderConfigToOverrides(
-      baseProviderOverrides,
-      mutableProviders,
+    const providerOverrides = layerDetectedProviders(
+      applyMutableProviderConfigToOverrides(baseProviderOverrides, mutableProviders),
+      detected,
     );
     const definitions = this.buildRegistry(runtimeSettings, providerOverrides);
     const changed = new Set<AgentProvider>();
@@ -660,6 +720,8 @@ export class ProviderSnapshotManager {
       agentManagerState,
       commit: () => {
         this.baseProviderOverrides = baseProviderOverrides;
+        this.lastMutableProviders = mutableProviders;
+        this.detectedOverrides = detected;
         this.runtimeSettings = runtimeSettings;
         this.providerOverrides = providerOverrides;
         this.installGeneration(generation, clients, changed);
