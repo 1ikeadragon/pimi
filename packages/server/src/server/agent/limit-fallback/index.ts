@@ -10,7 +10,7 @@ import {
   type AgentProviderSwitchTarget,
 } from "../provider-switch.js";
 import type { ProviderSnapshotManager } from "../provider-snapshot-manager.js";
-import { resolveCarriedPermissionMode } from "./permission-mode.js";
+import { resolveCarriedPermissionMode, type CarriedMode } from "./permission-mode.js";
 
 const CONTINUATION_PROMPT =
   "The previous provider hit its usage limit. Continue the last request from where it stopped.";
@@ -114,12 +114,16 @@ export function createLimitFallback(deps: LimitFallbackDeps): { dispose(): void 
       target;
       target = await pickTarget(agent, state)
     ) {
-      const carried = await resolveCarriedPermissionMode({
-        providerSnapshotManager,
-        agent,
-        targetProvider: target.provider,
-        target,
-      });
+      // A model change inside one provider keeps the session, and with it the mode.
+      const carried: CarriedMode =
+        target.provider === agent.provider
+          ? { modeId: target.modeId, featureValues: target.featureValues }
+          : await resolveCarriedPermissionMode({
+              providerSnapshotManager,
+              agent,
+              targetProvider: target.provider,
+              target,
+            });
       try {
         await agentManager.switchAgentProvider(
           agent.id,

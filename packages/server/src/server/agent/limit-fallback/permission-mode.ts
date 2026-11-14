@@ -27,7 +27,7 @@ function classOf(mode: AgentProviderModeDefinition): PermissionClass | undefined
   return mode.isUnattended ? "unattended" : mode.permissionClass;
 }
 
-type CarriedMode = Pick<AgentProviderSwitchTarget, "modeId" | "featureValues"> & {
+export type CarriedMode = Pick<AgentProviderSwitchTarget, "modeId" | "featureValues"> & {
   permissionMode?: NonNullable<AgentProviderSwitchMarker["permissionMode"]>;
 };
 
