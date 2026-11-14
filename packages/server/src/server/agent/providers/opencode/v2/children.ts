@@ -21,6 +21,9 @@ export class SessionChildren {
   private readonly children = new Map<string, V2Timeline>();
   private readonly childStates = new Map<string, string>();
   constructor(private readonly options: ChildrenOptions) {}
+  has(id: string): boolean {
+    return this.children.has(id);
+  }
   async observe(event: import("@opencode/client").OpenCodeEvent) {
     if (
       event.type === "session.created" &&

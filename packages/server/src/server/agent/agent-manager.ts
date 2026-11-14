@@ -118,6 +118,7 @@ import { buildAgentForkContextAttachment, MAX_FORK_CONTEXT_CHARS } from "./activ
 import { isChatHistoryAttachment } from "./prompt-attachments.js";
 import type { AgentAttachment } from "@pimi/protocol/messages";
 import type { AgentImageRef } from "@pimi/protocol/agent-types";
+import { canMessageProviderSubagent } from "@pimi/protocol/provider-subagent-messaging";
 import { storeProviderImage, type AgentImageStore } from "./agent-images.js";
 import { SlashCommandsCache } from "./slash-commands-cache.js";
 import { SqliteTimelineStore, timelineSessionKey } from "./sqlite-timeline-store.js";
@@ -1826,6 +1827,34 @@ export class AgentManager {
   ): ProviderSubagentDescriptor | null {
     this.requirePublicAgent(parentAgentId);
     return this.providerSubagents.get(parentAgentId, subagentId);
+  }
+
+  /**
+   * How a user message reaches one provider subagent: straight to the child when the provider has
+   * a channel to it, otherwise as a parent-session prompt that asks the parent model to relay it.
+   * Throws when the provider has neither, so a caller never sends the message elsewhere.
+   */
+  routeProviderSubagentMessage(
+    parentAgentId: string,
+    subagentId: string,
+    text: string,
+  ): { via: "direct"; send: () => Promise<void> } | { via: "relay"; prompt: string } {
+    const parent = this.requirePublicAgent(parentAgentId);
+    if (!this.providerSubagents.get(parentAgentId, subagentId)) {
+      throw new Error("Subagent not found");
+    }
+    if (!canMessageProviderSubagent(parent.provider)) {
+      throw new Error(`${parent.provider} subagents cannot receive messages`);
+    }
+    const session = parent.session;
+    if (!session) throw new Error("The parent agent is not running");
+    if (session.sendProviderSubagentMessage) {
+      const send = session.sendProviderSubagentMessage.bind(session);
+      return { via: "direct", send: () => send(subagentId, text) };
+    }
+    const prompt = session.wrapProviderSubagentMessage?.(subagentId, text);
+    if (!prompt) throw new Error("This subagent can no longer be messaged");
+    return { via: "relay", prompt };
   }
 
   fetchProviderSubagentTimeline(

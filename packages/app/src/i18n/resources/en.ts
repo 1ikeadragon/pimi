@@ -2461,6 +2461,13 @@ export const en = {
       parentAgent: "Parent agent",
       openParent: "Open parent",
     },
+    message: {
+      placeholder: "Message this subagent",
+      notConnected: "Not connected to the host",
+      textOnly: "Subagents accept text only. Remove the attachments to send.",
+      unavailable:
+        "{{provider}} has no way to deliver messages to its subagents, so this one is read-only.",
+    },
     title: "Subagents",
     pillLabelOne: "1 subagent",
     pillLabelMany: "{{count}} subagents",
@@ -3639,22 +3646,6 @@ export const en = {
           collapseTurns: "Collapse turns",
         },
       },
-      language: {
-        label: "Language",
-        description: "App language",
-        options: {
-          system: "System",
-          ar: "Arabic",
-          en: "English",
-          es: "Spanish",
-          fr: "French",
-          ja: "Japanese",
-          ko: "Korean",
-          ptBR: "Brazilian Portuguese",
-          ru: "Russian",
-          zhCN: "Simplified Chinese",
-        },
-      },
     },
     diagnostics: {
       title: "Diagnostics",
@@ -4675,23 +4666,3 @@ export const en = {
     },
   },
 } as const;
-
-type WidenStringLeaves<T> = {
-  [K in keyof T]: T[K] extends string ? string : WidenStringLeaves<T[K]>;
-};
-
-type TranslationResourcesBase = WidenStringLeaves<typeof en>;
-type PluralCategory = "zero" | "one" | "two" | "few" | "many" | "other";
-type DurationPluralKey = `${"days" | "hours" | "minutes"}_${PluralCategory}`;
-type AgoPluralKey = `${"daysAgo" | "hoursAgo" | "minutesAgo"}_${PluralCategory}`;
-
-// i18next plural categories differ by locale, so locale catalogs may add the
-// explicit v4 suffixes they need while retaining the canonical fallback keys.
-export type TranslationResources = TranslationResourcesBase & {
-  providerUsage: TranslationResourcesBase["providerUsage"] & {
-    duration: TranslationResourcesBase["providerUsage"]["duration"] &
-      Partial<Record<DurationPluralKey, string>>;
-    timing: TranslationResourcesBase["providerUsage"]["timing"] &
-      Partial<Record<AgoPluralKey, string>>;
-  };
-};

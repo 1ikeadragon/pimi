@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, useState } from "react";
+import { useProviderAccountLabels } from "@/usage/queries";
 import { useTranslation } from "@/i18n/use-translation";
 import {
   FlatList,
@@ -1015,6 +1016,7 @@ function GroupProviderButton({
       </View>
     );
   }, [selection, t]);
+  const accountLabel = useProviderAccountLabels(serverId).get(provider.id);
   const leadingSlot = useMemo(
     () => <ModelProviderGlyph provider={provider.id} serverId={serverId} size={ICON_SIZE.sm} />,
     [provider.id, serverId],
@@ -1032,6 +1034,7 @@ function GroupProviderButton({
   return (
     <ModelBrowserRow
       label={provider.label}
+      description={accountLabel}
       leadingSlot={leadingSlot}
       trailingSlot={trailingSlot}
       tone="drillDown"

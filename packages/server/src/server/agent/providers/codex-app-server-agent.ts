@@ -5316,6 +5316,16 @@ export class CodexAppServerAgentSession implements AgentSession {
     return this.background.stopItem(id);
   }
 
+  /** A child thread is an ordinary Codex thread; it takes its own turn/start. */
+  async sendProviderSubagentMessage(subagentId: string, text: string): Promise<void> {
+    const client = this.client;
+    if (!client || !this.subAgentCallIdByChildThreadId.has(subagentId)) {
+      throw new Error("This subagent can no longer be messaged");
+    }
+    const input = await this.buildUserInput(text);
+    await client.request("turn/start", { threadId: subagentId, input }, TURN_START_TIMEOUT_MS);
+  }
+
   async canStopRuntime(): Promise<boolean> {
     if (
       !this.client ||

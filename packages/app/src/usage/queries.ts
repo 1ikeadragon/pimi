@@ -154,6 +154,28 @@ export function useHostUsage(serverId: string): { view: UsageView; refresh: () =
   return { view, refresh };
 }
 
+const NO_PROVIDER_ACCOUNTS: ReadonlyMap<string, string> = new Map();
+
+/**
+ * The account each provider is signed into, by provider id, from the same sources as usage.
+ * Empty while usage is off on the host or a provider's account cannot be identified.
+ */
+export function useProviderAccountLabels(serverId: string | null): ReadonlyMap<string, string> {
+  const setting = useUsageSetting(serverId);
+  const isConnected = useHostRuntimeIsConnected(serverId ?? "");
+  const query = useFetchQuery({
+    queryKey: [...hostUsageQueryKey(serverId ?? ""), "provider-accounts"] as const,
+    queryFn: async () => {
+      const { accounts } = await requireClient(serverId ?? "").listUsageProviderAccounts();
+      return new Map(accounts.map((account) => [account.provider, account.label]));
+    },
+    enabled: serverId !== null && isConnected && setting.enabled,
+    dataShape: "value",
+    staleTimeMs: REPORTS_STALE_TIME_MS,
+  });
+  return query.data ?? NO_PROVIDER_ACCOUNTS;
+}
+
 const NO_REPORTS: UsageReportEntry[] = [];
 
 interface UsageHostReportsInput {

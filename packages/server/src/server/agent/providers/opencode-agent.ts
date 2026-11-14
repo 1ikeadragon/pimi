@@ -3681,6 +3681,22 @@ class OpenCodeAgentSession implements AgentSession {
     }
   }
 
+  /** A child session is an ordinary OpenCode session; promptAsync queues behind a running turn. */
+  async sendProviderSubagentMessage(subagentId: string, text: string): Promise<void> {
+    if (this.closed || !this.childStatuses.has(subagentId)) {
+      throw new Error("This subagent can no longer be messaged");
+    }
+    const response = await this.client.session.promptAsync({
+      sessionID: subagentId,
+      directory: this.childSessionCwds.get(subagentId) ?? this.config.cwd,
+      messageID: createOpenCodeMessageId(),
+      parts: buildOpenCodePromptParts(text),
+    });
+    if (response.error) {
+      throw new Error(`OpenCode message failed: ${toDiagnosticErrorMessage(response.error)}`);
+    }
+  }
+
   async steerActiveTurn(
     prompt: AgentPromptInput,
     options: SteerActiveTurnOptions,

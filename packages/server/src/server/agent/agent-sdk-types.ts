@@ -736,6 +736,17 @@ export interface AgentSession {
    * still uncertain.
    */
   interrupt(): Promise<void>;
+  /**
+   * Deliver a user message straight to one provider subagent's own thread or session, running or
+   * finished. Rejects when the id is not a child this session knows.
+   */
+  sendProviderSubagentMessage?(subagentId: string, text: string): Promise<void>;
+  /**
+   * Wrap a user message for one provider subagent in a prompt for this session, for providers
+   * with no direct route to a child (see sendProviderSubagentMessage), whose only channel runs
+   * through the parent model. Null when the child is unknown.
+   */
+  wrapProviderSubagentMessage?(subagentId: string, text: string): string | null;
   /** Stop one currently owned background item and wait for provider confirmation. */
   stopBackgroundWork?(id: string): Promise<void>;
   /** True only when releasing this runtime loses no background work or pending replies.

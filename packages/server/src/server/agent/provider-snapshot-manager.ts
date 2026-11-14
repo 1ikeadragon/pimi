@@ -1145,6 +1145,31 @@ export class ProviderSnapshotManager {
     return target;
   }
 
+  /**
+   * Each provider's launch environment as its agents would see it, for identifying the signed-in
+   * account. `baseProvider` is the built-in a custom provider extends.
+   */
+  listProviderAccountScopes(): Array<{
+    provider: AgentProvider;
+    baseProvider: string;
+    env: Record<string, string>;
+  }> {
+    const processEnv = Object.fromEntries(
+      Object.entries(process.env).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+    return this.getProviderIds().map((provider) => ({
+      provider,
+      baseProvider: this.providerOverrides?.[provider]?.extends ?? provider,
+      env: {
+        ...processEnv,
+        ...this.runtimeSettings?.[provider]?.env,
+        ...this.providerOverrides?.[provider]?.env,
+      },
+    }));
+  }
+
   private getProviderIds(): AgentProvider[] {
     return [...this.generation.order];
   }

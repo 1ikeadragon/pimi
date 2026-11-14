@@ -347,7 +347,9 @@ Example: two different Anthropic accounts as separate profiles:
 }
 ```
 
-Each profile appears as a separate provider in the Pimi app. You can select which one to use when launching an agent.
+Each profile appears as a separate provider in the Pimi app. You can select which one to use when launching an agent. The provider list shows the signed-in account under each provider when usage is on.
+
+When you add a Claude or Codex profile, the Config directory field offers installs the daemon found next to the default one (`~/.claude-work`, `~/.codex-2`: any `~/.claude*` or `~/.codex*` directory holding a login or settings, and not already used by a provider). Detection only reads; it never writes provider config.
 
 You can also combine profiles with model overrides to pin specific models per profile:
 
@@ -790,7 +792,9 @@ Each entry in the `models` array:
 | `description` | `string`  | No       | Short description                   |
 | `isDefault`   | `boolean` | No       | Mark as the default thinking option |
 
-### Claude settings.json model discovery
+### Claude settings.json defaults and model discovery
+
+Pimi preselects what Claude Code's own `~/.claude/settings.json` says: `model` is the default model (a family alias such as `opus` maps to the newest Pimi catalog model of that family), `effortLevel` and `modelSettings.<model>.effortLevel` are the default effort, and `permissions.defaultMode` is the default permission mode. Project and local settings are not read, because the catalog has no cwd. Pi's configured model and thinking level and Codex's configured model and effort are preselected the same way. Codex's `approval_policy` and `sandbox_mode` are not mapped to a Pimi mode.
 
 The built-in `claude` provider appends concrete model IDs from `~/.claude/settings.json` to its first-party Claude model list. Pimi reads the top-level `model` field and these `env` keys: `ANTHROPIC_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`, `ANTHROPIC_DEFAULT_FABLE_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`, and `ANTHROPIC_DEFAULT_HAIKU_MODEL`.
 

@@ -30,6 +30,8 @@ type FetchQueryInput<TQueryFnData, TError, TData, TQueryKey extends QueryKey> = 
   "initialData" | "placeholderData" | "queryFn" | "staleTime"
 > & {
   dataShape: "list" | "value";
+  /** Keep showing the previous key's data while a new key loads. Always on for lists. */
+  holdPreviousData?: boolean;
   queryFn: QueryFnOption<TQueryFnData, TError, TData, TQueryKey>;
 } & (
     | { staleTimeMs: number; immutableWhen?: never }
@@ -102,10 +104,10 @@ export function fetchQueryOptions<
     throw new Error("Fetch queries must declare a finite staleTimeMs.");
   }
 
-  const { dataShape, meta, staleTimeMs, immutableWhen, ...options } = input;
+  const { dataShape, holdPreviousData, meta, staleTimeMs, immutableWhen, ...options } = input;
   return {
     ...options,
-    ...(dataShape === "list" ? { placeholderData: keepPreviousData } : {}),
+    ...(dataShape === "list" || holdPreviousData ? { placeholderData: keepPreviousData } : {}),
     meta: {
       ...meta,
       serverDataPolicy: {

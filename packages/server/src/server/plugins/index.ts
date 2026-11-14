@@ -33,6 +33,7 @@ import {
   type ListUsageReportsOptions,
   UsageSourceRegistry,
 } from "./usage-sources/index.js";
+import type { UsageScope } from "@pimi/plugin/server/usage";
 import type { PluginUsageSourceMetadata } from "./plugin-process-protocol.js";
 
 const BUILTIN_PROVIDER_ID_SET: ReadonlySet<string> = new Set(BUILTIN_PROVIDER_IDS);
@@ -208,6 +209,10 @@ export class PluginService {
 
   listUsageReports(options?: ListUsageReportsOptions) {
     return this.usageSources.listReports(options);
+  }
+
+  listProviderAccountLabels(scope: Extract<UsageScope, { kind: "session" }>): Promise<string[]> {
+    return this.usageSources.accountLabels(scope);
   }
 
   subscribeProviderRegistrations(listener: () => void): () => void {

@@ -3930,6 +3930,29 @@ export class DaemonClient {
     if (payload.error) throw new Error(payload.error);
   }
 
+  async sendProviderSubagentMessage(
+    parentAgentId: string,
+    subagentId: string,
+    text: string,
+    options: { messageId?: string; requestId?: string; timeout?: number } = {},
+  ): Promise<void> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"agent.provider_subagents.send_message.response">(
+        {
+          requestId: options.requestId,
+          timeout: options.timeout ?? 30000,
+          message: {
+            type: "agent.provider_subagents.send_message.request",
+            parentAgentId,
+            subagentId,
+            text,
+            messageId: options.messageId,
+          },
+        },
+      );
+    if (payload.error) throw new Error(payload.error);
+  }
+
   observeAgentBackgroundWork(
     options: { signal?: AbortSignal } = {},
   ): OwnedSubscription<CorrelatedResponsePayload<"session.events.set_subscription.response">> {
@@ -6155,6 +6178,22 @@ export class DaemonClient {
         type: "usage.get_summary.request",
         timezoneOffsetMinutes: options.timezoneOffsetMinutes,
       },
+      timeout: 30_000,
+    });
+  }
+
+  async detectProviderConfigDirs(options?: { requestId?: string }) {
+    return this.sendNamespacedCorrelatedSessionRequest<"provider.config_dirs.detect.response">({
+      requestId: options?.requestId,
+      message: { type: "provider.config_dirs.detect.request" },
+      timeout: 30_000,
+    });
+  }
+
+  async listUsageProviderAccounts(options?: { requestId?: string }) {
+    return this.sendNamespacedCorrelatedSessionRequest<"usage.provider_accounts.list.response">({
+      requestId: options?.requestId,
+      message: { type: "usage.provider_accounts.list.request" },
       timeout: 30_000,
     });
   }

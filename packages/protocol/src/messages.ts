@@ -2219,6 +2219,18 @@ export const ProviderHarnessUpdatesRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
+// The signed-in account of each provider, as the usage sources identify it.
+export const UsageProviderAccountsListRequestMessageSchema = z.object({
+  type: z.literal("usage.provider_accounts.list.request"),
+  requestId: z.string(),
+});
+
+// Extra harness installs found on the host (for example `~/.claude-work`) that no provider uses yet.
+export const ProviderConfigDirsDetectRequestMessageSchema = z.object({
+  type: z.literal("provider.config_dirs.detect.request"),
+  requestId: z.string(),
+});
+
 export const UsageListReportsRequestMessageSchema = z.object({
   type: z.literal("usage.list_reports.request"),
   agentId: z.string().optional(),
@@ -2377,6 +2389,15 @@ export const AgentTimelineListPromptsRequestMessageSchema = z.object({
 export const ProviderSubagentListRequestMessageSchema = z.object({
   type: z.literal("agent.provider_subagents.list.request"),
   parentAgentId: z.string(),
+  requestId: z.string(),
+});
+
+export const ProviderSubagentSendMessageRequestMessageSchema = z.object({
+  type: z.literal("agent.provider_subagents.send_message.request"),
+  parentAgentId: z.string(),
+  subagentId: z.string(),
+  text: z.string(),
+  messageId: z.string().optional(),
   requestId: z.string(),
 });
 
@@ -3862,6 +3883,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ProviderDiagnosticRequestMessageSchema,
   ProviderHarnessUpdatesRequestMessageSchema,
   UsageListReportsRequestMessageSchema,
+  UsageProviderAccountsListRequestMessageSchema,
+  ProviderConfigDirsDetectRequestMessageSchema,
   UsageGetSummaryRequestMessageSchema,
   UsageGetBreakdownRequestMessageSchema,
   UsageGetAgentTreeRequestMessageSchema,
@@ -3886,6 +3909,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ProviderSubagentListRequestMessageSchema,
   AgentBackgroundWorkListRequestMessageSchema,
   AgentBackgroundWorkStopRequestMessageSchema,
+  ProviderSubagentSendMessageRequestMessageSchema,
   ProviderSubagentTimelineRequestMessageSchema,
   SetAgentTimelineSubscriptionRequestMessageSchema,
   AgentForkContextRequestMessageSchema,
@@ -5176,6 +5200,16 @@ export const AgentBackgroundWorkListResponseMessageSchema = z.object({
     requestId: z.string(),
     agentId: z.string(),
     items: z.array(AgentBackgroundWorkItemSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+export const ProviderSubagentSendMessageResponseMessageSchema = z.object({
+  type: z.literal("agent.provider_subagents.send_message.response"),
+  payload: z.object({
+    requestId: z.string(),
+    parentAgentId: z.string(),
+    subagentId: z.string(),
     error: z.string().nullable(),
   }),
 });
@@ -7102,6 +7136,31 @@ export const UsageListReportsUpdateMessageSchema = z.object({
   type: z.literal("usage.list_reports.update"),
   payload: z.object({ requestId: z.string(), report: UsageReportEntrySchema }),
 });
+export const UsageProviderAccountsListResponseMessageSchema = z.object({
+  type: z.literal("usage.provider_accounts.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    error: z.string().nullable(),
+    // Provider ids without a signed-in account the sources can identify are absent.
+    accounts: z.array(z.object({ provider: z.string(), label: z.string() })),
+  }),
+});
+export const ProviderConfigDirsDetectResponseMessageSchema = z.object({
+  type: z.literal("provider.config_dirs.detect.response"),
+  payload: z.object({
+    requestId: z.string(),
+    error: z.string().nullable(),
+    directories: z.array(
+      z.object({
+        provider: z.string(),
+        envKey: z.string(),
+        path: z.string(),
+        // The signed-in account, when usage is on and the sources can identify it.
+        accountLabel: z.string().optional(),
+      }),
+    ),
+  }),
+});
 export const UsageListReportsResponseMessageSchema = z.object({
   type: z.literal("usage.list_reports.response"),
   payload: z.object({ requestId: z.string(), error: z.string().nullable() }),
@@ -7731,6 +7790,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   ProviderSubagentUpdateMessageSchema,
   AgentBackgroundWorkListResponseMessageSchema,
   AgentBackgroundWorkStopResponseMessageSchema,
+  ProviderSubagentSendMessageResponseMessageSchema,
   AgentBackgroundWorkUpdateMessageSchema,
   SetAgentTimelineSubscriptionResponseMessageSchema,
   AgentAttentionRequiredMessageSchema,
@@ -7848,6 +7908,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   ProviderHarnessUpdatesResponseMessageSchema,
   UsageListReportsUpdateMessageSchema,
   UsageListReportsResponseMessageSchema,
+  UsageProviderAccountsListResponseMessageSchema,
+  ProviderConfigDirsDetectResponseMessageSchema,
   UsageGetSummaryResponseMessageSchema,
   UsageGetBreakdownResponseMessageSchema,
   UsageGetAgentTreeResponseMessageSchema,
