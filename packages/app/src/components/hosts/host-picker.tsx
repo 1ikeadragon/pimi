@@ -90,7 +90,7 @@ export function HostPickerOption({
     },
     [onOpenHostSettings, serverId],
   );
-  const trailingSlot = useMemo(() => {
+  const trailingAction = useMemo(() => {
     if (!onOpenHostSettings) return undefined;
     return (
       <Pressable
@@ -115,7 +115,7 @@ export function HostPickerOption({
       label={label}
       description={connectionLabel}
       leadingSlot={leadingSlot}
-      trailingSlot={trailingSlot}
+      trailingAction={trailingAction}
       selected={selected}
       active={active}
       onPress={onPress}

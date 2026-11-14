@@ -228,6 +228,11 @@ export interface ComboboxItemProps {
   kind?: "directory" | "file";
   leadingSlot?: ReactNode;
   trailingSlot?: ReactNode;
+  /**
+   * A pressable at the row's end. It is a sibling of the row's button, never inside it: nesting a
+   * button in a button is invalid HTML and a hydration error on web.
+   */
+  trailingAction?: ReactNode;
   selected?: boolean;
   active?: boolean;
   disabled?: boolean;
@@ -244,6 +249,7 @@ export function ComboboxItem({
   kind,
   leadingSlot,
   trailingSlot,
+  trailingAction,
   selected,
   active,
   disabled,
@@ -285,7 +291,7 @@ export function ComboboxItem({
     [description],
   );
 
-  return (
+  const row = (
     <Pressable
       testID={testID}
       disabled={disabled}
@@ -313,7 +319,15 @@ export function ComboboxItem({
           {trailingSlot}
         </View>
       ) : null}
+      {trailingAction ? <View style={styles.comboboxItemActionSpacer} /> : null}
     </Pressable>
+  );
+  if (!trailingAction) return row;
+  return (
+    <View>
+      {row}
+      <View style={styles.comboboxItemAction}>{trailingAction}</View>
+    </View>
   );
 }
 
@@ -1711,6 +1725,16 @@ const styles = StyleSheet.create((theme) => ({
   },
   comboboxItemDisabled: {
     opacity: 0.55,
+  },
+  comboboxItemActionSpacer: { width: densityIconBox("md") },
+  comboboxItemAction: {
+    position: "absolute",
+    right: theme.spacing[3],
+    top: 0,
+    bottom: 0,
+    width: densityIconBox("md"),
+    alignItems: "center",
+    justifyContent: "center",
   },
   comboboxItemTrailingSlot: {
     width: densityIconBox("md"),
