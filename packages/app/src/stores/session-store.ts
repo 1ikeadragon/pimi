@@ -104,6 +104,8 @@ export interface Agent {
   archivedAt?: Date | null;
   /** Background agents stay out of tabs, the subagent track and agent lists. Open them by id. */
   background?: boolean;
+  /** This chat opted out of the host's auto-switch on limit. */
+  limitFallbackDisabled?: boolean;
   parentAgentId: string | null;
   labels: Record<string, string>;
   projectPlacement?: ProjectPlacementPayload | null;

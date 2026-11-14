@@ -1097,7 +1097,7 @@ export class MockLoadTestAgentSession implements AgentSession {
   }
 
   async getAvailableModes(): Promise<AgentMode[]> {
-    return getAgentProviderDefinition(MOCK_LOAD_TEST_PROVIDER_ID).modes;
+    return getAgentProviderDefinition(this.provider).modes;
   }
 
   async getCurrentMode(): Promise<string | null> {

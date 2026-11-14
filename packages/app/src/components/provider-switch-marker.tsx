@@ -1,5 +1,6 @@
-import { memo } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
+import type { TFunction } from "i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { ArrowRight } from "lucide-react-native";
 import type {
@@ -7,7 +8,11 @@ import type {
   AgentProviderSwitchMarker,
 } from "@pimi/protocol/agent-types";
 import { ModelProviderGlyph } from "@/components/model-browser";
+import { Button } from "@/components/ui/button";
 import { DensityIcon } from "@/components/ui/density-icon";
+import { useToast } from "@/contexts/toast-api-context";
+import { useTranslation } from "@/i18n/use-translation";
+import { useSessionStore } from "@/stores/session-store";
 
 const GLYPH_SIZE = 13;
 
@@ -34,6 +39,106 @@ function Endpoint({
   );
 }
 
+function describePermissionMode(
+  mode: AgentProviderSwitchMarker["permissionMode"],
+  t: TFunction,
+): string | null {
+  if (!mode?.label) return null;
+  return mode.carried
+    ? t("agentStream.providerSwitch.modeCarried", { mode: mode.label })
+    : t("agentStream.providerSwitch.modeReset", { mode: mode.label });
+}
+
+/** True once `resetsAt` has passed, re-rendering the moment it does. */
+function useHasPassed(resetsAt: string | undefined): boolean {
+  const target = resetsAt ? Date.parse(resetsAt) : Number.NaN;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!Number.isFinite(target)) return undefined;
+    const remaining = target - Date.now();
+    if (remaining <= 0) {
+      setNow(Date.now());
+      return undefined;
+    }
+    // Timers past ~24 days fire immediately; a chat that old is re-checked on its next render.
+    const timer = setTimeout(() => setNow(Date.now()), Math.min(remaining, 2 ** 31 - 1));
+    return () => clearTimeout(timer);
+  }, [target]);
+  return Number.isFinite(target) && now >= target;
+}
+
+/**
+ * What a limit move says under the seam: which provider hit its limit and when it recovers, what
+ * became of the permission mode, and, once the limit has lifted, a way back.
+ */
+function LimitNote({
+  marker,
+  serverId,
+  agentId,
+}: {
+  marker: AgentProviderSwitchMarker;
+  serverId: string;
+  agentId: string | undefined;
+}) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
+  const currentProvider = useSessionStore((state) =>
+    agentId ? state.sessions[serverId]?.agents?.get(agentId)?.provider : undefined,
+  );
+  const lifted = useHasPassed(marker.resetsAt);
+  const [pending, setPending] = useState(false);
+  const fromLabel = marker.from.providerLabel ?? marker.from.provider;
+  const limitText = marker.resetsAt
+    ? t("agentStream.providerSwitch.limitHitResets", {
+        provider: fromLabel,
+        // Undefined locale: the user's own clock format, with AM/PM where their locale uses it.
+        time: new Date(marker.resetsAt).toLocaleTimeString(undefined, { timeStyle: "short" }),
+      })
+    : t("agentStream.providerSwitch.limitHit", { provider: fromLabel });
+  const modeText = describePermissionMode(marker.permissionMode, t);
+  // Only the move the chat is still sitting on can be undone.
+  const canSwitchBack =
+    lifted && client !== null && agentId !== undefined && currentProvider === marker.to.provider;
+
+  const handleSwitchBack = useCallback(async () => {
+    if (!client || !agentId) return;
+    setPending(true);
+    try {
+      await client.switchAgentProvider(agentId, {
+        provider: marker.from.provider,
+        ...(marker.from.model ? { model: marker.from.model } : {}),
+      });
+    } catch (error) {
+      toast.error(
+        `${t("agentStream.providerSwitch.switchBackFailed")}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    } finally {
+      setPending(false);
+    }
+  }, [agentId, client, marker.from.model, marker.from.provider, t, toast]);
+
+  return (
+    <View style={styles.note} testID="provider-switch-limit-note">
+      <Text style={styles.noteText}>{limitText}</Text>
+      {modeText ? <Text style={styles.noteText}>{modeText}</Text> : null}
+      {canSwitchBack ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending}
+          onPress={handleSwitchBack}
+          testID="provider-switch-back"
+        >
+          {t("agentStream.providerSwitch.switchBack", { provider: fromLabel })}
+        </Button>
+      ) : null}
+    </View>
+  );
+}
+
 /**
  * Marks where in a chat the provider changed: a rule across the thread with the two providers
  * at its center, so the change reads as a seam in the conversation rather than as a message.
@@ -41,28 +146,48 @@ function Endpoint({
 export const ProviderSwitchMarker = memo(function ProviderSwitchMarker({
   marker,
   serverId,
+  agentId,
 }: {
   marker: AgentProviderSwitchMarker;
   serverId: string;
+  agentId?: string;
 }) {
   return (
     <View
-      style={styles.row}
+      style={styles.block}
       testID="provider-switch-marker"
       accessibilityLabel={`${endpointLabel(marker.from)} → ${endpointLabel(marker.to)}`}
     >
-      <View style={styles.rule} />
-      <View style={styles.center}>
-        <Endpoint endpoint={marker.from} serverId={serverId} />
-        <DensityIcon icon={ArrowRight} size="sm" sizeAdjustment={-4} color="foregroundMuted" />
-        <Endpoint endpoint={marker.to} serverId={serverId} />
+      <View style={styles.row}>
+        <View style={styles.rule} />
+        <View style={styles.center}>
+          <Endpoint endpoint={marker.from} serverId={serverId} />
+          <DensityIcon icon={ArrowRight} size="sm" sizeAdjustment={-4} color="foregroundMuted" />
+          <Endpoint endpoint={marker.to} serverId={serverId} />
+        </View>
+        <View style={styles.rule} />
       </View>
-      <View style={styles.rule} />
+      {marker.reason === "limit" ? (
+        <LimitNote marker={marker} serverId={serverId} agentId={agentId} />
+      ) : null}
     </View>
   );
 });
 
 const styles = StyleSheet.create((theme) => ({
+  block: {
+    gap: theme.spacing[1],
+  },
+  note: {
+    alignItems: "center",
+    gap: theme.spacing[1],
+    paddingBottom: theme.spacing[1],
+  },
+  noteText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    textAlign: "center",
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",

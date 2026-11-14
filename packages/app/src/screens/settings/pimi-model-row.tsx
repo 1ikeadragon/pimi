@@ -38,6 +38,8 @@ interface PimiModelRowProps {
   onReset?: () => void;
   /** Limits the picker to these providers. */
   providerIds?: readonly string[];
+  /** For a choice that has no thinking level to keep. */
+  withoutThinking?: boolean;
   disabled?: boolean;
   testID: string;
 }
@@ -83,7 +85,7 @@ export function PimiModelRow(props: PimiModelRowProps): ReactElement {
   );
 }
 
-function PimiModelControls({
+export function PimiModelControls({
   serverId,
   snapshot,
   value,
@@ -91,6 +93,7 @@ function PimiModelControls({
   onChange,
   onReset,
   providerIds,
+  withoutThinking,
   disabled,
   testID,
 }: PimiModelRowProps): ReactNode {
@@ -155,7 +158,7 @@ function PimiModelControls({
           desktopMinWidth={360}
         />
       </View>
-      {value && model?.thinkingOptions?.length ? (
+      {value && !withoutThinking && model?.thinkingOptions?.length ? (
         <ThinkingSelect
           model={model}
           value={value}

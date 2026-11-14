@@ -537,6 +537,11 @@ export const en = {
     },
   },
   agentControls: {
+    limitFallback: {
+      label: "Auto-switch on limit",
+      hint: "Continue this chat on the next model in Settings, Providers when a limit is hit",
+      error: "Could not update this chat's setting",
+    },
     provider: {
       fallback: "Provider",
       select: "Select agent provider",
@@ -569,6 +574,14 @@ export const en = {
     },
   },
   agentStream: {
+    providerSwitch: {
+      limitHit: "{{provider}} hit its limit",
+      limitHitResets: "{{provider}} hit its limit, resets {{time}}",
+      modeCarried: "Permission mode kept as {{mode}}",
+      modeReset: "{{mode}} has no equivalent here, so the default permission mode applies",
+      switchBack: "Switch back to {{provider}}",
+      switchBackFailed: "Could not switch back",
+    },
     empty: "Start chatting with this agent...",
     scrollToBottom: "Scroll to bottom",
     historyLoadFailed: "Couldn't load agent history",
@@ -4240,6 +4253,23 @@ export const en = {
         invalidSettings: "Check the provider settings and their values.",
         duplicateId: "That provider ID is already in use. Choose a different one.",
         refreshFailed: "Provider saved. Refresh the host to load its models.",
+      },
+      limitFallback: {
+        title: "On limit",
+        info: "When a provider reports a usage, rate, or credit limit, Pimi moves the chat to the next model in this list and continues the request there. Only Claude, Codex, and OpenCode (HTTP 429 errors) report a limit this way; other providers never trigger it.",
+        enableTitle: "Continue on another model when a limit is hit",
+        enableHint:
+          "The chat's history is sent to the next provider without asking, and its permission mode moves to the closest equivalent there. Chats can opt out from the model picker.",
+        listTitle: "Fallback models, in order",
+        entry: "Fallback {{n}}",
+        selectModel: "Choose model",
+        add: "Add fallback",
+        full: "Up to {{max}} fallback models",
+        empty: "Add at least one model, or nothing happens when a limit is hit.",
+        moveUp: "Move fallback up",
+        moveDown: "Move fallback down",
+        remove: "Remove fallback",
+        saveError: "Could not save the fallback list",
       },
       providerDetails: "{{name}} provider details",
       enableProvider: "Enable {{name}}",
