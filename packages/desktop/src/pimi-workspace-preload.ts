@@ -21,6 +21,9 @@ ipcRenderer.on("pimi:workspace:layout", (_event, mode: WorkspaceLayout) => {
   layout = mode;
   onLayoutChange?.(mode);
 });
+ipcRenderer.on("pimi:workspace:flush", (_event, id: number) => {
+  ipcRenderer.send("pimi:workspace:flushed", id);
+});
 window.addEventListener(
   "click",
   (event) => {
@@ -45,6 +48,7 @@ contextBridge.exposeInMainWorld("pimiWorkspace", {
   setSection: (section: PimiWorkspaceSection) =>
     ipcRenderer.send("pimi:workspace:section", section),
   setDialogOpen: (open: boolean) => ipcRenderer.send("pimi:workspace:dialog", open),
+  ready: () => ipcRenderer.send("pimi:workspace:ready"),
   onCloseDialog: (listener: () => void) => {
     ipcRenderer.on("pimi:workspace:close-dialog", () => listener());
   },
