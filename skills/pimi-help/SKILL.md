@@ -20,7 +20,7 @@ Use the local Pimi checkout when available. For an installed release, start with
 
 ## Identify the host
 
-Use **Settings → About** to compare the app version with the host version. In the affected host's settings, open **Overview → Full status**. A desktop install may manage a local daemon and connect to other daemons. Provider binaries, credentials, workspaces, and daemon logs live on the machine that runs the selected daemon.
+Use **Settings → About** to compare the app version with the host version. In the affected host's settings, open **Host → Full status**. A desktop install may manage a local daemon and connect to other daemons. Provider binaries, credentials, workspaces, and daemon logs live on the machine that runs the selected daemon.
 
 For a remote host, identify whether the connection uses a relay, LAN, or VPN. Check which relay is configured before diagnosing pairing. Use the daemon's reported home and endpoint rather than assuming a default.
 

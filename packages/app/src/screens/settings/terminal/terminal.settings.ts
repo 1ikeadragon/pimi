@@ -1,7 +1,7 @@
 import { defineSettingsPage } from "@/settings-index/define";
 
 export const terminalSettings = defineSettingsPage(
-  { kind: "section", section: "terminal" },
+  { kind: "section", section: "editor" },
   ({ t }) => [
     {
       id: "terminal.scrollback",

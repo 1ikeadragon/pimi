@@ -24,27 +24,19 @@ import {
   Settings,
   Palette,
   Server,
-  Network,
   Bot,
   Boxes,
   Keyboard,
-  Stethoscope,
   Activity,
   Info,
-  Bell,
-  Shield,
-  Puzzle,
+  Monitor,
   Plus,
   FolderGit2,
   SquareTerminal,
   Code2,
-  Files,
-  Smartphone,
   Sparkles,
   Mic,
   Blocks,
-  Globe,
-  PanelLeft,
   MessageSquare,
   ChevronRight,
 } from "lucide-react-native";
@@ -59,11 +51,7 @@ import { TerminalSection } from "@/screens/settings/terminal/terminal-section";
 import { ChatSection } from "@/screens/settings/chat/chat-section";
 import { SidebarNavSection } from "@/screens/settings/sidebar/sidebar-nav-section";
 import { SendingSection } from "@/screens/settings/general/sending-section";
-import {
-  useAppSettings,
-  useSettings,
-  type Settings as EffectiveSettings,
-} from "@/hooks/use-settings";
+import { useAppSettings } from "@/hooks/use-settings";
 import { useHostRuntimeIsConnected, useHosts } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
 import {
@@ -80,13 +68,11 @@ import { KeyboardShortcutsSection } from "@/screens/settings/keyboard-shortcuts-
 import { EditorSection } from "@/screens/settings/editor-section";
 import { FilesSection } from "@/screens/settings/files-section";
 import { Button } from "@/components/ui/button";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { DesktopPermissionsSection } from "@/desktop/components/desktop-permissions-section";
 import { DesktopNotificationsSection } from "@/desktop/components/desktop-notifications-section";
 import { BrowserDataSection } from "@/desktop/browser/settings/browser-data-section";
 import { IntegrationsSection } from "@/desktop/components/integrations-section";
-import { getDesktopHost, isElectronRuntime } from "@/desktop/host";
-import { isPimiProduct } from "@/utils/pimi-mobile";
+import { isElectronRuntime } from "@/desktop/host";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { useDesktopAppUpdater } from "@/desktop/updates/use-desktop-app-updater";
 import { formatVersionWithPrefix } from "@/desktop/updates/desktop-updates";
@@ -113,19 +99,15 @@ import { settingsStyles } from "@/styles/settings";
 import { THINKING_TONE_NATIVE_PCM_BASE64 } from "@/utils/thinking-tone.native-pcm";
 import { useVoiceAudioEngineOptional } from "@/contexts/voice-context";
 import {
-  HostConnectionsPage,
-  HostPairDevicePage,
   HostAgentsPage,
   HostSettingsPage,
   HostProvidersPage,
   HostUsagePage,
-  HostWorkspacesPage,
   HostTerminalsPage,
 } from "@/screens/settings/host-page";
 import { PluginSettingsContent } from "@/plugins/settings";
 import { usePluginDisplayName } from "@/plugins/plugin-list";
 import { HostPluginsPage } from "@/screens/settings/plugins-page";
-import { HostEditorPage } from "@/screens/settings/editor-page";
 import { MetadataGenerationPage } from "@/screens/settings/metadata-generation-page";
 import { NetworkSection } from "@/screens/settings/network/network-section";
 import { HostVoicePage } from "@/screens/settings/voice/voice-page";
@@ -154,7 +136,7 @@ import {
   useSettingsSidebarScroll,
 } from "@/navigation/settings-presentation";
 import { returnFromSettings, type SettingsView } from "@/navigation/settings-navigation";
-import { isNative } from "@/constants/platform";
+import { isNative, isWeb } from "@/constants/platform";
 import { useOpenOnboarding } from "@/onboarding";
 
 // ---------------------------------------------------------------------------
@@ -172,33 +154,73 @@ type SidebarSectionItem = AppPageDeclaration & {
 const SECTION_ICONS: Record<SettingsSectionSlug, SettingsIcon> = {
   general: Settings,
   appearance: Palette,
-  sidebar: PanelLeft,
   chat: MessageSquare,
-  terminal: SquareTerminal,
-  browser: Globe,
   editor: Code2,
-  files: Files,
   shortcuts: Keyboard,
-  integrations: Puzzle,
-  notifications: Bell,
-  permissions: Shield,
-  diagnostics: Stethoscope,
+  desktop: Monitor,
   network: Activity,
   about: Info,
 };
 
+function GeneralPage() {
+  return (
+    <>
+      <GeneralSection />
+      {isElectronRuntime() ? (
+        <>
+          <OpenLocationSection />
+          <IntegrationsSection />
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function AppearancePage() {
+  return (
+    <>
+      <AppearanceSection />
+      <SidebarNavSection />
+    </>
+  );
+}
+
+function ChatPage() {
+  return (
+    <>
+      <SendingSection />
+      <ChatSection />
+    </>
+  );
+}
+
+function EditorPage() {
+  return (
+    <>
+      {isWeb ? <EditorSection /> : null}
+      <FilesSection />
+      <TerminalSection />
+      {isElectronRuntime() ? <BrowserDataSection /> : null}
+    </>
+  );
+}
+
+function DesktopPage() {
+  return (
+    <>
+      <DesktopNotificationsSection />
+      <DesktopPermissionsSection />
+    </>
+  );
+}
+
 const SECTION_CONTENT: Partial<Record<SettingsSectionSlug, ComponentType>> = {
-  appearance: AppearanceSection,
-  sidebar: SidebarNavSection,
-  chat: ChatSection,
-  terminal: TerminalSection,
-  browser: BrowserDataSection,
-  editor: EditorSection,
-  files: FilesSection,
+  general: GeneralPage,
+  appearance: AppearancePage,
+  chat: ChatPage,
+  editor: EditorPage,
   shortcuts: KeyboardShortcutsSection,
-  integrations: IntegrationsSection,
-  notifications: DesktopNotificationsSection,
-  permissions: DesktopPermissionsSection,
+  desktop: DesktopPage,
 };
 
 // Titles, availability and search words come from the page catalog, which the palette indexes too.
@@ -206,47 +228,22 @@ const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = APP_SETTINGS_PAGES.map((page
   Object.assign({}, page, { icon: SECTION_ICONS[page.id], Content: SECTION_CONTENT[page.id] }),
 );
 
-const PIMI_PREFERENCES = new Set<SettingsSectionSlug>(["general", "appearance", "sidebar", "chat"]);
-
 type HostSectionItem = HostPageDeclaration & { icon: SettingsIcon };
 
 const HOST_SECTION_ICONS: Record<HostSectionSlug, SettingsIcon> = {
-  host: Server,
-  projects: FolderGit2,
-  connections: Network,
-  "pair-device": Smartphone,
-  agents: Bot,
-  metadata: Sparkles,
-  voice: Mic,
-  workspaces: FolderGit2,
   providers: Boxes,
+  metadata: Sparkles,
+  agents: Bot,
+  voice: Mic,
+  projects: FolderGit2,
   usage: UsageIcon,
   terminals: SquareTerminal,
-  editor: Code2,
   plugins: Blocks,
+  host: Server,
 };
 
 const HOST_SECTION_ITEMS: HostSectionItem[] = HOST_SETTINGS_PAGES.map((page) =>
   Object.assign({}, page, { icon: HOST_SECTION_ICONS[page.id] }),
-);
-
-const PIMI_HOST_ORDER: HostSectionSlug[] = [
-  "providers",
-  "metadata",
-  "agents",
-  "voice",
-  "projects",
-  "workspaces",
-  "usage",
-  "terminals",
-  "editor",
-  "plugins",
-  "connections",
-  "pair-device",
-  "host",
-];
-const PIMI_HOST_SECTIONS = PIMI_HOST_ORDER.map(
-  (id) => HOST_SECTION_ITEMS.find((item) => item.id === id)!,
 );
 
 function renderHostSettingsContent(
@@ -256,26 +253,18 @@ function renderHostSettingsContent(
   switch (view.section) {
     case "projects":
       return <ProjectsScreen serverId={view.serverId} />;
-    case "connections":
-      return <HostConnectionsPage serverId={view.serverId} />;
-    case "pair-device":
-      return <HostPairDevicePage serverId={view.serverId} />;
     case "agents":
       return <HostAgentsPage serverId={view.serverId} />;
     case "metadata":
       return <MetadataGenerationPage serverId={view.serverId} />;
     case "voice":
       return <HostVoicePage serverId={view.serverId} />;
-    case "workspaces":
-      return <HostWorkspacesPage serverId={view.serverId} />;
     case "providers":
       return <HostProvidersPage serverId={view.serverId} />;
     case "usage":
       return <HostUsagePage serverId={view.serverId} />;
     case "terminals":
       return <HostTerminalsPage serverId={view.serverId} />;
-    case "editor":
-      return <HostEditorPage serverId={view.serverId} />;
     case "plugins":
       return <HostPluginsPage serverId={view.serverId} />;
     case "host":
@@ -339,20 +328,39 @@ function ShowSetupAgainRow() {
   );
 }
 
-interface DiagnosticsSectionProps {
-  voiceAudioEngine: ReturnType<typeof useVoiceAudioEngineOptional>;
-  isPlaybackTestRunning: boolean;
-  playbackTestResult: string | null;
-  handlePlaybackTest: () => Promise<void>;
-}
-
-function DiagnosticsSection({
-  voiceAudioEngine,
-  isPlaybackTestRunning,
-  playbackTestResult,
-  handlePlaybackTest,
-}: DiagnosticsSectionProps) {
+function DiagnosticsSection() {
   const { t } = useTranslation();
+  const voiceAudioEngine = useVoiceAudioEngineOptional();
+  const [isPlaybackTestRunning, setIsPlaybackTestRunning] = useState(false);
+  const [playbackTestResult, setPlaybackTestResult] = useState<string | null>(null);
+  const handlePlaybackTest = useCallback(async () => {
+    if (!voiceAudioEngine || isPlaybackTestRunning) {
+      return;
+    }
+
+    setIsPlaybackTestRunning(true);
+    setPlaybackTestResult(null);
+
+    try {
+      const bytes = Buffer.from(THINKING_TONE_NATIVE_PCM_BASE64, "base64");
+      await voiceAudioEngine.initialize();
+      voiceAudioEngine.stop();
+      await voiceAudioEngine.play({
+        type: "audio/pcm;rate=16000;bits=16",
+        size: bytes.byteLength,
+        async arrayBuffer() {
+          return Uint8Array.from(bytes).buffer;
+        },
+      });
+      setPlaybackTestResult(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[Settings] Playback test failed", error);
+      setPlaybackTestResult(t("settings.diagnostics.playbackFailed", { message }));
+    } finally {
+      setIsPlaybackTestRunning(false);
+    }
+  }, [isPlaybackTestRunning, t, voiceAudioEngine]);
   const openAppDiagnostic = useAppDiagnosticStore((state) => state.open);
   const handlePlayPress = useCallback(() => {
     void handlePlaybackTest();
@@ -399,7 +407,6 @@ interface AboutSectionProps {
 
 function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSectionProps) {
   const { t } = useTranslation();
-  const isPimi = isPimiProduct();
   return (
     <>
       <SettingsSection title={t("settings.about.title")}>
@@ -412,10 +419,11 @@ function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSection
             <Text style={styles.aboutValue}>{appVersionText}</Text>
           </SettingAnchor>
           <WhatsNewRow />
-          {isDesktopApp ? <DesktopAppUpdateRow isPimi={isPimi} /> : null}
+          {isDesktopApp ? <DesktopAppUpdateRow /> : null}
         </View>
       </SettingsSection>
       <ConnectedHostsSection clientVersion={appVersion} />
+      <DiagnosticsSection />
       <View style={styles.aboutCommunity}>
         <PimiReleaseLinks />
       </View>
@@ -569,9 +577,8 @@ function getUpdateButtonLabel(
   return t("settings.about.updates.update");
 }
 
-function DesktopAppUpdateRow({ isPimi }: { isPimi: boolean }) {
+function DesktopAppUpdateRow() {
   const { t } = useTranslation();
-  const { settings, updateSettings } = useSettings();
   const {
     isDesktopApp,
     statusText,
@@ -600,44 +607,23 @@ function DesktopAppUpdateRow({ isPimi }: { isPimi: boolean }) {
     void checkForUpdates();
   }, [checkForUpdates, isDesktopApp]);
 
-  const handleReleaseChannelChange = useCallback(
-    (releaseChannel: EffectiveSettings["releaseChannel"]) => {
-      void updateSettings({ releaseChannel });
-    },
-    [updateSettings],
-  );
-  const releaseChannelOptions = useMemo(
-    () => [
-      { value: "stable" as const, label: t("settings.about.releaseChannel.stable") },
-      { value: "beta" as const, label: t("settings.about.releaseChannel.beta") },
-    ],
-    [t],
-  );
-
   const manualInstall = availableUpdate?.manualInstall === true;
   const handleInstallUpdate = useCallback(() => {
     if (!isDesktopApp) {
       return;
     }
 
-    const installCopy = isPimi
-      ? {
-          title: "Update Pimi?",
-          message: "Pimi will close to install the update, then reopen.",
-          confirmLabel: "Install and restart",
-        }
-      : {
-          title: t("settings.about.updates.installTitle"),
-          message: t("settings.about.updates.installMessage"),
-          confirmLabel: t("settings.about.updates.installConfirm"),
-        };
     const copy = manualInstall
       ? {
           title: "Open the Pimi installer?",
           message: "Quit Pimi and replace the app in Applications after the disk image opens.",
           confirmLabel: "Open installer",
         }
-      : installCopy;
+      : {
+          title: "Update Pimi?",
+          message: "Pimi will close to install the update, then reopen.",
+          confirmLabel: "Install and restart",
+        };
     void confirmDialog({ ...copy, cancelLabel: t("common.actions.cancel") })
       .then((confirmed) => {
         if (!confirmed) {
@@ -653,7 +639,7 @@ function DesktopAppUpdateRow({ isPimi }: { isPimi: boolean }) {
           t("settings.about.updates.alertMessage"),
         );
       });
-  }, [installUpdate, isDesktopApp, isPimi, manualInstall, t]);
+  }, [installUpdate, isDesktopApp, manualInstall, t]);
 
   const isUpdateReady = availableUpdate?.readyToInstall === true;
   const readyUpdateVersion = isUpdateReady ? availableUpdate?.latestVersion : null;
@@ -667,56 +653,36 @@ function DesktopAppUpdateRow({ isPimi }: { isPimi: boolean }) {
   }
 
   return (
-    <>
-      {!isPimi ? (
-        <SettingAnchor
-          id="about.releaseChannel"
-          style={[settingsStyles.row, settingsStyles.rowBorder]}
+    <SettingAnchor id="about.updates" style={[settingsStyles.row, settingsStyles.rowBorder]}>
+      <View style={settingsStyles.rowContent}>
+        <Text style={settingsStyles.rowTitle}>{t("settings.about.updates.label")}</Text>
+        <Text style={settingsStyles.rowHint}>{statusText}</Text>
+        {readyUpdateVersion ? (
+          <Text style={settingsStyles.rowHint}>
+            {t("settings.about.updates.readyToInstall", {
+              version: formatVersionWithPrefix(readyUpdateVersion),
+            })}
+          </Text>
+        ) : null}
+        {errorMessage ? <Text style={styles.aboutErrorText}>{errorMessage}</Text> : null}
+      </View>
+      <View style={styles.aboutUpdateActions}>
+        <Button
+          variant="outline"
+          onPress={handleCheckForUpdates}
+          disabled={isChecking || isInstalling}
         >
-          <View style={settingsStyles.rowContent}>
-            <Text style={settingsStyles.rowTitle}>{t("settings.about.releaseChannel.label")}</Text>
-            <Text style={settingsStyles.rowHint}>
-              {t("settings.about.releaseChannel.description")}
-            </Text>
-          </View>
-          <SegmentedControl
-            value={settings.releaseChannel}
-            onValueChange={handleReleaseChannelChange}
-            options={releaseChannelOptions}
-          />
-        </SettingAnchor>
-      ) : null}
-      <SettingAnchor id="about.updates" style={[settingsStyles.row, settingsStyles.rowBorder]}>
-        <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>{t("settings.about.updates.label")}</Text>
-          <Text style={settingsStyles.rowHint}>{statusText}</Text>
-          {readyUpdateVersion ? (
-            <Text style={settingsStyles.rowHint}>
-              {t("settings.about.updates.readyToInstall", {
-                version: formatVersionWithPrefix(readyUpdateVersion),
-              })}
-            </Text>
-          ) : null}
-          {errorMessage ? <Text style={styles.aboutErrorText}>{errorMessage}</Text> : null}
-        </View>
-        <View style={styles.aboutUpdateActions}>
-          <Button
-            variant="outline"
-            onPress={handleCheckForUpdates}
-            disabled={isChecking || isInstalling}
-          >
-            {isChecking ? t("settings.about.updates.checking") : t("settings.about.updates.check")}
-          </Button>
-          <Button
-            variant="default"
-            onPress={handleInstallUpdate}
-            disabled={isChecking || isInstalling || !isUpdateReady}
-          >
-            {installLabel}
-          </Button>
-        </View>
-      </SettingAnchor>
-    </>
+          {isChecking ? t("settings.about.updates.checking") : t("settings.about.updates.check")}
+        </Button>
+        <Button
+          variant="default"
+          onPress={handleInstallUpdate}
+          disabled={isChecking || isInstalling || !isUpdateReady}
+        >
+          {installLabel}
+        </Button>
+      </View>
+    </SettingAnchor>
   );
 }
 
@@ -944,7 +910,6 @@ function SettingsSidebar({
   const enableBuiltInDaemonOption = useEnableBuiltInDaemonOption();
   const isDesktopApp = isElectronRuntime();
   const hardwareKeyboardPresent = useHardwareKeyboardPresent();
-  const isPimi = Boolean(getDesktopHost()?.showPimiWorkspace);
   const items = SIDEBAR_SECTION_ITEMS.filter((item) =>
     isAppSettingsPageAvailable(item, { isDesktopApp, hardwareKeyboardPresent }),
   );
@@ -980,10 +945,8 @@ function SettingsSidebar({
   const slotContext = useMemo(() => ({ compact: !isDesktop }), [isDesktop]);
   const sidebarGroups = (
     <>
-      <SidebarGroup label={isPimi ? "Pimi" : t("settings.groups.app")}>
-        {(isPimi ? items.filter((item) => PIMI_PREFERENCES.has(item.id)) : items).map(
-          renderSection,
-        )}
+      <SidebarGroup label={t("settings.groups.pimi")}>
+        {items.filter((item) => item.group === "pimi").map(renderSection)}
       </SidebarGroup>
       {hasHosts ? (
         <SidebarGroup label={t("settings.groups.host")}>
@@ -994,7 +957,7 @@ function SettingsSidebar({
             onAddHost={onAddHost}
             enableBuiltInDaemonOption={enableBuiltInDaemonOption}
           />
-          {(isPimi ? PIMI_HOST_SECTIONS : HOST_SECTION_ITEMS).map((item) => (
+          {HOST_SECTION_ITEMS.map((item) => (
             <SidebarHostSectionButton
               key={item.id}
               itemId={item.id}
@@ -1043,11 +1006,9 @@ function SettingsSidebar({
           ) : null}
         </SidebarGroup>
       )}
-      {isPimi ? (
-        <SidebarGroup label="System">
-          {items.filter((item) => !PIMI_PREFERENCES.has(item.id)).map(renderSection)}
-        </SidebarGroup>
-      ) : null}
+      <SidebarGroup label={t("settings.groups.system")}>
+        {items.filter((item) => item.group === "system").map(renderSection)}
+      </SidebarGroup>
       <Slot id="settings.sidebar" context={slotContext} />
     </>
   );
@@ -1125,10 +1086,7 @@ const SettingsSectionPoint = overridable("settings.section", SettingsSectionBody
 function SettingsScreenBase({ view }: SettingsScreenProps) {
   const router = useRouter();
   const { t } = useTranslation();
-  const voiceAudioEngine = useVoiceAudioEngineOptional();
   const { isLoading: settingsLoading } = useAppSettings();
-  const [isPlaybackTestRunning, setIsPlaybackTestRunning] = useState(false);
-  const [playbackTestResult, setPlaybackTestResult] = useState<string | null>(null);
   const isDesktopApp = isElectronRuntime();
   const hardwareKeyboardPresent = useHardwareKeyboardPresent();
   const appVersion = resolveAppVersion();
@@ -1154,35 +1112,6 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
       orderedHosts: sortedHosts,
     });
   }, [view, selectedSettingsHostServerId, localServerId, hosts, sortedHosts]);
-
-  const handlePlaybackTest = useCallback(async () => {
-    if (!voiceAudioEngine || isPlaybackTestRunning) {
-      return;
-    }
-
-    setIsPlaybackTestRunning(true);
-    setPlaybackTestResult(null);
-
-    try {
-      const bytes = Buffer.from(THINKING_TONE_NATIVE_PCM_BASE64, "base64");
-      await voiceAudioEngine.initialize();
-      voiceAudioEngine.stop();
-      await voiceAudioEngine.play({
-        type: "audio/pcm;rate=16000;bits=16",
-        size: bytes.byteLength,
-        async arrayBuffer() {
-          return Uint8Array.from(bytes).buffer;
-        },
-      });
-      setPlaybackTestResult(null);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error("[Settings] Playback test failed", error);
-      setPlaybackTestResult(t("settings.diagnostics.playbackFailed", { message }));
-    } finally {
-      setIsPlaybackTestRunning(false);
-    }
-  }, [isPlaybackTestRunning, t, voiceAudioEngine]);
 
   const handleHostAdded = useCallback(
     (serverId: string) => {
@@ -1318,23 +1247,6 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
       if (!item || !isAppSettingsPageAvailable(item, { isDesktopApp, hardwareKeyboardPresent }))
         return null;
       switch (view.section) {
-        case "general":
-          return (
-            <>
-              <GeneralSection />
-              <SendingSection />
-              {isDesktopApp ? <OpenLocationSection /> : null}
-            </>
-          );
-        case "diagnostics":
-          return (
-            <DiagnosticsSection
-              voiceAudioEngine={voiceAudioEngine}
-              isPlaybackTestRunning={isPlaybackTestRunning}
-              playbackTestResult={playbackTestResult}
-              handlePlaybackTest={handlePlaybackTest}
-            />
-          );
         case "network":
           return <NetworkSection serverId={activeHostServerId} />;
         case "about":

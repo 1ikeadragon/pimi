@@ -8,27 +8,13 @@ import "./src/styles/unistyles";
 import "@expo/metro-runtime";
 // oxlint-disable-next-line import/no-unassigned-import -- Preserve Expo's entry side effects.
 import "expo-router/build/fast-refresh";
-import { createElement, useEffect, useState, type ComponentType, type ReactElement } from "react";
 import { renderRootComponent } from "expo-router/build/renderRootComponent";
-import { copyLegacyPaseoStorage } from "./src/storage/legacy-paseo-storage";
 import { startWatchdog } from "./src/watchdog";
 
 startWatchdog();
 
 // The native host runs the "main" application as soon as this bundle finishes evaluating, so the
-// component must be registered synchronously. Stores hydrate when the app's modules evaluate, so
-// the old keys are copied before the root app is required (COMPAT(paseo-home-mobile)).
-function Entry(): ReactElement | null {
-  const [Root, setRoot] = useState<ComponentType | null>(null);
-  useEffect(() => {
-    async function load(): Promise<void> {
-      await copyLegacyPaseoStorage();
-      // oxlint-disable-next-line typescript/no-require-imports -- Evaluate the app only after the copy.
-      const { RootApp } = require("./src/root-app") as typeof import("./src/root-app");
-      setRoot(() => RootApp);
-    }
-    void load();
-  }, []);
-  return Root ? createElement(Root) : null;
-}
-renderRootComponent(Entry);
+// component must be registered synchronously. The app evaluates after the watchdog has started.
+// oxlint-disable-next-line typescript/no-require-imports -- Evaluate the app after the watchdog.
+const { RootApp } = require("./src/root-app") as typeof import("./src/root-app");
+renderRootComponent(RootApp);

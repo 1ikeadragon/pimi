@@ -509,17 +509,10 @@ export function resolveKnownHostRoute(input: {
 export const SETTINGS_SECTION_SLUGS = [
   "general",
   "appearance",
-  "sidebar",
   "chat",
-  "terminal",
-  "browser",
   "editor",
-  "files",
   "shortcuts",
-  "integrations",
-  "notifications",
-  "permissions",
-  "diagnostics",
+  "desktop",
   "network",
   "about",
 ] as const;
@@ -532,36 +525,20 @@ export function isSettingsSectionSlug(value: string): value is SettingsSectionSl
 
 export const HOST_SECTION_SLUGS = [
   "projects",
-  "connections",
-  "pair-device",
   "agents",
   "metadata",
   "voice",
-  "workspaces",
   "providers",
   "usage",
   "terminals",
-  "editor",
   "plugins",
   "host",
 ] as const;
 
 export type HostSectionSlug = (typeof HOST_SECTION_SLUGS)[number];
 
-const LEGACY_HOST_SECTION_SLUGS: Record<string, HostSectionSlug> = {
-  orchestration: "agents",
-  daemon: "host",
-};
-
 export function isHostSectionSlug(value: string): value is HostSectionSlug {
   return (HOST_SECTION_SLUGS as readonly string[]).includes(value);
-}
-
-export function normalizeHostSectionSlug(value: string): HostSectionSlug | null {
-  if (isHostSectionSlug(value)) {
-    return value;
-  }
-  return LEGACY_HOST_SECTION_SLUGS[value] ?? null;
 }
 
 export function buildSettingsRoute() {

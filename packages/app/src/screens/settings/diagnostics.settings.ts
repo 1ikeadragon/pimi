@@ -1,7 +1,7 @@
 import { defineSettingsPage } from "@/settings-index/define";
 
 export const diagnosticsSettings = defineSettingsPage(
-  { kind: "section", section: "diagnostics" },
+  { kind: "section", section: "about" },
   ({ t }) => [
     {
       id: "diagnostics.app",

@@ -19,7 +19,7 @@ export const hostSettings = defineSettingsPage(
 );
 
 export const hostPairDeviceSettings = defineSettingsPage(
-  { kind: "host", section: "pair-device" },
+  { kind: "host", section: "host" },
   ({ t }) => [
     {
       id: "pair-device.pair",
@@ -56,7 +56,7 @@ export const hostAgentsSettings = defineSettingsPage(
 );
 
 export const hostWorkspacesSettings = defineSettingsPage(
-  { kind: "host", section: "workspaces" },
+  { kind: "host", section: "agents" },
   () => [
     {
       id: "workspaces.autoArchive",
@@ -66,19 +66,16 @@ export const hostWorkspacesSettings = defineSettingsPage(
   ],
 );
 
-export const hostTerminalsSettings = defineSettingsPage(
-  { kind: "host", section: "terminals" },
-  () => [
-    {
-      id: "terminals.agentHooks",
-      title: "Enable terminal agent hooks",
-      keywords: ["notifications", "status", "claude", "codex", "config files", "install hooks"],
-    },
-  ],
-);
+export const hostTerminalsSettings = defineSettingsPage({ kind: "host", section: "agents" }, () => [
+  {
+    id: "terminals.agentHooks",
+    title: "Enable terminal agent hooks",
+    keywords: ["notifications", "status", "claude", "codex", "config files", "install hooks"],
+  },
+]);
 
 export const hostConnectionsSettings = defineSettingsPage(
-  { kind: "host", section: "connections" },
+  { kind: "host", section: "host" },
   ({ t, isDesktopApp }) => [
     isDesktopApp
       ? {

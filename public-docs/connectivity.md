@@ -18,7 +18,7 @@ Your Pimi app connects to the daemon running on your computer or server. Pair a 
 ## Same Wi-Fi
 
 1. Connect your phone and computer to the same Wi-Fi network.
-2. In Pimi Desktop, open **Settings → your local host → Pair a device → Same Wi-Fi**. Select your network address if asked, then choose **Enable local pairing**.
+2. In Pimi Desktop, open **Settings → your local host → Host → Pair a device → Same Wi-Fi**. Select your network address if asked, then choose **Enable local pairing**.
 3. In Pimi on your phone, scan the QR code or paste the pairing link. If the host has a password, enter it when asked.
 
 The connection is encrypted and stays on your network. Treat the pairing link like a password. **Turn off local pairing** disconnects Wi-Fi clients. Restarting the host also turns sharing off; enable it again and scan the new QR code to reconnect. Guest networks that isolate devices may block the connection.
@@ -97,7 +97,7 @@ Restart the daemon:
 pimi daemon restart
 ```
 
-If Pimi Desktop manages the daemon, use **Settings → your host → Overview → Restart daemon**.
+If Pimi Desktop manages the daemon, use **Settings → your host → Host → Restart daemon**.
 
 ### 3. Connect the phone app
 
