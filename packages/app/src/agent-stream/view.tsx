@@ -655,11 +655,12 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     }, [t, toast]);
     // Child transcripts bring their own pagination and are not session-store timelines.
     useResidentWindowFollow({
-      enabled: historyPagination === undefined,
+      // A retained hidden view reports a collapsed viewport as being at the bottom, so only the
+      // active view drives window maintenance.
+      enabled: historyPagination === undefined && isActive,
       serverId: resolvedServerId,
       agentId,
       nearBottom,
-      isTimelineDetached,
       collapseHistoryWindow: collapseToRecent,
       onForwardLoadError: handleTimelineHistoryLoadError,
     });

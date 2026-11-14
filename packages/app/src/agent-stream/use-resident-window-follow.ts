@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
 import { setReaderFollowingEnd } from "@/timeline/reader-follow";
-import { planTimelineCatchUpAfter } from "@/timeline/timeline-sync-plan";
+import { planTimelineCatchUpAfter, planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import type { NearBottom } from "./near-bottom";
 
@@ -21,14 +21,25 @@ export function useResidentWindowFollow(input: {
   serverId: string;
   agentId: string;
   nearBottom: NearBottom;
-  isTimelineDetached: boolean;
   collapseHistoryWindow: () => void;
   onForwardLoadError: () => void;
 }): void {
-  const { enabled, serverId, agentId, nearBottom, isTimelineDetached } = input;
+  const { enabled, serverId, agentId, nearBottom } = input;
   const collapseHistoryWindow = useStableEvent(input.collapseHistoryWindow);
   const onForwardLoadError = useStableEvent(input.onForwardLoadError);
   const wasNearBottom = useRef(true);
+
+  // A view shows the end of the timeline when it mounts or is revealed, so a chat that was left
+  // detached comes back to the live tail in one request. Letting that bottom position page
+  // forward would walk the whole skipped history.
+  useEffect(() => {
+    if (!enabled) return;
+    const session = useSessionStore.getState().sessions[serverId];
+    if (session?.agentTimelineHasNewer.get(agentId) !== true) return;
+    getHostRuntimeStore()
+      .fetchAgentTimeline(serverId, agentId, planTimelineTailFetch())
+      .catch(onForwardLoadError);
+  }, [agentId, enabled, onForwardLoadError, serverId]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -74,19 +85,9 @@ export function useResidentWindowFollow(input: {
     };
 
     const unsubscribe = nearBottom.subscribe(settle);
-    // A detach that happens while the reader already sits at the bottom has no scroll to react to.
-    if (isTimelineDetached && wasNearBottom.current) loadNewerWhileDetached();
     return () => {
       unsubscribe();
       setReaderFollowingEnd(serverId, agentId, true);
     };
-  }, [
-    agentId,
-    collapseHistoryWindow,
-    enabled,
-    isTimelineDetached,
-    nearBottom,
-    onForwardLoadError,
-    serverId,
-  ]);
+  }, [agentId, collapseHistoryWindow, enabled, nearBottom, onForwardLoadError, serverId]);
 }
