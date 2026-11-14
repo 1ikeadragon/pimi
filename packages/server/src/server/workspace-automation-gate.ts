@@ -13,8 +13,11 @@ export function formatWorkspaceAutomationBlockedMessage(source: UntrustedWorkspa
 }
 
 export class WorkspaceAutomationBlockedError extends Error {
-  constructor(readonly source: UntrustedWorkspaceSource) {
+  readonly source: UntrustedWorkspaceSource;
+
+  constructor(source: UntrustedWorkspaceSource) {
     super(formatWorkspaceAutomationBlockedMessage(source));
+    this.source = source;
     this.name = "WorkspaceAutomationBlockedError";
   }
 }

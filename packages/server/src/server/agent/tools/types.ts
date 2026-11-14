@@ -4,11 +4,11 @@ import type { ProviderPimiToolsPolicy } from "@pimi/protocol/provider-config";
 export class PimiToolInputError extends Error {
   readonly status = 400;
 
-  constructor(
-    message: string,
-    readonly issues?: z.ZodError["issues"],
-  ) {
+  readonly issues?: z.ZodError["issues"];
+
+  constructor(message: string, issues?: z.ZodError["issues"]) {
     super(message);
+    this.issues = issues;
     this.name = "PimiToolInputError";
   }
 }

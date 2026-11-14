@@ -125,7 +125,10 @@ export class ResourceMonitor {
   private lastErrorMessage = "";
   private sampledAtMs = 0;
 
-  constructor(private readonly options: ResourceMonitorOptions) {
+  private readonly options: ResourceMonitorOptions;
+
+  constructor(options: ResourceMonitorOptions) {
+    this.options = options;
     this.platform = options.platform ?? process.platform;
     this.reader = options.reader ?? createOsReader(this.platform);
     this.baseline = new NetworkBaseline(options.home, options.onError);

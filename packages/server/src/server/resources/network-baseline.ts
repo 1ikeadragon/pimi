@@ -53,10 +53,10 @@ export class NetworkBaseline {
   private saveTimer: NodeJS.Timeout | null = null;
   private pending: Promise<void> = Promise.resolve();
 
-  constructor(
-    home: string,
-    private readonly onError: (error: unknown, message: string) => void,
-  ) {
+  private readonly onError: (error: unknown, message: string) => void;
+
+  constructor(home: string, onError: (error: unknown, message: string) => void) {
+    this.onError = onError;
     this.file = path.join(home, FILE_NAME);
     this.ready = this.load();
   }
