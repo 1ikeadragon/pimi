@@ -1,3 +1,4 @@
+import { useChatAnnotate } from "@/annotations/chat-annotate";
 import { UserMessageText } from "@/components/user-message-text";
 import { overridable } from "@/extension-points";
 import { placedChipRefs } from "@/components/user-message-text/runs";
@@ -47,6 +48,7 @@ import {
   Copy,
   Info,
   ListTodo,
+  MessageSquarePlus,
   MicVocal,
   Scissors,
   TriangleAlertIcon,
@@ -88,6 +90,8 @@ interface UserMessageProps {
   serverId?: string;
   agentId?: string;
   messageId?: string;
+  /** Stream item id, the anchor annotations carry. */
+  itemId?: string;
   message: string;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
@@ -257,11 +261,32 @@ function SentAttachmentRow({
   );
 }
 
+function AnnotateMessageButton({ itemId, message }: { itemId: string; message: string }) {
+  const { t } = useTranslation();
+  const annotate = useChatAnnotate();
+  const press = useCallback(
+    () => void annotate?.({ messageId: itemId, role: "user" }, message),
+    [annotate, itemId, message],
+  );
+  if (!annotate) return null;
+  return (
+    <Pressable
+      onPress={press}
+      style={userMessageStylesheet.copyButton}
+      accessibilityRole="button"
+      accessibilityLabel={t("chips.annotate")}
+    >
+      <MessageSquarePlus size={ICON_SIZE.sm} color={turnCopyButtonStylesheet.iconColor.color} />
+    </Pressable>
+  );
+}
+
 const UserMessageBase = memo(function UserMessage({
   sender,
   serverId,
   agentId,
   messageId,
+  itemId,
   message,
   images = [],
   attachments = [],
@@ -449,6 +474,7 @@ const UserMessageBase = memo(function UserMessage({
                 onRewind={handleRewind}
               />
             ) : null}
+            {itemId ? <AnnotateMessageButton itemId={itemId} message={message} /> : null}
             <TurnCopyButton
               getContent={getMessageContent}
               containerStyle={userMessageStylesheet.copyButton}
@@ -653,6 +679,7 @@ export const LiveElapsed = memo(function LiveElapsed({
 });
 
 interface AssistantMessageProps {
+  itemId: string;
   renderFullContent?: boolean;
   occurrenceKey: string;
   message: string;
@@ -809,6 +836,7 @@ export const TurnCopyButton = memo(function TurnCopyButton({
 });
 
 const AssistantMessageBase = memo(function AssistantMessage({
+  itemId,
   renderFullContent = false,
   occurrenceKey,
   message,
@@ -820,6 +848,20 @@ const AssistantMessageBase = memo(function AssistantMessage({
   phase,
 }: AssistantMessageProps) {
   const { t } = useTranslation();
+  const annotate = useChatAnnotate();
+  const contextMenuItems = useMemo(
+    () =>
+      annotate
+        ? [
+            {
+              text: t("chips.annotate"),
+              onPress: ({ text }: { text: string }) =>
+                void annotate({ messageId: itemId, role: "assistant" }, text),
+            },
+          ]
+        : undefined,
+    [annotate, itemId, t],
+  );
   const renderedMessage = useMemo(
     () =>
       renderFullContent ? { text: message, capped: false } : capAssistantMessageForRender(message),
@@ -872,6 +914,7 @@ const AssistantMessageBase = memo(function AssistantMessage({
         client={client}
         workspaceRoot={workspaceRoot}
         serverId={serverId}
+        contextMenuItems={contextMenuItems}
       />
       {fullMessageByteLength !== null ? (
         <Text

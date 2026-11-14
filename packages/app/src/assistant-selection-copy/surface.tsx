@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { View, type StyleProp, type ViewStyle } from "react-native";
 import type { ChatFindProps } from "@/agent-stream/chat-find/types";
+import { ChatAnnotateProvider } from "@/annotations/chat-annotate";
 
 interface AssistantSelectionCopySurfaceProps {
   children: ReactNode;
@@ -14,7 +15,12 @@ interface AssistantSelectionCopySurfaceProps {
 
 export function AssistantSelectionCopySurface({
   children,
+  annotationTarget,
   style,
 }: AssistantSelectionCopySurfaceProps) {
-  return <View style={style}>{children}</View>;
+  return (
+    <ChatAnnotateProvider target={annotationTarget}>
+      <View style={style}>{children}</View>
+    </ChatAnnotateProvider>
+  );
 }

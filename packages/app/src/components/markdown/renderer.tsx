@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState, type ComponentProps } from "react";
 import { EnrichedMarkdownText, type LinkPressEvent } from "react-native-enriched-markdown";
 import { withUnistyles } from "react-native-unistyles";
 import {
@@ -56,6 +56,8 @@ export interface MarkdownRendererProps extends MarkdownImageContext {
   onLinkPress?: (url: string) => unknown;
   agentCommands?: boolean;
   visualizations?: boolean;
+  /** Native selection-menu items. */
+  contextMenuItems?: ComponentProps<typeof EnrichedMarkdownText>["contextMenuItems"];
 }
 
 /** All Markdown surfaces share the same engine and source adaptation. */
@@ -105,6 +107,7 @@ const MarkdownPart = memo(function MarkdownPart({
   onLinkPress,
   agentCommands: _agentCommands,
   visualizations = false,
+  contextMenuItems,
   commandHints = null,
   ...imageContext
 }: MarkdownRendererProps & { commandHints?: CommandHints | null }) {
@@ -195,6 +198,7 @@ const MarkdownPart = memo(function MarkdownPart({
               uniProps={pickMarkdownStyle(compact, muted)}
               flavor="github"
               selectable={selectable}
+              contextMenuItems={contextMenuItems}
               md4cFlags={MD4C_FLAGS}
               linkRecognition={linkRecognition}
               enableTaskListItemToggle={false}

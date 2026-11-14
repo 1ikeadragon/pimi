@@ -420,6 +420,8 @@ export const en = {
   chips: {
     yourMessage: "Your message",
     assistantMessage: "Assistant message",
+    annotate: "Annotate",
+    selectionTooLong: "Shorten selection",
     annotation: "Annotation, {{source}}",
     annotationWithNote: "Annotation, {{source}}, note: {{note}}",
     goToCode: "Go to annotated code",
