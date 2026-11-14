@@ -74,12 +74,16 @@ export function useTaskMutations({ serverId }: { serverId: string }): TaskMutati
     async (input: TaskCreateInput): Promise<TaskCreateResult> => {
       try {
         const { task, created } = await requireClient(serverId).taskCreate({ task: input });
+        // Callers open the new task right away; the list must hold it first, or its sheet reports
+        // "no longer exists". "all" also refetches a list nobody is observing yet.
+        await queryClient.invalidateQueries({ queryKey: tasksQueryBaseKey, refetchType: "all" });
         return { task, created };
-      } finally {
+      } catch (error) {
         invalidate();
+        throw error;
       }
     },
-    [invalidate, serverId],
+    [invalidate, queryClient, serverId],
   );
 
   const updateTask = useCallback(
