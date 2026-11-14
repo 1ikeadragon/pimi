@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.49 - 2026-11-14
+
+- Tide plays in the installed app. Before, the packaged app could not load the video and showed the still image.
+
 ## 0.17.48 - 2026-11-14
 
 - Ask Pimi: "open a new chat under <project>" now starts its own chat in that project, with your words as its prompt. Before, the voice chat joined the chat on screen and could open a second chat nested under it.
