@@ -1,25 +1,23 @@
 import type { LiveBackdrop } from "./backdrops";
 import { WAVES_FRAGMENT } from "./waves.frag";
 
-// One WebGL context renders the whole viewport; every visible backdrop container shows its own
-// crop of that frame through a 2D canvas. The engine is a module singleton so it outlives screens:
-// a freshly mounted target is filled from the last frame before it paints (no flash on navigation).
+// The live backdrop is one WebGL canvas behind the whole window shell: every region of the app
+// shows the same frame, so there is nothing to copy and no edge between regions.
 
 const VERTEX = "attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}";
 const MAX_WIDTH = 2560;
 const MAX_HEIGHT = 1600;
-/** The shader is smooth by design, so it renders below Retina density and is upscaled by the copy. */
+/** The shader is smooth by design, so it renders below Retina density and the compositor upscales it. */
 const MAX_SCALE = 1.25;
 /** Fixed shader time for the single reduced-motion frame, and the start time of the animation. */
 const START_TIME = 14;
 /** Fraction of the theme's luminance limit the shader aims at, leaving margin for dither and rounding. */
 const LIMIT_MARGIN = 0.85;
-const IDLE_RELEASE_MS = 30_000;
 const SLOW_WINDOW_FRAMES = 120;
 const SLOW_MEAN_MS = 20;
-const SCALE_STEPS = [1, 0.75, 0.5625];
-const FRAME_MS_60 = 16;
-const FRAME_MS_30 = 33;
+/** Sustained slow frames shrink the render buffer. The frame rate is never lowered. */
+const SCALE_STEPS = [1, 0.75, 0.5625, 0.42];
+const FRAME_MS = 16;
 /** Longest time step accepted per frame, so a stall or resume never makes the waves jump. */
 const MAX_STEP_S = 0.1;
 
@@ -93,70 +91,77 @@ function buildProgram(gl: WebGLRenderingContext): Program | null {
 }
 
 class LiveBackdropEngine {
-  private glCanvas: HTMLCanvasElement | null = null;
   private program: Program | null = null;
-  private readonly targets = new Set<HTMLCanvasElement>();
-  private readonly contexts = new WeakMap<HTMLCanvasElement, CanvasRenderingContext2D>();
   private readonly observer: ResizeObserver;
-  private backdrop: LiveBackdrop | null = null;
+  private readonly reducedMotion: MediaQueryList;
   private lost = false;
-  private failed = false;
-  private hasFrame = false;
 
   private time = START_TIME;
   private rafId = 0;
   private lastTick = 0;
-  private lastRender = 0;
   private scaleStep = 0;
-  private minInterval = FRAME_MS_60;
   private slowSum = 0;
   private slowCount = 0;
-  private releaseTimer: ReturnType<typeof setTimeout> | null = null;
-  private reducedMotion: MediaQueryList;
-  private listening = false;
 
-  constructor() {
-    this.observer = new ResizeObserver(() => this.invalidate());
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    private backdrop: LiveBackdrop,
+  ) {
+    // A resize is drawn inside the observer callback, before the frame paints: no stretched frame.
+    this.observer = new ResizeObserver(() => this.render());
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   }
 
-  attach(target: HTMLCanvasElement, backdrop: LiveBackdrop): void {
-    this.cancelRelease();
-    this.targets.add(target);
-    this.observer.observe(target);
-    this.listen();
-    this.setBackdrop(backdrop);
-    if (!this.ensureContext()) return;
-    if (this.lost) {
-      target.style.visibility = "hidden";
+  /** Builds the context and draws the first frame before the canvas paints. */
+  start(): void {
+    // The buffer is preserved so the held frame survives while the loop is paused.
+    const gl = this.canvas.getContext("webgl", {
+      alpha: false,
+      antialias: false,
+      preserveDrawingBuffer: true,
+      powerPreference: "low-power",
+    });
+    this.program = gl ? buildProgram(gl) : null;
+    if (!this.program) {
+      // No WebGL: the shell's static CSS gradient stays visible.
+      this.canvas.style.visibility = "hidden";
       return;
     }
-    // Fill the new target from the last frame before it paints. The very first frame is rendered here.
-    if (!this.hasFrame) this.render();
-    else this.paint(target);
+    this.canvas.addEventListener("webglcontextlost", this.onContextLost);
+    this.canvas.addEventListener("webglcontextrestored", this.onContextRestored);
+    window.addEventListener("focus", this.sync);
+    window.addEventListener("blur", this.sync);
+    document.addEventListener("visibilitychange", this.sync);
+    this.reducedMotion.addEventListener("change", this.onMotionChange);
+    this.observer.observe(this.canvas);
+    this.applyUniforms();
+    this.render();
     this.sync();
   }
 
-  detach(target: HTMLCanvasElement): void {
-    this.targets.delete(target);
-    this.observer.unobserve(target);
-    if (this.targets.size === 0) {
-      this.stop();
-      this.scheduleRelease();
-    }
+  stop(): void {
+    this.pause();
+    this.observer.disconnect();
+    this.canvas.removeEventListener("webglcontextlost", this.onContextLost);
+    this.canvas.removeEventListener("webglcontextrestored", this.onContextRestored);
+    window.removeEventListener("focus", this.sync);
+    window.removeEventListener("blur", this.sync);
+    document.removeEventListener("visibilitychange", this.sync);
+    this.reducedMotion.removeEventListener("change", this.onMotionChange);
+    this.program = null;
   }
 
-  private setBackdrop(backdrop: LiveBackdrop): void {
+  /** Switching between live themes only changes uniforms. */
+  setBackdrop(backdrop: LiveBackdrop): void {
     if (this.backdrop === backdrop) return;
     this.backdrop = backdrop;
     this.applyUniforms();
-    // Switching between live themes only changes uniforms; repaint the held frame.
-    if (this.hasFrame) this.invalidate();
+    if (this.rafId === 0) this.render();
   }
 
   private applyUniforms(): void {
     const { program, backdrop } = this;
-    if (!program || !backdrop) return;
+    if (!program) return;
     const { gl } = program;
     gl.uniform1f(program.limit, backdrop.limit * LIMIT_MARGIN);
     gl.uniform1f(program.light, backdrop.scheme === "light" ? 1 : 0);
@@ -166,130 +171,54 @@ class LiveBackdropEngine {
     }
   }
 
-  private ensureContext(): boolean {
-    if (this.program || this.lost) return !this.failed;
-    if (this.failed) return false;
-    const canvas = this.glCanvas ?? document.createElement("canvas");
-    this.glCanvas = canvas;
-    const gl = canvas.getContext("webgl", {
-      alpha: false,
-      antialias: false,
-      preserveDrawingBuffer: true,
-      powerPreference: "low-power",
-    });
-    const program = gl ? buildProgram(gl) : null;
-    if (!program) {
-      this.failed = true;
-      this.glCanvas = null;
-      return false;
-    }
-    canvas.addEventListener("webglcontextlost", this.onContextLost);
-    canvas.addEventListener("webglcontextrestored", this.onContextRestored);
-    this.program = program;
-    this.hasFrame = false;
-    this.applyUniforms();
-    return true;
-  }
-
   private readonly onContextLost = (event: Event): void => {
     event.preventDefault();
     this.lost = true;
     this.program = null;
-    this.hasFrame = false;
-    this.stop();
-    for (const target of this.targets) target.style.visibility = "hidden";
+    this.pause();
+    this.canvas.style.visibility = "hidden";
   };
 
   private readonly onContextRestored = (): void => {
-    this.lost = false;
-    const canvas = this.glCanvas;
-    const gl = canvas?.getContext("webgl");
+    const gl = this.canvas.getContext("webgl");
     const program = gl ? buildProgram(gl) : null;
-    if (!program) {
-      this.failed = true;
-      return;
-    }
+    if (!program) return;
+    this.lost = false;
     this.program = program;
     this.applyUniforms();
     this.render();
-    for (const target of this.targets) target.style.visibility = "";
+    this.canvas.style.visibility = "";
     this.sync();
   };
 
-  private renderScale(viewWidth: number, viewHeight: number): number {
-    const base = Math.min(window.devicePixelRatio || 1, MAX_SCALE) * SCALE_STEPS[this.scaleStep];
-    return Math.min(base, MAX_WIDTH / viewWidth, MAX_HEIGHT / viewHeight);
-  }
-
-  /** Renders one frame at the current time and copies it into every visible target. */
+  /** Renders one frame at the current time. The buffer is resized only here, right before drawing. */
   private render(): void {
-    const { program, glCanvas } = this;
-    if (!program || !glCanvas || this.lost) return;
-    const viewWidth = Math.max(window.innerWidth, 1);
-    const viewHeight = Math.max(window.innerHeight, 1);
-    const scale = this.renderScale(viewWidth, viewHeight);
+    const { program, canvas } = this;
+    if (!program || this.lost) return;
+    const viewWidth = canvas.clientWidth;
+    const viewHeight = canvas.clientHeight;
+    if (viewWidth < 1 || viewHeight < 1) return;
+    const scale = Math.min(
+      Math.min(window.devicePixelRatio || 1, MAX_SCALE) * SCALE_STEPS[this.scaleStep],
+      MAX_WIDTH / viewWidth,
+      MAX_HEIGHT / viewHeight,
+    );
     const width = Math.max(Math.round(viewWidth * scale), 1);
     const height = Math.max(Math.round(viewHeight * scale), 1);
-    const { gl } = program;
-    if (glCanvas.width !== width || glCanvas.height !== height) {
-      glCanvas.width = width;
-      glCanvas.height = height;
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
     }
+    const { gl } = program;
     gl.viewport(0, 0, width, height);
     gl.uniform2f(program.resolution, width, height);
     gl.uniform1f(program.time, this.time);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    this.hasFrame = true;
-    for (const target of this.targets) this.paint(target);
-  }
-
-  /** Copies this target's crop of the last frame into it. A resize happens only here, right before drawing. */
-  private paint(target: HTMLCanvasElement): void {
-    const { glCanvas } = this;
-    if (!glCanvas || !this.hasFrame) return;
-    const rect = target.getBoundingClientRect();
-    if (rect.width < 1 || rect.height < 1) return;
-    const sx = glCanvas.width / Math.max(window.innerWidth, 1);
-    const sy = glCanvas.height / Math.max(window.innerHeight, 1);
-    const width = Math.max(Math.round(rect.width * sx), 1);
-    const height = Math.max(Math.round(rect.height * sy), 1);
-    let ctx = this.contexts.get(target);
-    if (!ctx) {
-      const created = target.getContext("2d", { alpha: false });
-      if (!created) return;
-      ctx = created;
-      this.contexts.set(target, ctx);
-    }
-    if (target.width !== width || target.height !== height) {
-      target.width = width;
-      target.height = height;
-    }
-    ctx.drawImage(
-      glCanvas,
-      rect.left * sx,
-      rect.top * sy,
-      rect.width * sx,
-      rect.height * sy,
-      0,
-      0,
-      width,
-      height,
-    );
-  }
-
-  /** Repaints the held frame (resize, theme change) without advancing time, when the loop is not running. */
-  private invalidate(): void {
-    if (this.rafId !== 0 || this.lost || !this.program) return;
-    this.rafId = requestAnimationFrame(() => {
-      this.rafId = 0;
-      if (this.isRunning()) return;
-      this.render();
-    });
   }
 
   private isRunning(): boolean {
     return (
-      this.targets.size > 0 &&
+      this.program !== null &&
       !this.lost &&
       !this.reducedMotion.matches &&
       document.visibilityState === "visible" &&
@@ -297,25 +226,20 @@ class LiveBackdropEngine {
     );
   }
 
-  /** Starts or stops the loop to match the pause rules. */
-  private sync = (): void => {
-    if (this.isRunning()) this.start();
-    else this.stop();
-  };
-
-  private start(): void {
-    if (this.rafId !== 0) {
-      cancelAnimationFrame(this.rafId);
-      this.rafId = 0;
+  /** Starts or stops the loop to match the pause rules. A paused canvas keeps its last frame. */
+  private readonly sync = (): void => {
+    if (!this.isRunning()) {
+      this.pause();
+      return;
     }
+    if (this.rafId !== 0) return;
     this.lastTick = 0;
-    this.lastRender = 0;
     this.slowSum = 0;
     this.slowCount = 0;
     this.rafId = requestAnimationFrame(this.tick);
-  }
+  };
 
-  private stop(): void {
+  private pause(): void {
     if (this.rafId !== 0) cancelAnimationFrame(this.rafId);
     this.rafId = 0;
   }
@@ -323,99 +247,57 @@ class LiveBackdropEngine {
   private readonly tick = (now: number): void => {
     this.rafId = 0;
     if (!this.isRunning()) return;
-    // ProMotion delivers 120 Hz callbacks: skip the ones that arrive before the frame budget.
-    if (this.lastRender !== 0 && now - this.lastRender < this.minInterval - 1) {
-      this.rafId = requestAnimationFrame(this.tick);
+    this.rafId = requestAnimationFrame(this.tick);
+    if (this.lastTick === 0) {
+      this.lastTick = now;
       return;
     }
-    if (this.lastTick !== 0) {
-      this.time += Math.min((now - this.lastTick) / 1000, MAX_STEP_S);
-    }
+    const elapsed = now - this.lastTick;
+    // ProMotion delivers 120 Hz callbacks: draw on every other one.
+    if (elapsed < FRAME_MS - 1) return;
     this.lastTick = now;
-    if (this.lastRender !== 0) this.trackFrameTime(now - this.lastRender);
-    this.lastRender = now;
+    // Time follows the clock, so a late frame moves the water further instead of slowing it.
+    this.time += Math.min(elapsed / 1000, MAX_STEP_S);
+    this.trackFrameTime(elapsed);
     this.render();
-    this.rafId = requestAnimationFrame(this.tick);
   };
 
-  /** Sustained slow frames: shrink the render buffer twice, then fall back to 30 fps. */
   private trackFrameTime(interval: number): void {
-    if (this.minInterval === FRAME_MS_30) return;
+    if (this.scaleStep === SCALE_STEPS.length - 1) return;
     this.slowSum += interval;
     this.slowCount += 1;
     if (this.slowCount < SLOW_WINDOW_FRAMES) return;
     const mean = this.slowSum / this.slowCount;
     this.slowSum = 0;
     this.slowCount = 0;
-    if (mean <= SLOW_MEAN_MS) return;
-    if (this.scaleStep < SCALE_STEPS.length - 1) this.scaleStep += 1;
-    else this.minInterval = FRAME_MS_30;
+    if (mean > SLOW_MEAN_MS) this.scaleStep += 1;
   }
-
-  private listen(): void {
-    if (this.listening) return;
-    this.listening = true;
-    window.addEventListener("focus", this.sync);
-    window.addEventListener("blur", this.sync);
-    window.addEventListener("resize", this.onResize);
-    document.addEventListener("visibilitychange", this.sync);
-    this.reducedMotion.addEventListener("change", this.onMotionChange);
-  }
-
-  private unlisten(): void {
-    if (!this.listening) return;
-    this.listening = false;
-    window.removeEventListener("focus", this.sync);
-    window.removeEventListener("blur", this.sync);
-    window.removeEventListener("resize", this.onResize);
-    document.removeEventListener("visibilitychange", this.sync);
-    this.reducedMotion.removeEventListener("change", this.onMotionChange);
-  }
-
-  private readonly onResize = (): void => {
-    if (!this.isRunning()) this.invalidate();
-  };
 
   private readonly onMotionChange = (): void => {
-    if (this.reducedMotion.matches) this.time = START_TIME;
-    this.sync();
-    if (!this.isRunning()) this.invalidate();
-  };
-
-  private cancelRelease(): void {
-    if (this.releaseTimer !== null) clearTimeout(this.releaseTimer);
-    this.releaseTimer = null;
-  }
-
-  private scheduleRelease(): void {
-    this.cancelRelease();
-    this.releaseTimer = setTimeout(() => this.release(), IDLE_RELEASE_MS);
-  }
-
-  /** After 30 s with no targets, give the GPU context back. The next attach rebuilds it. */
-  private release(): void {
-    this.releaseTimer = null;
-    if (this.targets.size > 0) return;
-    this.unlisten();
-    const canvas = this.glCanvas;
-    if (canvas) {
-      canvas.removeEventListener("webglcontextlost", this.onContextLost);
-      canvas.removeEventListener("webglcontextrestored", this.onContextRestored);
-      this.program?.gl.getExtension("WEBGL_lose_context")?.loseContext();
+    if (this.reducedMotion.matches) {
+      this.time = START_TIME;
+      this.pause();
+      this.render();
+      return;
     }
-    this.program = null;
-    this.glCanvas = null;
-    this.hasFrame = false;
+    this.sync();
+  };
+}
+
+const engines = new WeakMap<HTMLCanvasElement, LiveBackdropEngine>();
+
+export function attachLiveBackdrop(canvas: HTMLCanvasElement, backdrop: LiveBackdrop): void {
+  const existing = engines.get(canvas);
+  if (existing) {
+    existing.setBackdrop(backdrop);
+    return;
   }
+  const engine = new LiveBackdropEngine(canvas, backdrop);
+  engines.set(canvas, engine);
+  engine.start();
 }
 
-let engine: LiveBackdropEngine | null = null;
-
-export function attachLiveBackdrop(target: HTMLCanvasElement, backdrop: LiveBackdrop): void {
-  engine ??= new LiveBackdropEngine();
-  engine.attach(target, backdrop);
-}
-
-export function detachLiveBackdrop(target: HTMLCanvasElement): void {
-  engine?.detach(target);
+export function detachLiveBackdrop(canvas: HTMLCanvasElement): void {
+  engines.get(canvas)?.stop();
+  engines.delete(canvas);
 }

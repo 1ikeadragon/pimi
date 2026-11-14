@@ -57,8 +57,8 @@ export function WindowLayoutDivisionGap({
 
 const styles = StyleSheet.create((theme) => ({
   divisionGap: {
-    backgroundColor: theme.colors.surfaceSidebar,
+    backgroundColor: theme.colors.surfaceChrome,
     borderRightWidth: 1,
-    borderRightColor: theme.colors.border,
+    borderRightColor: theme.colors.borderWindow,
   },
 }));

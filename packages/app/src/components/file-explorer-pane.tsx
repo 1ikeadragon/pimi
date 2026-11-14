@@ -1655,7 +1655,7 @@ const styles = StyleSheet.create((theme) => ({
     flexGrow: 0,
     flexShrink: 0,
     borderLeftWidth: 1,
-    borderLeftColor: theme.colors.border,
+    borderLeftColor: theme.colors.borderWindow,
   },
   splitResizeHandle: {
     position: "absolute",
@@ -1673,7 +1673,7 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: theme.colors.surfaceSidebar,
+    backgroundColor: theme.colors.surfaceChrome,
   },
   sortTrigger: {
     flexDirection: "row",

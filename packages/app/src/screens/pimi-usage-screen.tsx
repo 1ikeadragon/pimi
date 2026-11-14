@@ -1,4 +1,3 @@
-import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 // Pimi. PolyForm-Noncommercial-1.0.0.
 import { useIsFocused } from "expo-router/react-navigation";
 import { useLocalSearchParams } from "expo-router";
@@ -74,7 +73,6 @@ export function PimiUsageScreen() {
   if (!focused || covered) return <View style={styles.screen} />;
   return (
     <View style={styles.screen} dataSet={PIMI_BACKGROUND} testID="pimi-usage">
-      <LiveBackdrop />
       <MenuHeader title={t("usageOverview.title")} rightContent={close} inPimiTitlebar />
       <View style={styles.toolbar}>
         <SegmentedControl options={visibleTabs} value={tab} onValueChange={setTab} />
@@ -140,7 +138,7 @@ function HostLimits({ serverId, hosts, onSelect }: UsageHostSelection) {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  screen: { flex: 1, minWidth: 0, backgroundColor: theme.colors.surface0 },
+  screen: { flex: 1, minWidth: 0, backgroundColor: theme.colors.surfaceWindow },
   toolbar: {
     width: "100%",
     maxWidth: 980,

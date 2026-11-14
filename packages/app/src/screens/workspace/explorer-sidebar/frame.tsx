@@ -56,7 +56,7 @@ function ExplorerFrameBase({
           presentation={presentation}
           dockVisible={isOpen}
           frameStyle={geometry.frameStyle}
-          panelStyle={[{ backgroundColor: surfaceColor }, geometry.panelStyle]}
+          panelStyle={[overlay ? { backgroundColor: surfaceColor } : null, geometry.panelStyle]}
         >
           <View style={styles.content}>
             {resizeEnabled ? geometry.resizeHandle : null}

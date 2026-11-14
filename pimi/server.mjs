@@ -110,7 +110,6 @@ export async function startPimi({
   const textureMime = {
     ".css": "text/css; charset=utf-8",
     ".svg": "image/svg+xml",
-    ".webp": "image/webp",
   };
   const textures = new URL(
     native ? "./public/pimi-textures/" : "../packages/app/public/pimi-textures/",
@@ -125,11 +124,6 @@ export async function startPimi({
       "voice-pimi.svg",
       "sakura.svg",
       "cel-night.svg",
-      "sky-grain.svg",
-      "sky-day.webp",
-      "sky-dusk.webp",
-      "sky-night.webp",
-      "sky-dawn.webp",
     ].map(async (file) => {
       assets.set("/pimi-textures/" + file, {
         mime: textureMime[file.slice(file.lastIndexOf("."))],

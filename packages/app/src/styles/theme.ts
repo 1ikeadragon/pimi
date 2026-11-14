@@ -303,6 +303,8 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
     surfaceSidebarHover: tint.surface3,
     surfaceSidebarSelected: tint.surface4,
     surfaceWorkspace: tint.surface0,
+    surfaceWindow: tint.surface0,
+    surfaceChrome: tint.surfaceSidebar,
     interactionHighlight: "rgba(0, 0, 0, 0.06)",
 
     foreground: tint.foreground,
@@ -311,6 +313,7 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
 
     border: tint.border,
     borderAccent: tint.borderAccent,
+    borderWindow: tint.border,
 
     accent: tint.accent,
     accentBright: tint.accentBright,
@@ -436,6 +439,8 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
     surfaceSidebarHover: tint.surface1,
     surfaceSidebarSelected: tint.surface2,
     surfaceWorkspace: tint.surface1,
+    surfaceWindow: tint.surface0,
+    surfaceChrome: tint.surfaceSidebar,
     interactionHighlight: "rgba(255, 255, 255, 0.08)",
 
     foreground,
@@ -444,6 +449,7 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
 
     border: tint.border,
     borderAccent: tint.borderAccent,
+    borderWindow: tint.border,
 
     accent: tint.accent,
     accentBright: tint.accentBright,
@@ -1065,9 +1071,23 @@ const pimiCatppuccinMocha = buildDarkTheme(
   }),
 );
 
-// Sky themes. Text never sits on the raw sky: content columns carry a scrim (appearance.css),
-// so the textures can stay rich. Status colours are darker than the shared light set because
-// light-theme status text can land on the scrim over the deep blue/violet edge.
+// Backdrop themes: appearance.css paints one sky (or the live Tide canvas) across the whole window
+// shell, on web only. Structural surfaces go clear so it runs unbroken behind the titlebar, sidebar
+// and content, and region dividers become a hairline. Native has no backdrop and keeps solid colours.
+function overWindowBackdrop<
+  Colors extends { surfaceWindow: string; surfaceChrome: string; borderWindow: string },
+>(colors: Colors, hairline: string): Colors {
+  if (Platform.OS !== "web") return colors;
+  return {
+    ...colors,
+    surfaceWindow: "transparent",
+    surfaceChrome: "transparent",
+    borderWindow: hairline,
+  };
+}
+
+// Status colours are darker than the shared light set because light-theme status text sits on
+// the veiled sky, which is darker than surface0 toward the colourful corner.
 const skyLightStatusColors = {
   statusSuccess: "#2f5739",
   statusDanger: "#7c332d",
@@ -1075,64 +1095,79 @@ const skyLightStatusColors = {
   statusMerged: "#5a368a",
 };
 
-function buildSkyLightTheme(config: LightThemeConfig) {
-  return buildLightTheme({
-    ...buildLightSemanticColors(config),
-    ...skyLightStatusColors,
-    ...statusTints(skyLightStatusColors, "1f"),
-  });
+function buildSkyLightTheme(config: LightThemeConfig, hairline: string) {
+  return buildLightTheme(
+    overWindowBackdrop(
+      {
+        ...buildLightSemanticColors(config),
+        ...skyLightStatusColors,
+        ...statusTints(skyLightStatusColors, "1f"),
+      },
+      hairline,
+    ),
+  );
 }
 
-const pimiSkyDay = buildSkyLightTheme({
-  surface0: "#f8fcfe",
-  surface1: "#f0f7fb",
-  surface2: "#e3eef5",
-  surface3: "#d9e8f1",
-  surface4: "#cddfeb",
-  surfaceDiffEmpty: "#eff6fa",
-  surfaceSidebar: "#ebf4f9",
-  foreground: "#13202f",
-  foregroundMuted: "#3a4759",
-  foregroundExtraMuted: "#465466",
-  border: "#d3e3ed",
-  borderAccent: "#aec7d8",
-  accent: "#23508f",
-  accentBright: "#2a5899",
-  accentForeground: "#ffffff",
-  primary: "#23508f",
-  primaryForeground: "#ffffff",
-  destructive: "#9b2f28",
-  terminalBlack: "#13202f",
-  terminalBrightBlack: "#465466",
-  ring: "#2e61aa",
-});
+function buildBackdropDarkTheme(config: DarkThemeConfig, hairline: string) {
+  return buildDarkTheme(overWindowBackdrop(buildDarkSemanticColors(config), hairline));
+}
 
-const pimiSkyDawn = buildSkyLightTheme({
-  surface0: "#fffbf7",
-  surface1: "#fbf3ec",
-  surface2: "#f4e7de",
-  surface3: "#eedfd5",
-  surface4: "#e9d3ca",
-  surfaceDiffEmpty: "#faf2ec",
-  surfaceSidebar: "#f9f0ea",
-  foreground: "#2a1c2e",
-  foregroundMuted: "#4b3a50",
-  foregroundExtraMuted: "#57465b",
-  border: "#ead8ce",
-  borderAccent: "#d2b6ad",
-  accent: "#643f7c",
-  accentBright: "#6f4686",
-  accentForeground: "#fffaf6",
-  primary: "#643f7c",
-  primaryForeground: "#fffaf6",
-  destructive: "#9c2a3a",
-  terminalBlack: "#2a1c2e",
-  terminalBrightBlack: "#57465b",
-  ring: "#88558d",
-});
+const pimiSkyDay = buildSkyLightTheme(
+  {
+    surface0: "#f8fcfe",
+    surface1: "#f0f7fb",
+    surface2: "#e3eef5",
+    surface3: "#d9e8f1",
+    surface4: "#cddfeb",
+    surfaceDiffEmpty: "#eff6fa",
+    surfaceSidebar: "#ebf4f9",
+    foreground: "#13202f",
+    foregroundMuted: "#3a4759",
+    foregroundExtraMuted: "#465466",
+    border: "#d3e3ed",
+    borderAccent: "#aec7d8",
+    accent: "#23508f",
+    accentBright: "#2a5899",
+    accentForeground: "#ffffff",
+    primary: "#23508f",
+    primaryForeground: "#ffffff",
+    destructive: "#9b2f28",
+    terminalBlack: "#13202f",
+    terminalBrightBlack: "#465466",
+    ring: "#2e61aa",
+  },
+  "#13202f14",
+);
 
-const pimiSkyDusk = buildDarkTheme(
-  buildDarkSemanticColors({
+const pimiSkyDawn = buildSkyLightTheme(
+  {
+    surface0: "#fffbf7",
+    surface1: "#fbf3ec",
+    surface2: "#f4e7de",
+    surface3: "#eedfd5",
+    surface4: "#e9d3ca",
+    surfaceDiffEmpty: "#faf2ec",
+    surfaceSidebar: "#f9f0ea",
+    foreground: "#2a1c2e",
+    foregroundMuted: "#4b3a50",
+    foregroundExtraMuted: "#57465b",
+    border: "#ead8ce",
+    borderAccent: "#d2b6ad",
+    accent: "#643f7c",
+    accentBright: "#6f4686",
+    accentForeground: "#fffaf6",
+    primary: "#643f7c",
+    primaryForeground: "#fffaf6",
+    destructive: "#9c2a3a",
+    terminalBlack: "#2a1c2e",
+    terminalBrightBlack: "#57465b",
+    ring: "#88558d",
+  },
+  "#2a1c2e14",
+);
+
+const pimiSkyDusk = buildBackdropDarkTheme(
+  {
     surface0: "#150a07",
     surface1: "#1c0f0b",
     surface2: "#25150f",
@@ -1153,11 +1188,12 @@ const pimiSkyDusk = buildDarkTheme(
     terminalBlack: "#8a7566",
     terminalBrightBlack: "#c2ad9c",
     ring: "#e9a04a",
-  }),
+  },
+  "#f7ece112",
 );
 
-const pimiSkyNight = buildDarkTheme(
-  buildDarkSemanticColors({
+const pimiSkyNight = buildBackdropDarkTheme(
+  {
     surface0: "#09090d",
     surface1: "#0f0f16",
     surface2: "#161620",
@@ -1178,11 +1214,12 @@ const pimiSkyNight = buildDarkTheme(
     terminalBlack: "#7b7991",
     terminalBrightBlack: "#adacc3",
     ring: "#a88fe0",
-  }),
+  },
+  "#ededf512",
 );
 
-const pimiTide = buildDarkTheme(
-  buildDarkSemanticColors({
+const pimiTide = buildBackdropDarkTheme(
+  {
     surface0: "#071318",
     surface1: "#0b1a20",
     surface2: "#11232a",
@@ -1203,7 +1240,8 @@ const pimiTide = buildDarkTheme(
     terminalBlack: "#6b858b",
     terminalBrightBlack: "#a3bbc0",
     ring: "#5cc4c0",
-  }),
+  },
+  "#e8f3f412",
 );
 
 export const SKY_THEME_OPTIONS = [

@@ -1388,7 +1388,7 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
 const styles = StyleSheet.create((theme) => ({
   loadingContainer: {
     flex: 1,
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: theme.colors.surfaceWindow,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1398,7 +1398,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   container: {
     flex: 1,
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: theme.colors.surfaceWindow,
   },
   scrollView: {
     flex: 1,
@@ -1451,8 +1451,8 @@ const sidebarStyles = StyleSheet.create((theme) => ({
     width: SETTINGS_DESKTOP_SIDEBAR_WIDTH,
     flexShrink: 1,
     borderRightWidth: 1,
-    borderRightColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceSidebar,
+    borderRightColor: theme.colors.borderWindow,
+    backgroundColor: theme.colors.surfaceChrome,
   },
   scrollBody: {
     flex: 1,

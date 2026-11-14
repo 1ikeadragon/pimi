@@ -314,10 +314,10 @@ const styles = StyleSheet.create((theme) => ({
   tree: {
     width: 280,
     borderRightWidth: 1,
-    borderRightColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceSidebar,
+    borderRightColor: theme.colors.borderWindow,
+    backgroundColor: theme.colors.surfaceChrome,
   },
-  treeFull: { flex: 1, backgroundColor: theme.colors.surfaceSidebar },
+  treeFull: { flex: 1, backgroundColor: theme.colors.surfaceChrome },
   filterBox: { padding: theme.spacing[2], gap: theme.spacing[2] },
   chips: { flexDirection: "row", gap: theme.spacing[2] },
   main: { flex: 1, minWidth: 0, minHeight: 0 },

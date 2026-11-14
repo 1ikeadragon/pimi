@@ -1,4 +1,3 @@
-import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 // Pimi. PolyForm-Noncommercial-1.0.0.
 import { useIsFocused } from "expo-router/react-navigation";
 import { X } from "lucide-react-native";
@@ -40,7 +39,6 @@ export function PimiLibraryScreen({ section }: { section: PimiLibrarySection }) 
   if (!focused || covered) return <View style={styles.screen} />;
   return (
     <View style={styles.screen} dataSet={BACKGROUND} testID={`pimi-library-${section}`}>
-      <LiveBackdrop />
       <MenuHeader title={title} rightContent={close} inPimiTitlebar />
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
         {host ? (

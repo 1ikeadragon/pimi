@@ -1,4 +1,3 @@
-import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 import { ChatAnnotationSelection } from "@/annotations/chat-selection.web";
 import type { ChatNavigation } from "@/annotations/chat-reveal.web";
 import { useCallback, type ClipboardEvent, type CSSProperties, type ReactNode } from "react";
@@ -36,7 +35,6 @@ export function AssistantSelectionCopySurface({
     <ChatAnnotationSelection target={annotationTarget} navigation={annotationNavigation}>
       <div onCopy={handleCopy} style={DISPLAY_CONTENTS}>
         <View style={style} dataSet={CHAT_BACKGROUND}>
-          <LiveBackdrop />
           {children}
         </View>
       </div>

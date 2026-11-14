@@ -37,7 +37,7 @@ function getServerSnapshot(): LiveBackdropConfig | null {
   return null;
 }
 
-/** Animated backdrop for the active live theme. Render as the first child of a backdrop container. */
+/** Animated backdrop for the active live theme. Rendered once, as the first child of the window shell. */
 export function LiveBackdrop() {
   const backdrop = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   if (!backdrop) return null;
@@ -47,10 +47,13 @@ export function LiveBackdrop() {
 function LiveBackdropCanvas({ backdrop }: { backdrop: LiveBackdropConfig }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useLayoutEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return undefined;
-    attachLiveBackdrop(canvas, backdrop);
-    return () => detachLiveBackdrop(canvas);
+    if (ref.current) attachLiveBackdrop(ref.current, backdrop);
   }, [backdrop]);
+  useLayoutEffect(() => {
+    const canvas = ref.current;
+    return () => {
+      if (canvas) detachLiveBackdrop(canvas);
+    };
+  }, []);
   return <canvas ref={ref} aria-hidden style={CANVAS_STYLE} />;
 }

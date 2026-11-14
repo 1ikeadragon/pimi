@@ -1,4 +1,3 @@
-import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 import { useIsFocused } from "expo-router/react-navigation";
 import { ListChecks, Plus } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
@@ -54,7 +53,6 @@ export function PimiTasksScreen(props: PimiTasksScreenProps): ReactElement {
   const isFocused = useIsFocused();
   return (
     <View style={styles.container} dataSet={PIMI_BACKGROUND} testID="pimi-tasks-screen">
-      <LiveBackdrop />
       <MenuHeader title={t("tasks.title")} inPimiTitlebar />
       <TasksContent {...props} sheetsAllowed={isFocused} />
     </View>
@@ -381,7 +379,7 @@ function TasksBody({
 }
 
 const styles = StyleSheet.create((theme) => ({
-  container: { flex: 1, backgroundColor: theme.colors.surface0 },
+  container: { flex: 1, backgroundColor: theme.colors.surfaceWindow },
   body: { flex: 1, minHeight: 0 },
   centered: {
     flex: 1,

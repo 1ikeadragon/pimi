@@ -99,6 +99,7 @@ import {
 import { registerWorkspaceRouteNavigationRef } from "@/navigation/workspace-route-navigation";
 import { useSettingsRouteEntry } from "@/navigation/settings-presentation";
 import { ThemedStack } from "@/navigation/themed-stack";
+import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 import { shouldUseDesktopDaemon } from "@/desktop/daemon/desktop-daemon";
 import { AgentNavigationListener } from "@/desktop/agent-navigation";
 import { LegacyAgentSkillsMigration } from "@/agent-skills/legacy-migration";
@@ -547,7 +548,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   // Native panel gesture hosts outlive appearance keys, like native navigators.
   // Their tracked styles update in place; web numeric styles still need remounting.
   const surface = (
-    <View style={layoutStyles.surfaceFill}>
+    <View style={layoutStyles.windowFill}>
       {workspaceChrome}
       <AddHostFlowHost />
       <AppearanceStyleBoundary>
@@ -828,7 +829,7 @@ function MobileGestureWrapper({
     <GestureDetector gesture={openGesture} touchAction={MOBILE_WEB_GESTURE_TOUCH_ACTION}>
       <View
         collapsable={false}
-        style={layoutStyles.surfaceFill}
+        style={layoutStyles.windowFill}
         testID={isCompactLayout ? "compact-shell" : "wide-shell"}
       >
         {children}
@@ -1184,7 +1185,8 @@ function RootProviders({ children }: { children: ReactNode }) {
 function RootAppTree() {
   return (
     <GestureHandlerRootView style={flexStyle}>
-      <View style={layoutStyles.surfaceFill}>
+      <View style={layoutStyles.surfaceFill} dataSet={PIMI_BACKDROP}>
+        <LiveBackdrop />
         <LucideProvider strokeWidth={ICON_STROKE_WIDTH}>
           <AddHostProvider>
             <RootProviders>
@@ -1200,6 +1202,9 @@ function RootAppTree() {
 }
 
 installMemoryProbe();
+
+// appearance.css paints the active theme's window backdrop on this element.
+const PIMI_BACKDROP = { "pimi-backdrop": "" };
 
 export default function RootLayout() {
   useEffect(() => installWebScrollbarStyles(), []);
@@ -1219,6 +1224,10 @@ const layoutStyles = StyleSheet.create((theme) => ({
   surfaceFill: {
     flex: 1,
     backgroundColor: theme.colors.surface0,
+  },
+  windowFill: {
+    flex: 1,
+    backgroundColor: theme.colors.surfaceWindow,
   },
   windowSidebarToggle: {
     position: "absolute",

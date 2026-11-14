@@ -7,5 +7,6 @@ export interface ExplorerFrameProps {
   isOpen: boolean;
   isWorkspaceActive: boolean;
   side?: "left" | "right";
+  /** Fill while the panel floats over the workspace. Docked, its content paints its own surface. */
   surfaceColor?: string;
 }

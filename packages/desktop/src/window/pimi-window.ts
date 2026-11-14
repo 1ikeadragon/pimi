@@ -67,6 +67,22 @@ const PIMI_APPEARANCE_BACKGROUNDS: Record<Exclude<PimiAppearance, "system">, str
   tide: "#050e12",
 };
 
+// These appearances paint one backdrop across the whole window. The workspace view is clear over
+// it, so Memory and Spaces sit on the same sky as the rest of the app.
+const WINDOW_BACKDROP_APPEARANCES: ReadonlySet<PimiAppearance> = new Set([
+  "sky-day",
+  "sky-dusk",
+  "sky-night",
+  "sky-dawn",
+  "tide",
+]);
+
+function workspaceViewBackground(appearance: PimiAppearance): string {
+  if (WINDOW_BACKDROP_APPEARANCES.has(appearance)) return "#00000000";
+  const systemMode = nativeTheme.shouldUseDarkColors ? "dark" : "light";
+  return PIMI_APPEARANCE_BACKGROUNDS[appearance === "system" ? systemMode : appearance];
+}
+
 function isPimiAppearance(value: unknown): value is PimiAppearance {
   return PIMI_APPEARANCES.some((mode) => mode === value);
 }
@@ -136,7 +152,10 @@ export async function setPimiAppearance(mode: unknown): Promise<void> {
       if (!win.isDestroyed()) win.webContents.send("pimi:appearance:change", mode);
     }
     const contents = workspace?.view.webContents;
-    if (contents && !contents.isDestroyed()) contents.send("pimi:appearance:change", mode);
+    if (workspace && contents && !contents.isDestroyed()) {
+      workspace.view.setBackgroundColor(workspaceViewBackground(mode));
+      contents.send("pimi:appearance:change", mode);
+    }
     return undefined;
   });
   appearanceWrites = save.catch(() => undefined);
@@ -329,19 +348,21 @@ function attach(
   if (surface.host === win) return;
   surface.releaseHost?.();
   surface.host = win;
-  win.contentView.addChildView(surface.view);
-  surface.view.webContents.send("pimi:voice:state", voiceBubbleStates.get(win) ?? VOICE_OFF);
   const sendSection = () => {
     win.webContents.send("pimi:workspace:section", surface.section);
   };
   const notifyWorkspaceClick = () => {
     if (!win.isDestroyed()) win.webContents.send("pimi:workspace:click");
   };
+  // The window hears about the section before the view goes on top: under a clear view (backdrop
+  // themes) the window hides the content it covers, and should start doing so first.
   if (destinationSection) {
     win.webContents.send("pimi:workspace:section", destinationSection);
   } else {
     sendSection();
   }
+  win.contentView.addChildView(surface.view);
+  surface.view.webContents.send("pimi:voice:state", voiceBubbleStates.get(win) ?? VOICE_OFF);
   win.webContents.on("did-finish-load", sendSection);
   surface.view.webContents.ipc.on("pimi:workspace:click", notifyWorkspaceClick);
   const resize = () => {
@@ -417,10 +438,6 @@ export function initializePimiWorkspace(runtimeDir: string): Promise<PimiRuntime
 
 async function createWorkspaceSurface(options: PimiWindowOptions): Promise<WorkspaceSurface> {
   const runtime = await initializePimiWorkspace(options.runtimeDir);
-  const appearance = getPimiAppearance();
-  const systemMode = nativeTheme.shouldUseDarkColors ? "dark" : "light";
-  const mode = appearance === "system" ? systemMode : appearance;
-  const backgroundColor = PIMI_APPEARANCE_BACKGROUNDS[mode];
   const view = new WebContentsView({
     webPreferences: {
       preload: options.workspacePreload,
@@ -431,7 +448,7 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
       sandbox: true,
     },
   });
-  view.setBackgroundColor(backgroundColor);
+  view.setBackgroundColor(workspaceViewBackground(getPimiAppearance()));
   const surface: WorkspaceSurface = {
     view,
     options,

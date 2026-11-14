@@ -150,7 +150,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   desktopPane: {
     paddingHorizontal: theme.spacing[2],
-    backgroundColor: theme.colors.surfaceSidebar,
+    backgroundColor: theme.colors.surfaceChrome,
   },
   desktopPaneRow: { height: WORKSPACE_SECONDARY_HEADER_HEIGHT },
   row: {

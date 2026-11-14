@@ -346,7 +346,9 @@ body {
   color: var(--text);
 }
 
-:root:is(
+/* Inside the desktop window, backdrop themes show the window's own sky (or live Tide canvas)
+   through this view, so the page itself is clear. Opened on its own it keeps the flat colour. */
+:root[data-workspace-chrome]:is(
     [data-appearance="sky-day"],
     [data-appearance="sky-dawn"],
     [data-appearance="sky-dusk"],
@@ -354,14 +356,7 @@ body {
     [data-appearance="tide"]
   )
   body {
-  background-image: var(--pimi-material), var(--pimi-ink);
-  background-position:
-    top left,
-    right top,
-    right top;
-  background-size: auto, cover, cover;
-  background-repeat: repeat, no-repeat, no-repeat;
-  background-attachment: scroll, fixed, fixed;
+  background: transparent;
 }
 
 :root:is([data-appearance="sakura"], [data-appearance="cel-night"]) body {

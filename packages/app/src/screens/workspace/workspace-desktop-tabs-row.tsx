@@ -1682,14 +1682,14 @@ const styles = StyleSheet.create((theme) => ({
     minWidth: 0,
     height: WORKSPACE_SECONDARY_HEADER_HEIGHT,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    backgroundColor: theme.colors.surface0,
+    borderBottomColor: theme.colors.borderWindow,
+    backgroundColor: theme.colors.surfaceWindow,
     flexDirection: "row",
     alignItems: "center",
     overflow: "visible",
   },
   tabsContainerSidebar: {
-    backgroundColor: theme.colors.surfaceSidebar,
+    backgroundColor: theme.colors.surfaceChrome,
   },
   tabsContainerIntegrated: { borderBottomColor: "transparent" },
   tabsScroll: {

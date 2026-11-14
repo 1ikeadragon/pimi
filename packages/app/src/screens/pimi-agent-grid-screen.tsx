@@ -260,7 +260,7 @@ const AgentTile = memo(function AgentTile({ agent }: { agent: AggregatedAgent })
 });
 
 const styles = StyleSheet.create((theme) => ({
-  screen: { flex: 1, minHeight: 0, backgroundColor: theme.colors.surface0 },
+  screen: { flex: 1, minHeight: 0, backgroundColor: theme.colors.surfaceWindow },
   controls: {
     paddingHorizontal: theme.spacing[4],
     paddingVertical: theme.spacing[2],

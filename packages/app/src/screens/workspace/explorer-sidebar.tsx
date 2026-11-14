@@ -185,14 +185,14 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     minWidth: 0,
     minHeight: 0,
-    backgroundColor: theme.colors.surfaceSidebar,
+    backgroundColor: theme.colors.surfaceChrome,
   },
   tabRail: {
     position: "relative",
     flexDirection: "row",
     alignItems: "center",
     flexShrink: 0,
-    backgroundColor: theme.colors.surfaceSidebar,
+    backgroundColor: theme.colors.surfaceChrome,
   },
   tabRow: {
     flex: 1,
@@ -207,11 +207,11 @@ const styles = StyleSheet.create((theme) => ({
     bottom: 0,
     left: 0,
     height: theme.borderWidth[1],
-    backgroundColor: theme.colors.border,
+    backgroundColor: theme.colors.borderWindow,
   },
   content: {
     flex: 1,
     minHeight: 0,
-    backgroundColor: theme.colors.surfaceSidebar,
+    backgroundColor: theme.colors.surfaceChrome,
   },
 }));

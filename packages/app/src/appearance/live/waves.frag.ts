@@ -1,5 +1,6 @@
-// Original procedural shader (no third-party art). Six-plus layers of drifting swell lit from a
-// moon at upper right. The final block is the legibility guard: no pixel exceeds the theme limit.
+// Original procedural shader (no third-party art). Layers of slow swell lit from a moon at upper
+// right. Every edge is a soft ramp and every motion is a continuous function of time, so the water
+// reads as one fluid surface. The final block is the legibility guard: no pixel exceeds the limit.
 export const WAVES_FRAGMENT = `precision highp float;
 
 uniform vec2 u_resolution; // drawing-buffer pixels of the whole viewport
@@ -42,20 +43,21 @@ vec3 toSrgb(vec3 c) {
 float surface(float x, float i, float t, out float amp) {
   float depth = i / float(LAYERS - 1);          // 0 far .. 1 near
   float d = pow(depth, 1.35);
-  float base = mix(0.47, 0.035, d);             // perspective: far layers pile up near the horizon
-  amp = mix(0.010, 0.080, d);
-  float freq = mix(4.4, 1.15, d);
-  float speed = mix(0.018, 0.060, depth);
+  float base = mix(0.50, 0.045, d);             // perspective: far layers pile up near the horizon
+  amp = mix(0.010, 0.085, d);
+  float freq = mix(4.2, 1.05, d);
+  float speed = mix(0.022, 0.080, depth);
   float phase = i * 2.39996;
   float drift = t * speed;
   float a1 = (x + drift) * freq + phase;
   float a2 = (x - drift * 0.6) * freq * 2.13 + phase * 1.7;
   float a3 = (x + drift * 1.4) * freq * 3.71 + phase * 0.6;
-  float env = 0.72 + 0.28 * sin(x * 0.9 + phase * 2.0 + t * 0.03);
-  float h = env * sin(a1 + 0.55 * sin(a1 * 0.5 + t * 0.05))
-          + 0.42 * sin(a2)
-          + 0.18 * sin(a3);
-  float bob = mix(0.003, 0.009, depth) * sin(t * 0.21 + phase);   // the layer floats, period ~30 s
+  // The swell breathes: each layer's height and shape change slowly, so it never just slides past.
+  float env = 0.70 + 0.30 * sin(x * 0.9 + phase * 2.0 + t * 0.11);
+  float h = env * sin(a1 + 0.55 * sin(a1 * 0.5 + t * 0.13))
+          + 0.42 * sin(a2 + 0.30 * sin(t * 0.17 + phase))
+          + 0.16 * sin(a3);
+  float bob = mix(0.004, 0.013, depth) * sin(t * 0.33 + phase);   // the layer floats, period ~19 s
   return base + bob + amp * h;
 }
 
@@ -97,7 +99,9 @@ void main() {
     float lit = smoothstep(-0.8, 0.8, -sl);              // faces the lamp (right)
 
     float below = h - p.y;                               // > 0 inside the wave
-    float inside = smoothstep(-px, px, below);
+    // Crest edge: a ramp a few pixels wide, wider for far layers (haze), never a hard step.
+    float soft = px * 1.5 + mix(0.0045, 0.0012, depth);
+    float inside = smoothstep(-soft, soft, below);
     float bodyDepth = max(below, 0.0);
     float above = max(-below, 0.0);
 
@@ -142,7 +146,7 @@ void main() {
   }
 
   // Left side stays quieter: that is where the sidebar and the text column sit.
-  col *= mix(0.62, 1.0, smoothstep(0.0, aspect * 0.75, p.x));
+  col *= mix(0.78, 1.0, smoothstep(0.0, aspect * 0.75, p.x));
   // Gentle vignette.
   vec2 v = p / vec2(aspect, 1.0) - 0.5;
   col *= 1.0 - 0.35 * dot(v, v);

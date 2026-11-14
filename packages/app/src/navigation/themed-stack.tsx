@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import {
   isValidElement,
   type ComponentProps,
@@ -9,11 +9,19 @@ import {
 } from "react";
 import { withUnistyles } from "react-native-unistyles";
 import { AppearanceStyleBoundary } from "@/components/appearance-style-boundary";
+import { isWeb } from "@/constants/platform";
 
 type NativeStackNavigationOptions = Exclude<
   NonNullable<ComponentProps<typeof Stack>["screenOptions"]>,
   (...args: never[]) => unknown
 >;
+
+// On web the stack paints its own background under every screen. `contentStyle` covers it, so it is
+// never seen; clearing it lets a backdrop theme's sky show through a clear `surfaceWindow`.
+const CLEAR_STACK_THEME = {
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, background: "transparent" },
+};
 
 interface ThemedStackBaseProps {
   backgroundColor: string;
@@ -60,13 +68,14 @@ function ThemedStackBase({
     [nestedNavigatorScreens, screenOwnedAppearance],
   );
 
-  return (
+  const stack = (
     <Stack screenOptions={themedScreenOptions} screenLayout={screenLayout}>
       {children}
     </Stack>
   );
+  return isWeb ? <ThemeProvider value={CLEAR_STACK_THEME}>{stack}</ThemeProvider> : stack;
 }
 
 export const ThemedStack = withUnistyles(ThemedStackBase, (theme) => ({
-  backgroundColor: theme.colors.surface0,
+  backgroundColor: theme.colors.surfaceWindow,
 }));

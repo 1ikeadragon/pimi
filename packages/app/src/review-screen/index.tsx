@@ -1,4 +1,3 @@
-import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 // Pimi. PolyForm-Noncommercial-1.0.0.
 // Review screen shell, modelled on the website's Review mockup: a top bar, a left rail of change
 // requests, and a detail pane with Overview (stacked cards, a separate Checks card) and Changes
@@ -73,7 +72,6 @@ export function ReviewScreen({
 
   return (
     <View style={styles.screen} dataSet={PIMI_BACKGROUND} testID="pimi-review">
-      <LiveBackdrop />
       <MenuHeader title={t("reviewScreen.title")} />
       <ReviewHeader mode={current.mode} navigation={navigation} onModeChange={onModeChange} />
       <ReviewBody
@@ -244,9 +242,9 @@ const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted })
 const INSPECTOR_MIN_CHANGES_WIDTH = 960;
 
 const styles = StyleSheet.create((theme) => ({
-  screen: { flex: 1, minWidth: 0, backgroundColor: theme.colors.surface0 },
+  screen: { flex: 1, minWidth: 0, backgroundColor: theme.colors.surfaceWindow },
   body: { flex: 1, minHeight: 0, flexDirection: "row" },
-  rail: { width: 300, borderRightWidth: 1, borderRightColor: theme.colors.border },
+  rail: { width: 300, borderRightWidth: 1, borderRightColor: theme.colors.borderWindow },
   railCompact: { flex: 1 },
   detail: { flex: 1, minWidth: 0 },
   changes: { flex: 1, minHeight: 0, flexDirection: "row" },
@@ -256,9 +254,9 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     paddingTop: theme.spacing[3],
     borderLeftWidth: 1,
-    borderLeftColor: theme.colors.border,
+    borderLeftColor: theme.colors.borderWindow,
   },
-  inspector: { width: 340, borderLeftWidth: 1, borderLeftColor: theme.colors.border },
+  inspector: { width: 340, borderLeftWidth: 1, borderLeftColor: theme.colors.borderWindow },
   nothing: {
     flex: 1,
     minWidth: 0,

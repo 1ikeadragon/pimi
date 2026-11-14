@@ -22,12 +22,12 @@ export const LIVE_BACKDROPS: Record<string, LiveBackdrop> = {
     scheme: "dark",
     limit: 0.033,
     colors: {
-      skyTop: "#01030a",
-      skyLow: "#04243a",
-      glow: "#0fa0d8",
-      far: "#06405a",
-      near: "#010812",
-      crest: "#29c4ff",
+      skyTop: "#01040a",
+      skyLow: "#042a3c",
+      glow: "#10acd0",
+      far: "#07475c",
+      near: "#010a12",
+      crest: "#2fd0f4",
     },
   },
 };

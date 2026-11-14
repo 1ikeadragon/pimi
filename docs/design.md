@@ -96,6 +96,8 @@ A list that is itself the page content — sidebar items in `sidebar-workspace-l
 
 Pane chrome — the workspace pane header, the file-explorer header, the diff pane header — uses a single bottom border to separate the header from the content (`packages/app/src/components/git-diff-pane.tsx:2328-2331`). One border, no shadow.
 
+Window structure has its own tokens. A screen root, pane, or header that fills a region of the window uses `surfaceWindow`; the sidebar, titlebar and docked side panels use `surfaceChrome`; a divider between two regions uses `borderWindow`. They equal `surface0`, `surfaceSidebar` and `border` in most themes. Themes with a window backdrop (Day, Dusk, Night, Dawn, Tide) make the two surfaces clear and the divider a hairline, so one backdrop shows through the whole window (`packages/app/src/styles/theme.ts`, `overWindowBackdrop`). A region painted with `surface0` shows as an opaque band on those themes. Anything that floats over content (popover, sheet, overlay panel, card) keeps a solid surface.
+
 `borderAccent` is reserved for the outline button. Inputs use `border`. Single-thing borders are wrong; a single bordered element is either a card with one row (use the card) or it does not need a border.
 
 ---

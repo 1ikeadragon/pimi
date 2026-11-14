@@ -1154,7 +1154,7 @@ const styles = StyleSheet.create((theme) => ({
     gap: 2,
     paddingBottom: theme.spacing[1.5],
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.borderWindow,
   },
   sidebarHeaderGroupBelowChrome: {
     paddingTop: 0,
@@ -1196,7 +1196,7 @@ const styles = StyleSheet.create((theme) => ({
     position: "relative",
   },
   pimiMacChrome: {
-    backgroundColor: theme.colors.surfaceSidebar,
+    backgroundColor: theme.colors.surfaceChrome,
   },
   desktopChromeRow: {
     position: "relative",
@@ -1227,7 +1227,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   footerContainer: {
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
+    borderTopColor: theme.colors.borderWindow,
   },
   // Buttons sit edge to edge; their own inset spaces the glyphs.
   // As tall as its buttons from the first frame, which places none until the row has measured.

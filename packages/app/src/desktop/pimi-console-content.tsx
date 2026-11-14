@@ -1,4 +1,3 @@
-import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 // Pimi. PolyForm-Noncommercial-1.0.0.
 import {
   useCallback,
@@ -163,7 +162,6 @@ function PimiTitlebar({
       testID="pimi-titlebar-history"
       dataSet={PIMI_GLASS}
     >
-      <LiveBackdrop />
       <TitlebarDragRegion />
       <PimiNavigationHistory pathname={pathname} section={section} />
       {projects ? (
@@ -304,7 +302,7 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     paddingRight: theme.spacing[3],
     gap: theme.spacing[2],
-    backgroundColor: theme.colors.surfaceSidebar,
+    backgroundColor: theme.colors.surfaceChrome,
   },
   titlebar: {
     position: "absolute",
@@ -312,7 +310,7 @@ const styles = StyleSheet.create((theme) => ({
     left: 0,
     right: 0,
     height: HEADER_INNER_HEIGHT,
-    backgroundColor: theme.colors.surfaceSidebar,
+    backgroundColor: theme.colors.surfaceChrome,
     zIndex: 2,
   },
 }));

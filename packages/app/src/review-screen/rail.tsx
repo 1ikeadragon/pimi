@@ -456,7 +456,7 @@ function WorktreeRow({
 }
 
 const styles = StyleSheet.create((theme) => ({
-  rail: { flex: 1, minHeight: 0, backgroundColor: theme.colors.surfaceSidebar },
+  rail: { flex: 1, minHeight: 0, backgroundColor: theme.colors.surfaceChrome },
   titleRow: {
     minHeight: 48,
     flexDirection: "row",

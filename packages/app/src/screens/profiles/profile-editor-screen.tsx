@@ -309,7 +309,7 @@ function ProfileEditorForm({
 const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: theme.colors.surfaceWindow,
   },
   scroll: {
     flex: 1,
