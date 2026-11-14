@@ -2,6 +2,14 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.46 - 2026-11-14
+
+- Usage: Codex totals are now complete (Pimi skipped compressed Codex logs and counted forked or compacted sessions twice). Costs use official list prices including cache writes, tiers and fast mode, and the screen drops the "~" signs and estimate notes.
+- Usage: Over time is a smooth line chart, and the details sit in a steady 2x2 grid. Line charts in chats are smooth too.
+- Importing a big Claude chat is about 7x faster: Pimi loads the newest messages first and pages back on demand.
+- Imported Codex chats keep their Codex name instead of a title from the latest message.
+- Pairing a phone now offers Pimi Relay by name, and the README explains using Pimi from your phone.
+
 ## 0.17.45 - 2026-11-14
 
 - Far fewer tokens: chat titles, branch names, task descriptions and commit/PR text now use a bare, low-effort model call instead of a full agent session (about 30k tokens down to under 1k per new chat on Claude).
