@@ -386,13 +386,19 @@ jobs:
             test -s Pimi-Windows-x64.exe
             assets+=(Pimi-Windows-x64.exe)
           fi
-          # Published releases are immutable, so the signed APK from the earlier
-          # pimi-android-vX prerelease is attached here for releases/latest links.
+          # Published releases are immutable, so the locally built APK and IPA from the
+          # earlier pimi-android-vX and pimi-ios-vX prereleases are attached here.
           if gh release download "pimi-android-v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" \
             --pattern Pimi-Android-arm64.apk 2>/dev/null && test -s Pimi-Android-arm64.apk; then
             assets+=(Pimi-Android-arm64.apk)
           else
             printf '\n### Android\n\nThe APK for this version will be uploaded separately.\n' >> "$prefix-notes/release-notes.md"
+          fi
+          if gh release download "pimi-ios-v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" \
+            --pattern Pimi-iOS-arm64.ipa 2>/dev/null && test -s Pimi-iOS-arm64.ipa; then
+            assets+=(Pimi-iOS-arm64.ipa)
+          else
+            printf '\n### iOS\n\nThe IPA for this version will be uploaded separately.\n' >> "$prefix-notes/release-notes.md"
           fi
           if [[ "$MAC_AD_HOC" == true ]]; then
             printf '\n### macOS signing\n\nThe Apple silicon disk image is ad hoc signed and is not notarized. macOS may require approval when opening the new version.\n' >> "$prefix-notes/release-notes.md"
