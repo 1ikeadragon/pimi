@@ -10,19 +10,9 @@ protocols:
       - pimi
 afterPack: ./scripts/after-pack.js
 afterSign: ./scripts/after-sign.js
-# Keep the Electron locales for the app's UI languages (packages/app/src/i18n/locales.ts).
-# Matching ignores case and treats "_" like "-", so "en" also keeps en_GB and the
-# *_FEMININE/*_MASCULINE/*_NEUTER variants, and "pt-BR" keeps pt_BR but not pt_PT.
+# English only: ship just the en Electron locale (also keeps en_GB and the en_* variants).
 electronLanguages:
   - en
-  - ar
-  - es
-  - fr
-  - ja
-  - ko
-  - pt-BR
-  - ru
-  - zh-CN
 directories:
   output: release
 files:
