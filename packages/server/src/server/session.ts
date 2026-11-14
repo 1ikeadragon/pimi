@@ -8764,7 +8764,7 @@ export class Session {
       const stored = await this.agentStorage.get(agentId);
       if (stored?.workspaceId) {
         const chat = await this.workspaceRegistry.get(stored.workspaceId);
-        if (!chat || chat.archivedAt) {
+        if (chat?.archivedAt) {
           this.emit({
             type: "send_agent_message_response",
             payload: {

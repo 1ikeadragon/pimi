@@ -91,7 +91,7 @@ The old provider's native session is left as it was. It is not archived there an
 again as a separate chat.
 
 Idle resumable runtimes are collected after 15 minutes without activity, checked once a minute. A
-runtime that has not been seen for 5 minutes is never collected, so opening an old chat does not
+runtime seen within the last 5 minutes is never collected, so opening an old chat does not
 release it under the user. A Claude process that never ran a turn owns no background work and is
 collected the same way. Collection releases the process and preserves the agent record, conversation, relationships, and
 provider session. The next prompt resumes that session. Set `agents.idleRuntimeCleanup: false` in

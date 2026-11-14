@@ -4598,6 +4598,7 @@ export class AgentManager {
       );
       this.runs.settleForegroundRun(agentId, run.token);
       if (!agent.pendingReplacement) {
+        this.markTurnInterrupted(agent);
         agent.lifecycle = "idle";
         this.touchUpdatedAt(agent);
         this.emitState(agent);
@@ -5408,10 +5409,10 @@ export class AgentManager {
     agent: LiveManagedAgent,
     cancelReason: string,
   ): ManagedAgentClosed {
+    this.agentStreamCoalescer.flushAndDiscard(agent.id);
     if (agent.lifecycle === "running" || this.hasInFlightRun(agent.id)) {
       this.markTurnInterrupted(agent);
     }
-    this.agentStreamCoalescer.flushAndDiscard(agent.id);
     this.agents.delete(agent.id);
     this.previousStatuses.delete(agent.id);
     if (agent.unsubscribeSession) {
@@ -6864,10 +6865,9 @@ export class AgentManager {
       return false;
     }
     const workspaceId = agent.workspaceId;
-    const hasSibling = this.listAgents().some(
-      (other) => other.id !== agent.id && other.workspaceId === workspaceId,
-    );
-    if (hasSibling) return false;
+    // Registry records, not live agents: a released or restarted sibling is still a sibling.
+    const siblings = await this.registry?.listByWorkspace(workspaceId);
+    if (siblings?.some((other) => other.id !== agent.id && !other.archivedAt)) return false;
     const recordTitle = await this.resolveChatRecordTitle(workspaceId);
     if (!recordTitle || !this.registry) return false;
     const updated = await this.runLifecycleMutation(agent.id, () =>
