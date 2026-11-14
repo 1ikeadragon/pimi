@@ -1,3 +1,4 @@
+import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 // Pimi. PolyForm-Noncommercial-1.0.0.
 import {
   useCallback,
@@ -162,6 +163,7 @@ function PimiTitlebar({
       testID="pimi-titlebar-history"
       dataSet={PIMI_GLASS}
     >
+      <LiveBackdrop />
       <TitlebarDragRegion />
       <PimiNavigationHistory pathname={pathname} section={section} />
       {projects ? (

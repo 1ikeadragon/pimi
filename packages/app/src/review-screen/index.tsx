@@ -1,3 +1,4 @@
+import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 // Pimi. PolyForm-Noncommercial-1.0.0.
 // Review screen shell, modelled on the website's Review mockup: a top bar, a left rail of change
 // requests, and a detail pane with Overview (stacked cards, a separate Checks card) and Changes
@@ -72,6 +73,7 @@ export function ReviewScreen({
 
   return (
     <View style={styles.screen} dataSet={PIMI_BACKGROUND} testID="pimi-review">
+      <LiveBackdrop />
       <MenuHeader title={t("reviewScreen.title")} />
       <ReviewHeader mode={current.mode} navigation={navigation} onModeChange={onModeChange} />
       <ReviewBody

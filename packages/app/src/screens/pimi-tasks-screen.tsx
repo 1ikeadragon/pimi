@@ -1,3 +1,4 @@
+import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 import { useIsFocused } from "expo-router/react-navigation";
 import { ListChecks, Plus } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
@@ -51,6 +52,7 @@ export function PimiTasksScreen(props: PimiTasksScreenProps): ReactElement {
   const isFocused = useIsFocused();
   return (
     <View style={styles.container} testID="pimi-tasks-screen">
+      <LiveBackdrop />
       <MenuHeader title={t("tasks.title")} inPimiTitlebar />
       <TasksContent {...props} sheetsAllowed={isFocused} />
     </View>

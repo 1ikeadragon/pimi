@@ -1,3 +1,4 @@
+import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 import { useHosts, useHostRuntimeLastError } from "@/runtime/host-runtime";
 import { UsageIcon } from "@/usage/icon";
 import { useCallback, useEffect, useState, type ComponentType } from "react";
@@ -80,6 +81,7 @@ export function OpenProjectScreen() {
 
   return (
     <View style={styles.container} dataSet={pimi ? PIMI_BACKGROUND : undefined}>
+      {pimi ? <LiveBackdrop /> : null}
       <MenuHeader borderless />
       <ScrollView
         style={styles.scroll}

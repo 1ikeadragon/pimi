@@ -1,3 +1,4 @@
+import { LiveBackdrop } from "@/appearance/live/live-backdrop";
 // Pimi. PolyForm-Noncommercial-1.0.0.
 import { useIsFocused } from "expo-router/react-navigation";
 import { useLocalSearchParams } from "expo-router";
@@ -73,6 +74,7 @@ export function PimiUsageScreen() {
   if (!focused || covered) return <View style={styles.screen} />;
   return (
     <View style={styles.screen} dataSet={PIMI_BACKGROUND} testID="pimi-usage">
+      <LiveBackdrop />
       <MenuHeader title={t("usageOverview.title")} rightContent={close} inPimiTitlebar />
       <View style={styles.toolbar}>
         <SegmentedControl options={visibleTabs} value={tab} onValueChange={setTab} />
