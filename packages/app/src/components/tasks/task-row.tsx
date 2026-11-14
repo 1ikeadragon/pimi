@@ -5,6 +5,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { TaskDescription } from "@/components/tasks/task-description";
 import { TaskLabelChips } from "@/components/tasks/task-label-chips";
 import { TaskChatChip } from "@/components/tasks/task-chat-chip";
+import { TaskPullRequests } from "@/components/tasks/task-pull-requests";
 import { TaskKebabMenu, type TaskMenuActions } from "@/components/tasks/task-menu";
 import { TaskStatusMark } from "@/components/tasks/task-status-mark";
 import { useIsCompactFormFactor } from "@/constants/layout";
@@ -97,6 +98,7 @@ export const TaskRow = memo(function TaskRow({
                 {task.serverName}
               </Text>
             ) : null}
+            <TaskPullRequests task={task} />
             {chats.map((chat) => (
               <TaskChatChip
                 key={`${chat.serverId}:${chat.agentId}`}

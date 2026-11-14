@@ -4,6 +4,7 @@ import { PressHighlight } from "@/components/ui/press-highlight";
 import { StyleSheet } from "react-native-unistyles";
 import type { TaskStatus } from "@pimi/protocol/task/types";
 import { TaskChatChip } from "@/components/tasks/task-chat-chip";
+import { TaskPullRequests } from "@/components/tasks/task-pull-requests";
 import { resolveTaskChats } from "@/components/tasks/task-item";
 import { TaskKebabMenu } from "@/components/tasks/task-menu";
 import { TaskStatusMark } from "@/components/tasks/task-status-mark";
@@ -209,6 +210,7 @@ export const TaskBoardCard = memo(function TaskBoardCard({
             {task.serverName}
           </Text>
         ) : null}
+        <TaskPullRequests task={task} />
         {chats.map((chat) => (
           <TaskChatChip key={`${chat.serverId}:${chat.agentId}`} chat={chat} />
         ))}

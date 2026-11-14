@@ -1649,6 +1649,20 @@ export const en = {
       chat: "Open chat {{title}}",
       describing: "Writing a description",
     },
+    pr: {
+      title: "Pull requests",
+      generic: "Pull request",
+      open: "Open {{name}} ({{state}})",
+      many_one: "{{count}} pull request",
+      many_other: "{{count}} pull requests",
+      state: {
+        open: "open",
+        draft: "draft",
+        merged: "merged",
+        closed: "closed",
+        unknown: "state unknown",
+      },
+    },
     menu: {
       edit: "Edit task",
       markTodo: "Move to To do",

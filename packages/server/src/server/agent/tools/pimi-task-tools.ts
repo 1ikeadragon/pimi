@@ -45,6 +45,16 @@ const CreateInput = z.strictObject({
     "Leave out to have Pimi write one from this chat.",
   ),
   status: TaskStatusSchema.optional(),
+  pullRequestUrl: z
+    .string()
+    .trim()
+    .url()
+    .max(500)
+    .nullable()
+    .optional()
+    .describe(
+      "URL of the pull request that delivers this task; null clears it. Pimi already shows the PR of a linked chat's branch, so set this only for a PR from elsewhere.",
+    ),
   labels: labelNames.optional().describe("Existing label names from list_pimi_labels."),
   agentIds: agentIds.optional().describe("Other chats to link to the task."),
 });
@@ -149,6 +159,7 @@ export function registerPimiTaskTools(options: {
     status: task.status,
     labels: labelNamesFor(task),
     links: task.links.map(describeLink),
+    pullRequests: task.pullRequests,
     createdBy: task.createdBy,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
