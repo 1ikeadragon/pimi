@@ -644,6 +644,7 @@ export function runPluginClientBundle(
     }
     return hostModules[name as PluginClientHostModule]();
   };
+  // The desktop console's CSP keeps 'unsafe-eval' for this call (packages/desktop/src/window/console-csp.ts).
   const evaluate: (source: string) => unknown = globalThis.eval;
   const factory = evaluate(bundle);
   if (typeof factory !== "function")

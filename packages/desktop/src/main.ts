@@ -89,6 +89,7 @@ import {
   ensureNotificationCenterRegistration,
 } from "./features/notifications.js";
 import { createExternalUrlOpener } from "./features/opener.js";
+import { CONSOLE_CSP } from "./window/console-csp.js";
 import {
   SEALED_FRAME_HOST,
   putSealedFrame,
@@ -181,8 +182,28 @@ function isConsoleUrl(value: string): boolean {
   );
 }
 
+// Only HTML carries the policy. Other responses pass through untouched so the video backdrop
+// keeps its unmodified streaming response.
+function withConsolePolicy(response: Response): Response {
+  if (!response.headers.get("content-type")?.startsWith("text/html")) return response;
+  const headers = new Headers(response.headers);
+  headers.set("content-security-policy", CONSOLE_CSP);
+  return new Response(response.body, { status: response.status, headers });
+}
+
 function setupPimiSessionPermissions(): void {
   const consoleSession = session.defaultSession;
+  if (!app.isPackaged) {
+    // Dev serves the console from Metro, so the policy is added to its page here. Without it a
+    // policy break would only show up in a packaged build.
+    consoleSession.webRequest.onHeadersReceived(
+      { urls: [`${new URL(DEV_SERVER_URL).origin}/*`], types: ["mainFrame"] },
+      (details, reply) =>
+        reply({
+          responseHeaders: { ...details.responseHeaders, "Content-Security-Policy": [CONSOLE_CSP] },
+        }),
+    );
+  }
   consoleSession.setPermissionCheckHandler((contents, permission, origin, details) => {
     if (
       !details.isMainFrame ||
@@ -1289,14 +1310,14 @@ async function bootstrap(loginShellEnvReady: Promise<void>): Promise<void> {
   setupPimiSessionPermissions();
 
   const appDistDir = getAppDistDir();
-  protocol.handle(APP_SCHEME, (request) => {
+  protocol.handle(APP_SCHEME, async (request) => {
     const { host, username, password, pathname, search, hash } = new URL(request.url);
     if (host === SEALED_FRAME_HOST && !username && !password) return sealedFrameResponse(request);
     if (host !== "app" || username || password) return new Response("Not found", { status: 404 });
     const decodedPath = decodeURIComponent(pathname);
     if (decodedPath === STORAGE_MIGRATION_PATH) {
       return new Response("<!doctype html><title></title>", {
-        headers: { "content-type": "text/html" },
+        headers: { "content-type": "text/html", "content-security-policy": CONSOLE_CSP },
       });
     }
 
@@ -1316,10 +1337,12 @@ async function bootstrap(loginShellEnvReady: Promise<void>): Promise<void> {
 
     // SPA fallback: serve index.html for routes without a file extension
     if (!relativePath || !path.extname(relativePath)) {
-      return net.fetch(pathToFileURL(path.join(appDistDir, "index.html")).toString());
+      return withConsolePolicy(
+        await net.fetch(pathToFileURL(path.join(appDistDir, "index.html")).toString()),
+      );
     }
 
-    return net.fetch(pathToFileURL(filePath).toString());
+    return withConsolePolicy(await net.fetch(pathToFileURL(filePath).toString()));
   });
 
   await migrateLegacyRendererStorage(APP_SCHEME);
