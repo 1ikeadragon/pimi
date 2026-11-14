@@ -33,6 +33,31 @@ const CodexThreadMetadataSchema = z
   })
   .passthrough();
 
+const CodexThreadTitleSchema = z
+  .object({
+    thread: z
+      .object({
+        name: z.string().nullish(),
+        preview: z.string().nullish(),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+/**
+ * The name Codex gave a thread, or its first-prompt preview when it has none. A windowed import
+ * replays only the newest turns, so neither can be recovered from the replayed timeline.
+ */
+export async function readCodexThreadTitleHint(
+  client: CodexThreadHistoryClient,
+  threadId: string,
+): Promise<{ name: string | null; preview: string | null }> {
+  const { thread } = CodexThreadTitleSchema.parse(
+    await client.request("thread/read", { threadId, includeTurns: false }),
+  );
+  return { name: thread.name?.trim() || null, preview: thread.preview?.trim() || null };
+}
+
 const CodexLegacyThreadReadSchema = z
   .object({
     thread: z
