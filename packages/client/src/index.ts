@@ -575,11 +575,6 @@ export interface PimiApi {
   observeEvents: DaemonClient["observeEvents"];
   readonly terminals: PimiTerminalActions;
   readonly workspaces: PimiWorkspaceActions;
-  readonly workspaceLabels: {
-    list: DaemonClient["listWorkspaceLabels"];
-    observe: DaemonClient["observeWorkspaceLabels"];
-    set: DaemonClient["setWorkspaceLabel"];
-  };
   readonly projects: PimiProjectActions;
   readonly agents: PimiAgentActions;
   readonly providers: PimiProviderActions;
@@ -807,17 +802,6 @@ export function createPimiApi(
 
   return {
     dispose,
-    workspaceLabels: {
-      list: (options) => {
-        return daemonClient.listWorkspaceLabels(options);
-      },
-      observe: (options) => {
-        return own(() => daemonClient.observeWorkspaceLabels(options));
-      },
-      set: (options) => {
-        return daemonClient.setWorkspaceLabel(options);
-      },
-    },
     hosts: createHostActions(daemonClient, { own, signal: lifetime.signal, api: createPimiApi }),
     files: {
       list: (cwd, path, requestId) => daemonClient.listDirectory(cwd, path, requestId),

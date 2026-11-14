@@ -24,7 +24,6 @@ The relay pairing offer and the local-network access code do not create an ident
 These checks are not permissions. They follow from how the session was admitted, so keep them when you change admission.
 
 - A routed session, one admitted through a connected-host channel, cannot open another host link or route. Connected hosts are one hop. See [Connected hosts](connected-hosts.md#ownership-and-authority).
-- Pimi Tasks on mobile answers only on a socket that proved the password over a protected relay or local-network connection, and only while the session is not routed. A local credential, a passwordless daemon, or a legacy relay session does not authenticate a remote person.
 - Plugin sockets own the `plugin:` client ID namespace. Other sockets cannot claim it, and plugin sessions do not resume.
 - Resuming a session closes its connected-host links and routes, because the new hello can change its producer or routed state.
 

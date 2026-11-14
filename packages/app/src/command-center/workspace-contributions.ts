@@ -9,8 +9,9 @@ import type { ShortcutKey } from "@/utils/format-shortcut";
 import type { CommandCenterContribution, CommandCenterIcon } from "./contributions";
 
 export interface WorkspaceCommandCenterLabelChoice {
+  id: string;
   name: string;
-  /** Whether the current workspace already carries this label. */
+  /** Whether the workspace's primary chat already carries this label. */
   assigned: boolean;
   icon?: CommandCenterIcon;
 }
@@ -132,7 +133,7 @@ export interface WorkspaceCommandCenterSource {
   runGitAction(action: GitAction): void;
   copyPath(): void;
   copyBranchName(): void;
-  toggleLabel(name: string, assigned: boolean): void | Promise<void>;
+  toggleLabel(labelId: string, assigned: boolean): void | Promise<void>;
 }
 
 function buildGitContribution(
@@ -713,13 +714,13 @@ function buildLabelContributions(
 ): CommandCenterContribution[] {
   if (!source.labelCatalog) return [];
   return source.labelCatalog.map((choice, index) => ({
-    id: `workspace:label:${choice.name}`,
+    id: `workspace:label:${choice.id}`,
     group: "workspace",
     groupRank: -1,
     rank: 30 + index,
     keywords: ["label", "tag", choice.name],
     visibility: "query" as const,
-    run: () => source.toggleLabel(choice.name, !choice.assigned),
+    run: () => source.toggleLabel(choice.id, !choice.assigned),
     presentation: {
       kind: "choice" as const,
       path: [source.labels.labelsGroup, choice.name] as const,

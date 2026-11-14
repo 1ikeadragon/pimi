@@ -1,6 +1,5 @@
 import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
 import type { ProviderSubagentDescriptorPayload } from "@pimi/protocol/messages";
-import { PIMI_TASK_WORKER_LABEL } from "@pimi/protocol/pimi-task";
 import type { Agent } from "@/stores/session-store";
 import { chatStateBucket, isVisibleChatAgent } from "@/chats/primary-chat";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
@@ -76,8 +75,7 @@ interface ChatEntry {
  *
  * A chat is listed under its own workspace only when it is a workspace root there, so a
  * same-workspace subagent never appears both as a worker and as a chat of its own; its own
- * children stay one click away in its track. A Pimi task worker in another workspace is left out
- * because the sidebar already nests that workspace under the chat's workspace.
+ * children stay one click away in its track.
  */
 export function buildSidebarLineageIndex(
   sessions: Readonly<Record<string, SessionAgents>>,
@@ -112,9 +110,6 @@ function lineageParent(
   if (!address) return null;
   const parent = sessions[address.serverId]?.agents.get(address.agentId);
   if (!parent || !isVisibleChatAgent(parent) || !parent.workspaceId) return null;
-  if (agent.labels[PIMI_TASK_WORKER_LABEL] && agent.workspaceId !== parent.workspaceId) {
-    return null;
-  }
   return parent;
 }
 

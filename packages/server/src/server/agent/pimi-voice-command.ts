@@ -169,6 +169,7 @@ export function createPimiVoiceCommandHandler(options: {
     const prompt = buildAskPimiPrompt({
       transcript: input.transcript,
       workspaceId: input.workspaceId,
+      agentId: input.agentId,
       commands,
       memory: memory.recall(),
     });

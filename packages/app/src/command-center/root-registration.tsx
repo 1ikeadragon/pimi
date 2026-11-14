@@ -10,6 +10,7 @@ import {
   Home,
   Import,
   Keyboard,
+  ListChecks,
   PanelLeft,
   Plus,
   Rocket,
@@ -37,6 +38,7 @@ import {
   buildSettingsRoute,
 } from "@/utils/host-routes";
 import { getDesktopHost } from "@/desktop/host";
+import { pushNewPimiTask, openPimiTasks } from "@/navigation/pimi-tasks";
 import { getShortcutOs } from "@/utils/shortcut-platform";
 import type { CommandCenterContribution, CommandCenterIconProps } from "./contributions";
 import { useCommandCenterActions } from "./provider";
@@ -50,6 +52,9 @@ const ThemedHistory = withUnistyles(History, (theme) => ({
   color: theme.colors.foregroundMuted,
 }));
 const ThemedRocket = withUnistyles(Rocket, (theme) => ({
+  color: theme.colors.foregroundMuted,
+}));
+const ThemedListChecks = withUnistyles(ListChecks, (theme) => ({
   color: theme.colors.foregroundMuted,
 }));
 const ThemedKeyboard = withUnistyles(Keyboard, (theme) => ({
@@ -87,6 +92,14 @@ function HistoryIcon({ size }: CommandCenterIconProps) {
 
 function AutomationsIcon({ size }: CommandCenterIconProps) {
   return <ThemedRocket size={size} strokeWidth={2.2} />;
+}
+
+function TasksIcon({ size }: CommandCenterIconProps) {
+  return <ThemedListChecks size={size} strokeWidth={2.2} />;
+}
+
+function NewTaskIcon({ size }: CommandCenterIconProps) {
+  return <ThemedPlus size={size} strokeWidth={2.4} />;
 }
 
 function KeyboardIcon({ size }: CommandCenterIconProps) {
@@ -255,6 +268,44 @@ export function CommandCenterRootActions() {
           title: t("sidebar.sections.automations"),
           sectionTitle: t("shell.commandCenter.actions"),
           icon: AutomationsIcon,
+        },
+      },
+      {
+        id: "tasks",
+        group: "actions",
+        groupRank: 0,
+        rank: 5.1,
+        keywords: t("tasks.commandCenter.keywords").split(" "),
+        visibility: "always",
+        run: () => {
+          clearCommandCenterFocusRestoreElement();
+          getDesktopHost()?.dismissPimiWorkspace?.();
+          openPimiTasks();
+        },
+        presentation: {
+          kind: "action",
+          title: t("tasks.commandCenter.open"),
+          sectionTitle: t("shell.commandCenter.actions"),
+          icon: TasksIcon,
+        },
+      },
+      {
+        id: "new-task",
+        group: "actions",
+        groupRank: 0,
+        rank: 5.2,
+        keywords: t("tasks.commandCenter.keywords").split(" "),
+        visibility: "always",
+        run: () => {
+          clearCommandCenterFocusRestoreElement();
+          getDesktopHost()?.dismissPimiWorkspace?.();
+          pushNewPimiTask();
+        },
+        presentation: {
+          kind: "action",
+          title: t("tasks.commandCenter.create"),
+          sectionTitle: t("shell.commandCenter.actions"),
+          icon: NewTaskIcon,
         },
       },
       {

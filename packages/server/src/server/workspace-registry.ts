@@ -102,7 +102,6 @@ const PersistedWorkspaceRecordSchema = z.object({
     .nullable()
     .optional()
     .transform((value) => value ?? null),
-  labels: z.array(z.string()).optional(),
   untrustedSource: UntrustedWorkspaceSourceSchema.optional(),
   // Public discovery visibility. Contents retain their ordinary lifecycle.
   background: z.boolean().optional().default(false),
@@ -623,42 +622,6 @@ export class SqlBackedWorkspaceRegistry
     await this.notifyMutation({ kind: "remove", workspaceId, workspace });
   }
 
-  async commitWorkspaceLabelMutation<TResult>(input: {
-    stage: (records: ReadonlyMap<string, PersistedWorkspaceRecord>) => {
-      updates: readonly PersistedWorkspaceRecord[];
-      result: TResult;
-      forcePersist: boolean;
-    };
-    beforeWorkspaceWrite: (records: readonly PersistedWorkspaceRecord[]) => Promise<void>;
-    afterWorkspaceWrite: () => Promise<void>;
-    afterCommit: () => void;
-    publish?: boolean;
-  }): Promise<TResult> {
-    let changed: PersistedWorkspaceRecord[] = [];
-    const committed = await this.mutateCache(
-      (records) => {
-        const staged = input.stage(records);
-        changed = staged.updates.map((record) => PersistedWorkspaceRecordSchema.parse(record));
-        for (const record of changed) records.set(record.workspaceId, record);
-        return { result: staged.result, forcePersist: staged.forcePersist };
-      },
-      {
-        forcePersist: (output) => output.forcePersist,
-        beforeWrite: input.beforeWorkspaceWrite,
-        afterWrite: input.afterWorkspaceWrite,
-        afterCommit: input.afterCommit,
-      },
-    );
-    if (input.publish !== false) {
-      await Promise.all(
-        changed.map((workspace) =>
-          this.notifyMutation({ kind: "upsert", workspaceId: workspace.workspaceId, workspace }),
-        ),
-      );
-    }
-    return committed.result;
-  }
-
   blockAllMutationsUntilRestart(): void {
     this.freezeMutationsUntilRestart();
   }
@@ -721,7 +684,6 @@ export function createPersistedWorkspaceRecord(input: {
   archivedAt?: string | null;
   autoArchivedChangeRequestUrl?: string | null;
   pinnedAt?: string | null;
-  labels?: string[];
   untrustedSource?: UntrustedWorkspaceSource;
   background?: boolean;
 }): PersistedWorkspaceRecord {

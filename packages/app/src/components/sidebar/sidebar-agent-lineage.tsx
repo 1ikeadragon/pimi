@@ -11,6 +11,8 @@ import { StyleSheet } from "react-native-unistyles";
 import equal from "fast-deep-equal";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { ModelProviderGlyph } from "@/components/model-browser";
+import { LabelDots } from "@/labels/target-chips";
+import type { LabelTarget } from "@pimi/protocol/labels";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
@@ -207,6 +209,10 @@ function SidebarSiblingChatRow({
     () => void archiveAgent({ serverId: chat.serverId, agentId: chat.agentId }),
     [archiveAgent, chat.serverId, chat.agentId],
   );
+  const siblingLabelTarget = useMemo<LabelTarget>(
+    () => ({ kind: "agent", agentId: chat.agentId }),
+    [chat.agentId],
+  );
   const title = resolveChatTitle({
     primaryTitle: chat.title,
     workspaceTitle: null,
@@ -232,6 +238,7 @@ function SidebarSiblingChatRow({
         <Text style={styles.siblingTitle} numberOfLines={1}>
           {title}
         </Text>
+        <LabelDots serverId={chat.serverId} target={siblingLabelTarget} />
       </PressHighlight>
       {showArchive ? (
         <View style={styles.siblingArchive}>
@@ -248,6 +255,13 @@ function SidebarLineageWorkerRow({ worker }: { worker: SidebarLineageWorker }) {
   const title = resolveRowLabel(worker.title) ?? t("common.states.loading");
   const status = t(SUBAGENT_STATUS_LABEL_KEYS[worker.bucket]);
   const id = worker.kind === "agent" ? worker.agentId : worker.subagentId;
+  const labelTarget = useMemo<LabelTarget>(
+    () =>
+      worker.kind === "agent"
+        ? { kind: "agent", agentId: worker.agentId }
+        : { kind: "subagent", parentAgentId: worker.parentAgentId, subagentId: worker.subagentId },
+    [worker],
+  );
   return (
     <PressHighlight
       accessibilityRole={isWeb ? undefined : "button"}
@@ -267,6 +281,7 @@ function SidebarLineageWorkerRow({ worker }: { worker: SidebarLineageWorker }) {
       <Text style={styles.workerTitle} numberOfLines={1}>
         {title}
       </Text>
+      <LabelDots serverId={worker.serverId} target={labelTarget} />
       <SubagentStatusDot
         bucket={worker.bucket}
         testID={`sidebar-agent-lineage-status-${worker.bucket}`}

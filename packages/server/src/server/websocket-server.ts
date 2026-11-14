@@ -10,7 +10,6 @@ import {
   waitForAgentRunStartWithTimeout,
 } from "./agent/agent-prompt.js";
 import { createToolHosts } from "./agent/host-operations/index.js";
-import { requestMobileTask } from "./agent/tools/pimi-task-tools.js";
 import { HOST_ROUTE_OPCODE } from "@pimi/protocol/binary-frames/index";
 import { DaemonLinkEndpoint, VirtualHostSocket } from "./connected-hosts/index.js";
 import { ConnectedHosts } from "./connected-hosts/index.js";
@@ -131,7 +130,8 @@ import type { DaemonRuntimeConfig } from "./session/daemon/daemon-session.js";
 import { DirectorySyncService } from "./directory-sync/index.js";
 import { getDaemonNetworkActivity } from "./network/activity.js";
 import { InboundSocketActivity } from "./network/inbound.js";
-import type { WorkspaceLabelService } from "./workspace-labels/index.js";
+import type { LabelService } from "./labels/service.js";
+import type { TaskService } from "./task/service.js";
 import {
   APPLICATION_SOCKET_LEASE_CHECK_INTERVAL_MS,
   ApplicationSocketLease,
@@ -567,7 +567,8 @@ export class VoiceAssistantWebSocketServer {
   private readonly projectRegistry: ProjectRegistry;
   private readonly workspaceRegistry: WorkspaceRegistry;
   private readonly workspaceBaseBranch: WorkspaceBaseBranchService;
-  private readonly workspaceLabelService: WorkspaceLabelService | null;
+  private readonly taskService: TaskService | null;
+  private readonly labelService: LabelService | null;
   private readonly automationServices: AutomationServices;
   private readonly checkoutDiffManager: CheckoutDiffManager;
   private readonly github: ForgeService;
@@ -690,7 +691,8 @@ export class VoiceAssistantWebSocketServer {
     workspaceSetupRuntime: WorkspaceSetupRuntime = new WorkspaceSetupRuntime(),
     pluginRuntime?: SessionOptions["pluginRuntime"],
     orchestrationSkills?: SessionOptions["orchestrationSkills"],
-    workspaceLabelService?: WorkspaceLabelService,
+    taskService?: TaskService,
+    labelService?: LabelService,
     private readonly finishSubscriptions?: SessionOptions["finishSubscriptions"],
     private readonly usageLedger?: SessionOptions["usageLedger"],
   ) {
@@ -747,7 +749,8 @@ export class VoiceAssistantWebSocketServer {
     );
     this.projectRegistry = projectRegistry ?? createNoopProjectRegistry();
     this.workspaceRegistry = workspaceRegistry ?? createNoopWorkspaceRegistry();
-    this.workspaceLabelService = workspaceLabelService ?? null;
+    this.taskService = taskService ?? null;
+    this.labelService = labelService ?? null;
     const requiredServices = requireWebSocketServices({
       automationServices,
       checkoutDiffManager,
@@ -1620,7 +1623,8 @@ export class VoiceAssistantWebSocketServer {
       projectRegistry: this.projectRegistry,
       workspaceRegistry: this.workspaceRegistry,
       workspaceBaseBranch: this.workspaceBaseBranch,
-      workspaceLabelService: this.workspaceLabelService ?? undefined,
+      taskService: this.taskService ?? undefined,
+      labelService: this.labelService ?? undefined,
       directorySync: this.directorySync,
       automationService: this.automationServices.automationService,
       heartbeatService: this.automationServices.heartbeatService,
@@ -2414,34 +2418,6 @@ export class VoiceAssistantWebSocketServer {
     activeConnection: SessionConnection,
     message: Extract<WSInboundMessage, { type: "session" }>,
   ): Promise<void> {
-    const request = message.message;
-    if (request.type === "pimi.tasks.request") {
-      await activeConnection.session.delivery.request(ws, request, async () => {
-        const { session } = activeConnection;
-        const authorized = this.isPimiMobileAuthorized(ws, activeConnection);
-        if (!authorized) activeConnection.connectionLogger.warn("Denied mobile Pimi Tasks request");
-        const result = authorized
-          ? await requestMobileTask(this.pimiHome, request.operation).catch(() => {
-              activeConnection.connectionLogger.warn("Could not reach the Pimi Desktop task store");
-              return {
-                status: "error" as const,
-                error: "Keep Pimi Desktop open and up to date, then retry.",
-              };
-            })
-          : {
-              status: "error" as const,
-              error:
-                "Pimi Tasks requires encrypted pairing with a host password or Wi-Fi pairing link.",
-            };
-        // Recheck in case the session resumed as routed while desktop handled the request.
-        if (authorized && !this.isPimiMobileAuthorized(ws, activeConnection)) return;
-        session.delivery.reply({
-          type: "pimi.tasks.response",
-          payload: { requestId: request.requestId, ...result },
-        });
-      });
-      return;
-    }
     const link = this.hostLink(ws, activeConnection);
     if (link.handles(message.message)) {
       await activeConnection.session.delivery.request(ws, message.message, () =>
@@ -2482,10 +2458,6 @@ export class VoiceAssistantWebSocketServer {
         "ws_slow_request",
       );
     }
-  }
-
-  private isPimiMobileAuthorized(ws: WebSocketLike, connection: SessionConnection): boolean {
-    return this.pimiProtectedPasswordSockets.has(ws) && !connection.session.isRouted();
   }
 
   private handleRawMessageError(params: {

@@ -131,8 +131,6 @@ $PIMI_HOME/
 ├── projects/
 │   ├── projects.json                    # Project registry
 │   ├── workspaces.json                  # Workspace registry
-│   ├── workspace-labels.json            # Shared host-local label catalog
-│   ├── workspace-labels.transaction.json # Recoverable catalog/assignment compound commit
 │   ├── icons/                           # Host-local custom project icon images
 │   └── memory/                          # Private notes keyed by host-local project ID
 ├── runtime/
@@ -517,35 +515,36 @@ Array of workspace records. A workspace is a specific working directory within a
 | `updatedAt`                    | `string` (ISO 8601)                                          |                                                                                                                                                                                               |
 | `archivedAt`                   | `string \| null` (ISO 8601)                                  | Soft-delete; required nullable                                                                                                                                                                |
 | `autoArchivedChangeRequestUrl` | `string \| null`                                             | Change request whose merged state triggered auto-archive. Restore replaces it with the current merged change request, when present, so repeated snapshots cannot archive the workspace again. |
-| `labels`                       | `string[]?`                                                  | Normalized display names assigned from this host's shared label catalog. Missing means unlabelled.                                                                                            |
 | `pinnedAt`                     | `string \| null` (ISO 8601)                                  | Pinned-to-top-of-sidebar timestamp; null means "not pinned"                                                                                                                                   |
 | `untrustedSource`              | `{ kind: "change_request", forge, number, headRepository }?` | Provenance captured when a cross-repository change request creates the workspace. Missing means repository automation is allowed; explicit setup removes the field.                           |
 
 > **Opaque-ID invariant:** `workspaceId` is opaque identity, never a filesystem path. Filesystem and git operations take `cwd`/`workspaceDirectory` only — never the id.
 
-### Workspace label catalog
+### Tasks and labels
 
-**Path:** `$PIMI_HOME/projects/workspace-labels.json`
+Rows of `pimi.db` `records`, by kind: `task`, `label` and `label_assignment`. Shapes:
+`packages/protocol/src/task/types.ts` and `packages/protocol/src/labels.ts`.
 
-The catalog is shared by every workspace on one host. A definition contains a display name and one
-of the ten identity colour names (`WORKSPACE_LABEL_COLORS` in
-`packages/protocol/src/workspace-labels.ts`); trimmed, collapsed, case-insensitive name identity is
-unique within that file. Definitions have no portable ID or principal owner and remain after their
-last assignment. Editing a label takes a new name, a new colour, or both in one commit, so the two
-fields cannot land half-applied. Workspaces store label names, so a rename and a delete rewrite
-workspace assignments through one serialized compound commit while a recolour is catalog-only; a
-rename onto a name the host already has is refused rather than merged. A prepared
-`workspace-labels.transaction.json` contains both before and after images. The daemon writes the
-catalog and workspace files, then atomically changes the transaction to committed; that phase
-change is the durable commit point. Recovery rolls prepared transactions back before either
-directory is served. A committed marker proves both data files were already written, so recovery
-only loads the current catalog and retries marker cleanup; it never reapplies stale workspace
-after-images over later registry mutations. A request rejected before the commit point therefore
-cannot take effect after restart. If the live daemon cannot determine or restore the durable state,
-the workspace registry freezes every write and later label mutations fail with
-`workspace_label_storage_uncertain` until daemon restart performs recovery. Reads remain available,
-but may reflect the last acknowledged cache until restart. Workspace directory and catalog updates
-publish only after the commit point; publication failure does not roll durable state back.
+- A task holds a title, a description, a status (`todo`, `in_progress`, `done`; set only by a person or
+  an agent tool call, never derived) and links to chats and provider subagents. A link's role is
+  `creator` or `linked`. `descriptionPending` is true while the daemon generates the description;
+  startup clears it for a daemon that stopped mid-generation.
+- Labels are not on the task or on the chat record. One catalog per host holds `{ id, name, color }`
+  (ten identity colours, `LABEL_COLORS`), and each target has one assignment row keyed
+  `agent:<id>`, `subagent:<parentId>:<subagentId>` or `task:<id>`. A rename or recolor writes the
+  catalog row only; the id is stable. Deleting a label, task or chat strips its assignments in the
+  same transaction. A name is unique case-insensitively after trimming and collapsing whitespace.
+- `agent` targets cover chats and managed subagents. `subagent` targets are provider subagents, which
+  have no agent record. A workspace has no labels of its own; the sidebar matches a workspace
+  through its root chats.
+- COMPAT(workspace-labels.json): the first daemon start after the upgrade imports
+  `projects/workspace-labels.json` into `label` rows and moves each workspace's label names onto
+  that workspace's oldest non-archived root chat. A workspace with no root chat loses its labels
+  (logged). The old files are renamed `.migrated`.
+- COMPAT(pimi-tasks.json): Pimi Desktop sends its old `<userData>/pimi-tasks.json` to the daemon
+  once (`task.import.request`) and renames it. Imported tasks keep a title, a description (the old
+  brief), a status, labels, the completion time of done tasks and the creating chat. Work items and report text are
+  not kept.
 
 `projectId` is still a real FK: workspace records should have a matching project record. Read-only
 history surfaces tolerate transient orphaned workspaces by omitting those rows so one bad FK cannot

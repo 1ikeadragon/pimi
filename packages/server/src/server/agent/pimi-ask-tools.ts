@@ -4,11 +4,11 @@ import {
   isExplicitVoiceChatRequest,
   PIMI_ASK_ACTION_LIMIT,
   PimiAskAction,
-  PimiTaskAgentTool,
-  PimiTaskFields,
   PimiVoiceUsageTab,
   PimiVoiceView,
 } from "@pimi/protocol/pimi-task";
+import { TaskTitleSchema } from "@pimi/protocol/task/types";
+import { PimiTaskTool } from "./tools/pimi-task-tools.js";
 import type { PimiSpaces, SpaceCard } from "../pimi-spaces.js";
 import {
   PimiToolInputError,
@@ -32,12 +32,11 @@ const HOST_TOOLS: ReadonlyArray<readonly [name: string, status: string, saves?: 
   ["list_workspaces", "Checking workspaces"],
   ["list_agents", "Checking agents"],
   ["get_agent_activity", "Reading agent activity"],
-  [PimiTaskAgentTool.list, "Checking tasks"],
-  [PimiTaskAgentTool.get, "Reading a task"],
-  [PimiTaskAgentTool.repositories, "Checking repositories"],
-  [PimiTaskAgentTool.create, "Saving a task", true],
-  [PimiTaskAgentTool.update, "Updating a task", true],
-  [PimiTaskAgentTool.linkWork, "Linking work to a task", true],
+  [PimiTaskTool.list, "Checking tasks"],
+  [PimiTaskTool.get, "Reading a task"],
+  [PimiTaskTool.labels, "Checking labels"],
+  [PimiTaskTool.create, "Saving a task", true],
+  [PimiTaskTool.update, "Updating a task", true],
 ];
 
 export interface AskPimiReference {
@@ -175,11 +174,11 @@ export function createAskPimiToolset(options: {
         const result = await catalog.executeTool(name, local);
         if (result.isError) return result;
         const value = result.structuredContent;
-        if (name === PimiTaskAgentTool.create || name === PimiTaskAgentTool.update) {
+        if (name === PimiTaskTool.create || name === PimiTaskTool.update) {
           const task = savedTask.safeParse(value);
           if (task.success) {
             remember({ kind: "task", ...task.data.task, label: task.data.task.title.slice(0, 80) });
-            toolset.saved.push(name === PimiTaskAgentTool.create ? "Task saved" : "Task updated");
+            toolset.saved.push(name === PimiTaskTool.create ? "Task saved" : "Task updated");
           }
         }
         if (name === "read_pimi_space_item" && spaces && typeof local.id === "string") {
@@ -234,7 +233,7 @@ export function createAskPimiToolset(options: {
     "Opening a view",
     {
       description:
-        "Show a Pimi screen when the user asks to open, show, or go to it. tasks is the board. work is worktrees. review is diffs and pull requests. agents is the agent grid. automations is schedules. history is past sessions.",
+        "Show a Pimi screen when the user asks to open, show, or go to it. tasks is the Tasks list. review is diffs and pull requests. agents is the agent grid. automations is schedules. history is past sessions.",
       inputSchema: z.strictObject({ view: PimiVoiceView }),
     },
     async ({ view }: { view: PimiVoiceView }) => queue({ action: "show", view }, OPENS),
@@ -313,14 +312,14 @@ export function createAskPimiToolset(options: {
         "Open a blank or prefilled form for the user to finish: a task form or a Spaces note. Use it when the user asks for a form or a draft. To save a task or note directly, use create_pimi_task or save_pimi_space_note.",
       inputSchema: z.strictObject({
         kind: z.enum(["task", "spaces-note"]),
-        title: PimiTaskFields.shape.title.optional(),
+        title: TaskTitleSchema.optional(),
         text: z.string().trim().min(1).max(4096).optional(),
       }),
     },
     async (input: { kind: "task" | "spaces-note"; title?: string; text?: string }) =>
       queue(
         input.kind === "task"
-          ? { action: "new-task", title: input.title, brief: input.text }
+          ? { action: "new-task", title: input.title, description: input.text }
           : { action: "new-space", text: input.text },
         OPENS,
       ),

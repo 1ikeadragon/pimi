@@ -20,7 +20,7 @@ const DEFAULT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "create_workspace",
   "recall_project_memory",
   "recall_global_memory",
-  "propose_pimi_task",
+  "create_pimi_task",
   "suggest_pimi_review",
   "browser_show",
 ]);

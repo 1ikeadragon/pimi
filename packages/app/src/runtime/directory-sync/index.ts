@@ -25,7 +25,7 @@ import {
   type DirectorySourceToken,
   type DirectoryTransaction,
 } from "./transaction";
-import { workspaceLabels } from "@/workspace-labels";
+import { labels } from "@/labels/store";
 import type {
   CachedDirectory,
   CachedWorkspace,
@@ -193,13 +193,13 @@ export class DirectorySync {
     this.flushAbortedTransactions();
     this.releaseSubscriptions();
     this.releaseScriptStatusEvents();
-    workspaceLabels.disconnect(this.serverId);
+    labels.disconnect(this.serverId);
     this.connection = connection;
     this.abortPendingSessionWaits();
     if (!connection.client || connection.status !== "online") return true;
     if (this.scriptStatusDemand.size > 0) this.observeScriptStatusEvents();
     // Reattach labels here because route-only demand can satisfy the epoch before full demand requests them.
-    void this.connectWorkspaceLabels().catch(() => undefined);
+    void this.connectLabels().catch(() => undefined);
     if (this.hasDemand()) void this.requestDemandRefresh().catch(() => undefined);
     return true;
   }
@@ -259,7 +259,7 @@ export class DirectorySync {
     this.releaseScriptStatusEvents();
     this.fullDemandSources.clear();
     this.routeDemandIds.clear();
-    workspaceLabels.disconnect(this.serverId);
+    labels.disconnect(this.serverId);
   }
 
   private releaseSubscriptions(): void {
@@ -635,12 +635,12 @@ export class DirectorySync {
       ...this.workspaces.snapshot(),
       checkpoint: this.cursors,
     });
-    if (this.getOnlineConnection()) await this.connectWorkspaceLabels();
+    if (this.getOnlineConnection()) await this.connectLabels();
   }
 
-  async connectWorkspaceLabels(): Promise<void> {
+  async connectLabels(): Promise<void> {
     const { client } = this.requireOnline();
-    await workspaceLabels.connect({ serverId: this.serverId, client });
+    await labels.connect({ serverId: this.serverId, client });
   }
 
   acceptWorkspaces(workspaces: readonly WorkspaceDescriptor[]): void {

@@ -4,7 +4,6 @@ import { router, usePathname } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
-  Columns3,
   FileDiff,
   IdCard,
   LayoutGrid,
@@ -43,6 +42,7 @@ import {
   PIMI_AGENT_GRID_ROUTE,
 } from "@/navigation/pimi-agent-grid";
 import { closePimiReview, openPimiReview, PIMI_REVIEW_ROUTE } from "@/navigation/pimi-review";
+import { openPimiTasks, PIMI_TASKS_ROUTE } from "@/navigation/pimi-tasks";
 import { closePimiUsage, PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
 import { closePimiLibrary, PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
 import { SidebarHeaderRow, type SidebarRowIcon } from "./sidebar-header-row";
@@ -63,8 +63,6 @@ const SELECTED = { selected: true } as const;
 const SidebarPimiMark = withUnistyles(PimiMark, (theme) => ({ color: theme.colors.foreground }));
 export const PIMI_NAV_RAIL_WIDTH = 52;
 const useWorkspaceActivity = create<Record<PimiActivitySection, boolean>>(() => ({
-  tasks: false,
-  board: false,
   review: false,
 }));
 
@@ -104,26 +102,23 @@ function SidebarIcon({
   );
 }
 
-function usePimiSidebarActivity(section: ReturnType<typeof usePimiWorkspaceSection>) {
+function usePimiSidebarActivity() {
   const host = getDesktopHost();
   const activity = useWorkspaceActivity();
-  // Review is an app route, not a Work window section, so being on it is what reads its activity.
+  // Review is an app route, not a Pimi window section, so being on it is what reads its activity.
   const inReview = usePathname() === PIMI_REVIEW_ROUTE;
   useEffect(() => {
-    if (section === "tasks" || section === "board")
-      useWorkspaceActivity.setState({ [section]: false });
     if (inReview) useWorkspaceActivity.setState({ review: false });
     return host?.onPimiWorkspaceActivity?.((target) => {
-      const viewing = target === "review" ? inReview : section === target;
-      if (!viewing) useWorkspaceActivity.setState({ [target]: true });
+      if (!inReview) useWorkspaceActivity.setState({ [target]: true });
     });
-  }, [host, inReview, section]);
+  }, [host, inReview]);
   return activity;
 }
 
 function IdeSidebarNavigation({ close }: { close: () => void }) {
   const section = usePimiWorkspaceSection();
-  const activity = usePimiSidebarActivity(section);
+  const activity = usePimiSidebarActivity();
   const inReview = usePathname() === PIMI_REVIEW_ROUTE;
   const openReview = useCallback(() => {
     close();
@@ -233,8 +228,7 @@ export function PimiWorkspaceNavigation({
   const host = getDesktopHost();
   const show = host?.showPimiWorkspace;
   const section = usePimiWorkspaceSection();
-  const activity = usePimiSidebarActivity(section);
-  const unreadFor = (target: PimiActivitySection) => activity[target] && section !== target;
+  const activity = usePimiSidebarActivity();
   const activityDot = useMemo(() => <View style={styles.activityDot} />, []);
   const pathname = usePathname();
   const inAgentGrid = pathname === PIMI_AGENT_GRID_ROUTE;
@@ -243,6 +237,7 @@ export function PimiWorkspaceNavigation({
   const inLibrary = pathname === PIMI_LIBRARY_ROUTE;
   const inAutomations = pathname === buildAutomationsRoute();
   const inHistory = pathname === buildSessionsRoute();
+  const inTasks = pathname === PIMI_TASKS_ROUTE;
   const inProfiles = pathname.startsWith(buildProfilesRoute());
   const { t } = useTranslation();
   const newWorkspaceLabel = t("newWorkspace.title");
@@ -258,7 +253,7 @@ export function PimiWorkspaceNavigation({
     else if (inUsage) closePimiUsage();
     else if (inReview) closePimiReview();
     else if (inLibrary) closePimiLibrary();
-    else if ((inAutomations || inHistory || inProfiles) && !section) {
+    else if ((inAutomations || inHistory || inProfiles || inTasks) && !section) {
       if (router.canGoBack()) router.back();
       else router.replace(buildOpenProjectRoute());
     }
@@ -270,6 +265,7 @@ export function PimiWorkspaceNavigation({
     inLibrary,
     inProfiles,
     inReview,
+    inTasks,
     inUsage,
     onNavigate,
     section,
@@ -285,12 +281,9 @@ export function PimiWorkspaceNavigation({
   }, [onNavigate]);
   const showTasks = useCallback(() => {
     onNavigate?.();
-    show?.({ view: "tasks" });
-  }, [onNavigate, show]);
-  const showWorktrees = useCallback(() => {
-    onNavigate?.();
-    show?.({ view: "worktrees" });
-  }, [onNavigate, show]);
+    host?.dismissPimiWorkspace?.();
+    openPimiTasks();
+  }, [host, onNavigate]);
   const showReview = useCallback(() => {
     onNavigate?.();
     openPimiReview();
@@ -314,6 +307,7 @@ export function PimiWorkspaceNavigation({
       !inAgentGrid &&
       !inUsage &&
       !inReview &&
+      !inTasks &&
       !inAutomations &&
       !inHistory &&
       !inLibrary &&
@@ -330,22 +324,14 @@ export function PimiWorkspaceNavigation({
       label: "Tasks",
       icon: ListTodo,
       onPress: showTasks,
-      active: section === "tasks",
-      unread: unreadFor("tasks"),
-    },
-    {
-      label: "Work",
-      icon: Columns3,
-      onPress: showWorktrees,
-      active: section === "board",
-      unread: unreadFor("board"),
+      active: !section && inTasks,
     },
     {
       label: "Review",
       icon: FileDiff,
       onPress: showReview,
       active: !section && inReview,
-      unread: unreadFor("review"),
+      unread: activity.review,
     },
   ];
   const libraryDestinations = [

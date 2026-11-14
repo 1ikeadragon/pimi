@@ -1,4 +1,4 @@
-import type { WorkspaceLabelDefinition } from "@pimi/protocol/workspace-labels";
+import type { Label } from "@pimi/protocol/labels";
 import type { PrHint } from "@/git/pr-hint";
 import type { SidebarChecksDisplay } from "@/components/sidebar/display-preferences/checks-display";
 import type { SidebarRowItems } from "@/components/sidebar/display-preferences/row-items";
@@ -22,7 +22,7 @@ export type MetaRowItem =
   | { kind: "changeRequest"; hint: PrHint }
   | { kind: "checks"; summary: CheckSummary; label: boolean }
   | { kind: "services"; summary: WorkspaceServiceSummary }
-  | { kind: "labels"; labels: readonly WorkspaceLabelDefinition[] };
+  | { kind: "labels"; labels: readonly Label[] };
 
 /**
  * Which peers a row should draw, given what it knows and what the user left switched on.
@@ -40,7 +40,7 @@ export function selectMetaRowItems(input: {
   hasHostBadge: boolean;
   prHint: PrHint | null;
   serviceSummary: WorkspaceServiceSummary | null;
-  labels: readonly WorkspaceLabelDefinition[];
+  labels: readonly Label[];
   visible: SidebarRowItems;
   checksDisplay: SidebarChecksDisplay;
 }): MetaRowItem[] {
