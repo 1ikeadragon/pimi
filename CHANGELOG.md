@@ -2,6 +2,14 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.45 - 2026-11-14
+
+- Far fewer tokens: chat titles, branch names, task descriptions and commit/PR text now use a bare, low-effort model call instead of a full agent session (about 30k tokens down to under 1k per new chat on Claude).
+- OpenCode and OMP get Pimi's core tools plus a loader instead of every tool, and providers without skills fetch the full visualization guide only when they draw something.
+- Shorter Pimi instructions and tool descriptions.
+- Fixed Pimi removing one of its own skills after each update, and removed the leftover pimi-work skill.
+- OpenCode: a Pimi update with changed tools no longer drops Pimi's tools until OpenCode restarts.
+
 ## 0.17.44 - 2026-11-14
 
 - Work is gone. Tasks is now a simple to-do list with a board view (To do, In progress, Done). Tasks link to the chats, agents and subagents working on them, and a PR icon shows any pull request those chats opened. Add a chat to a task, or start a task from a chat, from the chat menu.
