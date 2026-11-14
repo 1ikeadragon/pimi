@@ -1065,6 +1065,179 @@ const pimiCatppuccinMocha = buildDarkTheme(
   }),
 );
 
+// Sky themes. Text never sits on the raw sky: content columns carry a scrim (appearance.css),
+// so the textures can stay rich. Status colours are darker than the shared light set because
+// light-theme status text can land on the scrim over the deep blue/violet edge.
+const skyLightStatusColors = {
+  statusSuccess: "#2f5739",
+  statusDanger: "#7c332d",
+  statusWarning: "#60482b",
+  statusMerged: "#5a368a",
+};
+
+function buildSkyLightTheme(config: LightThemeConfig) {
+  return buildLightTheme({
+    ...buildLightSemanticColors(config),
+    ...skyLightStatusColors,
+    ...statusTints(skyLightStatusColors, "1f"),
+  });
+}
+
+const pimiSkyDay = buildSkyLightTheme({
+  surface0: "#f8fcfe",
+  surface1: "#f0f7fb",
+  surface2: "#e3eef5",
+  surface3: "#d9e8f1",
+  surface4: "#cddfeb",
+  surfaceDiffEmpty: "#eff6fa",
+  surfaceSidebar: "#ebf4f9",
+  foreground: "#13202f",
+  foregroundMuted: "#3a4759",
+  foregroundExtraMuted: "#465466",
+  border: "#d3e3ed",
+  borderAccent: "#aec7d8",
+  accent: "#23508f",
+  accentBright: "#2a5899",
+  accentForeground: "#ffffff",
+  primary: "#23508f",
+  primaryForeground: "#ffffff",
+  destructive: "#9b2f28",
+  terminalBlack: "#13202f",
+  terminalBrightBlack: "#465466",
+  ring: "#2e61aa",
+});
+
+const pimiSkyDawn = buildSkyLightTheme({
+  surface0: "#fffbf7",
+  surface1: "#fbf3ec",
+  surface2: "#f4e7de",
+  surface3: "#eedfd5",
+  surface4: "#e9d3ca",
+  surfaceDiffEmpty: "#faf2ec",
+  surfaceSidebar: "#f9f0ea",
+  foreground: "#2a1c2e",
+  foregroundMuted: "#4b3a50",
+  foregroundExtraMuted: "#57465b",
+  border: "#ead8ce",
+  borderAccent: "#d2b6ad",
+  accent: "#643f7c",
+  accentBright: "#6f4686",
+  accentForeground: "#fffaf6",
+  primary: "#643f7c",
+  primaryForeground: "#fffaf6",
+  destructive: "#9c2a3a",
+  terminalBlack: "#2a1c2e",
+  terminalBrightBlack: "#57465b",
+  ring: "#88558d",
+});
+
+const pimiSkyDusk = buildDarkTheme(
+  buildDarkSemanticColors({
+    surface0: "#150a07",
+    surface1: "#1c0f0b",
+    surface2: "#25150f",
+    surface3: "#2e1b13",
+    surface4: "#392218",
+    surfaceDiffEmpty: "#0f0705",
+    surfaceSidebar: "#110806",
+    foreground: "#f7ece1",
+    foregroundMuted: "#d3c0af",
+    foregroundExtraMuted: "#c2ad9c",
+    border: "#372218",
+    borderAccent: "#644636",
+    accent: "#efbf72",
+    accentBright: "#f6d49b",
+    accentForeground: "#2b1907",
+    destructive: "#f39a8d",
+    destructiveForeground: "#2b1907",
+    terminalBlack: "#8a7566",
+    terminalBrightBlack: "#c2ad9c",
+    ring: "#e9a04a",
+  }),
+);
+
+const pimiSkyNight = buildDarkTheme(
+  buildDarkSemanticColors({
+    surface0: "#09090d",
+    surface1: "#0f0f16",
+    surface2: "#161620",
+    surface3: "#1d1d2b",
+    surface4: "#262538",
+    surfaceDiffEmpty: "#050508",
+    surfaceSidebar: "#07070a",
+    foreground: "#ededf5",
+    foregroundMuted: "#c0bfd3",
+    foregroundExtraMuted: "#adacc3",
+    border: "#242334",
+    borderAccent: "#48465f",
+    accent: "#bda8e8",
+    accentBright: "#d1c1f3",
+    accentForeground: "#1d1631",
+    destructive: "#f29dab",
+    destructiveForeground: "#1d1631",
+    terminalBlack: "#7b7991",
+    terminalBrightBlack: "#adacc3",
+    ring: "#a88fe0",
+  }),
+);
+
+const pimiTide = buildDarkTheme(
+  buildDarkSemanticColors({
+    surface0: "#071318",
+    surface1: "#0b1a20",
+    surface2: "#11232a",
+    surface3: "#172c34",
+    surface4: "#1f3740",
+    surfaceDiffEmpty: "#050e12",
+    surfaceSidebar: "#061014",
+    foreground: "#e8f3f4",
+    foregroundMuted: "#b7cdd1",
+    foregroundExtraMuted: "#a3bbc0",
+    border: "#1d343c",
+    borderAccent: "#3f5d66",
+    accent: "#7fd6d0",
+    accentBright: "#a5e6e0",
+    accentForeground: "#062226",
+    destructive: "#f29a90",
+    destructiveForeground: "#062226",
+    terminalBlack: "#6b858b",
+    terminalBrightBlack: "#a3bbc0",
+    ring: "#5cc4c0",
+  }),
+);
+
+export const SKY_THEME_OPTIONS = [
+  {
+    name: "sky-day",
+    group: "variant",
+    unistylesName: "pimiSkyDay",
+    theme: pimiSkyDay,
+    swatch: "#23508f",
+  },
+  {
+    name: "sky-dusk",
+    group: "variant",
+    unistylesName: "pimiSkyDusk",
+    theme: pimiSkyDusk,
+    swatch: "#efbf72",
+  },
+  {
+    name: "sky-night",
+    group: "variant",
+    unistylesName: "pimiSkyNight",
+    theme: pimiSkyNight,
+    swatch: "#bda8e8",
+  },
+  {
+    name: "sky-dawn",
+    group: "variant",
+    unistylesName: "pimiSkyDawn",
+    theme: pimiSkyDawn,
+    swatch: "#643f7c",
+  },
+  { name: "tide", group: "variant", unistylesName: "pimiTide", theme: pimiTide, swatch: "#7fd6d0" },
+] as const;
+
 export const COMMUNITY_THEME_OPTIONS = [
   {
     name: "ayu-light",
@@ -1119,6 +1292,11 @@ export const PIMI_APPEARANCE_THEMES = {
   nord: "pimiNord",
   gruvbox: "pimiGruvbox",
   "catppuccin-mocha": "pimiCatppuccinMocha",
+  "sky-day": "pimiSkyDay",
+  "sky-dusk": "pimiSkyDusk",
+  "sky-night": "pimiSkyNight",
+  "sky-dawn": "pimiSkyDawn",
+  tide: "pimiTide",
 } as const;
 
 // Keep compatibility with existing code
@@ -1176,6 +1354,7 @@ export const THEME_OPTIONS = [
     swatch: "#000000",
   },
   ...COMMUNITY_THEME_OPTIONS,
+  ...SKY_THEME_OPTIONS,
 ] as const;
 
 export const PLUGIN_THEME_PREFERENCE = "plugin";

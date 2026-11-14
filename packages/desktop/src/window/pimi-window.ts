@@ -41,6 +41,11 @@ const PIMI_APPEARANCES = [
   "nord",
   "gruvbox",
   "catppuccin-mocha",
+  "sky-day",
+  "sky-dusk",
+  "sky-night",
+  "sky-dawn",
+  "tide",
 ] as const;
 export type PimiAppearance = (typeof PIMI_APPEARANCES)[number];
 
@@ -55,6 +60,11 @@ const PIMI_APPEARANCE_BACKGROUNDS: Record<Exclude<PimiAppearance, "system">, str
   nord: "#292f3a",
   gruvbox: "#212323",
   "catppuccin-mocha": "#181825",
+  "sky-day": "#eff6fa",
+  "sky-dusk": "#0f0705",
+  "sky-night": "#050508",
+  "sky-dawn": "#faf2ec",
+  tide: "#050e12",
 };
 
 function isPimiAppearance(value: unknown): value is PimiAppearance {
