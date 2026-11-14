@@ -157,7 +157,10 @@ function buildConfiguredScriptPayload(
     publicProxyUrl: urls.publicProxyUrl,
     proxyUrl: urls.proxyUrl,
     lifecycle: runtimeEntry?.lifecycle ?? "stopped",
-    health: toWireHealth(ctx.resolveHealth?.(hostname) ?? null),
+    health:
+      runtimeEntry?.lifecycle === "running"
+        ? toWireHealth(ctx.resolveHealth?.(hostname) ?? null)
+        : null,
     exitCode: runtimeEntry?.exitCode ?? null,
     terminalId: runtimeEntry?.terminalId ?? null,
   };
@@ -203,7 +206,7 @@ function buildOrphanRuntimePayload(
     proxyUrl: type === "service" ? urls.proxyUrl : null,
     lifecycle: runtimeEntry.lifecycle,
     health:
-      type === "service" && serviceState?.port !== null
+      type === "service" && serviceState?.port !== null && runtimeEntry.lifecycle === "running"
         ? toWireHealth(ctx.resolveHealth?.(hostname) ?? null)
         : null,
     exitCode: runtimeEntry.exitCode,

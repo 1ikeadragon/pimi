@@ -2418,6 +2418,7 @@ function createToolCatalog(
       },
       outputSchema: {
         success: z.boolean(),
+        message: z.string().optional(),
       },
     },
     async ({ agentId }) => {
@@ -2427,7 +2428,10 @@ function createToolCatalog(
       );
       return {
         content: [],
-        structuredContent: ensureValidJson({ success: cancelled }),
+        structuredContent: ensureValidJson({
+          success: cancelled,
+          ...(cancelled ? {} : { message: "Agent was not running." }),
+        }),
       };
     },
   );

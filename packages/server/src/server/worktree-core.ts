@@ -5,6 +5,7 @@ import { createNameId } from "mnemonic-id";
 import type { ForgeService } from "../services/forge-service.js";
 import {
   createWorktree,
+  localBranchExists,
   resolveDefaultWorktreePath,
   slugify,
   validateBranchSlug,
@@ -82,6 +83,10 @@ async function createWorktreeCoreWithPriority(
     };
   } else {
     const worktreeSlug = requestedWorktreeSlug ?? normalizeWorktreeSlug(createNameId());
+    // An explicit name must be a new branch; reusing one would silently base the worktree on it.
+    if (requestedBranchName && (await localBranchExists(repoRoot, requestedBranchName))) {
+      throw new Error(`Branch already exists: ${requestedBranchName}`);
+    }
     intentInput = {
       action: "branch-off",
       refName: input.refName,

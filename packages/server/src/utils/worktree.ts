@@ -1903,7 +1903,7 @@ async function ensureLocalBranch(cwd: string, branchName: string): Promise<void>
   }
 }
 
-async function localBranchExists(cwd: string, branchName: string): Promise<boolean> {
+export async function localBranchExists(cwd: string, branchName: string): Promise<boolean> {
   try {
     await runGitCommand(["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`], {
       cwd,

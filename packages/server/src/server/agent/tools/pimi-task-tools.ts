@@ -56,7 +56,7 @@ const CreateInput = z.strictObject({
       "URL of the pull request that delivers this task; null clears it. Pimi already shows the PR of a linked chat's branch, so set this only for a PR from elsewhere.",
     ),
   labels: labelNames.optional().describe("Existing label names from list_pimi_labels."),
-  agentIds: agentIds.optional().describe("Other chats to link to the task."),
+  agentIds: agentIds.optional().describe("Agent IDs of other chats to link to the task."),
 });
 const ListInput = z.strictObject({
   query: z.string().trim().max(100).optional().describe("Search titles and descriptions."),
@@ -86,7 +86,7 @@ const SetLabelInput = z.strictObject({
     id: z
       .string()
       .min(1)
-      .describe("Chat ID, task ID, or <parentChatId>:<subagentId> for a provider subagent."),
+      .describe("Agent ID, task ID, or <parentAgentId>:<subagentId> for a provider subagent."),
   }),
   name: z.string().trim().min(1).max(100).describe("An existing label name."),
   assigned: z.boolean(),
@@ -105,7 +105,7 @@ function parseTarget(input: z.infer<typeof SetLabelInput>["target"]): LabelTarge
   if (input.kind === "task") return { kind: "task", taskId: input.id };
   const split = input.id.indexOf(":");
   if (split <= 0 || split === input.id.length - 1) {
-    throw new PimiToolInputError("A subagent target id is <parentChatId>:<subagentId>.");
+    throw new PimiToolInputError("A subagent target id is <parentAgentId>:<subagentId>.");
   }
   return {
     kind: "subagent",

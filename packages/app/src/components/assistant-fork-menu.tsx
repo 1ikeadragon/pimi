@@ -41,12 +41,10 @@ const FORK_PROVIDERS_PAGE = "fork-providers";
 
 function ForkProviderMenuPage({
   scope,
-  pendingTarget,
   onSelect,
   testID,
 }: {
   scope: ForkProviderScope;
-  pendingTarget: AssistantForkTarget | null;
   onSelect: (target: AssistantForkTarget) => () => Promise<void>;
   testID: string;
 }) {
@@ -71,14 +69,7 @@ function ForkProviderMenuPage({
   return providers.map((provider) => (
     <DropdownMenuItem
       key={provider.id}
-      closeOnSelect={false}
-      disabled={pendingTarget !== null}
       onSelect={onSelect({ provider: provider.id })}
-      status={
-        pendingTarget && typeof pendingTarget !== "string" && pendingTarget.provider === provider.id
-          ? "pending"
-          : undefined
-      }
       testID={`${testID}-provider-${provider.id}`}
     >
       {provider.label}
@@ -93,26 +84,18 @@ export const AssistantForkMenu = memo(function AssistantForkMenu({
   const { t } = useTranslation();
   const providerScope = useContext(AssistantForkProviderScope);
   const [isOpen, setIsOpen] = useState(false);
-  const [pendingTarget, setPendingTarget] = useState<AssistantForkTarget | null>(null);
-  const isLocked = pendingTarget !== null;
-
-  const handleOpenChange = useCallback(
-    (next: boolean) => {
-      if (!next && pendingTarget !== null) return;
-      setIsOpen(next);
-    },
-    [pendingTarget],
-  );
+  const [isLocked, setIsLocked] = useState(false);
 
   const handleSelect = useCallback(
     (target: AssistantForkTarget) => async () => {
       if (isLocked) return;
-      setPendingTarget(target);
+      // Close first: the fork switches tabs and freezes this chat, which would strand the menu open.
+      setIsOpen(false);
+      setIsLocked(true);
       try {
         await onFork(target);
       } finally {
-        setPendingTarget(null);
-        setIsOpen(false);
+        setIsLocked(false);
       }
     },
     [isLocked, onFork],
@@ -147,7 +130,6 @@ export const AssistantForkMenu = memo(function AssistantForkMenu({
               content: (
                 <ForkProviderMenuPage
                   scope={providerScope}
-                  pendingTarget={pendingTarget}
                   onSelect={handleSelect}
                   testID={testID}
                 />
@@ -155,11 +137,11 @@ export const AssistantForkMenu = memo(function AssistantForkMenu({
             },
           ]
         : undefined,
-    [handleSelect, pendingTarget, providerScope, t, testID],
+    [handleSelect, providerScope, t, testID],
   );
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <Tooltip delayDuration={250} enabledOnDesktop enabledOnMobile={false}>
         <TooltipTrigger asChild>
           <View style={styles.triggerSlot} collapsable={false}>
@@ -189,21 +171,15 @@ export const AssistantForkMenu = memo(function AssistantForkMenu({
         testID={`${testID}-content`}
       >
         <DropdownMenuItem
-          closeOnSelect={false}
-          disabled={isLocked && pendingTarget !== "tab"}
           leading={forkIcon}
           onSelect={handleSelect("tab")}
-          status={pendingTarget === "tab" ? "pending" : undefined}
           testID={`${testID}-new-tab`}
         >
           {t("message.actions.forkInNewTab")}
         </DropdownMenuItem>
         <DropdownMenuItem
-          closeOnSelect={false}
-          disabled={isLocked && pendingTarget !== "workspace"}
           leading={forkIcon}
           onSelect={handleSelect("workspace")}
-          status={pendingTarget === "workspace" ? "pending" : undefined}
           testID={`${testID}-new-workspace`}
         >
           {t("message.actions.forkInNewWorkspace")}
@@ -211,7 +187,6 @@ export const AssistantForkMenu = memo(function AssistantForkMenu({
         {providerScope ? (
           <DropdownMenuSubTrigger
             id={FORK_PROVIDERS_PAGE}
-            disabled={isLocked}
             leading={forkIcon}
             testID={`${testID}-other-provider`}
           >
