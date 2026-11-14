@@ -14,6 +14,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function readPimiToolOutput<T>(output: unknown, schema: ZodType<T>): T | null {
+  // Claude relays the MCP result one level down, as `{ output: <result> }`.
+  if (isRecord(output) && isRecord(output.output)) {
+    const nested = readPimiToolOutput(output.output, schema);
+    if (nested) return nested;
+  }
   const result = schema.safeParse(isRecord(output) ? (output.structuredContent ?? output) : output);
   if (result.success) return result.data;
 
