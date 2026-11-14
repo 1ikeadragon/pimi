@@ -71,7 +71,7 @@ export type KeyboardActionId =
   | "workspace.archive.undo"
   | "workspace.pin"
   | "view.toggle.focus"
-  | "theme.cycle"
+  | "theme.step"
   | "message-input.action";
 
 export type KeyboardShortcutPayload =

@@ -42,7 +42,7 @@ export function useKeyboardShortcuts({
   toggleAgentList,
   toggleBothSidebars,
   exitFocusMode,
-  cycleTheme,
+  stepTheme,
 }: {
   enabled: boolean;
   isMobile: boolean;
@@ -50,7 +50,7 @@ export function useKeyboardShortcuts({
   toggleAgentList: () => void;
   toggleBothSidebars?: () => void;
   exitFocusMode: () => void;
-  cycleTheme?: () => void;
+  stepTheme?: (delta: 1 | -1) => void;
 }) {
   const keyboardActionDispatcher = useKeyboardActionDispatcher();
   const pathname = usePathname();
@@ -116,7 +116,6 @@ export function useKeyboardShortcuts({
   const callbacksByName: Record<ShortcutCallbackName, (() => void) | undefined> = {
     "toggle-agent-list": toggleAgentList,
     "toggle-both-sidebars": toggleBothSidebars,
-    "cycle-theme": cycleTheme,
   };
 
   const performShortcutAction = (
@@ -133,7 +132,10 @@ export function useKeyboardShortcuts({
           serverId: action.serverId,
           workspaceId: action.workspaceId,
         };
-        navigateToWorkspace({ serverId: action.serverId, workspaceId: action.workspaceId });
+        navigateToWorkspace({
+          serverId: action.serverId,
+          workspaceId: action.workspaceId,
+        });
         return true;
       case "navigate-last-workspace":
         if (navigateToLastWorkspace()) {
@@ -170,6 +172,10 @@ export function useKeyboardShortcuts({
         return true;
       case "plugin-command":
         return runPluginCommand(action.key);
+      case "theme-step":
+        if (!stepTheme) return false;
+        stepTheme(action.delta);
+        return true;
     }
   };
 

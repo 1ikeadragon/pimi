@@ -148,7 +148,8 @@ import {
 import { getDaemonStartService } from "@/runtime/daemon-start-service";
 import { usePanelStore, type LeftSidebarPresentation } from "@/stores/panel-store";
 import { flushDraftPersistStorage } from "@/stores/draft-store";
-import { getNextThemePreference, ICON_STROKE_WIDTH } from "@/styles/theme";
+import { ICON_STROKE_WIDTH } from "@/styles/theme";
+import { useThemeStep } from "@/appearance/theme-picker";
 import { useSessionStore } from "@/stores/session-store";
 import { WorkspaceLayoutModePublisher } from "@/workspace-tabs/layout-mode-publisher";
 import { installWebScrollbarStyles } from "@/styles/install-web-scrollbar-styles";
@@ -304,7 +305,9 @@ async function shouldStartBuiltInDaemon(): Promise<boolean> {
   // are configured, so the app has nothing to connect to. Re-enable it so the
   // user isn't stranded on the welcome screen with no way to start the daemon.
   if (getHostRuntimeStore().getHosts().length === 0) {
-    await updatePersistedDesktopSettings({ daemon: { manageBuiltInDaemon: true } });
+    await updatePersistedDesktopSettings({
+      daemon: { manageBuiltInDaemon: true },
+    });
     return true;
   }
   return false;
@@ -377,8 +380,12 @@ function HostRuntimeBootstrapProvider({ children }: { children: ReactNode }) {
   }, [shouldRunSetupWaitTimer]);
 
   const retry = useCallback(() => {
-    const daemonStartService = getDaemonStartService({ store: getHostRuntimeStore() });
-    void daemonStartService.startIfEnabled({ shouldStart: shouldStartBuiltInDaemon });
+    const daemonStartService = getDaemonStartService({
+      store: getHostRuntimeStore(),
+    });
+    void daemonStartService.startIfEnabled({
+      shouldStart: shouldStartBuiltInDaemon,
+    });
   }, []);
 
   const splashError =
@@ -423,14 +430,6 @@ interface AppContainerProps {
 
 const WINDOW_SIDEBAR_TOGGLE_HORIZONTAL_PADDING = 12;
 
-function useAppearanceCycle() {
-  const { settings, updateSettings } = useAppSettings();
-  const cycle = useCallback(() => {
-    void updateSettings({ theme: getNextThemePreference(settings.theme) });
-  }, [settings.theme, updateSettings]);
-  return getDesktopHost()?.pimiAppearance ? undefined : cycle;
-}
-
 function WorkspaceSetupSuggestion({ inWorkspace }: { inWorkspace: boolean }) {
   if (inWorkspace && getDesktopHost()?.pimiAppearance) return null;
   return <WorktreeSetupCalloutSource />;
@@ -444,7 +443,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   const exitFocusMode = usePanelStore((state) => state.exitFocusMode);
   const isFocusModeEnabled = usePanelStore((state) => state.desktop.focusModeEnabled);
 
-  const cycleTheme = useAppearanceCycle();
+  const stepTheme = useThemeStep();
 
   const isCompactLayout = useIsCompactFormFactor();
   useCompactWebViewportZoomLock(isCompactLayout);
@@ -458,7 +457,12 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
     // only correct answer to "is the explorer open". Let it decide when there is
     // one: the pathname alone cannot identify the active workspace, because
     // desktop cold-starts at "/" and restores the workspace from route params.
-    if (keyboardActionDispatcher.dispatch({ id: "sidebar.toggle.both", scope: "sidebar" })) {
+    if (
+      keyboardActionDispatcher.dispatch({
+        id: "sidebar.toggle.both",
+        scope: "sidebar",
+      })
+    ) {
       return;
     }
     // Off a workspace route there is no explorer — only the agent list.
@@ -477,7 +481,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
     toggleAgentList,
     toggleBothSidebars: toggleDesktopSidebars,
     exitFocusMode,
-    cycleTheme,
+    stepTheme,
   });
 
   useActiveWorktreeNewAction();
@@ -697,7 +701,10 @@ function useAppSidebarLayout({
   const applyPanelLayout = usePanelStore((state) => state.applyPanelLayout);
   // Publishes the layout to the store, which owns the panel targets each layout allows.
   useLayoutEffect(() => {
-    applyPanelLayout({ isCompact: isCompactLayout, leftSidebar: sidebarPresentation });
+    applyPanelLayout({
+      isCompact: isCompactLayout,
+      leftSidebar: sidebarPresentation,
+    });
   }, [applyPanelLayout, isCompactLayout, sidebarPresentation]);
   const hasTopLeftWindowControls = useHasWindowChromeObstruction("top-left");
   const appChromeLayout = resolveDesktopAppChromeLayout({
@@ -757,7 +764,15 @@ function usePimiSidebar(
   const unpinnedMode = peeking ? "peek" : "rail";
   return useMemo(
     () =>
-      enabled ? { mode: docked ? "dock" : unpinnedMode, openPeek, closePeek, pin, ide } : undefined,
+      enabled
+        ? {
+            mode: docked ? "dock" : unpinnedMode,
+            openPeek,
+            closePeek,
+            pin,
+            ide,
+          }
+        : undefined,
     [enabled, docked, unpinnedMode, openPeek, closePeek, pin, ide],
   );
 }

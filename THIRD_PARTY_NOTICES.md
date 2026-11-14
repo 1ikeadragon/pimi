@@ -44,8 +44,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-## Ocean surface waves 03
+## Water Surface 1
 
-The Tide theme backdrop (`packages/app/public/pimi-textures/tide.mp4` and `tide-poster.webp`) is cut from "Ocean surface waves 03.ogv" by Mostafameraji, released under CC0 1.0 Universal (public domain dedication). Re-encoded as a seamless loop.
+The Tide theme backdrop (`packages/app/public/pimi-textures/tide.mp4` and `tide-poster.webp`) is cut from "Water Surface 1" by VFX FOOTAGE, licensed under Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/). Changes: colour graded toward deep blue, upscaled to 1920x1080, and re-encoded as a seamless loop.
 
-Source: https://commons.wikimedia.org/wiki/File:Ocean_surface_waves_03.ogv
+Source: https://commons.wikimedia.org/wiki/File:Water_Surface_1_--FREE_FOOTAGE--.webm

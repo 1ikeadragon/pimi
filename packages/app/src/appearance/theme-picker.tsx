@@ -41,19 +41,82 @@ export function ThemePicker() {
 
 const pimiOptions = [
   { mode: "system", label: "System", preview: "pimi-system" },
-  { mode: "light", label: "Blush", preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.light] },
-  { mode: "dark", label: "Dark", preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.dark] },
-  { mode: "paper", label: "Paper", preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.paper] },
-  { mode: "sakura", label: "Sakura Glass", preview: REGISTERED_THEMES.pimiSakura },
-  { mode: "cel-night", label: "Cel Night", preview: REGISTERED_THEMES.pimiCelNight },
+  {
+    mode: "light",
+    label: "Blush",
+    preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.light],
+  },
+  {
+    mode: "dark",
+    label: "Dark",
+    preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.dark],
+  },
+  {
+    mode: "paper",
+    label: "Paper",
+    preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.paper],
+  },
+  {
+    mode: "sakura",
+    label: "Sakura Glass",
+    preview: REGISTERED_THEMES.pimiSakura,
+  },
+  {
+    mode: "cel-night",
+    label: "Cel Night",
+    preview: REGISTERED_THEMES.pimiCelNight,
+  },
   ...COMMUNITY_THEME_OPTIONS.map(({ name, label, theme }) => ({
     mode: name,
     label,
     preview: theme,
   })),
   // Labels come from en.ts (settings.appearance.theme.options.<mode>).
-  ...SKY_THEME_OPTIONS.map(({ name, theme }) => ({ mode: name, preview: theme })),
+  ...SKY_THEME_OPTIONS.map(({ name, theme }) => ({
+    mode: name,
+    preview: theme,
+  })),
 ] as const;
+
+/** Steps one tile left or right in picker order (built-ins, then plugin themes), wrapping. */
+export function useThemeStep(): (delta: 1 | -1) => void {
+  const { settings, updateSettings } = useAppSettings();
+  const { options: pluginThemes, selected: selectedPluginTheme, select } = useContributedThemes();
+  return useCallback(
+    (delta: 1 | -1) => {
+      const bridge = getDesktopHost()?.pimiAppearance;
+      const builtIns: string[] = bridge
+        ? pimiOptions.map((option) => option.mode)
+        : PICKER_THEME_OPTIONS.map((option) => option.name);
+      const builtInCurrent =
+        settings.theme === PLUGIN_THEME_PREFERENCE ? DEFAULT_THEME_PREFERENCE : settings.theme;
+      const current = selectedPluginTheme
+        ? builtIns.length + pluginThemes.findIndex((option) => option.id === selectedPluginTheme.id)
+        : builtIns.indexOf(bridge ? bridge.get() : builtInCurrent);
+      const next = stepIndex(current, delta, builtIns.length + pluginThemes.length);
+      const plugin = pluginThemes[next - builtIns.length];
+      if (plugin) {
+        select(plugin);
+        return;
+      }
+      const name = builtIns[next]!;
+      void (async () => {
+        if (bridge) {
+          if (selectedPluginTheme) await updateSettings({ theme: DEFAULT_THEME_PREFERENCE });
+          await bridge.set(name as PimiAppearance);
+        } else {
+          await updateSettings({ theme: name as BuiltInThemePreference });
+        }
+      })();
+    },
+    [pluginThemes, select, selectedPluginTheme, settings.theme, updateSettings],
+  );
+}
+
+function stepIndex(current: number, delta: 1 | -1, length: number): number {
+  if (current < 0) return delta > 0 ? 0 : length - 1;
+  return (current + delta + length) % length;
+}
 
 function PimiThemePicker({ bridge }: { bridge: NonNullable<DesktopHostBridge["pimiAppearance"]> }) {
   const [mode, setMode] = useState(bridge.get);

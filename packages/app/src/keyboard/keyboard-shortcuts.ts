@@ -180,7 +180,8 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
     "replace-in-pane",
     "show-shortcuts",
     "toggle-settings",
-    "cycle-theme",
+    "theme-prev",
+    "theme-next",
   ],
   workspaces: [
     "new-agent",
@@ -271,7 +272,8 @@ const SHORTCUT_HELP_LABEL_KEYS: Record<string, string> = {
   "toggle-both-sidebars": "settings.shortcuts.help.toggleBothSidebars",
   "toggle-settings": "settings.shortcuts.help.toggleSettings",
   "toggle-focus": "settings.shortcuts.help.toggleFocusMode",
-  "cycle-theme": "settings.shortcuts.help.cycleTheme",
+  "theme-prev": "settings.shortcuts.help.previousTheme",
+  "theme-next": "settings.shortcuts.help.nextTheme",
   "command-palette": "settings.shortcuts.help.commandPalette",
   "search-workspace": "settings.shortcuts.help.searchInFiles",
   "replace-in-files": "settings.shortcuts.help.replaceInFiles",
@@ -421,7 +423,12 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     id: "workspace-archive-undo-ctrl-z-non-mac",
     action: "workspace.archive.undo",
     combo: "Ctrl+Z",
-    when: { mac: false, commandCenter: false, editable: false, terminal: false },
+    when: {
+      mac: false,
+      commandCenter: false,
+      editable: false,
+      terminal: false,
+    },
     help: {
       id: "undo-archive-workspace",
       section: "workspaces",
@@ -591,7 +598,12 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     id: "workspace-tab-close-current-ctrl-w-non-mac",
     action: "workspace.tab.close.current",
     combo: "Ctrl+W",
-    when: { mac: false, desktopBindings: true, commandCenter: false, terminal: false },
+    when: {
+      mac: false,
+      desktopBindings: true,
+      commandCenter: false,
+      terminal: false,
+    },
     help: {
       id: "workspace-tab-close-current",
       section: "tabs-panes",
@@ -628,7 +640,12 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     id: "workspace-navigate-index-ctrl-digit-non-mac",
     action: "workspace.navigate.index",
     combo: "Ctrl+Digit",
-    when: { mac: false, desktopBindings: true, commandCenter: false, terminal: false },
+    when: {
+      mac: false,
+      desktopBindings: true,
+      commandCenter: false,
+      terminal: false,
+    },
     payload: { type: "index" },
     help: {
       id: "workspace-jump-index",
@@ -709,7 +726,12 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     id: "workspace-navigate-relative-ctrl-left-non-mac",
     action: "workspace.navigate.relative",
     combo: "Ctrl+[",
-    when: { mac: false, desktopBindings: true, commandCenter: false, terminal: false },
+    when: {
+      mac: false,
+      desktopBindings: true,
+      commandCenter: false,
+      terminal: false,
+    },
     payload: { type: "delta", delta: -1 },
     help: {
       id: "workspace-prev",
@@ -733,7 +755,12 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     id: "workspace-navigate-relative-ctrl-right-non-mac",
     action: "workspace.navigate.relative",
     combo: "Ctrl+]",
-    when: { mac: false, desktopBindings: true, commandCenter: false, terminal: false },
+    when: {
+      mac: false,
+      desktopBindings: true,
+      commandCenter: false,
+      terminal: false,
+    },
     payload: { type: "delta", delta: 1 },
     help: {
       id: "workspace-next",
@@ -1416,27 +1443,53 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     },
   },
 
-  // --- Theme cycling ---
+  // --- Theme stepping, in Settings → Appearance order ---
   {
-    id: "theme-cycle-cmd-shift-t-mac",
-    action: "theme.cycle",
-    combo: "Cmd+Alt+T",
+    id: "theme-prev-cmd-alt-left-mac",
+    action: "theme.step",
+    combo: "Cmd+Alt+ArrowLeft",
     when: { mac: true, commandCenter: false },
+    payload: { type: "delta", delta: -1 },
     help: {
-      id: "cycle-theme",
+      id: "theme-prev",
       section: "general",
-      label: "Cycle theme",
+      label: "Previous theme",
     },
   },
   {
-    id: "theme-cycle-ctrl-alt-t-non-mac",
-    action: "theme.cycle",
-    combo: "Ctrl+Alt+T",
+    id: "theme-prev-ctrl-alt-left-non-mac",
+    action: "theme.step",
+    combo: "Ctrl+Alt+ArrowLeft",
     when: { mac: false, commandCenter: false, terminal: false },
+    payload: { type: "delta", delta: -1 },
     help: {
-      id: "cycle-theme",
+      id: "theme-prev",
       section: "general",
-      label: "Cycle theme",
+      label: "Previous theme",
+    },
+  },
+  {
+    id: "theme-next-cmd-alt-right-mac",
+    action: "theme.step",
+    combo: "Cmd+Alt+ArrowRight",
+    when: { mac: true, commandCenter: false },
+    payload: { type: "delta", delta: 1 },
+    help: {
+      id: "theme-next",
+      section: "general",
+      label: "Next theme",
+    },
+  },
+  {
+    id: "theme-next-ctrl-alt-right-non-mac",
+    action: "theme.step",
+    combo: "Ctrl+Alt+ArrowRight",
+    when: { mac: false, commandCenter: false, terminal: false },
+    payload: { type: "delta", delta: 1 },
+    help: {
+      id: "theme-next",
+      section: "general",
+      label: "Next theme",
     },
   },
 
@@ -2082,9 +2135,21 @@ export function resolveKeyboardShortcut(input: {
     return { match: null, nextChordState: chordState, preventDefault: false };
   }
   if (chordState.step === 0) {
-    return resolveInitialChordStep({ event, context, chordState, onChordReset, bindings });
+    return resolveInitialChordStep({
+      event,
+      context,
+      chordState,
+      onChordReset,
+      bindings,
+    });
   }
-  return resolveAdvancingChordStep({ event, context, chordState, onChordReset, bindings });
+  return resolveAdvancingChordStep({
+    event,
+    context,
+    chordState,
+    onChordReset,
+    bindings,
+  });
 }
 
 export function getBindingIdForAction(

@@ -31,7 +31,7 @@ import {
 } from "@/styles/theme";
 import { applyAppearance } from "./apply";
 import { PLUGIN_BACKDROP_APPEARANCE } from "./active-backdrop";
-import { applyBackdrop } from "./apply-backdrop";
+import { applyBackdrop, prepareBackdrop } from "./apply-backdrop";
 import { BUILTIN_BACKDROPS } from "./builtin-backdrops";
 import { AppearanceSystemBars } from "./system-bars";
 
@@ -98,6 +98,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isLoading) return;
+    let cancelled = false;
     const themePreference = settings.theme === "auto" ? "system" : settings.theme;
     const mobileMode =
       isPimiAndroid() &&
@@ -105,34 +106,50 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
         ? themePreference
         : undefined;
     const appearance = pimiAppearance ?? mobileMode;
+    const systemMode = systemDark ? "dark" : "light";
+    const shellMode = appearance === "system" ? systemMode : appearance;
     // A selected plugin theme wins over the desktop shell's appearance until a built-in is picked.
-    if (appearance && !selected) {
-      const systemMode = systemDark ? "dark" : "light";
-      const mode = appearance === "system" ? systemMode : appearance;
-      const theme = PIMI_APPEARANCE_THEMES[mode];
-      UnistylesRuntime.setAdaptiveThemes(false);
-      UnistylesRuntime.setTheme(theme);
-      applyBackdrop(BUILTIN_BACKDROPS[mode] ?? null);
-      setRootAppearance(mode);
-      if (typeof document !== "undefined") {
-        document.documentElement.style.setProperty(
-          "--pimi-focus-ring",
-          REGISTERED_THEMES[theme].colors.ring,
-        );
+    const builtInMode = shellMode && !selected ? shellMode : null;
+    const backdrop = builtInMode
+      ? (BUILTIN_BACKDROPS[builtInMode] ?? null)
+      : (selected?.backdrop ?? null);
+    const apply = () => {
+      if (builtInMode) {
+        const mode = builtInMode;
+        const theme = PIMI_APPEARANCE_THEMES[mode];
+        UnistylesRuntime.setAdaptiveThemes(false);
+        UnistylesRuntime.setTheme(theme);
+        applyBackdrop(BUILTIN_BACKDROPS[mode] ?? null);
+        setRootAppearance(mode);
+        if (typeof document !== "undefined") {
+          document.documentElement.style.setProperty(
+            "--pimi-focus-ring",
+            REGISTERED_THEMES[theme].colors.ring,
+          );
+        }
+      } else {
+        applyTheme({ preference: settings.theme, contributedTheme: selected });
       }
-    } else {
-      applyTheme({ preference: settings.theme, contributedTheme: selected });
-    }
-    applyAppearance({
-      uiFontFamily: settings.uiFontFamily,
-      monoFontFamily: settings.monoFontFamily,
-      uiBaseFontSize: settings.uiBaseFontSize,
-      contentFontSize: settings.contentFontSize,
-      codeFontSize: settings.codeFontSize,
-      contentMaxWidth: resolveContentMaxWidth({ contentMaxWidth: settings.contentMaxWidth }),
-      syntaxTheme: settings.syntaxTheme,
-    });
-    setHasAppliedAppearance(true);
+      applyAppearance({
+        uiFontFamily: settings.uiFontFamily,
+        monoFontFamily: settings.monoFontFamily,
+        uiBaseFontSize: settings.uiBaseFontSize,
+        contentFontSize: settings.contentFontSize,
+        codeFontSize: settings.codeFontSize,
+        contentMaxWidth: resolveContentMaxWidth({
+          contentMaxWidth: settings.contentMaxWidth,
+        }),
+        syntaxTheme: settings.syntaxTheme,
+      });
+      setHasAppliedAppearance(true);
+    };
+    // Switch only once the new backdrop is decoded, so no frame shows the bare surface colour.
+    const ready = prepareBackdrop(backdrop);
+    if (!ready) apply();
+    else void ready.then(() => (cancelled ? undefined : apply()));
+    return () => {
+      cancelled = true;
+    };
   }, [
     isLoading,
     pimiAppearance,

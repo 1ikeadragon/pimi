@@ -1452,9 +1452,3 @@ export const REGISTERED_THEMES = {
   pimiSakura,
   pimiCelNight,
 } as RegisteredThemes;
-
-export function getNextThemePreference(current: ThemePreference): ThemePreference {
-  const currentIndex = THEME_OPTIONS.findIndex((option) => option.name === current);
-  const nextIndex = (currentIndex + 1) % THEME_OPTIONS.length;
-  return THEME_OPTIONS[nextIndex]?.name ?? THEME_OPTIONS[0].name;
-}

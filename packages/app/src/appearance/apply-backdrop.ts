@@ -54,3 +54,35 @@ export function applyBackdrop(spec: BackdropSpec | null): void {
     setActiveBackdrop(spec);
   }
 }
+
+const decoded = new Set<string>();
+const DECODE_LIMIT_MS = 1500;
+
+function stillImages(spec: BackdropSpec): string[] {
+  if (spec.kind === "image") return spec.veil ? [spec.image, spec.veil] : [spec.image];
+  if (spec.kind === "video") return spec.veil ? [spec.poster, spec.veil] : [spec.poster];
+  return [];
+}
+
+/**
+ * Decodes a backdrop's still images so the theme can switch in one frame instead of painting
+ * its flat colour while the image decodes. Null when nothing needs decoding. A broken or slow
+ * image never blocks the switch: it settles after DECODE_LIMIT_MS either way.
+ */
+export function prepareBackdrop(spec: BackdropSpec | null): Promise<void> | null {
+  if (!spec || typeof Image === "undefined") return null;
+  const pending = stillImages(spec).filter((url) => !decoded.has(url));
+  if (pending.length === 0) return null;
+  const decodeAll = Promise.all(
+    pending.map((url) => {
+      const image = new Image();
+      image.src = url;
+      return image.decode().then(
+        () => void decoded.add(url),
+        () => undefined,
+      );
+    }),
+  ).then(() => undefined);
+  const limit = new Promise<void>((resolve) => setTimeout(resolve, DECODE_LIMIT_MS));
+  return Promise.race([decodeAll, limit]);
+}

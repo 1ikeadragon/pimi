@@ -20,7 +20,7 @@ export interface ShortcutRoutingInput {
   payload: KeyboardShortcutPayload;
 }
 
-export type ShortcutCallbackName = "toggle-agent-list" | "toggle-both-sidebars" | "cycle-theme";
+export type ShortcutCallbackName = "toggle-agent-list" | "toggle-both-sidebars";
 
 export type ShortcutAction =
   | { kind: "none" }
@@ -32,39 +32,98 @@ export type ShortcutAction =
   | { kind: "router-push"; route: string }
   | { kind: "open-project-picker" }
   | { kind: "callback"; name: ShortcutCallbackName }
-  | { kind: "command-center-toggle"; nextOpen: boolean; scope?: "files" | "commands" }
+  | {
+      kind: "command-center-toggle";
+      nextOpen: boolean;
+      scope?: "files" | "commands";
+    }
   | { kind: "shortcuts-dialog-toggle"; nextOpen: boolean }
-  | { kind: "plugin-command"; key: string };
+  | { kind: "plugin-command"; key: string }
+  | { kind: "theme-step"; delta: 1 | -1 };
 
 const NONE: ShortcutAction = { kind: "none" };
 
 // Action ids whose routing is a no-payload pass-through to the dispatcher.
 const PASSTHROUGH_DISPATCH: Record<string, KeyboardActionDefinition> = {
   "agent.interrupt": { id: "agent.interrupt", scope: "global" },
-  "workspace.tab.menu.open": { id: "workspace.tab.menu.open", scope: "workspace" },
-  "workspace.tab.target.agent": { id: "workspace.tab.target.agent", scope: "workspace" },
-  "workspace.tab.target.browser": { id: "workspace.tab.target.browser", scope: "workspace" },
-  "workspace.tab.target.changes": { id: "workspace.tab.target.changes", scope: "workspace" },
-  "workspace.tab.target.files": { id: "workspace.tab.target.files", scope: "workspace" },
+  "workspace.tab.menu.open": {
+    id: "workspace.tab.menu.open",
+    scope: "workspace",
+  },
+  "workspace.tab.target.agent": {
+    id: "workspace.tab.target.agent",
+    scope: "workspace",
+  },
+  "workspace.tab.target.browser": {
+    id: "workspace.tab.target.browser",
+    scope: "workspace",
+  },
+  "workspace.tab.target.changes": {
+    id: "workspace.tab.target.changes",
+    scope: "workspace",
+  },
+  "workspace.tab.target.files": {
+    id: "workspace.tab.target.files",
+    scope: "workspace",
+  },
   "workspace.new": { id: "workspace.new", scope: "sidebar" },
-  "workspace.project.pick": { id: "workspace.project.pick", scope: "workspace" },
+  "workspace.project.pick": {
+    id: "workspace.project.pick",
+    scope: "workspace",
+  },
   "workspace.archive": { id: "workspace.archive", scope: "sidebar" },
   "workspace.archive.undo": { id: "workspace.archive.undo", scope: "global" },
   "workspace.pin": { id: "workspace.pin", scope: "sidebar" },
   "worktree.new": { id: "worktree.new", scope: "sidebar" },
-  "workspace.terminal.new": { id: "workspace.terminal.new", scope: "workspace" },
-  "workspace.tab.close.current": { id: "workspace.tab.close-current", scope: "workspace" },
+  "workspace.terminal.new": {
+    id: "workspace.terminal.new",
+    scope: "workspace",
+  },
+  "workspace.tab.close.current": {
+    id: "workspace.tab.close-current",
+    scope: "workspace",
+  },
   "sidebar.toggle.right": { id: "sidebar.toggle.right", scope: "sidebar" },
-  "workspace.pane.split.right": { id: "workspace.pane.split.right", scope: "workspace" },
-  "workspace.pane.split.down": { id: "workspace.pane.split.down", scope: "workspace" },
-  "workspace.pane.focus.left": { id: "workspace.pane.focus.left", scope: "workspace" },
-  "workspace.pane.focus.right": { id: "workspace.pane.focus.right", scope: "workspace" },
-  "workspace.pane.focus.up": { id: "workspace.pane.focus.up", scope: "workspace" },
-  "workspace.pane.focus.down": { id: "workspace.pane.focus.down", scope: "workspace" },
-  "workspace.pane.move-tab.left": { id: "workspace.pane.move-tab.left", scope: "workspace" },
-  "workspace.pane.move-tab.right": { id: "workspace.pane.move-tab.right", scope: "workspace" },
-  "workspace.pane.move-tab.up": { id: "workspace.pane.move-tab.up", scope: "workspace" },
-  "workspace.pane.move-tab.down": { id: "workspace.pane.move-tab.down", scope: "workspace" },
+  "workspace.pane.split.right": {
+    id: "workspace.pane.split.right",
+    scope: "workspace",
+  },
+  "workspace.pane.split.down": {
+    id: "workspace.pane.split.down",
+    scope: "workspace",
+  },
+  "workspace.pane.focus.left": {
+    id: "workspace.pane.focus.left",
+    scope: "workspace",
+  },
+  "workspace.pane.focus.right": {
+    id: "workspace.pane.focus.right",
+    scope: "workspace",
+  },
+  "workspace.pane.focus.up": {
+    id: "workspace.pane.focus.up",
+    scope: "workspace",
+  },
+  "workspace.pane.focus.down": {
+    id: "workspace.pane.focus.down",
+    scope: "workspace",
+  },
+  "workspace.pane.move-tab.left": {
+    id: "workspace.pane.move-tab.left",
+    scope: "workspace",
+  },
+  "workspace.pane.move-tab.right": {
+    id: "workspace.pane.move-tab.right",
+    scope: "workspace",
+  },
+  "workspace.pane.move-tab.up": {
+    id: "workspace.pane.move-tab.up",
+    scope: "workspace",
+  },
+  "workspace.pane.move-tab.down": {
+    id: "workspace.pane.move-tab.down",
+    scope: "workspace",
+  },
   "workspace.pane.close": { id: "workspace.pane.close", scope: "workspace" },
   "view.toggle.focus": { id: "workspace.focus.toggle", scope: "workspace" },
   "pane.find": { id: "pane.find", scope: "workspace" },
@@ -72,12 +131,21 @@ const PASSTHROUGH_DISPATCH: Record<string, KeyboardActionDefinition> = {
   "pane.find.previous": { id: "pane.find.previous", scope: "workspace" },
   "pane.find.toggle-case": { id: "pane.find.toggle-case", scope: "workspace" },
   "pane.find.toggle-word": { id: "pane.find.toggle-word", scope: "workspace" },
-  "pane.find.toggle-regex": { id: "pane.find.toggle-regex", scope: "workspace" },
+  "pane.find.toggle-regex": {
+    id: "pane.find.toggle-regex",
+    scope: "workspace",
+  },
   "pane.replace": { id: "pane.replace", scope: "workspace" },
   "search.workspace": { id: "search.workspace", scope: "workspace" },
   "search.replace": { id: "search.replace", scope: "workspace" },
-  "editor.add-next-occurrence": { id: "editor.add-next-occurrence", scope: "workspace" },
-  "editor.select-all-occurrences": { id: "editor.select-all-occurrences", scope: "workspace" },
+  "editor.add-next-occurrence": {
+    id: "editor.add-next-occurrence",
+    scope: "workspace",
+  },
+  "editor.select-all-occurrences": {
+    id: "editor.select-all-occurrences",
+    scope: "workspace",
+  },
   "editor.go-to-line": { id: "editor.go-to-line", scope: "workspace" },
   "editor.go-to-symbol": { id: "editor.go-to-symbol", scope: "workspace" },
 };
@@ -85,7 +153,6 @@ const PASSTHROUGH_DISPATCH: Record<string, KeyboardActionDefinition> = {
 const SIMPLE_CALLBACKS: Record<string, ShortcutCallbackName> = {
   "sidebar.toggle.left": "toggle-agent-list",
   "sidebar.toggle.both": "toggle-both-sidebars",
-  "theme.cycle": "cycle-theme",
 };
 
 const MESSAGE_INPUT_DISPATCH: Record<
@@ -94,11 +161,23 @@ const MESSAGE_INPUT_DISPATCH: Record<
 > = {
   focus: { id: "message-input.focus", scope: "message-input" },
   send: { id: "message-input.send", scope: "message-input" },
-  "dictation-toggle": { id: "message-input.dictation-toggle", scope: "message-input" },
-  "dictation-cancel": { id: "message-input.dictation-cancel", scope: "message-input" },
-  "dictation-confirm": { id: "message-input.dictation-confirm", scope: "message-input" },
+  "dictation-toggle": {
+    id: "message-input.dictation-toggle",
+    scope: "message-input",
+  },
+  "dictation-cancel": {
+    id: "message-input.dictation-cancel",
+    scope: "message-input",
+  },
+  "dictation-confirm": {
+    id: "message-input.dictation-confirm",
+    scope: "message-input",
+  },
   "voice-toggle": { id: "message-input.voice-toggle", scope: "message-input" },
-  "voice-mute-toggle": { id: "message-input.voice-mute-toggle", scope: "message-input" },
+  "voice-mute-toggle": {
+    id: "message-input.voice-mute-toggle",
+    scope: "message-input",
+  },
   "mode-cycle": { id: "message-input.mode-cycle", scope: "message-input" },
 };
 
@@ -157,7 +236,10 @@ function routeWorkspaceNavigateRelative(
   const target = getRelativeSidebarShortcutTarget({
     targets: ctx.sidebarShortcutTargets,
     currentTarget: currentWorkspace
-      ? { serverId: currentWorkspace.serverId, workspaceId: currentWorkspace.workspaceId }
+      ? {
+          serverId: currentWorkspace.serverId,
+          workspaceId: currentWorkspace.workspaceId,
+        }
       : null,
     delta: payload.delta,
   });
@@ -168,6 +250,16 @@ function routeWorkspaceNavigateRelative(
     workspaceId: target.workspaceId,
   };
 }
+
+function routeThemeStep(payload: KeyboardShortcutPayload): ShortcutAction {
+  return hasPayloadKey(payload, "delta") ? { kind: "theme-step", delta: payload.delta } : NONE;
+}
+
+// Action ids routed from their payload alone.
+const PAYLOAD_ROUTES: Record<string, (payload: KeyboardShortcutPayload) => ShortcutAction> = {
+  "message-input.action": routeMessageInputAction,
+  "theme.step": routeThemeStep,
+};
 
 function routeMessageInputAction(payload: KeyboardShortcutPayload): ShortcutAction {
   if (!hasPayloadKey(payload, "kind")) return NONE;
@@ -207,6 +299,9 @@ export function routeKeyboardShortcut(
     return dispatch(passthrough);
   }
 
+  const payloadRoute = PAYLOAD_ROUTES[input.action];
+  if (payloadRoute) return payloadRoute(input.payload);
+
   const callback = SIMPLE_CALLBACKS[input.action];
   if (callback) {
     return { kind: "callback", name: callback };
@@ -221,25 +316,37 @@ export function routeKeyboardShortcut(
       return routeWorkspaceNavigateIndex(input.payload, ctx);
     case "workspace.navigate.relative":
       return routeWorkspaceNavigateRelative(input.payload, ctx);
-    case "message-input.action":
-      return routeMessageInputAction(input.payload);
     case "agent.new":
       return { kind: "open-project-picker" };
     case "settings.toggle":
       return routeSettingsToggle(ctx);
     case "command-center.toggle":
-      return { kind: "command-center-toggle", nextOpen: !ctx.commandCenterOpen };
+      return {
+        kind: "command-center-toggle",
+        nextOpen: !ctx.commandCenterOpen,
+      };
     case "command-center.files":
       if (parseHostWorkspaceRouteFromPathname(ctx.pathname)) {
-        return { kind: "command-center-toggle", nextOpen: true, scope: "files" };
+        return {
+          kind: "command-center-toggle",
+          nextOpen: true,
+          scope: "files",
+        };
       }
       return dispatch({ id: "workspace.project.pick", scope: "workspace" });
     case "command-center.commands":
-      return { kind: "command-center-toggle", nextOpen: true, scope: "commands" };
+      return {
+        kind: "command-center-toggle",
+        nextOpen: true,
+        scope: "commands",
+      };
     case "plugin.command":
       return routePluginCommand(input.payload);
     case "shortcuts.dialog.toggle":
-      return { kind: "shortcuts-dialog-toggle", nextOpen: !ctx.shortcutsDialogOpen };
+      return {
+        kind: "shortcuts-dialog-toggle",
+        nextOpen: !ctx.shortcutsDialogOpen,
+      };
     default:
       return NONE;
   }
