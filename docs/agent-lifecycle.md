@@ -58,13 +58,30 @@ old runtime, install the new session. The differences:
 - Provider, model and availability checks run before the old session is touched. A failure after the
   old runtime is released reopens the original provider thread; if that also fails the agent is left
   closed and retryable, as after a failed reload.
-- The new provider has no memory of the chat. The daemon builds the same curated summary a fork uses,
-  stores it on the agent record as `pendingProviderContext`, sends it with the next prompt, and clears
-  it once the provider accepts that turn. Switching again before prompting rebuilds it.
-- A provider's history now starts at the switch, so the rows before it are written to
-  `$PIMI_HOME/agent-carried-timelines/{agentId}.json` and replayed ahead of provider history whenever
-  the timeline is rebuilt: resume after a restart, reload from disk, rewind. Rewind cannot cross a
-  switch.
+- The new provider has no memory of the chat, so the next prompt carries a handoff
+  (`packages/server/src/server/agent/handoff/`). The switch never waits on a model. It stores a
+  rule-based message as `pendingProviderContext` and starts a summary job in the background; when the
+  job finishes before the prompt goes out, the summary version replaces it. The first prompt after a
+  switch waits for a running job until its deadline: 45 s from the switch for a manual one (and never
+  more than 15 s of added delay), 30 s for a limit move, whose continuation prompt fires at once. The
+  job gives up after 90 s; a late result is cached for the next switch. The context is cleared once
+  the provider accepts that turn, and a timeline note (`handoff`) records whether it carried a
+  summary, the recent-history excerpt only, or the whole history.
+- A chat whose curated history fits about 24k characters is sent whole and no model is asked.
+  Otherwise the message holds a model-written summary of everything before the newest ~16k
+  characters, those newest entries verbatim, the work state at the switch (branch, changed files,
+  diff stat, to-do and open tasks), and the path of the full transcript.
+- The summary is incremental: `handoff_checkpoints` keeps the last one per chat, and a later switch
+  summarises only the rows after it (see [data-model.md](data-model.md)). It uses the `handoff` Pimi
+  model feature, resolved against the provider being moved to. On a limit move the limited provider
+  is never asked. A failed or unavailable model leaves the excerpt in place.
+- The transcript under `$PIMI_HOME/agent-transcripts/{agentId}/` is written in the background and
+  appended on later switches. Claude gets it as an additional directory, OpenCode an
+  external-directory allow rule; Codex reads it under its read-only and workspace-write sandboxes.
+  A provider with no such mechanism asks the user the way it does for any outside read.
+- A provider's history now starts at the switch, so the rows before it are marked carried in
+  `pimi-timeline.db` and replayed ahead of provider history whenever the timeline is rebuilt: resume
+  after a restart, reload from disk, rewind. Rewind cannot cross a switch.
 
 The old provider's native session is left as it was. It is not archived there and can be imported
 again as a separate chat.

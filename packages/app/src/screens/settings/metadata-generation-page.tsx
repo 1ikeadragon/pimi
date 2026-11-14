@@ -27,6 +27,7 @@ const FEATURE_ROWS: readonly PimiModelFeature[] = [
   "automation",
   "task",
   "askPimi",
+  "handoff",
 ];
 
 export function MetadataGenerationPage({ serverId }: { serverId: string }) {

@@ -166,6 +166,7 @@ export function toAgentPayload(
     labels: agent.labels,
     archivedAt: options?.archivedAt ?? null,
     ...visibilityFlags(agent),
+    ...(agent.handoffSummarising ? { handoffSummarising: true } : {}),
   };
 
   const usage = sanitizeUsage(agent.lastUsage);

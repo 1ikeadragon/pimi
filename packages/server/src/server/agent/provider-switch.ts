@@ -101,7 +101,7 @@ export async function resolveAgentProviderSwitchTarget(
   };
 }
 
-function describeEndpoint(endpoint: AgentProviderSwitchMarker["from"]): string {
+export function describeEndpoint(endpoint: AgentProviderSwitchMarker["from"]): string {
   const provider = endpoint.providerLabel ?? endpoint.provider;
   const model = endpoint.modelLabel ?? endpoint.model;
   return model ? `${provider} · ${model}` : provider;

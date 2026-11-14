@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   AgentImageRefSchema,
   AgentPermissionResolutionMarkerSchema,
+  AgentHandoffMarkerSchema,
   AgentProviderSwitchMarkerSchema,
   AgentStatusSchema,
   AgentTimelineItemPayloadSchema,
@@ -21,6 +22,7 @@ import {
 import {
   isUnreconciledLocalUserMessage,
   type AgentToolCallData,
+  type NotificationItem,
   type StreamItem,
 } from "@/types/stream";
 import { normalizeAgentSnapshot } from "@/utils/agent-snapshots";
@@ -154,6 +156,7 @@ const StoredTimelineItemSchema = z.discriminatedUnion("kind", [
     level: z.enum(["info", "warning", "error"]),
     message: z.string(),
     providerSwitch: AgentProviderSwitchMarkerSchema.optional(),
+    handoff: AgentHandoffMarkerSchema.optional(),
     permissionResolution: AgentPermissionResolutionMarkerSchema.optional(),
   }),
   z.strictObject({
@@ -494,8 +497,7 @@ function serializeTimelineItem(item: StreamItem): StoredTimelineItem | null {
         sourceType: item.sourceType,
         level: item.level,
         message: item.message,
-        ...(item.providerSwitch ? { providerSwitch: item.providerSwitch } : {}),
-        ...(item.permissionResolution ? { permissionResolution: item.permissionResolution } : {}),
+        ...notificationMarkers(item),
       };
     case "compaction":
       return {
@@ -555,6 +557,16 @@ function deserializeTimelineItem(item: StoredTimelineItem): StreamItem {
   return deserializeBuiltinTimelineItem(item);
 }
 
+function notificationMarkers(
+  item: Pick<NotificationItem, "providerSwitch" | "handoff" | "permissionResolution">,
+): Pick<NotificationItem, "providerSwitch" | "handoff" | "permissionResolution"> {
+  return {
+    ...(item.providerSwitch ? { providerSwitch: item.providerSwitch } : {}),
+    ...(item.handoff ? { handoff: item.handoff } : {}),
+    ...(item.permissionResolution ? { permissionResolution: item.permissionResolution } : {}),
+  };
+}
+
 function deserializeBuiltinTimelineItem(
   item: Exclude<StoredTimelineItem, { kind: "plugin" | "assistant_images" }>,
 ): StreamItem {
@@ -597,8 +609,7 @@ function deserializeBuiltinTimelineItem(
         sourceType: item.sourceType,
         level: item.level,
         message: item.message,
-        ...(item.providerSwitch ? { providerSwitch: item.providerSwitch } : {}),
-        ...(item.permissionResolution ? { permissionResolution: item.permissionResolution } : {}),
+        ...notificationMarkers(item),
       };
     case "compaction":
       return {

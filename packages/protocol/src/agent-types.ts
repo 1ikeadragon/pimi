@@ -431,6 +431,20 @@ export interface AgentProviderSwitchMarker {
 }
 
 /**
+ * What the new provider was told about the chat so far, recorded when the history is delivered
+ * with the first prompt after a provider switch.
+ */
+export interface AgentHandoffMarker {
+  /** `summary`: a model-written summary plus recent history. `excerpt`: the rule-based excerpt
+   * only (no summary was ready or it failed). `verbatim`: the whole history was short enough. */
+  mode: "summary" | "excerpt" | "verbatim";
+  /** The model that wrote the summary. Only on `mode: "summary"`. */
+  model?: string;
+  /** Directory on the daemon host that holds the full transcript. */
+  transcriptPath?: string;
+}
+
+/**
  * A provider's structured report that it cannot take more work for now. Set only by the provider
  * adapter from a typed signal, never from error text.
  */
@@ -486,6 +500,7 @@ export type AgentTimelineItem =
       level: "info" | "warning" | "error";
       message: string;
       providerSwitch?: AgentProviderSwitchMarker;
+      handoff?: AgentHandoffMarker;
       permissionResolution?: AgentPermissionResolutionMarker;
     }
   | CompactionTimelineItem

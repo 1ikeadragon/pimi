@@ -201,6 +201,7 @@ const AgentMetadataGenerationSchema = z
         pullRequest: StructuredGenerationProviderConfigSchema.optional(),
         automation: StructuredGenerationProviderConfigSchema.optional(),
         askPimi: StructuredGenerationProviderConfigSchema.optional(),
+        handoff: StructuredGenerationProviderConfigSchema.optional(),
       })
       .strict()
       .optional(),

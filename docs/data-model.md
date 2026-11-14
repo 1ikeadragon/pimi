@@ -90,6 +90,16 @@ timelines of agents that no longer exist. Rows carried over a provider switch ex
 are lost with this file unless `pimi.db` still holds the 0.17.x copy (`records`, kind
 `carried_timeline`), which the one-time import re-reads when the file is new.
 
+`handoff_checkpoints` in the same file holds one running summary per chat (epoch, `through_seq`,
+format, model, text), written for provider switches. A new epoch or a changed `format` makes it stale;
+a missing row only means a longer summary job.
+
+`$PIMI_HOME/agent-transcripts/{agentId}/` (directories 0700, files 0600) holds a chat's full history
+as Markdown for the provider it switched to: `part-NNNN.md` files of about 5 MB, an `index.md` and a
+`manifest.json`. It duplicates the stored rows, so a large chat costs hundreds of MB. It is rebuilt
+from the timeline, never the other way round, and is removed on delete and archive; a startup sweep
+removes directories of agents that no longer exist.
+
 A chat opens from its stored rows, with no provider replay, only when all of these hold; any other
 case rebuilds from the provider, replacing the non-carried rows under a new epoch:
 
@@ -125,6 +135,8 @@ $PIMI_HOME/
 │   └── {sanitized-cwd}/
 │       └── {agentId}.json               # One file per agent
 ├── pimi-timeline.db                     # Chat timelines and the message search index (mode 0600)
+├── agent-transcripts/
+│   └── {agentId}/                       # Handoff transcript: part-NNNN.md, index.md, manifest.json
 ├── agent-carried-timelines/
 │   └── {agentId}.json                   # Legacy: imported once into pimi-timeline.db
 ├── automations/

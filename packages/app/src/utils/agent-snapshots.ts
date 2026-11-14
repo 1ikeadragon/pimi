@@ -118,6 +118,7 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
     archivedAt,
     background: snapshot.background === true,
     limitFallbackDisabled: snapshot.limitFallbackDisabled === true,
+    handoffSummarising: snapshot.handoffSummarising === true,
     parentAgentId,
     labels: snapshot.labels,
   };
