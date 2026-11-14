@@ -13,6 +13,33 @@ export interface AcpProviderCatalogEntry {
   params?: Readonly<Record<string, unknown>>;
 }
 
+// Catalog dependencies resolve only to versions published before this instant, so a
+// malicious release of a transitive dependency cannot reach a fresh install. Bump it
+// together with any pinned version below, and keep it at least 3 days old.
+const RESOLVED_BEFORE = "2026-11-11T00:00:00Z";
+
+// Install scripts are skipped for the package and its whole dependency tree. An agent that
+// genuinely needs one gets npxWithScripts() and a comment naming the script.
+const npx = (spec: string, ...args: string[]) =>
+  ["npx", "-y", `--before=${RESOLVED_BEFORE}`, "--ignore-scripts", spec, ...args] as const;
+
+// The `=` form keeps the date inside the flag: the daemon's version probe takes the first
+// non-dash token as the package spec.
+const npxBin = (spec: string, bin: string, ...args: string[]) =>
+  [
+    "npx",
+    "-y",
+    `--before=${RESOLVED_BEFORE}`,
+    "--ignore-scripts",
+    "-p",
+    spec,
+    bin,
+    ...args,
+  ] as const;
+
+const uvx = (spec: string, bin: string, ...args: string[]) =>
+  ["uvx", `--exclude-newer=${RESOLVED_BEFORE}`, "--from", spec, bin, ...args] as const;
+
 const CATALOG_DATA = [
   {
     id: "agoragentic-acp",
@@ -22,7 +49,7 @@ const CATALOG_DATA = [
     version: "1.3.6",
     iconId: "agoragentic-acp",
     installLink: "https://agoragentic.com",
-    command: ["npx", "-y", "agoragentic-mcp@1.3.6", "--acp"],
+    command: npx("agoragentic-mcp@1.3.6", "--acp"),
   },
   {
     id: "amp-acp",
@@ -41,7 +68,7 @@ const CATALOG_DATA = [
     version: "0.36.0",
     iconId: "auggie",
     installLink: "https://www.augmentcode.com/",
-    command: ["npx", "-y", "@augmentcode/auggie@0.36.0", "--acp"],
+    command: npx("@augmentcode/auggie@0.36.0", "--acp"),
     env: {
       AUGMENT_DISABLE_AUTO_UPDATE: "1",
     },
@@ -53,7 +80,7 @@ const CATALOG_DATA = [
     version: "0.2.1",
     iconId: "autohand",
     installLink: "https://www.autohand.ai/cli/",
-    command: ["npx", "-y", "@autohandai/autohand-acp@0.2.1"],
+    command: npx("@autohandai/autohand-acp@0.2.1"),
   },
   {
     id: "cline",
@@ -63,7 +90,7 @@ const CATALOG_DATA = [
     version: "3.0.73",
     iconId: "cline",
     installLink: "https://cline.bot/cli",
-    command: ["npx", "-y", "cline@3.0.73", "--acp"],
+    command: npx("cline@3.0.73", "--acp"),
   },
   {
     id: "codebuddy-code",
@@ -126,7 +153,7 @@ const CATALOG_DATA = [
     version: "0.1.36",
     iconId: "deepagents",
     installLink: "https://docs.langchain.com/oss/javascript/deepagents/overview",
-    command: ["npx", "-y", "deepagents-acp@0.1.36"],
+    command: npx("deepagents-acp@0.1.36"),
   },
   {
     id: "deepseek-harness",
@@ -156,7 +183,7 @@ const CATALOG_DATA = [
     version: "0.5.21",
     iconId: "dimcode",
     installLink: "https://dimcode.dev/docs/acp.html",
-    command: ["npx", "-y", "dimcode@0.5.21", "acp"],
+    command: npx("dimcode@0.5.21", "acp"),
   },
   {
     id: "dirac",
@@ -166,7 +193,7 @@ const CATALOG_DATA = [
     version: "0.5.23",
     iconId: "dirac",
     installLink: "https://dirac.run",
-    command: ["npx", "-y", "dirac-cli@0.5.23", "--acp"],
+    command: npx("dirac-cli@0.5.23", "--acp"),
   },
   {
     id: "factory-droid",
@@ -175,7 +202,7 @@ const CATALOG_DATA = [
     version: "0.249.0",
     iconId: "factory-droid",
     installLink: "https://factory.ai/product/cli",
-    command: ["npx", "-y", "droid@0.249.0", "exec", "--output-format", "acp-daemon"],
+    command: npx("droid@0.249.0", "exec", "--output-format", "acp-daemon"),
     env: {
       DROID_DISABLE_AUTO_UPDATE: "true",
       FACTORY_DROID_AUTO_UPDATE_ENABLED: "false",
@@ -189,7 +216,7 @@ const CATALOG_DATA = [
     version: "0.10.47",
     iconId: "fast-agent",
     installLink: "https://fast-agent.ai/acp/",
-    command: ["uvx", "--from", "fast-agent-acp==0.10.47", "fast-agent-acp", "-x"],
+    command: uvx("fast-agent-acp==0.10.47", "fast-agent-acp", "-x"),
   },
   {
     id: "gemini",
@@ -198,7 +225,7 @@ const CATALOG_DATA = [
     version: "0.65.0",
     iconId: "gemini",
     installLink: "https://geminicli.com",
-    command: ["npx", "-y", "@google/gemini-cli@0.65.0", "--acp"],
+    command: npx("@google/gemini-cli@0.65.0", "--acp"),
   },
   {
     id: "gjc",
@@ -221,7 +248,7 @@ const CATALOG_DATA = [
     version: "1.15.0",
     iconId: "glm-acp-agent",
     installLink: "https://github.com/stefandevo/glm-acp-agent",
-    command: ["npx", "-y", "glm-acp-agent@1.15.0"],
+    command: npx("glm-acp-agent@1.15.0"),
   },
   {
     id: "goose",
@@ -307,7 +334,7 @@ const CATALOG_DATA = [
     // `-p <pkg>` names the package and `mcode` names its binary. Without the
     // explicit binary, npx resolves the executable from the unscoped package
     // name (`code`), which this package does not publish.
-    command: ["npx", "-y", "-p", "@minimax-ai/code@0.6.13", "mcode", "acp"],
+    command: npxBin("@minimax-ai/code@0.6.13", "mcode", "acp"),
   },
   {
     id: "minion-code",
@@ -317,7 +344,7 @@ const CATALOG_DATA = [
     version: "0.1.45",
     iconId: "minion-code",
     installLink: "https://github.com/femto/minion-code",
-    command: ["uvx", "--from", "minion-code==0.1.45", "minion-code", "acp"],
+    command: uvx("minion-code==0.1.45", "minion-code", "acp"),
   },
   {
     id: "mistral-vibe",
@@ -335,7 +362,7 @@ const CATALOG_DATA = [
     version: "1.1.59",
     iconId: "nova",
     installLink: "https://www.compassap.ai/portfolio/nova.html",
-    command: ["npx", "-y", "@compass-ai/nova@1.1.59", "acp"],
+    command: npx("@compass-ai/nova@1.1.59", "acp"),
   },
   {
     id: "poolside",
@@ -353,7 +380,7 @@ const CATALOG_DATA = [
     version: "1.1.78",
     iconId: "qoder",
     installLink: "https://qoder.com",
-    command: ["npx", "-y", "@qoder-ai/qodercli@1.1.78", "--acp"],
+    command: npx("@qoder-ai/qodercli@1.1.78", "--acp"),
   },
   {
     id: "qwen-code",
@@ -362,7 +389,7 @@ const CATALOG_DATA = [
     version: "0.26.0",
     iconId: "qwen-code",
     installLink: "https://qwenlm.github.io/qwen-code-docs/en/users/overview",
-    command: ["npx", "-y", "@qwen-code/qwen-code@0.26.0", "--acp", "--experimental-skills"],
+    command: npx("@qwen-code/qwen-code@0.26.0", "--acp", "--experimental-skills"),
   },
   {
     id: "sigit",
