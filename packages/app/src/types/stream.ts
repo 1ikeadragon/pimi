@@ -688,8 +688,40 @@ export function replaceWithCanonicalStream(
   );
   return {
     ...replacement,
+    head: reidentifyHeadAssistantsTakenByTail(replacement.tail, replacement.head),
     acknowledgedClientMessageIds: [...acknowledgedClientMessageIds],
   };
+}
+
+/**
+ * A live assistant row takes its provider message id as its row id when the tail holds no row
+ * with that id. A provider reuses one message id for every text block around its tool calls,
+ * so a head row created while the tail was still cold collides with the canonical row that
+ * later arrives with the same message id. The two are different rows; the head row moves to a
+ * segment id so the rendered list keeps unique keys.
+ */
+function reidentifyHeadAssistantsTakenByTail(
+  tail: readonly StreamItem[],
+  head: StreamItem[],
+): StreamItem[] {
+  if (head.length === 0) return head;
+  const taken = new Set(tail.map((item) => item.id));
+  let changed = false;
+  const next = head.map((item) => {
+    if (item.kind !== "assistant_message" || !taken.has(item.id)) {
+      taken.add(item.id);
+      return item;
+    }
+    changed = true;
+    const base = `${item.id}:segment:${item.timestamp.getTime().toString(36)}`;
+    let id = base;
+    for (let suffix = 1; taken.has(id); suffix += 1) {
+      id = `${base}:${suffix.toString(36)}`;
+    }
+    taken.add(id);
+    return { ...item, id };
+  });
+  return changed ? next : head;
 }
 
 export interface AssistantMessageItem {
