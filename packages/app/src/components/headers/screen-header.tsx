@@ -14,6 +14,8 @@ import { WindowChromeSafeArea } from "@/utils/desktop-window";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { usesPimiMacTitlebar } from "@/desktop/host";
 
+const PIMI_HEADER = { "pimi-header": "" };
+
 interface ScreenHeaderProps {
   left?: ReactNode;
   right?: ReactNode;
@@ -54,7 +56,11 @@ export function ScreenHeader({
   const headerStyle = macTitlebar ? styles.pimiMacHeader : styles.header;
 
   return (
-    <ComposerDockBackground style={headerStyle} testID="composer-dock-header">
+    <ComposerDockBackground
+      style={headerStyle}
+      dataSet={macTitlebar ? PIMI_HEADER : undefined}
+      testID="composer-dock-header"
+    >
       <View style={innerStyle}>
         <WindowChromeSafeArea
           placement="inline"

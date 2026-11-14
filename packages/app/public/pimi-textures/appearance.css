@@ -44,6 +44,50 @@
   --pimi-glass: #262945cc;
 }
 
+/* Reading scrim for the sky themes. The colourful edge is a pixel-sized strip on the right, so the
+   sky stays vivid next to the content column at any window width. Left of it the sky only tints
+   through a near-opaque surface colour, which is what keeps body text at AA over it. */
+:root {
+  --pimi-strip: clamp(64px, calc(50% - 570px), 560px);
+  --pimi-fade: 48px;
+  --pimi-scrim-layer: linear-gradient(
+    to right,
+    var(--pimi-scrim, transparent) calc(100% - var(--pimi-strip) - var(--pimi-fade)),
+    transparent calc(100% - var(--pimi-strip))
+  );
+}
+
+:root[data-appearance="sky-day"] {
+  --pimi-scrim: #f8fcfee0;
+  --pimi-ink: var(--pimi-scrim-layer), url("/pimi-textures/sky-day.webp");
+  --pimi-material: url("/pimi-textures/sky-grain.svg");
+}
+
+:root[data-appearance="sky-dawn"] {
+  --pimi-scrim: #fffbf7e0;
+  --pimi-ink: var(--pimi-scrim-layer), url("/pimi-textures/sky-dawn.webp");
+  --pimi-material: url("/pimi-textures/sky-grain.svg");
+}
+
+:root[data-appearance="sky-dusk"] {
+  --pimi-scrim: #150a07f0;
+  --pimi-ink: var(--pimi-scrim-layer), url("/pimi-textures/sky-dusk.webp");
+  --pimi-material: url("/pimi-textures/graphite.svg");
+}
+
+:root[data-appearance="sky-night"] {
+  --pimi-scrim: #09090da6;
+  --pimi-ink: var(--pimi-scrim-layer), url("/pimi-textures/sky-night.webp");
+  --pimi-material: url("/pimi-textures/graphite.svg");
+}
+
+:root[data-appearance="tide"] {
+  --pimi-ink:
+    radial-gradient(ellipse at 78% 14%, #1f6f7833, transparent 60%),
+    linear-gradient(to top, #0a2229, #03070a 75%);
+  --pimi-material: url("/pimi-textures/graphite.svg");
+}
+
 :root:is([data-appearance="sakura"], [data-appearance="cel-night"]) [data-pimi-background] {
   background-position:
     var(--pimi-ink-position),
@@ -79,6 +123,38 @@
 
 :root[data-appearance] [data-pimi-material] {
   background-image: var(--pimi-material);
+}
+
+/* Sky backdrops are viewport-anchored: every container shows the same sky, so navigation,
+   nesting and sidebar resizing never move it. Layers: grain, scrim or gradient, sky. */
+:root:is(
+    [data-appearance="sky-day"],
+    [data-appearance="sky-dawn"],
+    [data-appearance="sky-dusk"],
+    [data-appearance="sky-night"],
+    [data-appearance="tide"]
+  )
+  :is([data-pimi-background], [data-pimi-glass]) {
+  background-image: var(--pimi-material), var(--pimi-ink);
+  background-position:
+    top left,
+    right top,
+    right top;
+  background-size: auto, cover, cover;
+  background-repeat: repeat, no-repeat, no-repeat;
+  background-attachment: scroll, fixed, fixed;
+}
+
+/* The mac titlebar header is a solid bar by default; over a sky it lets the container's sky through. */
+:root:is(
+    [data-appearance="sky-day"],
+    [data-appearance="sky-dawn"],
+    [data-appearance="sky-dusk"],
+    [data-appearance="sky-night"],
+    [data-appearance="tide"]
+  )
+  [data-pimi-header] {
+  background-color: transparent;
 }
 
 [data-pimi-agent-grid] {

@@ -38,6 +38,8 @@ const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted })
 const EMPTY_TASKS: AggregatedTask[] = [];
 
 // Scroll position survives leaving the screen for a chat and coming back through history.
+const PIMI_BACKGROUND = { "pimi-background": "" };
+
 let lastScrollY = 0;
 
 interface PimiTasksScreenProps {
@@ -51,7 +53,7 @@ export function PimiTasksScreen(props: PimiTasksScreenProps): ReactElement {
   const { t } = useTranslation();
   const isFocused = useIsFocused();
   return (
-    <View style={styles.container} testID="pimi-tasks-screen">
+    <View style={styles.container} dataSet={PIMI_BACKGROUND} testID="pimi-tasks-screen">
       <LiveBackdrop />
       <MenuHeader title={t("tasks.title")} inPimiTitlebar />
       <TasksContent {...props} sheetsAllowed={isFocused} />

@@ -12,6 +12,7 @@ import {
   PLUGIN_THEME_PREFERENCE,
   PIMI_APPEARANCE_THEMES,
   REGISTERED_THEMES,
+  SKY_THEME_OPTIONS,
   darkTheme,
   lightTheme,
   type Theme,
@@ -50,6 +51,8 @@ const pimiOptions = [
     label,
     preview: theme,
   })),
+  // Labels come from en.ts (settings.appearance.theme.options.<mode>).
+  ...SKY_THEME_OPTIONS.map(({ name, theme }) => ({ mode: name, preview: theme })),
 ] as const;
 
 function PimiThemePicker({ bridge }: { bridge: NonNullable<DesktopHostBridge["pimiAppearance"]> }) {
@@ -106,10 +109,13 @@ function PimiThemeTile({
   disabled: boolean;
   selectMode: (mode: PimiAppearance) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const press = useCallback(() => void selectMode(option.mode), [option.mode, selectMode]);
   return (
     <ThemeTile
-      label={option.label}
+      label={
+        "label" in option ? option.label : t(`settings.appearance.theme.options.${option.mode}`)
+      }
       selected={selected}
       disabled={disabled}
       onPress={press}
@@ -177,7 +183,11 @@ function BuiltInThemeTile({
   const label = option && "label" in option ? option.label : null;
   return (
     <ThemeTile
-      label={mobileOption?.label ?? label ?? t(`settings.appearance.theme.options.${value}`)}
+      label={
+        (mobileOption && "label" in mobileOption ? mobileOption.label : undefined) ??
+        label ??
+        t(`settings.appearance.theme.options.${value}`)
+      }
       selected={selected}
       onPress={handlePress}
       previewTheme={
