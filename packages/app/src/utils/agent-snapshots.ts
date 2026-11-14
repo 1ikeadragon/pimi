@@ -117,6 +117,7 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
     attentionTimestamp,
     archivedAt,
     background: snapshot.background === true,
+    limitFallbackDisabled: snapshot.limitFallbackDisabled === true,
     parentAgentId,
     labels: snapshot.labels,
   };

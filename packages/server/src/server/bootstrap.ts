@@ -1,3 +1,4 @@
+import { createLimitFallback } from "./agent/limit-fallback/index.js";
 import { createRestartRecovery } from "./agent/restart-recovery/index.js";
 import { sendPromptToAgent } from "./agent/agent-prompt.js";
 import { generateChatTitle } from "./agent/chat-title-generator.js";
@@ -464,6 +465,7 @@ export interface PimiDaemonConfig {
     maxProcessConcurrency: number;
   };
   autoArchiveAfterMerge?: boolean;
+  limitFallback?: MutableDaemonConfig["limitFallback"];
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
   terminalProfiles?: TerminalProfile[];
@@ -602,6 +604,12 @@ function createInitialLogConfig(config: ResolvedDaemonSettings): MutableDaemonCo
   };
 }
 
+function resolveLimitFallback(
+  config: ResolvedDaemonSettings["limitFallback"],
+): MutableDaemonConfig["limitFallback"] {
+  return config ?? { enabled: false, chain: [] };
+}
+
 function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): MutableDaemonConfig {
   const providers = config.providerOverrides ?? {};
 
@@ -624,6 +632,7 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
     providers,
     metadataGeneration: resolveMetadataGeneration(config.metadataGeneration),
     autoArchiveAfterMerge: config.autoArchiveAfterMerge ?? false,
+    limitFallback: resolveLimitFallback(config.limitFallback),
     enableTerminalAgentHooks: config.enableTerminalAgentHooks ?? false,
     log: createInitialLogConfig(config),
     idleRuntimeCleanup: config.idleRuntimeCleanup !== false,
@@ -1300,6 +1309,13 @@ export async function createPimiDaemon(
     dispatch: (agentId, prompt) =>
       sendPromptToAgent({ agentId, prompt, agentManager, agentStorage, logger, unarchive: false }),
     report: (agentId, err) => logger.error({ agentId, err }, "Agent restart recovery failed"),
+  });
+  const limitFallback = createLimitFallback({
+    agentManager,
+    agentStorage,
+    providerSnapshotManager,
+    config: () => daemonConfigStore.get().limitFallback,
+    logger,
   });
   await restartRecovery.prepareStartup();
   logger.info({ elapsed: elapsed() }, "Agent storage initialized");
@@ -2207,6 +2223,7 @@ export async function createPimiDaemon(
     // they serve has been closed, further down.
     unsubscribePluginProviders();
     unsubscribePluginSessionChanges();
+    limitFallback.dispose();
     workspaceReconciliation.dispose();
     closeAllCodeNavigation();
     scriptHealthMonitor.stop();

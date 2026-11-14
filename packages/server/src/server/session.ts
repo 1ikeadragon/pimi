@@ -2036,6 +2036,7 @@ export class Session {
     const storedRecord = await this.agentStorage.get(payload.id);
     payload.title = storedRecord?.title ?? null;
     payload.archivedAt = storedRecord?.archivedAt ?? null;
+    if (storedRecord?.limitFallbackDisabled) payload.limitFallbackDisabled = true;
     return payload;
   }
 
@@ -2833,6 +2834,8 @@ export class Session {
         return this.handleAgentForkContextRequest(msg);
       case "agent.provider.switch.request":
         return this.handleAgentProviderSwitchRequest(msg);
+      case "agent.limit_fallback.set.request":
+        return this.handleAgentLimitFallbackSetRequest(msg);
       default:
         return undefined;
     }
@@ -8786,6 +8789,37 @@ export class Session {
           error: getErrorMessage(error),
           ...(error instanceof AgentProviderSwitchError ? { errorCode: error.code } : {}),
         },
+      });
+    }
+  }
+
+  private async handleAgentLimitFallbackSetRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.limit_fallback.set.request" }>,
+  ): Promise<void> {
+    const { agentId, requestId, disabled } = msg;
+    try {
+      const record = await this.agentStorage.updateRecord(agentId, (current) => ({
+        ...current,
+        limitFallbackDisabled: disabled ? true : undefined,
+      }));
+      if (!record) throw new Error(`Chat not found: ${agentId}`);
+      // A loaded chat publishes its live snapshot; a stored record alone would blank its modes.
+      const live = this.agentManager.getAgent(agentId);
+      if (live) await this.agentUpdates.forwardLiveAgent(live);
+      else if (this.agentUpdates.hasSubscription())
+        await this.agentUpdates.emitStoredRecord(record);
+      this.emit({
+        type: "agent.limit_fallback.set.response",
+        payload: { requestId, agentId, accepted: true, error: null },
+      });
+    } catch (error) {
+      this.sessionLogger.error(
+        { err: error, agentId, requestId },
+        "session: agent.limit_fallback.set.request error",
+      );
+      this.emit({
+        type: "agent.limit_fallback.set.response",
+        payload: { requestId, agentId, accepted: false, error: getErrorMessage(error) },
       });
     }
   }

@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ReactElement,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { useTranslation } from "@/i18n/use-translation";
@@ -95,6 +96,7 @@ import {
 import { ComposerToolbarGlyph } from "@/composer/agent-controls/glyph";
 import { AgentControlTrigger } from "@/composer/agent-controls/control";
 import { CompactModelSheet } from "@/composer/agent-controls/model-sheet";
+import { LimitFallbackToggle } from "@/composer/agent-controls/limit-fallback-toggle";
 import {
   useAgentProfileEditor,
   useAgentProfilePicker,
@@ -147,6 +149,8 @@ interface ControlledAgentControlsProps {
   isRetryingModelProvider?: boolean;
   modeControl?: AgentModeControlValue | null;
   modelSelectorServerId?: string | null;
+  /** Rendered in the model picker and the compact sheet, for a setting that belongs to this chat. */
+  limitFallbackControl?: ReactNode;
   isCompactLayout?: boolean;
 }
 
@@ -529,6 +533,7 @@ function ControlledAgentControls({
   isRetryingModelProvider = false,
   modeControl,
   modelSelectorServerId = null,
+  limitFallbackControl,
   isCompactLayout,
 }: ControlledAgentControlsProps) {
   const { t } = useTranslation();
@@ -828,6 +833,7 @@ function ControlledAgentControls({
             handleOpenSheet={handleOpenSheet}
             handleCloseSheet={handleCloseSheet}
             modelSelectorServerId={modelSelectorServerId}
+            limitFallbackControl={limitFallbackControl}
           />
         ) : (
           <SheetAgentControlsContent
@@ -865,6 +871,7 @@ function ControlledAgentControls({
             glyphs={layoutContextValue.glyphs}
             showLabels={presentation.showModelLabel}
             modelSelectorServerId={modelSelectorServerId}
+            limitFallbackControl={limitFallbackControl}
             canSwitchProvider={Boolean(onSelectProviderAndModel)}
           />
         )}
@@ -930,6 +937,7 @@ interface DesktopAgentControlsContentProps {
   handleOpenSheet: (sheet: Exclude<ActiveSheet, null>) => void;
   handleCloseSheet: () => void;
   modelSelectorServerId: string | null;
+  limitFallbackControl?: ReactNode;
 }
 
 const DESKTOP_SEARCH_THRESHOLD = 6;
@@ -988,6 +996,7 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
     handleOpenSheet,
     handleCloseSheet,
     modelSelectorServerId,
+    limitFallbackControl,
   } = props;
   const modelToolbar = useMemo(
     () => ({ glyph: glyphs.label, showCaret: presentation.showCarets }),
@@ -1052,6 +1061,7 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
                 desktopPlacement="top-start"
                 desktopMinWidth={360}
                 toolbar={modelToolbar}
+                footer={limitFallbackControl}
               />
             </View>
           </TooltipTrigger>
@@ -1196,6 +1206,7 @@ interface SheetAgentControlsContentProps {
   glyphs: ToolbarGlyphs;
   showLabels: boolean;
   modelSelectorServerId: string | null;
+  limitFallbackControl?: ReactNode;
   canSwitchProvider: boolean;
 }
 
@@ -1236,6 +1247,7 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
     glyphs,
     showLabels,
     modelSelectorServerId,
+    limitFallbackControl,
     canSwitchProvider,
   } = props;
 
@@ -1300,6 +1312,7 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
           onSetFeature={onSetFeature}
         />
       ))}
+      {limitFallbackControl}
     </View>
   );
 
@@ -1923,6 +1936,11 @@ export const AgentControls = memo(function AgentControls({
     [refreshSnapshot],
   );
 
+  const limitFallbackControl = useMemo(
+    () => <LimitFallbackToggle serverId={serverId} agentId={agentId} />,
+    [agentId, serverId],
+  );
+
   if (!agent) {
     return null;
   }
@@ -1964,6 +1982,7 @@ export const AgentControls = memo(function AgentControls({
         disabled={!client}
         modeControl={modeControl}
         modelSelectorServerId={serverId}
+        limitFallbackControl={limitFallbackControl}
         isCompactLayout={isCompactLayout}
       />
     </>

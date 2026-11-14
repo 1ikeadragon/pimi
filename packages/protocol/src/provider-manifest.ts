@@ -12,10 +12,18 @@ export interface AgentModeVisuals {
   colorTier: AgentModeColorTier;
 }
 
+/**
+ * What a mode means for approvals, in terms every provider shares. When a limit moves a chat to
+ * another provider, its mode becomes the target mode of the same class. `isUnattended` is the
+ * fifth class and stays its own flag because creation logic already reads it.
+ */
+export type AgentModePermissionClass = "plan" | "ask" | "edits" | "review";
+
 export type AgentProviderModeDefinition = Omit<AgentMode, "icon" | "colorTier"> &
   AgentModeVisuals & {
     // Marks the provider's most-permissioned no-prompt mode. Selecting it means tools run without approval; the runtime mechanism is provider-specific.
     isUnattended?: boolean;
+    permissionClass?: AgentModePermissionClass;
   };
 
 // TODO: `modes` should not be static. Providers (especially ACP) report their
@@ -42,6 +50,7 @@ const CLAUDE_MODES: AgentProviderModeDefinition[] = [
     description: "Analyze the codebase without executing tools or edits",
     icon: "ShieldEllipsis",
     colorTier: "planning",
+    permissionClass: "plan",
   },
   {
     id: "default",
@@ -49,6 +58,7 @@ const CLAUDE_MODES: AgentProviderModeDefinition[] = [
     description: "Prompts for permission the first time a tool is used",
     icon: "Shield",
     colorTier: "safe",
+    permissionClass: "ask",
   },
   {
     id: "acceptEdits",
@@ -56,6 +66,7 @@ const CLAUDE_MODES: AgentProviderModeDefinition[] = [
     description: "Automatically approves edit-focused tools without prompting",
     icon: "ShieldPlus",
     colorTier: "moderate",
+    permissionClass: "edits",
   },
   {
     id: "auto",
@@ -63,6 +74,7 @@ const CLAUDE_MODES: AgentProviderModeDefinition[] = [
     description: "Uses a model classifier to review permission prompts automatically",
     icon: "ShieldCheck",
     colorTier: "moderate",
+    permissionClass: "review",
   },
   {
     id: "bypassPermissions",
@@ -81,6 +93,7 @@ const CODEX_MODES: AgentProviderModeDefinition[] = [
     description: "Edit files and run commands with Codex's default approval flow.",
     icon: "Shield",
     colorTier: "moderate",
+    permissionClass: "edits",
   },
   {
     id: "auto-review",
@@ -89,6 +102,7 @@ const CODEX_MODES: AgentProviderModeDefinition[] = [
       "Same workspace-write permissions as Default, but eligible `on-request` approvals are routed through the auto-reviewer subagent.",
     icon: "ShieldCheck",
     colorTier: "moderate",
+    permissionClass: "review",
   },
   {
     id: "full-access",
@@ -107,6 +121,7 @@ const COPILOT_MODES: AgentProviderModeDefinition[] = [
     description: "Default agent mode for conversational interactions",
     icon: "Shield",
     colorTier: "moderate",
+    permissionClass: "ask",
   },
   {
     id: "https://agentclientprotocol.com/protocol/session-modes#plan",
@@ -114,6 +129,7 @@ const COPILOT_MODES: AgentProviderModeDefinition[] = [
     description: "Plan mode for creating and executing multi-step plans",
     icon: "ShieldEllipsis",
     colorTier: "planning",
+    permissionClass: "plan",
   },
   {
     id: "allow-all",
@@ -132,6 +148,7 @@ const OPENCODE_MODES: AgentProviderModeDefinition[] = [
     description: "Allows edits and tool execution for implementation work",
     icon: "Shield",
     colorTier: "moderate",
+    permissionClass: "edits",
   },
   {
     id: "plan",
@@ -139,6 +156,7 @@ const OPENCODE_MODES: AgentProviderModeDefinition[] = [
     description: "Read-only planning mode that avoids file edits",
     icon: "ShieldEllipsis",
     colorTier: "planning",
+    permissionClass: "plan",
   },
 ];
 
@@ -157,6 +175,7 @@ export const OMP_MODES: AgentProviderModeDefinition[] = [
     description: "Launches OMP with write approval mode — reads are free, writes require approval.",
     icon: "ShieldAlert",
     colorTier: "moderate",
+    permissionClass: "edits",
   },
   {
     id: "ask",
@@ -164,6 +183,7 @@ export const OMP_MODES: AgentProviderModeDefinition[] = [
     description: "Launches OMP with always-ask approval mode for write and exec tools.",
     icon: "ShieldCheck",
     colorTier: "safe",
+    permissionClass: "ask",
   },
 ];
 
@@ -174,6 +194,7 @@ const MOCK_LOAD_TEST_MODES: AgentProviderModeDefinition[] = [
     description: "Streams repeated markdown, reasoning, and tool calls for app stress testing",
     icon: "ShieldOff",
     colorTier: "dangerous",
+    isUnattended: true,
   },
   {
     id: "approval-test",
@@ -181,6 +202,34 @@ const MOCK_LOAD_TEST_MODES: AgentProviderModeDefinition[] = [
     description: "Alternate development-only permission mode for preference tests",
     icon: "ShieldCheck",
     colorTier: "safe",
+    permissionClass: "ask",
+  },
+];
+
+const MOCK_FALLBACK_MODES: AgentProviderModeDefinition[] = [
+  {
+    id: "plan",
+    label: "Mock Plan",
+    description: "Dev-only planning mode",
+    icon: "ShieldEllipsis",
+    colorTier: "planning",
+    permissionClass: "plan",
+  },
+  {
+    id: "ask",
+    label: "Mock Ask",
+    description: "Dev-only mode that asks before acting",
+    icon: "Shield",
+    colorTier: "safe",
+    permissionClass: "ask",
+  },
+  {
+    id: "yolo",
+    label: "Mock Yolo",
+    description: "Dev-only mode that never asks",
+    icon: "ShieldOff",
+    colorTier: "dangerous",
+    isUnattended: true,
   },
 ];
 
@@ -265,6 +314,14 @@ export const DEV_AGENT_PROVIDER_DEFINITIONS: AgentProviderDefinition[] = [
       "Development-only provider that emits synthetic agent traffic for performance tests",
     defaultModeId: "load-test",
     modes: MOCK_LOAD_TEST_MODES,
+  },
+  {
+    id: "mock-b",
+    label: "Mock Fallback Target",
+    description:
+      "Development-only second synthetic provider, the target when a limit moves a mock chat",
+    defaultModeId: "ask",
+    modes: MOCK_FALLBACK_MODES,
   },
   {
     id: "mock-slow",

@@ -116,7 +116,10 @@ export function buildProviderSwitchTimelineItem(
   return {
     type: "notification",
     level: "info",
-    message: `Switched from ${describeEndpoint(marker.from)} to ${describeEndpoint(marker.to)}`,
+    message:
+      marker.reason === "limit"
+        ? `${marker.from.providerLabel ?? marker.from.provider} hit its limit. Continued on ${describeEndpoint(marker.to)}`
+        : `Switched from ${describeEndpoint(marker.from)} to ${describeEndpoint(marker.to)}`,
     providerSwitch: marker,
   };
 }

@@ -278,6 +278,25 @@ function shouldEmitTurnFailure(prompt: AgentPromptInput): boolean {
   return /emit\s+(?:a\s+)?synthetic\s+turn\s+failure/i.test(promptToText(prompt));
 }
 
+/**
+ * Dev stand-in for a provider's structured limit signal: "emit a synthetic usage limit" fails the
+ * turn with `limit` set, optionally "resetting in 90s". The chat-history summary a provider switch
+ * attaches repeats the user's earlier text, so a prompt carrying it never triggers again.
+ */
+function parseSyntheticLimit(prompt: AgentPromptInput): { resetsInSeconds: number } | null {
+  const text = promptToText(prompt);
+  if (text.includes("<chat-history-summary>")) return null;
+  const match = /emit\s+(?:a\s+)?synthetic\s+usage\s+limit(?:\s+resetting\s+in\s+(\d+)\s*s)?/i.exec(
+    text,
+  );
+  if (!match) return null;
+  return { resetsInSeconds: match[1] ? Number(match[1]) : 3600 };
+}
+
+function defaultMockModeId(provider: AgentProvider): string {
+  return getAgentProviderDefinition(provider).defaultModeId ?? MOCK_LOAD_TEST_MODE_ID;
+}
+
 function parseSteeringReplayShape(prompt: AgentPromptInput): SteeringReplayShape | null {
   const match = /replay a (claude|codex)-shaped foreground shell tool call/i.exec(
     promptToText(prompt),
@@ -745,17 +764,20 @@ function createToolCall(input: {
 }
 
 export class MockLoadTestAgentClient implements AgentClient {
-  readonly provider: AgentProvider = MOCK_LOAD_TEST_PROVIDER_ID;
   readonly capabilities = CAPABILITIES;
 
-  constructor(private readonly logger?: Logger) {}
+  // A second registration (`mock-b`) gives dev runs a distinct provider to switch to.
+  constructor(
+    private readonly logger?: Logger,
+    readonly provider: AgentProvider = MOCK_LOAD_TEST_PROVIDER_ID,
+  ) {}
 
   async createSession(
     config: AgentSessionConfig,
     _launchContext?: AgentLaunchContext,
   ): Promise<AgentSession> {
     return new MockLoadTestAgentSession({
-      config,
+      config: { ...config, provider: this.provider },
       sessionId: randomUUID(),
       logger: this.logger,
     });
@@ -772,7 +794,7 @@ export class MockLoadTestAgentClient implements AgentClient {
         cwd: metadata.cwd ?? overrides?.cwd ?? process.cwd(),
         ...metadata,
         ...overrides,
-        provider: MOCK_LOAD_TEST_PROVIDER_ID,
+        provider: this.provider,
       },
       sessionId: handle.sessionId,
       logger: this.logger,
@@ -781,8 +803,8 @@ export class MockLoadTestAgentClient implements AgentClient {
 
   async fetchCatalog(_options: FetchCatalogOptions): Promise<ProviderCatalog> {
     return {
-      models: MODELS,
-      modes: getAgentProviderDefinition(MOCK_LOAD_TEST_PROVIDER_ID).modes,
+      models: MODELS.map((model) => Object.assign({}, model, { provider: this.provider })),
+      modes: getAgentProviderDefinition(this.provider).modes,
     };
   }
 
@@ -792,7 +814,7 @@ export class MockLoadTestAgentClient implements AgentClient {
 
   async importSession(input: ImportProviderSessionInput, context: ImportProviderSessionContext) {
     return importSessionFromPersistence({
-      provider: MOCK_LOAD_TEST_PROVIDER_ID,
+      provider: this.provider,
       request: input,
       context,
       resumeSession: this.resumeSession.bind(this),
@@ -817,7 +839,7 @@ function getConfiguredAssistantResponses(value: unknown): string[] {
 }
 
 export class MockLoadTestAgentSession implements AgentSession {
-  readonly provider: AgentProvider = MOCK_LOAD_TEST_PROVIDER_ID;
+  readonly provider: AgentProvider;
   readonly capabilities = CAPABILITIES;
   readonly features: AgentFeature[] = [];
   readonly id: string;
@@ -841,7 +863,8 @@ export class MockLoadTestAgentSession implements AgentSession {
   constructor(options: { config: AgentSessionConfig; sessionId: string; logger?: Logger }) {
     this.id = options.sessionId;
     this.logger = options.logger;
-    this.modeId = options.config.modeId ?? MOCK_LOAD_TEST_MODE_ID;
+    this.provider = options.config.provider;
+    this.modeId = options.config.modeId ?? defaultMockModeId(this.provider);
     this.modelId = options.config.model ?? MOCK_LOAD_TEST_DEFAULT_MODEL_ID;
     this.assistantResponse =
       typeof options.config.featureValues?.mockAssistantResponse === "string"
@@ -941,7 +964,10 @@ export class MockLoadTestAgentSession implements AgentSession {
     const steeringReplayShape = parseSteeringReplayShape(prompt);
     const assistantMarkdown = parseAssistantMarkdownPrompt(prompt);
     const scheduleTurn = () => {
-      if (shouldEmitTurnFailure(prompt)) {
+      const syntheticLimit = parseSyntheticLimit(prompt);
+      if (syntheticLimit) {
+        this.scheduleFailedTurn(turn, syntheticLimit.resetsInSeconds);
+      } else if (shouldEmitTurnFailure(prompt)) {
         this.scheduleFailedTurn(turn);
       } else if (steeringReplayShape) {
         this.scheduleSteeringReplayTurn(turn, steeringReplayShape);
@@ -1071,7 +1097,7 @@ export class MockLoadTestAgentSession implements AgentSession {
   }
 
   async getAvailableModes(): Promise<AgentMode[]> {
-    return getAgentProviderDefinition(MOCK_LOAD_TEST_PROVIDER_ID).modes;
+    return getAgentProviderDefinition(this.provider).modes;
   }
 
   async getCurrentMode(): Promise<string | null> {
@@ -1236,7 +1262,7 @@ export class MockLoadTestAgentSession implements AgentSession {
     turn.timer.unref?.();
   }
 
-  private scheduleFailedTurn(turn: ActiveTurn): void {
+  private scheduleFailedTurn(turn: ActiveTurn, limitResetsInSeconds?: number): void {
     turn.timer = setTimeout(() => {
       if (this.activeTurn !== turn) {
         return;
@@ -1248,7 +1274,18 @@ export class MockLoadTestAgentSession implements AgentSession {
         type: "turn_failed",
         provider: this.provider,
         turnId: turn.turnId,
-        error: "Requested mock provider failure",
+        error:
+          limitResetsInSeconds === undefined
+            ? "Requested mock provider failure"
+            : "Synthetic usage limit reached",
+        ...(limitResetsInSeconds === undefined
+          ? {}
+          : {
+              limit: {
+                kind: "usage" as const,
+                resetsAt: new Date(Date.now() + limitResetsInSeconds * 1000).toISOString(),
+              },
+            }),
       });
       turn.resolve({
         sessionId: this.id,

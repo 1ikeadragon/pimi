@@ -20,6 +20,7 @@ import { AgentProfileSchema, AgentSkillSelectionSchema } from "@pimi/protocol/ag
 import { PluginIdSchema, PluginSourceSchema } from "@pimi/protocol/plugin-config";
 import {
   EditorLanguageServerSchema,
+  LimitFallbackConfigSchema,
   NETWORK_LOG_RETENTION_DAYS_MAX,
   NETWORK_LOG_RETENTION_DAYS_MIN,
 } from "@pimi/protocol/messages";
@@ -299,6 +300,7 @@ export const PersistedConfigSchema = z
           .optional(),
         autoArchiveAfterMerge: z.boolean().optional(),
         enableTerminalAgentHooks: z.boolean().optional(),
+        limitFallback: LimitFallbackConfigSchema.optional(),
         appendSystemPrompt: z.string().optional(),
         terminalProfiles: z.array(TerminalProfileSchema).optional(),
         editorLanguageServers: z.array(EditorLanguageServerSchema).optional(),

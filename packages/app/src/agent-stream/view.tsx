@@ -1100,7 +1100,11 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           case "notification":
             if (item.providerSwitch) {
               return (
-                <ProviderSwitchMarker marker={item.providerSwitch} serverId={resolvedServerId} />
+                <ProviderSwitchMarker
+                  marker={item.providerSwitch}
+                  serverId={resolvedServerId}
+                  agentId={agentId}
+                />
               );
             }
             if (item.permissionResolution) {

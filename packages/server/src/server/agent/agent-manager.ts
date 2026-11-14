@@ -350,6 +350,8 @@ function describeSwitchTarget(
 export interface SwitchAgentProviderOptions {
   /** Display names for the provider being left. Ignored when they describe another provider. */
   source?: { provider: AgentProvider; providerLabel?: string; modelLabel?: string };
+  /** Set by the daemon, never a user, when a provider limit caused the move. */
+  limit?: Pick<AgentProviderSwitchMarker, "reason" | "resetsAt" | "permissionMode">;
 }
 
 export class AgentManagerShuttingDownError extends Error {
@@ -2277,7 +2279,19 @@ export class AgentManager {
     const requested = this.requireSwitchableAgent(agentId, record?.archivedAt);
     if (target.provider === requested.provider) {
       // Not a switch: the session stays, and the model changes the way the picker always did.
+      const from = describeSwitchSource(requested, options?.source);
       if (target.model) await this.setAgentModel(agentId, target.model);
+      if (options?.limit) {
+        // A limit move is always on the record, even between two models of one provider.
+        await this.appendTimelineItem(
+          agentId,
+          buildProviderSwitchTimelineItem({
+            ...options.limit,
+            from,
+            to: describeSwitchTarget(this.requireAgent(agentId), target),
+          }),
+        );
+      }
       return { ...this.requireAgent(agentId) };
     }
     // Everything that can refuse the switch runs before the current session is touched.
@@ -2292,7 +2306,11 @@ export class AgentManager {
     const switched = await this.openSwitchedSession({ existing, client, target, carriedContext });
     await this.appendTimelineItem(
       agentId,
-      buildProviderSwitchTimelineItem({ from, to: describeSwitchTarget(switched, target) }),
+      buildProviderSwitchTimelineItem({
+        ...options?.limit,
+        from,
+        to: describeSwitchTarget(switched, target),
+      }),
     );
     this.markTimelineCarried(agentId);
     this.logger.info(
