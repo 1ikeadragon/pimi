@@ -104,4 +104,4 @@ Claude Code refuses to start as uid 0 when it is asked to allow Bypass permissio
 
 ## Development
 
-`scripts/build-daemon-bundle.mjs <x64|arm64> <dir>` builds a bundle after `npm run build:server`; the release workflow builds both and attaches them. In an unpackaged desktop, `PIMI_REMOTE_DAEMON_BUNDLE_DIR=<dir>` uses those files instead of downloading, `PIMI_REMOTE_DAEMON_VERSION` overrides the version the remote must run, and `PIMI_SSH_CONFIG=<file>` adds `-F <file>` to every ssh Pimi starts. Packaged builds ignore the first two.
+`scripts/build-daemon-bundle.mjs <x64|arm64> <dir>` builds a bundle after `npm run build:server`; every release attaches both. In an unpackaged desktop, `PIMI_REMOTE_DAEMON_BUNDLE_DIR=<dir>` uses those files instead of downloading, `PIMI_REMOTE_DAEMON_VERSION` overrides the version the remote must run, and `PIMI_SSH_CONFIG=<file>` adds `-F <file>` to every ssh Pimi starts. Packaged builds ignore the first two.

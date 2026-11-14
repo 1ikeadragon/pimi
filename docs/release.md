@@ -1,35 +1,25 @@
-# Pimi desktop releases
+# Pimi releases
 
-[GitHub Actions](../.github/workflows/pimi-release.yml) builds Apple silicon by default from a `pimi-vX.Y.Z` tag on `main`. Use `pimi-all-vX.Y.Z` to build Apple silicon and Windows x64 in parallel. Pick one tag for each version. The release includes installers, release notes, and SHA-256 checksums.
+Releases are built on the maintainer's Apple silicon Mac and published as one GitHub release, `pimi-vX.Y.Z`, with these assets and a `SHA256SUMS.txt`:
 
-Without an `APPLE_TEAM_ID` repository variable, the Mac installer is ad hoc signed. Pimi can install it in-app, and macOS may require approval when opening the new version. The release notes flag the signing status.
+| Asset                                                            | Built with                                                     |
+| ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| `Pimi-macOS-arm64.dmg`                                           | `npm run pimi:package:mac` (ad hoc signed, not notarized)      |
+| `Pimi-daemon-linux-x64.tar.gz`, `Pimi-daemon-linux-arm64.tar.gz` | `scripts/build-daemon-bundle.mjs` after `npm run build:server` |
+| `Pimi-Android-arm64.apk`                                         | `npm run pimi:package:android`, signed with the release key    |
+| `Pimi-iOS-arm64.ipa`                                             | Unsigned `xcodebuild` of the Expo prebuild, for SideStore      |
 
-## Set up macOS signing
-
-Use a [Developer ID Application certificate](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/) and an [App Store Connect team API key](https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api) from the same Apple Developer team. Export the certificate and private key as a password-protected `.p12` from Keychain Access.
-
-Add these under [GitHub Actions secrets](https://github.com/1ikeadragon/pimi/settings/secrets/actions).
-
-| Secret                     | Value                            |
-| -------------------------- | -------------------------------- |
-| `MAC_CERTIFICATE_P12`      | Base64 of the `.p12` export      |
-| `MAC_CERTIFICATE_PASSWORD` | Password used for the export     |
-| `APPLE_NOTARY_KEY_BASE64`  | Base64 of the team API key `.p8` |
-| `APPLE_NOTARY_KEY_ID`      | Key ID from App Store Connect    |
-| `APPLE_NOTARY_ISSUER`      | Issuer ID from App Store Connect |
-
-Set `APPLE_TEAM_ID` as a repository Actions variable using the 10-character Team ID from Apple Developer. The release job signs and notarizes both the app and its disk image, checks the mounted app with Gatekeeper, and publishes only after verification succeeds.
+Windows is not built. The desktop app updates itself from the newest stable release; macOS may ask for approval when opening the new version.
 
 ## Cut a release
 
 1. Bump the root version, run `npm run version:sync-internal`, and refresh `package-lock.json` with `npm install --package-lock-only --ignore-scripts`.
 2. Add a dated `## X.Y.Z - YYYY-MM-DD` entry to `CHANGELOG.md`. Describe changes users will notice.
-3. Run `npm run typecheck` and the [dependency checks](development.md#dependency-checks), and smoke-test the changed behavior. Commit and push to `main`. The release workflow runs the same checks before it builds and stops on the first failure.
-4. Publish the mobile builds first: build the signed Android APK and the unsigned iOS IPA locally, and create the `pimi-android-vX.Y.Z` prerelease with `Pimi-Android-arm64.apk` and the `pimi-ios-vX.Y.Z` prerelease with `Pimi-iOS-arm64.ipa` before pushing the release tag. The release workflow copies both into the `pimi-vX.Y.Z` release, so the `releases/latest/download/` links resolve. A missing prerelease means the release ships without that app, its notes say so, and that link breaks until the next release that has it. Published releases are immutable, so assets cannot be added afterwards.
-5. Create and push the tag at the tested commit. Watch the selected build jobs and verify the [published release](https://github.com/1ikeadragon/pimi/releases/latest). When shipping Windows, update its website button to the new Windows installer.
+3. Run `npm run typecheck`, smoke-test the changed behavior, and push to `main`.
+4. From a clean checkout at that commit, run the [dependency checks](development.md#dependency-checks), build every asset, tag the commit, and publish the release with the changelog entry and the commits since the previous release as notes. Published releases are immutable, so every asset goes up at once.
 
-Compare the downloads against `SHA256SUMS.txt` from the release. For the first signed build, check both a fresh macOS install and an in-app update from the previous release on a separate Mac.
+Compare the downloads against `SHA256SUMS.txt` from the release.
 
 ## Build locally
 
-Run `npm ci` and `npm run setup` with the Node.js version in `.tool-versions`. Use `npm run pimi:package:mac` on Apple silicon or `npm run pimi:package:win` on Windows x64. The installers are written under `packages/desktop/release-pimi/`. The local Mac command produces an ad hoc build for development.
+Run `npm ci` and `npm run setup` with the Node.js version in `.tool-versions`. Use `npm run pimi:package:mac` on Apple silicon or `npm run pimi:package:win` on Windows x64. The installers are written under `packages/desktop/release-pimi/`. The iOS build needs Xcode and CocoaPods.

@@ -10,7 +10,7 @@ Run `npm run build:server` and then `npm run pimi:desktop`. Use the sidebar to s
 
 Set the root version, run `npm run version:sync-internal`, and refresh the lockfile with `npm install --package-lock-only --ignore-scripts`. Add a matching section to the changelog for release highlights.
 
-Push the version commit to `main`, then push its `pimi-vX.Y.Z` tag. The release workflow builds both installers, publishes checksums, and adds a commit list for subsequent releases. Push one release tag at a time. If a run fails transiently, rerun all jobs so the publisher gets every artifact from the same attempt. For a code fix, ship a new version.
+Then follow [docs/release.md](../docs/release.md).
 
 ## What this page serves
 

@@ -528,9 +528,8 @@ where the overrides apply; workspace scripts still find the binary through the r
 
 ## Dependency checks
 
-The `validate` job of the [release workflow](../.github/workflows/pimi-release.yml) runs these
-before any installer builds. Run them locally before you push a release tag, passing the previous
-release tag to `check-release-age.mjs`.
+Run these before building a [release](release.md), passing the previous release tag to
+`check-release-age.mjs`.
 
 | Command                                    | Fails when                                                                                        |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------- |

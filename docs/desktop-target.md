@@ -43,7 +43,7 @@ macOS ignores optional arguments it cannot honour; the `dotnet` inspect section 
 
 ## macOS helper
 
-- `native/mac/*.swift`, built with `swiftc` and Apple frameworks only (`npm run build:mac-helper`, arm64, macOS 13+). No SwiftPM, no packages. `npm run pimi:package:mac` and the release workflow build it first.
+- `native/mac/*.swift`, built with `swiftc` and Apple frameworks only (`npm run build:mac-helper`, arm64, macOS 13+). No SwiftPM, no packages. `npm run pimi:package:mac` builds it first.
 - Same process model as the Windows helper: `helper-process.ts` spawns it lazily and speaks JSON lines. On a timeout the main process sends SIGTERM and then SIGKILL 700 ms later, so the helper can release held keys and buttons.
 - Screen Recording and Accessibility are granted to the app that spawned the helper (Pimi packaged; Electron or the terminal in dev), not to the helper. `pimi-desktop-helper --selftest` prints both states for the process it runs under, so run it from a terminal only to see the terminal's grants.
 - The window is pinned by its window-server id, owner pid and process start time (carried in the picker's `win`, with the id in `hwnd`). The helper falls back to the app's one window and answers `repinned`.
@@ -59,7 +59,7 @@ macOS ignores optional arguments it cannot honour; the `dotnet` inspect section 
 ## Windows helper
 
 - Spawned lazily by `win/helper-process.ts`, JSON lines on stdin and stdout, one request at a time. A request that takes longer than 10 s (15 s for `wait`, 25 s for `app launch`) kills the helper; the next request starts a new one. The helper releases every key it holds when it dies.
-- Dev builds read `packages/desktop/native/win/bin`; packaged builds read `resources/desktop-helper`. Build it with `npm run build:win-helper` (needs the .NET SDK). `npm run pimi:package:win` runs that first and the release workflow runs `--selftest` on the packaged exe.
+- Dev builds read `packages/desktop/native/win/bin`; packaged builds read `resources/desktop-helper`. Build it with `npm run build:win-helper` (needs the .NET SDK). `npm run pimi:package:win` runs that first.
 - Real input needs the target in the foreground. Input that would land elsewhere fails with `occluded`, `foreground_denied`, `user_active` or `elevated_target` rather than reaching another window. Capture uses Windows.Graphics.Capture first, then `PrintWindow`, then a screen grab; a result with `suspectBlank` means every method returned a dark or flat frame.
 - Games and custom-drawn UIs have no accessibility tree. The agent uses `screenshot` with `grid`, clicks coordinates, holds keys with `holdMs` and turns the camera with `desktop_mouse move_rel`.
 
