@@ -271,6 +271,11 @@ export interface DesktopHostBridge {
   platform?: string;
   windowChromeMode?: DesktopWindowChromeMode;
   networkActivity?: DesktopNetworkActivityBridge;
+  /** Serves sandboxed documents from their own pimi://frame URL so each carries its own CSP. */
+  sealedFrames?: {
+    put: (kind: "preview" | "mermaid", html: string) => Promise<string>;
+    release: (url: string) => Promise<void>;
+  };
   invoke?: DesktopInvokeBridge["invoke"];
   getPimiGitAuthStatus?: (provider: PimiGitProvider) => Promise<PimiGitAuthStatus>;
   showPimiWorkspace?: (destination: PimiDestination) => void;

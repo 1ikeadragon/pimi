@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { hasSealedFrames, useSealedFrameUrl } from "@/desktop/sealed-frame";
 import { useTranslation } from "@/i18n/use-translation";
 import { readHtmlPreviewHeight, withPreviewCsp, type HtmlPreviewEmbed } from "./html-preview-csp";
 
@@ -11,9 +12,9 @@ import { readHtmlPreviewHeight, withPreviewCsp, type HtmlPreviewEmbed } from "./
 // state have to export.
 //
 // A sandboxed frame may still navigate *itself*, and nothing in CSP stops that
-// (see html-preview-csp.ts). That is the one hole left on web, it is bounded to
-// the page's own contents, and it is documented in SECURITY.md rather than papered
-// over with a directive browsers ignore.
+// (see html-preview-csp.ts). On desktop the main process cancels it. Plain web keeps
+// that hole, bounded to the page's own contents and documented in SECURITY.md rather
+// than papered over with a directive browsers ignore.
 const SANDBOX = "allow-scripts";
 
 export function FileHtmlPreview({
@@ -35,10 +36,18 @@ export function FileHtmlPreview({
   // A document URL lets the browser resolve fragment links within the preview.
   // srcDoc would inherit the app URL and navigate the frame back into Pimi.
   const reportHeight = Boolean(onContentHeight);
+  const previewDocument = useMemo(
+    () => withPreviewCsp(html, embed, reportHeight),
+    [html, embed, reportHeight],
+  );
+  // Desktop serves the document from its own origin so it can run inline scripts under the
+  // console's CSP; plain web uses a data: URL.
+  const sealed = hasSealedFrames();
+  const sealedUrl = useSealedFrameUrl("preview", sealed ? previewDocument : "");
   const source = useMemo(
     () =>
-      `data:text/html;charset=utf-8,${encodeURIComponent(withPreviewCsp(html, embed, reportHeight))}`,
-    [html, embed, reportHeight],
+      sealed ? sealedUrl : `data:text/html;charset=utf-8,${encodeURIComponent(previewDocument)}`,
+    [sealed, sealedUrl, previewDocument],
   );
   useEffect(() => {
     if (!onContentHeight) return;
@@ -60,6 +69,7 @@ export function FileHtmlPreview({
     }),
     [embed],
   );
+  if (source === null) return null;
   return (
     <iframe
       ref={frame}

@@ -89,6 +89,13 @@ import {
   ensureNotificationCenterRegistration,
 } from "./features/notifications.js";
 import { createExternalUrlOpener } from "./features/opener.js";
+import {
+  SEALED_FRAME_HOST,
+  putSealedFrame,
+  releaseSealedFrame,
+  releaseSealedFramesOwnedBy,
+  sealedFrameResponse,
+} from "./features/sealed-frames.js";
 import { createBrowserCaptureService } from "./features/browser-capture.js";
 import { registerEditorTargetHandlers } from "./features/editor-targets/ipc.js";
 import { PIMI_EDITOR_TARGETS } from "./features/editor-targets/registry.js";
@@ -844,6 +851,14 @@ function registerPimiWorkspaceNavigation(): void {
     const frame = event.senderFrame;
     return Boolean(frame && frame === event.sender.mainFrame && isConsoleUrl(frame.url));
   }
+  ipcMain.handle("pimi:sealed-frame:put", (event, kind: unknown, html: unknown) => {
+    if (!isConsoleFrame(event)) throw new Error("Sealed frames are only available in the app.");
+    return putSealedFrame(event.sender.id, kind, html);
+  });
+  ipcMain.handle("pimi:sealed-frame:release", (event, url: unknown) => {
+    if (!isConsoleFrame(event)) throw new Error("Sealed frames are only available in the app.");
+    releaseSealedFrame(event.sender.id, url);
+  });
   ipcMain.handle("pimi:appearance:set", async (event, mode: unknown) => {
     if (!isConsoleFrame(event)) throw new Error("Open Pimi Settings to change appearance.");
     await setPimiAppearance(mode);
@@ -1012,11 +1027,13 @@ async function createWindow(
   options.onCreated?.(webContentsId);
   mainWindow.webContents.on("did-start-navigation", (_event, _url, isSameDocument, isMainFrame) => {
     if (isMainFrame && !isSameDocument) {
+      releaseSealedFramesOwnedBy(webContentsId);
       agentNavigationInbox.windowLoading(webContentsId);
     }
   });
   mainWindow.on("closed", () => {
     options.onClosed?.(webContentsId);
+    releaseSealedFramesOwnedBy(webContentsId);
     agentNavigationInbox.removeWindow(webContentsId);
     unregisterPimiBrowserHost(webContentsId);
     browserKeyboard.detachHost(webContentsId);
@@ -1045,6 +1062,7 @@ async function createWindow(
     const isLocalDocument =
       source?.protocol === "data:" ||
       source?.protocol === "blob:" ||
+      (source?.protocol === "pimi:" && source.host === SEALED_FRAME_HOST) ||
       event.url === "about:srcdoc" ||
       event.url === "about:blank";
     // The console can supply a local preview. The preview cannot change its own document.
@@ -1273,6 +1291,7 @@ async function bootstrap(loginShellEnvReady: Promise<void>): Promise<void> {
   const appDistDir = getAppDistDir();
   protocol.handle(APP_SCHEME, (request) => {
     const { host, username, password, pathname, search, hash } = new URL(request.url);
+    if (host === SEALED_FRAME_HOST && !username && !password) return sealedFrameResponse(request);
     if (host !== "app" || username || password) return new Response("Not found", { status: 404 });
     const decodedPath = decodeURIComponent(pathname);
     if (decodedPath === STORAGE_MIGRATION_PATH) {

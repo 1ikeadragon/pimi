@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { hasSealedFrames, sealedMermaidRuntimeUrl } from "@/desktop/sealed-frame";
 import type { DiagramColorScheme, MermaidRenderRequest } from "./render-model";
 import { parseMermaidRuntimeMessage, type MermaidRuntimeRenderMessage } from "./runtime/messages";
 import { MermaidRuntimeRequestDriver } from "./runtime/request-driver";
@@ -26,6 +27,25 @@ export function MermaidIframeRuntime({
 }: MermaidIframeRuntimeProps) {
   const { html, failed } = useMermaidRuntimeHtml();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  // Desktop serves the runtime from its own origin so its inline script runs under the console's
+  // CSP; plain web uses srcDoc.
+  const sealed = hasSealedFrames();
+  const [sealedUrl, setSealedUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!sealed || html === null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const url = await sealedMermaidRuntimeUrl(html);
+        if (!cancelled) setSealedUrl(url);
+      } catch (error) {
+        console.error("[mermaid] Failed to register the diagram runtime", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sealed, html]);
   const driverRef = useRef<MermaidRuntimeRequestDriver | null>(null);
   driverRef.current ??= new MermaidRuntimeRequestDriver();
 
@@ -76,7 +96,7 @@ export function MermaidIframeRuntime({
 
   // Until the document arrives the host keeps showing its pending state, and the iframe mounts
   // once with its final document, so the runtime is never reloaded.
-  if (html === null) return null;
+  if (html === null || (sealed && sealedUrl === null)) return null;
 
   // `inert` (not just tabIndex) because the Modal focus trap focuses descendants
   // programmatically; a focused iframe swallows every keystroke, including Escape.
@@ -87,7 +107,7 @@ export function MermaidIframeRuntime({
       aria-hidden
       inert
       sandbox="allow-scripts"
-      srcDoc={html}
+      {...(sealedUrl === null ? { srcDoc: html } : { src: sealedUrl })}
       tabIndex={-1}
       style={iframeStyle}
     />

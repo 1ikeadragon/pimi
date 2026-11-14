@@ -207,6 +207,11 @@ contextBridge.exposeInMainWorld("pimiDesktop", {
     openLogsFolder: (): Promise<void> =>
       ipcRenderer.invoke("pimi:network-activity:open-logs-folder"),
   },
+  sealedFrames: {
+    put: (kind: "preview" | "mermaid", html: string): Promise<string> =>
+      ipcRenderer.invoke("pimi:sealed-frame:put", kind, html),
+    release: (url: string): Promise<void> => ipcRenderer.invoke("pimi:sealed-frame:release", url),
+  },
   invoke: (command: string, args?: Record<string, unknown>) =>
     ipcRenderer.invoke("pimi:invoke", command, args),
   getPendingOpenProject: () =>
