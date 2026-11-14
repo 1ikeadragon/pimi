@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
@@ -22,6 +22,7 @@ import { getIsElectron } from "@/constants/platform";
 import { useFetchQuery } from "@/data/query";
 import { getDesktopHost } from "@/desktop/host";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
+import { useAppSettings } from "@/hooks/use-settings";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
@@ -105,10 +106,12 @@ function ResourcesView({ serverId }: { serverId: string }) {
   // The app's processes are only the daemon's to sample when both run on this machine.
   const desktop = useDesktopProcesses(localServerId === serverId);
   const appRootPid = desktop?.rootPid;
+  const { settings, updateSettings } = useAppSettings();
+  const resolveNames = settings.resolveNetworkNames;
   const query = useFetchQuery({
     dataShape: "value",
     queryKey: ["resources", "daemon", serverId, appRootPid ?? null] as const,
-    queryFn: () => client!.getResourcesSnapshot({ limit: FETCH_LIMIT, appRootPid }),
+    queryFn: () => client!.getResourcesSnapshot({ limit: FETCH_LIMIT, appRootPid, resolveNames }),
     enabled,
     staleTimeMs: 0,
     refetchInterval: enabled ? POLL_INTERVAL_MS : false,
@@ -120,6 +123,18 @@ function ResourcesView({ serverId }: { serverId: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const { refetch } = query;
+  const toggleNames = useCallback(
+    (value: boolean) => {
+      updateSettings({ resolveNetworkNames: value }).catch((failure: unknown) => {
+        setActionError(failure instanceof Error ? failure.message : String(failure));
+      });
+    },
+    [updateSettings],
+  );
+  // Refetch after the render that carries the new value, so the request reads it.
+  useEffect(() => {
+    refetch();
+  }, [resolveNames, refetch]);
 
   const appLabels = useMemo(
     () => new Map((desktop?.processes ?? []).map((entry) => [entry.pid, entry.label])),
@@ -235,6 +250,14 @@ function ResourcesView({ serverId }: { serverId: string }) {
         testID="resources-network"
       >
         <SettingsCard>
+          <SettingsRow label={t("settings.resources.resolveNames")}>
+            <Switch
+              value={resolveNames}
+              onValueChange={toggleNames}
+              accessibilityLabel={t("settings.resources.resolveNames")}
+              testID="resources-resolve-names"
+            />
+          </SettingsRow>
           <NewDestinations
             items={view.fresh}
             agentTitle={agentTitle}

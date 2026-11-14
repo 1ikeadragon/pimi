@@ -218,8 +218,11 @@ export function buildDestinationView(
   return { fresh, known, byProcess };
 }
 
-export function destinationTarget(entry: Pick<ResourceDestination, "host" | "port">): string {
-  return `${entry.host.includes(":") ? `[${entry.host}]` : entry.host}:${entry.port}`;
+export function destinationTarget(
+  entry: Pick<ResourceDestination, "host" | "port" | "hostname">,
+): string {
+  const ip = entry.host.includes(":") ? `[${entry.host}]` : entry.host;
+  return entry.hostname ? `${entry.hostname}:${entry.port} (${ip})` : `${ip}:${entry.port}`;
 }
 
 // ---- recent requests -------------------------------------------------------------------

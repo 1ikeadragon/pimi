@@ -1764,6 +1764,8 @@ export const DiagnosticsResourcesSnapshotRequestSchema = z.object({
   limit: z.number().int().positive().optional(),
   /** Root pid of the desktop app on this machine, when the caller is it. Adds an App tree. */
   appRootPid: z.number().int().positive().optional(),
+  /** Reverse-resolve remote IPs into hostnames. Off unless a client asks. */
+  resolveNames: z.boolean().optional(),
 });
 
 export const DiagnosticsResourcesBaselineUpdateRequestSchema = z.object({
@@ -5577,6 +5579,8 @@ export const ResourceDestinationSchema = z.object({
   /** The name when one is known, otherwise the IP. */
   host: z.string(),
   address: z.string().nullable(),
+  /** Reverse-DNS name of an IP-only host, when names were requested and one resolved. */
+  hostname: z.string().optional(),
   port: z.number().int(),
   protocol: z.enum(["tcp", "udp"]),
   firstSeenMs: z.number(),

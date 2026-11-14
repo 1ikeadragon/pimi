@@ -250,7 +250,7 @@ export class DaemonSession {
           capturedAtMs: Date.now(),
           platform: process.platform,
           processes: monitor?.processes() ?? [],
-          destinations: monitor?.destinations() ?? [],
+          destinations: monitor?.destinations(msg.resolveNames === true) ?? [],
           requests: { ...requests, log: getDaemonNetworkLogStats() },
         },
       },
