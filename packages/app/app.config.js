@@ -59,6 +59,7 @@ export default {
       supportsTablet: true,
       infoPlist: {
         NSMicrophoneUsageDescription: "This app needs access to the microphone for voice commands.",
+        NSLocalNetworkUsageDescription: "Pimi connects to your computer on the local network.",
         ITSAppUsesNonExemptEncryption: false,
       },
       bundleIdentifier: variant.packageId,

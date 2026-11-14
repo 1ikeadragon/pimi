@@ -20,6 +20,8 @@ Pimi Mobile lets you chat with your agents, approve permissions, and review chan
 2. On the desktop, open **Pair a device** and turn on the relay.
 3. Scan the QR code with the Android app.
 
+iOS: the [IPA](https://github.com/1ikeadragon/pimi/releases/latest/download/Pimi-iOS-arm64.ipa) is unsigned. Install it with [SideStore](https://docs.sidestore.io/).
+
 Traffic between your phone and your computer is end-to-end encrypted, so the relay can't read your chats or code ([how it works](SECURITY.md)). Keep the desktop awake and keep the QR code private.
 
 On the same Wi-Fi, you can also pair without any relay.
