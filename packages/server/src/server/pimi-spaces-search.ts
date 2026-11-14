@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import { setImmediate } from "node:timers/promises";
 import { loadSpacesEmbedder, type SpacesEmbedder } from "./pimi-spaces-embeddings.js";
 import type { SpaceCard } from "./pimi-spaces.js";

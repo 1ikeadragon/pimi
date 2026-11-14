@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Viewed marks for the Changes tab. A mark stores the file's blob SHA, so a push that changes a
 // file clears its mark and leaves every other file marked.
 import AsyncStorage from "@react-native-async-storage/async-storage";

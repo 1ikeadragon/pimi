@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 export function createMemoryView({ $, api, button, element, message }) {
   const picker = $("memory-scope");
   const form = $("memory-form");

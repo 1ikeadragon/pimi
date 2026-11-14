@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import { execFile } from "node:child_process";
 import { lstat, readdir, realpath } from "node:fs/promises";
 import { basename, join, relative } from "node:path";

@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S4: review threads as rows inside a card. Shared by the Overview card and the inspector.
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "@/i18n/use-translation";

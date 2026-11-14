@@ -6,7 +6,7 @@
 
 Chat with your agents, track their work, and review the changes in one app.
 
-Pimi will always be free to use and open source. Made for everyone. Pimi is a passion project of mine. Contributions are welcome through feature requests or bug reports. No PRs accepted for now :)
+Pimi will always be free and source-available. Made for everyone, never for sale: commercial use and resale aren't allowed ([license](LICENSE)). Pimi is a passion project of mine. Contributions are welcome through feature requests or bug reports. No PRs accepted for now :)
 
 [Downloads](https://1ikeadragon.github.io/pimi/) · [Android APK](https://github.com/1ikeadragon/pimi/releases/latest/download/Pimi-Android-arm64.apk) · [Release notes](https://github.com/1ikeadragon/pimi/releases/latest)
 
@@ -54,4 +54,4 @@ On Windows, run `npm run pimi:package:win` after `npm ci` and `npm run setup`. B
 
 Pimi's Attack mode and desktop testing tools are designed for use on your own applications and property, with your full knowledge and consent. You are responsible for ensuring you have authorization to test any software you target. Do not use these tools against applications, systems, or services you do not own or do not have explicit permission to test.
 
-[Apache 2.0 license](LICENSE)
+[PolyForm Noncommercial 1.0.0 license](LICENSE)

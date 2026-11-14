@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Loads the patches the desk needs and shapes them for `DiffDocument`: every file as a stub that
 // fills in as its patch lands (continuous mode), or the active file alone (single-file mode).
 import { useCallback, useEffect, useMemo } from "react";

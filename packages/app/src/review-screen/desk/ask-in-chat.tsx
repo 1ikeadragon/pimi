@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // "Ask in chat": the user's line annotations on the change request become one `review` composer
 // attachment on a new draft of a workspace of the same repository, then that workspace opens the
 // draft with the attachment in its composer. Nothing is sent; sending clears the drafts (composer/attachments/workspace.tsx).

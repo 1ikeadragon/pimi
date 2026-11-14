@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import { PIMI_ASK_MESSAGE_LIMIT } from "@pimi/protocol/pimi-task";
 import { renderTemplate } from "../prompts/render.js";
 import type { AgentManager } from "./agent-manager.js";

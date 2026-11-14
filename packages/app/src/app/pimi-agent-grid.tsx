@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import { Redirect } from "expo-router";
 import { getDesktopHost } from "@/desktop/host";
 import { PimiAgentGridScreen } from "@/screens/pimi-agent-grid-screen";

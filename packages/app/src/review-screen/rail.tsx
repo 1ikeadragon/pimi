@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S2 owns this file: the left rail. Title, search field, All / To review filter, and one row
 // per change request (repo and number, title, state chips). Reads `forge.change_request.list_inbox`.
 // In Worktrees mode the rail lists the host's workspaces instead.

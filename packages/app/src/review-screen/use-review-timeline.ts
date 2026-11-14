@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S4 owns this file: the one read of a change request's overview, checks and review threads
 // for the Review screen. The Overview cards, the Changes-tab inspector, the file tree badges and the
 // Fix sheet all call it; react-query keys the requests by identity, so every caller shares one fetch.

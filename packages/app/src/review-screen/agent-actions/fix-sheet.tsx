@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S5 owns this file: "Fix this" / "Fix N selected". The sheet picks a workspace, builds the
 // context attachments (thread text, file and line, check log tail, annotations) and a prompt, then
 // opens that workspace's composer with both prefilled. It never sends, posts or pushes: the only

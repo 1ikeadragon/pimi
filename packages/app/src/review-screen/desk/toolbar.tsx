@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // The bar above the diff: current file, viewed counter, single-file stepping, mode and layout.
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";

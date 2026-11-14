@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import { randomUUID } from "node:crypto";
 import { readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";

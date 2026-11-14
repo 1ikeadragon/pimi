@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import type { PimiRecapPeriod } from "@pimi/protocol/pimi-task";
 import { ChevronRight, ListChecks } from "lucide-react-native";
 import { useCallback, useMemo, useState } from "react";

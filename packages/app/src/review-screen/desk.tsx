@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S3: the Changes tab. A file tree beside the shared `DiffDocument`, fed by
 // `forge.change_request.list_files` (tree first, no patches) and `get_file_diffs` (patches on
 // demand through the LRU cache in `desk/patch-cache.ts`). Small change requests scroll as one

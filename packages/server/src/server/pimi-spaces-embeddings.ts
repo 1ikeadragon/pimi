@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { endianness } from "node:os";

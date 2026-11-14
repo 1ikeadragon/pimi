@@ -3,7 +3,7 @@
   "version": "0.17.46",
   "private": true,
   "description": "Pimi CLI - control your AI coding agents from the command line",
-  "license": "Apache-2.0",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "bin": {
     "pimi": "bin/pimi"
   },

@@ -1,4 +1,4 @@
-// Pimi Android navigation for remote-capable app views. Apache-2.0.
+// Pimi Android navigation for remote-capable app views. PolyForm-Noncommercial-1.0.0.
 import { usePathname } from "expo-router";
 import { LayoutGrid, ListTodo } from "lucide-react-native";
 import { UsageIcon } from "@/usage/icon";

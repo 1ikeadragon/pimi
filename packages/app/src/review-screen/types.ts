@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Contracts shared by the Review screen's slots. Every stream imports from here and none redefines
 // these shapes; change one only in the stream that owns `review-screen/types.ts`.
 import type { ChangeRequestFile } from "@pimi/protocol/messages";

@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S4: CI checks as rows inside a card. Failed first, then running, then passed and skipped
 // collapsed; shards of one job fold into one group; a failing check expands to its log tail and
 // annotations (`get_check_details`). Shared by the Overview Checks card and the inspector.

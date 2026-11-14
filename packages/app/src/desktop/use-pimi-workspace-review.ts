@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import { useMemo } from "react";
 import { getDesktopHost } from "@/desktop/host";
 import { checkoutReviewSource, openPimiReview } from "@/navigation/pimi-review";

@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import Svg, { Ellipse, G, Path } from "react-native-svg";
 
 export function PimiMark({ size, color }: { size: number; color: string }) {

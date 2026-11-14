@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S5: the text prefilled into the composer. The thread and check bodies travel as context
 // attachments; the prompt only names what to fix and sets the guard rails.
 import type { ReviewCheck, ReviewThread } from "../use-review-timeline";

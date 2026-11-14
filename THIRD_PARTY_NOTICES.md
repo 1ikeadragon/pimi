@@ -2,6 +2,12 @@
 
 Pimi includes code adapted from the projects below. Each keeps its own license. Done so my dumbass friend can migrate from T3 without whining about Pimi's annotation design
 
+## Paseo
+
+Source: https://github.com/getpaseo/paseo
+
+Pimi started as a fork of Paseo. Copyright (c) 2025-present Mohamed Boudra. Paseo's code is licensed under the Apache License, Version 2.0; the full text is in [LICENSE-PASEO](LICENSE-PASEO).
+
 ## T3 Code
 
 Source: https://github.com/pingdotgg/t3code

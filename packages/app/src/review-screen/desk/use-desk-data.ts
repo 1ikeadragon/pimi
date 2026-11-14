@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Data for the Changes tab: the file list of one change request, forge threads for the markers,
 // and the rule that picks continuous scroll or single-file mode from the list's totals.
 import { i18n } from "@/i18n/i18next";

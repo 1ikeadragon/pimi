@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S4 owns this directory: the Threads / Checks inspector beside the Changes tab. Same rows
 // as the Overview cards, so a thread or failing check reads the same in both places.
 import type { TFunction } from "i18next";

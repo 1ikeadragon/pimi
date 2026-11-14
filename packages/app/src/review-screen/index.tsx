@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Review screen shell, modelled on the website's Review mockup: a top bar, a left rail of change
 // requests, and a detail pane with Overview (stacked cards, a separate Checks card) and Changes
 // (file tree + diff + collapsible Threads/Checks inspector) tabs. The shell owns layout, history,

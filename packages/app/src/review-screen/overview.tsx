@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S4 owns this file: the Overview tab. Stacked cards built with SettingsSection, after the
 // website's Review mockup: Description, a separate Checks card (failed first, passed and skipped
 // collapsed, shards folded), Threads, Commits. The same rows feed the Changes tab's inspector.

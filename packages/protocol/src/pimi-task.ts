@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import { z } from "zod";
 import { getPimiToolLeafName } from "./tool-name-normalization.js";
 import { TaskDescriptionSchema, TaskTitleSchema } from "./task/types.js";

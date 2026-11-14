@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Inline markers and annotations on the shared DiffDocument without a new renderer: the document
 // already paints `InlineReviewActions.commentsByTarget` under each line, so forge threads ride in
 // as read-only entries next to the user's own draft annotations. Drafts are the existing

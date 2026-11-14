@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 const imageTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 function imageInput(file) {

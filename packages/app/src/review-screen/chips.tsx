@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S2: the state, review and checks chips shared by the rail rows and the detail header.
 import { useTranslation } from "@/i18n/use-translation";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/status-badge";

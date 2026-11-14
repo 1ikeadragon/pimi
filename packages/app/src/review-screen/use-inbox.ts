@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S2: the Review rail's data. One `forge.change_request.list_inbox` read per host, plus the
 // change-request URL a user pastes into the search field.
 import { i18n } from "@/i18n/i18next";

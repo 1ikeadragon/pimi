@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Shell-owned back/forward history for the Review screen. Slots never import this; they receive a
 // `ReviewNavigation`.
 import { useCallback, useMemo, useState } from "react";

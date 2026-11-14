@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Small presentational pieces of the Changes tab.
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";

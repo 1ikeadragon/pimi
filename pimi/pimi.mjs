@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import { createPimiApi } from "@pimi/client";
 import { DaemonClient } from "@pimi/client/internal/daemon-client";
 import {

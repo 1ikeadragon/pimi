@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S2 owns this file: the top bar (back/forward, Pull requests / Worktrees) and the detail
 // header (repo and number, title, state/branch/counter chips, Overview / Changes tabs).
 import { i18n } from "@/i18n/i18next";

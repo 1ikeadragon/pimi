@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import { cp } from "node:fs/promises";
 
 await cp(new URL("../../../pimi/", import.meta.url), new URL("../dist/pimi/", import.meta.url), {

@@ -38,4 +38,4 @@ daemon 持有正在运行的 Agent 和聊天。桌面应用在本地连接它；
 
 [插件](/docs/plugins)可以添加 Provider、工作区面板、命令和工作流。
 
-Pimi 基于 Apache-2.0 开源，没有遥测和跟踪，也不需要 Pimi 账号。
+Pimi 免费且源代码公开（PolyForm Noncommercial 1.0.0 许可），没有遥测和跟踪，也不需要 Pimi 账号。

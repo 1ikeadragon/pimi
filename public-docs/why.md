@@ -40,4 +40,4 @@ Give agents [Pimi tools](/docs/orchestration) to create worktrees, launch other 
 
 [Plugins](/docs/plugins) add providers, workspace panels, commands, and workflows.
 
-Pimi is open source under Apache-2.0, with no telemetry, tracking, or required Pimi account.
+Pimi is free and source-available under the PolyForm Noncommercial 1.0.0 license, with no telemetry, tracking, or required Pimi account.

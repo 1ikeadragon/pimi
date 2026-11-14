@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Client-side patch cache for the Changes tab: LRU capped at 64 files or 8 MB (whichever first),
 // fetched 8 paths per `get_file_diffs` call with at most 2 calls in flight (the daemon bounds `gh`
 // itself). Entries are keyed by head SHA, so a push never serves a stale patch.

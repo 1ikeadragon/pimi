@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 // Local state of the Changes tab, split out of the component: display preferences, viewed marks,
 // the tree filter and the j / k / v keys.
 import { useCallback, useEffect, useMemo, useState } from "react";

@@ -5,7 +5,7 @@ Pod::Spec.new do |s|
   s.version        = '0.1.0'
   s.summary        = 'Hardware keyboard shortcuts for Pimi'
   s.description    = 'Hardware keyboard shortcuts for Pimi'
-  s.license        = 'Apache-2.0'
+  s.license        = 'PolyForm-Noncommercial-1.0.0'
   s.author         = 'Pimi'
   s.homepage       = 'https://1ikeadragon.github.io/pimi/'
   s.platforms      = { :ios => '13.4' }

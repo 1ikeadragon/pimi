@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import { useCallback } from "react";
 import { useTranslation } from "@/i18n/use-translation";
 import { Text, View } from "react-native";

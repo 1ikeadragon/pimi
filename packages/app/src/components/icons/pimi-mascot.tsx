@@ -1,4 +1,4 @@
-// Pimi. Apache-2.0.
+// Pimi. PolyForm-Noncommercial-1.0.0.
 import Svg, { Circle, Ellipse, G, Path } from "react-native-svg";
 
 // The Pimi mascot from the Pimi download site, the same art as the Ask Pimi button.
