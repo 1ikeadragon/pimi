@@ -133,6 +133,8 @@ import { SqliteTimelineStore, timelineSessionKey } from "./sqlite-timeline-store
 import type { ChatIndexBackfill } from "./timeline-search/backfill.js";
 import type { ChatSearchService } from "./timeline-search/search-service.js";
 
+const INTERRUPTED_MESSAGE = "Interrupted";
+
 export interface ChatSearchRuntime {
   search: ChatSearchService;
   backfill: ChatIndexBackfill;
@@ -5406,6 +5408,9 @@ export class AgentManager {
     agent: LiveManagedAgent,
     cancelReason: string,
   ): ManagedAgentClosed {
+    if (agent.lifecycle === "running" || this.hasInFlightRun(agent.id)) {
+      this.markTurnInterrupted(agent);
+    }
     this.agentStreamCoalescer.flushAndDiscard(agent.id);
     this.agents.delete(agent.id);
     this.previousStatuses.delete(agent.id);
@@ -6624,6 +6629,18 @@ export class AgentManager {
     }
   }
 
+  // A cut turn leaves partial text that reads like a finished reply, so it gets a closing row.
+  private markTurnInterrupted(agent: ManagedAgent, turnId?: string): void {
+    const last = this.timelineStore.getLastItem(agent.id);
+    if (last?.type === "notification" && last.message === INTERRUPTED_MESSAGE) return;
+    this.recordAndDispatchTimelineItem(
+      agent.id,
+      { type: "notification", level: "info", message: INTERRUPTED_MESSAGE },
+      agent.provider,
+      turnId,
+    );
+  }
+
   private onStreamTurnCanceled(params: {
     agent: ActiveManagedAgent;
     event: Extract<AgentStreamEvent, { type: "turn_canceled" }>;
@@ -6650,6 +6667,10 @@ export class AgentManager {
       "agent.manager.turn.canceled",
     );
     if (terminalDisposition === "stale") return;
+    // A new prompt that replaces the running turn shows the cut itself.
+    if (!options?.fromHistory && !agent.pendingReplacement) {
+      this.markTurnInterrupted(agent, eventTurnId);
+    }
     if (!isForegroundEvent && !agent.activeForegroundTurnId && !agent.pendingReplacement) {
       agent.lifecycle = "idle";
     }
