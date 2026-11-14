@@ -16,11 +16,17 @@ Replacing Paseo? [Keep your sessions and plugins](docs/paseo-migration.md).
 
 ## Use Pimi from your phone
 
-Install Pimi Desktop and the [Android APK](docs/android.md#pimi-apk). Run Pimi Relay on a server you control, point your desktop at it, and scan the desktop’s **Pair a device** QR code in the Android app. Keep the desktop awake, set a daemon password, and keep the QR code private.
+Pimi Mobile lets you chat with your agents, approve permissions, and review changes from anywhere. It works out of the box with the free Pimi Relay, so you don't need a server or a VPN.
 
-One relay can serve all your computers or a group of friends. Pair each computer separately and share the relay address with friends who want to pair their own computers. [Personal and team setups](https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md#who-can-share-one-relay)
+1. Install Pimi Desktop and the [Android APK](https://github.com/1ikeadragon/pimi/releases/latest/download/Pimi-Android-arm64.apk).
+2. On the desktop, open **Pair a device** and turn on the relay.
+3. Scan the QR code with the Android app.
 
-[Set up your own relay and pair Android](https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md#pair-a-device) · [Connect over a private VPN](public-docs/connectivity.md#tailscale)
+Traffic between your phone and your computer is end-to-end encrypted, so the relay can't read your chats or code ([how it works](SECURITY.md)). Keep the desktop awake and keep the QR code private.
+
+On the same Wi-Fi, you can also pair without any relay.
+
+**Self-hosting:** run your own Pimi Relay and point your desktop at it, or connect over Tailscale or another VPN. One relay can serve all your computers or a group of friends. [Run your own relay](https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md#pair-a-device) · [Personal and team setups](https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md#who-can-share-one-relay) · [Connect over a private VPN](public-docs/connectivity.md#tailscale)
 
 ## Build from source
 
