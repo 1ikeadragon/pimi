@@ -279,6 +279,7 @@ export const PIMI_MODEL_FEATURE_KEYS = [
   "automation",
   "task",
   "askPimi",
+  "handoff",
 ] as const;
 
 // One optional model per Pimi model call site. A missing key means "same as the default".
@@ -291,6 +292,7 @@ const MutablePimiModelFeaturesSchema = z
     automation: MutableStructuredGenerationProviderSchema.optional(),
     task: MutableStructuredGenerationProviderSchema.optional(),
     askPimi: MutableStructuredGenerationProviderSchema.optional(),
+    handoff: MutableStructuredGenerationProviderSchema.optional(),
   })
   .strict();
 
@@ -304,6 +306,7 @@ const MutablePimiModelFeaturesPatchSchema = z
     automation: MutableStructuredGenerationProviderSchema.nullable().optional(),
     task: MutableStructuredGenerationProviderSchema.nullable().optional(),
     askPimi: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    handoff: MutableStructuredGenerationProviderSchema.nullable().optional(),
   })
   .strict();
 
@@ -487,6 +490,7 @@ import type {
   AgentPermissionResponse,
   AgentPersistenceHandle,
   AgentPermissionResolutionMarker,
+  AgentHandoffMarker,
   AgentProviderSwitchMarker,
   ProviderStatus,
   AgentRuntimeInfo,
@@ -1118,6 +1122,13 @@ export const AgentProviderSwitchMarkerSchema: z.ZodType<AgentProviderSwitchMarke
     permissionMode: z.object({ carried: z.boolean(), label: z.string().optional() }).optional(),
   });
 
+/** Records how the chat history reached a provider the chat switched to. */
+export const AgentHandoffMarkerSchema: z.ZodType<AgentHandoffMarker, unknown> = z.object({
+  mode: z.enum(["summary", "excerpt", "verbatim"]),
+  model: z.string().optional(),
+  transcriptPath: z.string().optional(),
+});
+
 /** Marks where another agent answered this agent's permission prompt. */
 export const AgentPermissionResolutionMarkerSchema: z.ZodType<
   AgentPermissionResolutionMarker,
@@ -1178,6 +1189,7 @@ export const AgentTimelineItemPayloadSchema: z.ZodType<AgentTimelineItem, unknow
     level: z.enum(["info", "warning", "error"]),
     message: z.string(),
     providerSwitch: AgentProviderSwitchMarkerSchema.optional(),
+    handoff: AgentHandoffMarkerSchema.optional(),
     permissionResolution: AgentPermissionResolutionMarkerSchema.optional(),
   }),
   z.object({
@@ -1333,6 +1345,9 @@ export const AgentSnapshotPayloadSchema = z.object({
   background: z.boolean().optional(),
   // This chat opted out of the host's auto-switch on limit.
   limitFallbackDisabled: z.boolean().optional(),
+  // The next prompt is waiting for the summary of this chat's history, written for a provider
+  // switch. Set only while the wait lasts.
+  handoffSummarising: z.boolean().optional(),
 });
 
 export type AgentSnapshotPayload = z.infer<typeof AgentSnapshotPayloadSchema>;

@@ -3,6 +3,7 @@ import type {
   AgentImageRef,
   AgentProvider,
   AgentPermissionResolutionMarker,
+  AgentHandoffMarker,
   AgentProviderSwitchMarker,
   AgentTimelineItem,
   JsonValue,
@@ -793,6 +794,8 @@ export interface NotificationItem {
   message: string;
   /** Present when this notification marks the chat moving to another provider. */
   providerSwitch?: AgentProviderSwitchMarker;
+  /** Present when this notification records how the chat history reached the new provider. */
+  handoff?: AgentHandoffMarker;
   /** Present when this notification records another agent answering a permission prompt. */
   permissionResolution?: AgentPermissionResolutionMarker;
 }
@@ -1607,6 +1610,7 @@ function reduceTimelineEvent(
         level: item.level,
         message: item.message,
         ...(item.providerSwitch ? { providerSwitch: item.providerSwitch } : {}),
+        ...(item.handoff ? { handoff: item.handoff } : {}),
         ...(item.permissionResolution ? { permissionResolution: item.permissionResolution } : {}),
       };
       return appendNotification(state, notification);

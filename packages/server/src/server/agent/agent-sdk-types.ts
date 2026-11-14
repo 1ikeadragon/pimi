@@ -6,6 +6,7 @@ import type {
   ProviderImagesTimelineItem,
   AgentPermissionResolutionMarker,
   AgentProviderNotice,
+  AgentHandoffMarker,
   AgentProviderSwitchMarker,
   AgentTaskItem,
   AgentTurnLimit,
@@ -414,6 +415,7 @@ export type AgentTimelineItem =
       level: "info" | "warning" | "error";
       message: string;
       providerSwitch?: AgentProviderSwitchMarker;
+      handoff?: AgentHandoffMarker;
       permissionResolution?: AgentPermissionResolutionMarker;
     }
   | CompactionTimelineItem

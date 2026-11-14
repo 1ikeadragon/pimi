@@ -106,6 +106,8 @@ export interface Agent {
   background?: boolean;
   /** This chat opted out of the host's auto-switch on limit. */
   limitFallbackDisabled?: boolean;
+  /** The next prompt is held while the history summary for a provider switch is written. */
+  handoffSummarising?: boolean;
   parentAgentId: string | null;
   labels: Record<string, string>;
   projectPlacement?: ProjectPlacementPayload | null;

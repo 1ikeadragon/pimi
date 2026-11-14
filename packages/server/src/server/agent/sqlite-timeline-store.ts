@@ -34,6 +34,14 @@ export interface StoredTimelineAgent {
   indexedHi: number;
 }
 
+export interface HandoffCheckpoint {
+  epoch: string;
+  throughSeq: number;
+  format: number;
+  model: string | null;
+  summary: string;
+}
+
 export interface TimelineRowBlock {
   rows: AgentTimelineRow[];
   /** Rows exist in the store below the first returned row. */
@@ -612,6 +620,84 @@ export class SqliteTimelineStore {
 
   readAll(agentId: string): AgentTimelineRow[] {
     return this.readBefore(agentId, Infinity, Number.MAX_SAFE_INTEGER).rows;
+  }
+
+  /**
+   * Rows after `afterSeq`, oldest first, in blocks of at least `blockRows` that end where a turn
+   * ends (the next user message starts the next block). A turn longer than `maxBlockRows` is cut
+   * there instead, so one huge turn cannot become one huge block. Returns null past the last row.
+   */
+  readForwardBlock(
+    agentId: string,
+    afterSeq: number,
+    blockRows = 500,
+    maxBlockRows = 4000,
+  ): AgentTimelineRow[] | null {
+    const key = this.bound.get(agentId)?.key ?? this.getAgent(agentId)?.key;
+    if (key === undefined) return null;
+    this.flush();
+    const rows = this.stmt(
+      `SELECT ${ROW_COLUMNS} FROM timeline_rows WHERE agent_key = ? AND seq > ? ORDER BY seq LIMIT ?`,
+    )
+      .all(key, afterSeq, blockRows)
+      .map(parseRow);
+    const last = rows.at(-1);
+    if (!last) return null;
+    if (rows.length < blockRows) return rows;
+    const next = this.stmt(
+      "SELECT MIN(seq) AS seq FROM timeline_rows WHERE agent_key = ? AND type = 'user_message' AND seq > ?",
+    ).get(key, last.seq);
+    const below = typeof next?.seq === "number" ? next.seq : Infinity;
+    const rest = this.stmt(
+      `SELECT ${ROW_COLUMNS} FROM timeline_rows
+        WHERE agent_key = ? AND seq > ? AND seq < ? ORDER BY seq LIMIT ?`,
+    )
+      .all(key, last.seq, below, Math.max(0, maxBlockRows - rows.length))
+      .map(parseRow);
+    return rows.concat(rest);
+  }
+
+  /** Highest stored seq of an agent, or null when it has no rows. */
+  maxSeq(agentId: string): number | null {
+    const key = this.bound.get(agentId)?.key ?? this.getAgent(agentId)?.key;
+    if (key === undefined) return null;
+    this.flush();
+    const row = this.stmt("SELECT MAX(seq) AS seq FROM timeline_rows WHERE agent_key = ?").get(key);
+    return typeof row?.seq === "number" ? row.seq : null;
+  }
+
+  getHandoffCheckpoint(agentId: string): HandoffCheckpoint | null {
+    const agent = this.getAgent(agentId);
+    if (!agent) return null;
+    const row = this.stmt(
+      "SELECT epoch, through_seq, format, model, summary FROM handoff_checkpoints WHERE agent_key = ?",
+    ).get(agent.key);
+    if (!row) return null;
+    return {
+      epoch: String(row.epoch),
+      throughSeq: Number(row.through_seq),
+      format: Number(row.format),
+      model: typeof row.model === "string" ? row.model : null,
+      summary: String(row.summary),
+    };
+  }
+
+  putHandoffCheckpoint(agentId: string, checkpoint: HandoffCheckpoint): void {
+    const agent = this.getAgent(agentId);
+    if (!agent) return;
+    this.stmt(
+      `INSERT OR REPLACE INTO handoff_checkpoints
+         (agent_key, epoch, through_seq, format, model, summary, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      agent.key,
+      checkpoint.epoch,
+      checkpoint.throughSeq,
+      checkpoint.format,
+      checkpoint.model,
+      checkpoint.summary,
+      new Date().toISOString(),
+    );
   }
 
   /** Lowest stored seq of an agent, or null when it has no rows. */

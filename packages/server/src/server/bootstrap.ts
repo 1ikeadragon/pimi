@@ -165,6 +165,8 @@ import { UsageReader } from "./usage/aggregate.js";
 import { UsageScanner } from "./usage/scanner.js";
 import { importCarriedTimelines } from "./agent/carried-timeline.js";
 import { SqliteTimelineStore } from "./agent/sqlite-timeline-store.js";
+import { createHandoffServices, listOpenTasksForAgent } from "./agent/handoff/services.js";
+import { TranscriptStore } from "./agent/handoff/transcript-file.js";
 import { TimelineIndexer } from "./agent/timeline-search/indexer.js";
 import { ChatSearchService } from "./agent/timeline-search/search-service.js";
 import { ChatIndexBackfill } from "./agent/timeline-search/backfill.js";
@@ -1083,6 +1085,10 @@ export async function createPimiDaemon(
   await sentAttachments.importLegacy();
   const timelineDatabase = await openPimiTimelineDatabase({ pimiHome: config.pimiHome, logger });
   const timelineArchive = new SqliteTimelineStore(timelineDatabase, logger);
+  const transcriptStore = new TranscriptStore(
+    path.join(config.pimiHome, "agent-transcripts"),
+    logger,
+  );
   {
     // Timelines of agents deleted while the daemon was down (the two files are not one transaction).
     const knownAgentIds = new Set(
@@ -1092,6 +1098,7 @@ export async function createPimiDaemon(
         .map((row) => String(row.id)),
     );
     const removed = timelineArchive.sweepOrphans(knownAgentIds);
+    const removedTranscripts = await transcriptStore.sweepOrphans(knownAgentIds);
     await importCarriedTimelines({
       pimiDatabase,
       timelineStore: timelineArchive,
@@ -1100,7 +1107,10 @@ export async function createPimiDaemon(
       logger,
     });
     const size = timelineArchive.describe();
-    logger.info({ ...size, removedOrphans: removed }, "Opened pimi-timeline.db");
+    logger.info(
+      { ...size, removedOrphans: removed, removedTranscripts },
+      "Opened pimi-timeline.db",
+    );
     if (size.bytes > 2 * 1024 ** 3) {
       logger.warn({ bytes: size.bytes }, "pimi-timeline.db is over 2 GB");
     }
@@ -1200,7 +1210,16 @@ export async function createPimiDaemon(
     if (git) configureGitProcessPolicy(git);
   });
   const initialAgentManagerState = providerSnapshotManager.getAgentManagerProviderState();
-  const agentManager = new AgentManager({
+  const agentManager: AgentManager = new AgentManager({
+    handoff: createHandoffServices({
+      transcripts: transcriptStore,
+      archive: timelineArchive,
+      manager: () => agentManager,
+      openTasks: (agentId) => listOpenTasksForAgent(taskService, agentId),
+      providerSnapshotManager,
+      daemonConfig: () => daemonConfigStore.get(),
+      logger,
+    }),
     pluginLifecycle: pluginRuntime,
     pluginAgentTools: pluginRuntime,
     clients: initialAgentManagerState.clients,

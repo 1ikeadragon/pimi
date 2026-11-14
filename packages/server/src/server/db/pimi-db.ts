@@ -133,6 +133,16 @@ const TIMELINE_SCHEMA_STEPS: readonly string[] = [
      INSERT INTO timeline_fts(timeline_fts, rowid, text) VALUES ('delete', old.id, old.text);
      INSERT INTO timeline_fts(rowid, text) VALUES (new.id, new.text);
    END;`,
+  // 2: the running summary of a chat written for a provider switch (see agent/handoff). Rebuildable:
+  // a missing or stale row only costs a longer summary job.
+  `CREATE TABLE handoff_checkpoints (
+     agent_key INTEGER PRIMARY KEY REFERENCES timeline_agents(key) ON DELETE CASCADE,
+     epoch TEXT NOT NULL,
+     through_seq INTEGER NOT NULL,
+     format INTEGER NOT NULL,
+     model TEXT,
+     summary TEXT NOT NULL,
+     updated_at TEXT NOT NULL) STRICT;`,
 ];
 
 const BACKUP_INTERVAL_MS = 24 * 60 * 60_000;

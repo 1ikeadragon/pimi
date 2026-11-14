@@ -23,7 +23,11 @@ import {
   STOPPED_WITH_SUBAGENTS_LABEL,
 } from "@pimi/protocol/agent-labels";
 import type { Logger } from "pino";
-import type { AgentProviderSwitchMarker, ToolPolicy } from "@pimi/protocol/agent-types";
+import type {
+  AgentHandoffMarker,
+  AgentProviderSwitchMarker,
+  ToolPolicy,
+} from "@pimi/protocol/agent-types";
 import type { ProviderPimiToolsPolicy } from "@pimi/protocol/provider-config";
 import { z } from "zod";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
@@ -112,6 +116,11 @@ import {
   PIMI_VISUALIZATION_TOOL_BRIEF,
 } from "@pimi/protocol/chat-visualization";
 import { buildAgentForkContextAttachment, MAX_FORK_CONTEXT_CHARS } from "./activity-curator.js";
+import type { HandoffController } from "./handoff/controller.js";
+import type { HandoffHistorySource } from "./handoff/history.js";
+import type { HandoffModelTarget } from "./handoff/summary-model.js";
+import type { GenerateSummary } from "./handoff/summarizer.js";
+import { withTranscriptReadAccess } from "./handoff/read-access.js";
 import { isChatHistoryAttachment } from "./prompt-attachments.js";
 import type { AgentAttachment } from "@pimi/protocol/messages";
 import type { AgentImageRef } from "@pimi/protocol/agent-types";
@@ -135,6 +144,7 @@ import {
 import {
   AgentProviderSwitchError,
   buildProviderSwitchTimelineItem,
+  describeEndpoint,
   isProviderSwitchTimelineItem,
   withoutCarriedContext,
   type AgentProviderSwitchTarget,
@@ -327,6 +337,17 @@ function describeSwitchSource(
     ...(current?.providerLabel ? { providerLabel: current.providerLabel } : {}),
     ...(current?.modelLabel ? { modelLabel: current.modelLabel } : {}),
   };
+}
+
+function describeHandoff(handoff: AgentHandoffMarker): string {
+  switch (handoff.mode) {
+    case "summary":
+      return `Handoff: summary${handoff.model ? ` by ${handoff.model}` : ""}, transcript linked`;
+    case "excerpt":
+      return "Handoff: summary unavailable, sent recent history, transcript linked";
+    case "verbatim":
+      return "Handoff: full history sent, transcript linked";
+  }
 }
 
 function describeSwitchTarget(
@@ -578,7 +599,24 @@ export interface CreateAgentOptions {
   withoutAppTools?: boolean;
 }
 
+interface StartedHandoff {
+  /** The history to send with the next prompt; null when the chat has none. */
+  message: string | null;
+  items: number;
+  summarising: boolean;
+  /** Runs once the new session owns the context. */
+  install: () => void;
+  refreshTranscript: () => void;
+}
+
+/** What a provider switch needs to tell the next provider about the chat. */
+export interface AgentHandoffServices {
+  controller: HandoffController;
+  createSummaryModel: (where: HandoffModelTarget) => GenerateSummary;
+}
+
 export interface AgentManagerOptions {
+  handoff: AgentHandoffServices;
   pluginLifecycle?: PluginLifecycle;
   /** An internal workspace makes every agent created inside it internal. */
   clients?: ProviderClientMap;
@@ -722,6 +760,8 @@ interface ManagedAgentBase {
    * the stored record keeps its value.
    */
   pendingProviderContext?: string | null;
+  /** The next prompt is held while the summary for `pendingProviderContext` is written. */
+  handoffSummarising?: boolean;
   activeTurnId: string | null;
   activeTurnStartedAt: Date | null;
   lastUsage?: AgentUsage;
@@ -1095,6 +1135,7 @@ export class AgentManager {
   private readonly idFactory: () => string;
   private readonly registry?: AgentStorage;
   private readonly timelineArchive?: SqliteTimelineStore;
+  private readonly handoff: AgentHandoffServices;
   private chatSearch: ChatSearchRuntime | null = null;
   private readonly sentAttachments?: SentAttachmentStore;
   private readonly agentImages?: AgentImageStore;
@@ -1143,6 +1184,7 @@ export class AgentManager {
     this.idFactory = options.idFactory ?? (() => randomUUID());
     this.registry = options?.registry;
     this.timelineArchive = options.timelineArchive;
+    this.handoff = options.handoff;
     this.sentAttachments = options.sentAttachments;
     this.agentImages = options.agentImages;
     this.onAgentAttention = options?.onAgentAttention;
@@ -2296,13 +2338,17 @@ export class AgentManager {
     // Everything that can refuse the switch runs before the current session is touched.
     const client = await this.requireSwitchTargetClient(target.provider);
     const existing = await this.settleAgentBeforeSwitch(requested);
-    const context = await this.buildForkContext(agentId);
-    const hasConversation =
-      context.itemCount > 0 || Boolean(existing.initialChatContext ?? record?.initialChatContext);
-    const carriedContext = hasConversation ? context.attachment.text : null;
     const from = describeSwitchSource(existing, options?.source);
-
-    const switched = await this.openSwitchedSession({ existing, client, target, carriedContext });
+    const handoff = await this.startHandoff({ existing, record, from, target, options });
+    const carriedContext = handoff.message;
+    let switched: ManagedAgent;
+    try {
+      switched = await this.openSwitchedSession({ existing, client, target, carriedContext });
+    } catch (error) {
+      this.handoff.controller.cancel(agentId);
+      throw error;
+    }
+    handoff.install();
     await this.appendTimelineItem(
       agentId,
       buildProviderSwitchTimelineItem({
@@ -2312,6 +2358,7 @@ export class AgentManager {
       }),
     );
     this.markTimelineCarried(agentId);
+    handoff.refreshTranscript();
     this.logger.info(
       {
         agentId,
@@ -2319,12 +2366,123 @@ export class AgentManager {
         to: switched.provider,
         model: switched.config.model,
         contextChars: carriedContext?.length ?? 0,
-        contextItems: context.itemCount,
-        contextTruncated: context.truncated,
+        contextItems: handoff.items,
+        summarising: handoff.summarising,
       },
       "agent.provider_switch.completed",
     );
     return { ...this.requireAgent(agentId) };
+  }
+
+  /**
+   * Builds what the next provider is told about the chat and starts the summary job. Its
+   * message is null when the chat has no history. `install` runs once the new session owns the context: a summary that
+   * finished before that is applied then, and later ones as they arrive.
+   */
+  private async startHandoff(input: {
+    existing: ActiveManagedAgent;
+    record: StoredAgentRecord | null | undefined;
+    from: ProviderSwitchEndpoint;
+    target: AgentProviderSwitchTarget;
+    options: SwitchAgentProviderOptions | undefined;
+  }): Promise<StartedHandoff> {
+    const { existing, record, from, target, options } = input;
+    const agentId = existing.id;
+    const inheritedContext = existing.initialChatContext ?? record?.initialChatContext;
+    const source = this.handoffSource(agentId);
+    if (!((source.maxSeq() ?? 0) > 0 || inheritedContext)) {
+      return {
+        message: null,
+        items: 0,
+        summarising: false,
+        install: () => undefined,
+        refreshTranscript: () => undefined,
+      };
+    }
+    let installed = false;
+    let early: string | null = null;
+    const prepared = await this.handoff.controller.prepare({
+      agentId,
+      source,
+      title: record?.title ?? existing.config.title ?? null,
+      cwd: existing.cwd,
+      sourceLabel: describeEndpoint(from),
+      targetLabel: describeEndpoint({
+        provider: target.provider,
+        model: target.model,
+        providerLabel: target.providerLabel,
+        modelLabel: target.modelLabel,
+      }),
+      reason: options?.limit ? "limit" : "user",
+      inheritedContext,
+      generate: this.handoff.createSummaryModel({
+        cwd: existing.cwd,
+        target: { provider: target.provider, model: target.model },
+        // The provider that hit its limit cannot be asked to write the summary.
+        ...(options?.limit ? { excludeProvider: existing.provider } : {}),
+      }),
+      onSummary: (message) => {
+        if (installed) this.applyHandoffSummary(agentId, message);
+        else early = message;
+      },
+    });
+    return {
+      message: prepared.message,
+      items: prepared.itemCount,
+      summarising: prepared.summarising,
+      refreshTranscript: prepared.refreshTranscript,
+      install: () => {
+        installed = true;
+        if (early) this.applyHandoffSummary(agentId, early);
+      },
+    };
+  }
+
+  /** The chat's stored rows in turn-aligned blocks; the handoff never loads the whole timeline. */
+  private handoffSource(agentId: string): HandoffHistorySource {
+    const archive = this.timelineArchive;
+    const epoch = () => this.timelineStore.getEpoch(agentId);
+    const stored = () => archive !== undefined && archive.getBoundEpoch(agentId) === epoch();
+    return {
+      epoch,
+      maxSeq: () =>
+        stored()
+          ? archive!.maxSeq(agentId)
+          : (this.timelineStore.getRows(agentId).at(-1)?.seq ?? null),
+      blocks: (afterSeq) => this.handoffBlocks(agentId, afterSeq, stored()),
+    };
+  }
+
+  private async *handoffBlocks(
+    agentId: string,
+    afterSeq: number,
+    fromArchive: boolean,
+  ): AsyncGenerator<AgentTimelineRow[]> {
+    if (!fromArchive) {
+      // No stored copy bound to this timeline (no archive, or an unbound agent): the rows in memory.
+      const rows = this.timelineStore.getRows(agentId).filter((row) => row.seq > afterSeq);
+      for (let start = 0; start < rows.length; start += 500) yield rows.slice(start, start + 500);
+      return;
+    }
+    let cursor = afterSeq;
+    for (;;) {
+      const block = this.timelineArchive!.readForwardBlock(agentId, cursor);
+      if (!block) return;
+      yield block;
+      cursor = block[block.length - 1]!.seq;
+      // The reads are synchronous SQLite; let the daemon serve other work between blocks.
+      await new Promise<void>((next) => setImmediate(next));
+    }
+  }
+
+  private applyHandoffSummary(agentId: string, message: string): void {
+    const agent = this.agents.get(agentId);
+    // Nothing is owed once the first prompt has carried the history.
+    if (!agent?.pendingProviderContext) return;
+    agent.pendingProviderContext = message;
+    this.persistSnapshot(agent).catch((error) =>
+      this.logger.warn({ err: error, agentId }, "Failed to persist handoff summary"),
+    );
   }
 
   /** The summary handed to the next provider is built from a settled, complete timeline. */
@@ -2883,6 +3041,15 @@ export class AgentManager {
     }
   }
 
+  /** Regenerable from the stored timeline, so deleted and archived chats do not keep a second copy. */
+  private async removeHandoffTranscript(agentId: string): Promise<void> {
+    await this.handoff.controller
+      .removeTranscript(agentId)
+      .catch((error) =>
+        this.logger.warn({ err: error, agentId }, "Failed to remove handoff transcript"),
+      );
+  }
+
   async archiveAgent(agentId: string): Promise<{ archivedAt: string }> {
     return this.runLifecycleMutation(agentId, () => this.archiveAgentUnlocked(agentId));
   }
@@ -2926,6 +3093,7 @@ export class AgentManager {
     await this.closeAgentRuntime(agentId);
     await this.syncNativeArchiveState(stored.provider, stored.persistence, "archive");
     this.discardRetainedAgentState(agentId);
+    await this.removeHandoffTranscript(agentId);
 
     await this.cascadeArchiveChildren(stored);
 
@@ -3404,6 +3572,7 @@ export class AgentManager {
     await this.syncNativeArchiveState(record.provider, record.persistence, "archive");
 
     this.discardRetainedAgentState(agentId);
+    await this.removeHandoffTranscript(agentId);
     if (!nextRecord.internal) this.dispatchStoredAgentState(nextRecord);
 
     await this.fireAgentArchived(agentId);
@@ -3669,6 +3838,20 @@ export class AgentManager {
   }): Promise<string> {
     const { agent, agentId, pendingRun, prompt, options } = params;
     try {
+      if (agent.pendingProviderContext && this.handoff.controller.isSummarising(agentId)) {
+        // The switch is done; only this prompt waits, and only until the summary's deadline.
+        agent.handoffSummarising = true;
+        this.emitState(agent, { persist: false });
+        try {
+          await this.handoff.controller.waitForSummary(agentId);
+        } finally {
+          agent.handoffSummarising = false;
+          this.emitState(agent, { persist: false });
+        }
+        if (pendingRun.settled) {
+          throw new Error(`Agent ${agentId} run was canceled before its turn started`);
+        }
+      }
       const carriedContext = agent.pendingProviderContext;
       const result = await agent.session.startTurn(
         carriedContext ? withCarriedContext(prompt, carriedContext) : prompt,
@@ -3689,6 +3872,13 @@ export class AgentManager {
           },
           "agent.provider_switch.context_delivered",
         );
+        const handoff = this.handoff.controller.delivered(agentId, carriedContext);
+        await this.appendTimelineItem(agentId, {
+          type: "notification",
+          level: "info",
+          message: describeHandoff(handoff),
+          handoff,
+        });
       }
       return result.turnId;
     } catch (error) {
@@ -4555,6 +4745,7 @@ export class AgentManager {
     this.discardRetainedAgentState(agentId);
     this.timelineArchive?.deleteAgent(agentId, { keepCarried: options?.keepCarriedTimeline });
     if (!options?.keepCarriedTimeline) {
+      await this.removeHandoffTranscript(agentId);
       await this.sentAttachments?.delete(agentId);
       await this.agentImages?.delete(agentId);
     }
@@ -7253,7 +7444,15 @@ export class AgentManager {
             mcpServers: { ...launchConfig.mcpServers, ...launchContext.mcpServers },
           }
         : launchConfig;
-    const configured = launchContext.pimiTools ? stripInternalPimiMcpServer(merged) : merged;
+    const withMcp = launchContext.pimiTools ? stripInternalPimiMcpServer(merged) : merged;
+    // A chat that switched providers has a transcript the new provider may need to read.
+    const configured =
+      launchContext.agentId && this.handoff.controller.hasTranscript(launchContext.agentId)
+        ? withTranscriptReadAccess(
+            withMcp,
+            this.handoff.controller.directory(launchContext.agentId),
+          )
+        : withMcp;
     if (!configured.toolPolicy || configured.mcpServers?.[PIMI_MCP_SERVER_NAME]) return configured;
     // If the user disables Pimi tools, don't give the provider an approval entry
     // for a server that is no longer attached when the chat is resumed.

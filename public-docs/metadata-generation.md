@@ -1,6 +1,6 @@
 ---
 title: Pimi models
-description: Which models Pimi uses for chat titles, branch names, commit messages, pull request text, Describe it, and Ask Pimi, and how to configure them.
+description: Which models Pimi uses for chat titles, branch names, commit messages, pull request text, Describe it, provider switch summaries, and Ask Pimi, and how to configure them.
 nav: Pimi models
 order: 42
 category: Configuration
@@ -17,6 +17,7 @@ Pimi generates these kinds of metadata:
 - **Commit messages** — a concise message for the changes you're committing.
 - **Pull request title and body** — drafted from the diff when you open a PR.
 - **Describe it** — turns an automation description into a draft automation.
+- **Provider switch summary** — the summary of a chat's history that the new provider receives when you switch a chat to another provider, or when a limit moves it. It reads the whole chat, so pick a model with a large context.
 - **Ask Pimi** — the voice command assistant. It runs only on Claude Code, Codex, or OpenCode.
 
 A chat title and its branch name are produced together from the same prompt, but you configure their wording independently (see below).

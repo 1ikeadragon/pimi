@@ -121,7 +121,7 @@ import {
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { useForkAgent } from "@/hooks/use-fork-agent";
-import { ProviderSwitchMarker } from "@/components/provider-switch-marker";
+import { HandoffNote, ProviderSwitchMarker } from "@/components/provider-switch-marker";
 import { PermissionResolutionNote } from "@/components/permission-resolution-note";
 import { isWeb } from "@/constants/platform";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
@@ -1051,6 +1051,9 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
                   agentId={agentId}
                 />
               );
+            }
+            if (item.handoff) {
+              return <HandoffNote marker={item.handoff} />;
             }
             if (item.permissionResolution) {
               return (

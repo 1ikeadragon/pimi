@@ -5,7 +5,11 @@ import type { AgentTimelineRow } from "./agent-timeline-store-types.js";
 import { isLikelyExternalToolName } from "@pimi/protocol/tool-name-normalization";
 import { buildAgentMessageDisplay } from "@pimi/protocol/pimi-tool-presentation/index";
 import { buildToolCallDisplayModel } from "@pimi/protocol/tool-call-display";
-import { projectTimelineRows, selectItemsByProjectedLimit } from "./timeline-projection.js";
+import {
+  projectTimelineRows,
+  selectItemsByProjectedLimit,
+  type TimelineProjectionEntry,
+} from "./timeline-projection.js";
 
 const DEFAULT_MAX_ITEMS = 0;
 const MAX_TOOL_INPUT_CHARS = 400;
@@ -425,4 +429,38 @@ export function buildAgentForkContextAttachment(input: {
     boundaryCursor: selected.boundaryCursor,
     boundaryMessageId: selected.boundaryMessageId,
   };
+}
+
+export interface CuratedHistoryEntry {
+  text: string;
+  seqStart: number;
+  seqEnd: number;
+  /** A user message: the point where a turn starts. */
+  turnStart: boolean;
+}
+
+/**
+ * The text a fork carries, one entry per projected timeline row with its seq range, for callers
+ * that budget and cut the history themselves (the provider-switch handoff).
+ */
+export function curateHistoryEntries(
+  projected: readonly TimelineProjectionEntry[],
+): CuratedHistoryEntry[] {
+  const result: CuratedHistoryEntry[] = [];
+  for (const row of projected) {
+    const lines = curateProjectedActivityEntries([row.item], {
+      maxItems: 0,
+      labelAssistantMessages: true,
+      includeKinds: FORK_CONTEXT_KINDS,
+      includeExternalToolInput: false,
+    });
+    if (lines.length === 0) continue;
+    result.push({
+      text: lines.map((line) => line.text).join("\n"),
+      seqStart: row.seqStart,
+      seqEnd: row.seqEnd,
+      turnStart: row.item.type === "user_message",
+    });
+  }
+  return result;
 }

@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { ArrowRight } from "lucide-react-native";
 import type {
+  AgentHandoffMarker,
   AgentProviderSwitchEndpoint,
   AgentProviderSwitchMarker,
 } from "@pimi/protocol/agent-types";
@@ -139,6 +140,57 @@ function LimitNote({
   );
 }
 
+/** What the new provider was told about the chat, shown where the history was delivered. */
+export const HandoffNote = memo(function HandoffNote({ marker }: { marker: AgentHandoffMarker }) {
+  const { t } = useTranslation();
+  let text: string;
+  switch (marker.mode) {
+    case "summary":
+      text = marker.model
+        ? t("agentStream.providerSwitch.handoffSummary", { model: marker.model })
+        : t("agentStream.providerSwitch.handoffSummaryUnnamed");
+      break;
+    case "excerpt":
+      text = t("agentStream.providerSwitch.handoffExcerpt");
+      break;
+    case "verbatim":
+      text = t("agentStream.providerSwitch.handoffVerbatim");
+      break;
+  }
+  return (
+    <View style={styles.note} testID="handoff-note">
+      <Text style={styles.noteText}>{text}</Text>
+    </View>
+  );
+});
+
+/** Shown under the switch seam while the first prompt waits for the summary of the chat. */
+function SummarisingNote({
+  marker,
+  serverId,
+  agentId,
+}: {
+  marker: AgentProviderSwitchMarker;
+  serverId: string;
+  agentId: string | undefined;
+}) {
+  const { t } = useTranslation();
+  const summarising = useSessionStore((state) => {
+    const agent = agentId ? state.sessions[serverId]?.agents?.get(agentId) : undefined;
+    return agent?.handoffSummarising === true && agent.provider === marker.to.provider;
+  });
+  if (!summarising) return null;
+  return (
+    <View style={styles.note} testID="provider-switch-summarising">
+      <Text style={styles.noteText}>
+        {t("agentStream.providerSwitch.summarising", {
+          provider: marker.to.providerLabel ?? marker.to.provider,
+        })}
+      </Text>
+    </View>
+  );
+}
+
 /**
  * Marks where in a chat the provider changed: a rule across the thread with the two providers
  * at its center, so the change reads as a seam in the conversation rather than as a message.
@@ -170,6 +222,7 @@ export const ProviderSwitchMarker = memo(function ProviderSwitchMarker({
       {marker.reason === "limit" ? (
         <LimitNote marker={marker} serverId={serverId} agentId={agentId} />
       ) : null}
+      <SummarisingNote marker={marker} serverId={serverId} agentId={agentId} />
     </View>
   );
 });
