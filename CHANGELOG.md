@@ -2,6 +2,19 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.44 - 2026-11-14
+
+- Work is gone. Tasks is now a simple to-do list with a board view (To do, In progress, Done). Tasks link to the chats, agents and subagents working on them, and a PR icon shows any pull request those chats opened. Add a chat to a task, or start a task from a chat, from the chat menu.
+- Labels: label chats, subagents and tasks, and create labels inline.
+- Subagents: message a running subagent from its own composer (Claude, OpenCode; Codex experimental).
+- Providers: Pimi picks up your Claude defaults (model, effort, mode), shows the signed-in account in the model picker, and finds extra Claude/Codex installs and accounts on its own, including the Codex CLI bundled with ChatGPT. Missing CLIs show "Unavailable".
+- Auto-switch on limit (off by default): when a chat hits a usage limit, Pimi continues it on the next of up to 5 fallback providers you choose in Settings. Turn it off per chat from the composer.
+- Settings: rebuilt into 17 pages with one layout on every platform. Removed leftover Paseo pages and the release channel switch. The agent catalog opens in a sheet.
+- Chats replace projects in the sidebar, with a redesigned timeline and tool, plan, permission and question cards.
+- Usage: top chats and projects count tokens by the project they were run in, the heatmap fills the width, and the screen no longer dims while refreshing. Provider colours are consistent.
+- Fixed Spaces previews and dialogs, Wi-Fi pairing errors, and the board columns on narrow windows.
+- Pimi is now English only.
+
 ## 0.17.43 - 2026-11-14
 
 - Pull request links in chat open in Review, from any page of the PR (`/files`, `/commits`, `/checks`, `www.github.com`, `http://`), as do the sidebar PR badge, the workspace PR button and Recap. Right-click > Open Link in Browser or Cmd/Ctrl-click still opens your browser.
