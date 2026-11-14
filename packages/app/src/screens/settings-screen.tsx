@@ -48,7 +48,6 @@ import {
   MessageSquare,
   ChevronRight,
 } from "lucide-react-native";
-import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { ComboboxTrigger } from "@/components/ui/combobox-trigger";
 import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
 import { HostPicker as SharedHostPicker } from "@/components/hosts/host-picker";
@@ -63,7 +62,6 @@ import { SendingSection } from "@/screens/settings/general/sending-section";
 import {
   useAppSettings,
   useSettings,
-  type AppSettings,
   type Settings as EffectiveSettings,
 } from "@/hooks/use-settings";
 import { useHostRuntimeIsConnected, useHosts } from "@/runtime/host-runtime";
@@ -83,7 +81,6 @@ import { EditorSection } from "@/screens/settings/editor-section";
 import { FilesSection } from "@/screens/settings/files-section";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { DesktopPermissionsSection } from "@/desktop/components/desktop-permissions-section";
 import { DesktopNotificationsSection } from "@/desktop/components/desktop-notifications-section";
 import { BrowserDataSection } from "@/desktop/browser/settings/browser-data-section";
@@ -115,13 +112,6 @@ import {
 import { settingsStyles } from "@/styles/settings";
 import { THINKING_TONE_NATIVE_PCM_BASE64 } from "@/utils/thinking-tone.native-pcm";
 import { useVoiceAudioEngineOptional } from "@/contexts/voice-context";
-import {
-  LANGUAGE_OPTIONS,
-  formatLanguageOptionLabel,
-  parseAppLanguage,
-  type AppLanguage,
-  type SupportedLocale,
-} from "@/i18n/locales";
 import {
   HostConnectionsPage,
   HostPairDevicePage,
@@ -320,84 +310,15 @@ function selectedSidebarItemStyle({
   ];
 }
 
-function getActiveLocale(language: string | undefined): SupportedLocale {
-  const parsed = parseAppLanguage(language);
-  return parsed && parsed !== "system" ? parsed : "en";
-}
-
 // ---------------------------------------------------------------------------
 // Section components
 // ---------------------------------------------------------------------------
 
-interface GeneralSectionProps {
-  settings: AppSettings;
-  handleLanguageChange: (language: AppLanguage) => void;
-}
-
-interface LanguageMenuItemProps {
-  value: AppLanguage;
-  activeLocale: SupportedLocale;
-  selected: boolean;
-  onChange: (value: AppLanguage) => void;
-}
-
-function LanguageMenuItem({ value, activeLocale, selected, onChange }: LanguageMenuItemProps) {
+function GeneralSection() {
   const { t } = useTranslation();
-  const handleSelect = useCallback(() => {
-    onChange(value);
-  }, [onChange, value]);
-  const option = LANGUAGE_OPTIONS.find((entry) => entry.value === value);
-  const label = option
-    ? formatLanguageOptionLabel(option, activeLocale, t(option.labelKey))
-    : value;
-
-  return (
-    <DropdownMenuItem selected={selected} onSelect={handleSelect}>
-      {label}
-    </DropdownMenuItem>
-  );
-}
-
-function GeneralSection({ settings, handleLanguageChange }: GeneralSectionProps) {
-  const { t, i18n } = useTranslation();
-  const activeLocale = getActiveLocale(i18n.language);
-  const selectedLanguageOption = LANGUAGE_OPTIONS.find(
-    (option) => option.value === settings.language,
-  );
-  const selectedLanguageLabel = selectedLanguageOption
-    ? formatLanguageOptionLabel(
-        selectedLanguageOption,
-        activeLocale,
-        t(selectedLanguageOption.labelKey),
-      )
-    : settings.language;
   return (
     <SettingsSection title={t("settings.general.title")}>
-      <View style={settingsStyles.card}>
-        <SettingAnchor id="general.language" style={settingsStyles.row}>
-          <View style={settingsStyles.rowContent}>
-            <Text style={settingsStyles.rowTitle}>{t("settings.general.language.label")}</Text>
-            <Text style={settingsStyles.rowHint}>{t("settings.general.language.description")}</Text>
-          </View>
-          <DropdownMenu>
-            <DropdownTrigger accessibilityRole="button" accessibilityLabel={selectedLanguageLabel}>
-              {selectedLanguageLabel}
-            </DropdownTrigger>
-            <DropdownMenuContent side="bottom" align="end" width={300}>
-              {LANGUAGE_OPTIONS.map((option) => (
-                <LanguageMenuItem
-                  key={option.value}
-                  value={option.value}
-                  activeLocale={activeLocale}
-                  selected={settings.language === option.value}
-                  onChange={handleLanguageChange}
-                />
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </SettingAnchor>
-        {isNative ? null : <ShowSetupAgainRow />}
-      </View>
+      <View style={settingsStyles.card}>{isNative ? null : <ShowSetupAgainRow />}</View>
     </SettingsSection>
   );
 }
@@ -406,7 +327,7 @@ function ShowSetupAgainRow() {
   const { t } = useTranslation();
   const openOnboarding = useOpenOnboarding();
   return (
-    <SettingAnchor id="general.setup" style={[settingsStyles.row, settingsStyles.rowBorder]}>
+    <SettingAnchor id="general.setup" style={settingsStyles.row}>
       <View style={settingsStyles.rowContent}>
         <Text style={settingsStyles.rowTitle}>{t("settings.general.setup.label")}</Text>
         <Text style={settingsStyles.rowHint}>{t("settings.general.setup.description")}</Text>
@@ -1205,7 +1126,7 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
   const router = useRouter();
   const { t } = useTranslation();
   const voiceAudioEngine = useVoiceAudioEngineOptional();
-  const { settings, isLoading: settingsLoading, updateSettings } = useAppSettings();
+  const { isLoading: settingsLoading } = useAppSettings();
   const [isPlaybackTestRunning, setIsPlaybackTestRunning] = useState(false);
   const [playbackTestResult, setPlaybackTestResult] = useState<string | null>(null);
   const isDesktopApp = isElectronRuntime();
@@ -1233,13 +1154,6 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
       orderedHosts: sortedHosts,
     });
   }, [view, selectedSettingsHostServerId, localServerId, hosts, sortedHosts]);
-
-  const handleLanguageChange = useCallback(
-    (language: AppLanguage) => {
-      void updateSettings({ language });
-    },
-    [updateSettings],
-  );
 
   const handlePlaybackTest = useCallback(async () => {
     if (!voiceAudioEngine || isPlaybackTestRunning) {
@@ -1407,7 +1321,7 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
         case "general":
           return (
             <>
-              <GeneralSection settings={settings} handleLanguageChange={handleLanguageChange} />
+              <GeneralSection />
               <SendingSection />
               {isDesktopApp ? <OpenLocationSection /> : null}
             </>
