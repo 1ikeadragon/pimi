@@ -1784,9 +1784,9 @@ function createToolCatalog(
       // no empty chat behind.
       const agentStart = await prepareChatAgent(args);
       // An independent chat is a top-level record: it neither inherits the caller's visibility
-      // nor records the caller as its parent, and its title belongs to its agent.
+      // nor records the caller as its parent.
       const intent = starts ? { background: false } : workspaceBackgroundIntent(args.background);
-      const recordTitle = starts ? undefined : args.title;
+      const recordTitle = args.title;
       const workspace =
         args.isolation === "local"
           ? await provisionLocalChat(args, project, recordTitle, intent)

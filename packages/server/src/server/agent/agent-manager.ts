@@ -639,6 +639,8 @@ export interface AgentManagerOptions {
     prompt: string,
   ) => Promise<string>;
   isAutoNamingEnabled?: () => boolean;
+  /** The chat record's title when the user or a tool set it explicitly, else null. */
+  resolveChatRecordTitle?: (workspaceId: string) => Promise<string | null>;
   timelineStore?: InMemoryAgentTimelineStore;
   /** Where chat timelines are kept across daemon restarts; without it they live in memory only. */
   timelineArchive?: SqliteTimelineStore;
@@ -1182,6 +1184,7 @@ export class AgentManager {
   private onWorkspaceStateMayHaveChanged?: (params: { cwd: string }) => void;
   private readonly generateChatTitle?: AgentManagerOptions["generateChatTitle"];
   private readonly isAutoNamingEnabled?: () => boolean;
+  private readonly resolveChatRecordTitle?: (workspaceId: string) => Promise<string | null>;
   private logger: Logger;
   private readonly rescueTimeouts: Required<AgentManagerRescueTimeouts>;
   private readonly beforeSteerUnavailableFallback?: AgentManagerOptions["beforeSteerUnavailableFallback"];
@@ -1201,6 +1204,7 @@ export class AgentManager {
     this.onWorkspaceStateMayHaveChanged = options?.onWorkspaceStateMayHaveChanged;
     this.generateChatTitle = options.generateChatTitle;
     this.isAutoNamingEnabled = options.isAutoNamingEnabled;
+    this.resolveChatRecordTitle = options.resolveChatRecordTitle;
     this.mcpBaseUrl = options?.mcpBaseUrl ?? null;
     this.mcpAuthToken = options?.mcpAuthToken ?? null;
     this.mcpCallerAuthToken = options.mcpCallerAuthToken;
@@ -6832,6 +6836,37 @@ export class AgentManager {
     this.recordAndDispatchTimelineItem(agent.id, item, agent.provider, options?.turnId, options);
   }
 
+  // The first root agent of a chat whose title was set explicitly takes that title instead of
+  // deriving one from its prompt.
+  private async adoptChatRecordTitle(agent: ManagedAgent, createdAt: number): Promise<boolean> {
+    if (!agent.workspaceId || agent.labels[PARENT_AGENT_ID_LABEL] || !this.resolveChatRecordTitle) {
+      return false;
+    }
+    const workspaceId = agent.workspaceId;
+    const hasSibling = this.listAgents().some(
+      (other) => other.id !== agent.id && other.workspaceId === workspaceId,
+    );
+    if (hasSibling) return false;
+    const recordTitle = await this.resolveChatRecordTitle(workspaceId);
+    if (!recordTitle || !this.registry) return false;
+    const updated = await this.runLifecycleMutation(agent.id, () =>
+      this.registry!.updateRecord(agent.id, (current) => {
+        if (
+          current.archivedAt ||
+          Date.parse(current.createdAt) !== createdAt ||
+          (current.title && !current.provisionalTitle)
+        ) {
+          return null;
+        }
+        return { ...current, title: recordTitle, provisionalTitle: undefined };
+      }),
+    );
+    if (!updated) return false;
+    const live = this.agents.get(agent.id);
+    if (live) this.emitState(live, { persist: false });
+    return true;
+  }
+
   private maybeGenerateChatTitle(agent: ManagedAgent, prompt: string): void {
     const registry = this.registry;
     if (!registry || agent.lastUserMessageAt || agent.internal) return;
@@ -6840,6 +6875,7 @@ export class AgentManager {
 
     const createdAt = agent.createdAt.getTime();
     void (async () => {
+      if (await this.adoptChatRecordTitle(agent, createdAt)) return;
       const initial = await this.runLifecycleMutation(agent.id, () =>
         registry.updateRecord(agent.id, (current) => {
           if (

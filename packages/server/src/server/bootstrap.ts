@@ -1242,6 +1242,10 @@ export async function createPimiDaemon(
       workspaceGitService.onWorkspaceStateMayHaveChanged(cwd);
     },
     isAutoNamingEnabled: () => daemonConfigStore.get().metadataGeneration.autoNaming !== false,
+    resolveChatRecordTitle: async (workspaceId) => {
+      const record = await workspaceRegistry?.get(workspaceId);
+      return record?.titleManuallySet ? (record.title ?? null) : null;
+    },
     generateChatTitle: (manager, agent, firstPrompt) =>
       generateChatTitle({
         manager,
@@ -1865,7 +1869,7 @@ export async function createPimiDaemon(
         cwd,
         title,
         projectId,
-        context,
+        { ...context, titleManuallySet: Boolean(title?.trim()) },
       );
       await emitWorkspaceUpdatesExternal([workspace.workspaceId]);
       return workspace;
