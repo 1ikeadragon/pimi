@@ -18,7 +18,7 @@ import { lookup } from "mime-types";
 import { parseDuration } from "../../utils/duration.js";
 import { collectMultiple } from "../../utils/command-options.js";
 import { resolveProviderAndModel } from "../../utils/provider-model.js";
-import { buildWorkspaceSource } from "../workspace/create.js";
+import { buildChatSource } from "../chat/create.js";
 
 export { resolveProviderAndModel } from "../../utils/provider-model.js";
 
@@ -43,7 +43,7 @@ export function addRunOptions(cmd: Command): Command {
       "Agent profile id or name. The agent starts with its instructions; its provider and model apply without --provider, and its mode and thinking apply on its own provider where --mode and --thinking are not given",
     )
     .option("--mode <mode>", "Provider-specific mode (e.g., plan, default, bypass)")
-    .option("--new-workspace <local|worktree>", "Create a separate local or worktree workspace")
+    .option("--new-chat <local|worktree>", "Create a separate local or worktree chat")
     .option("--worktree-mode <mode>", "Worktree mode: branch-off, checkout-branch, or checkout-pr")
     .option("--worktree-slug <slug>", "Managed worktree path slug")
     .option("--new-branch <name>", "New branch name for branch-off mode")
@@ -52,8 +52,8 @@ export function addRunOptions(cmd: Command): Command {
     .option("--pr-number <n>", "Pull request or change request number for checkout-pr mode")
     .option("--forge <forge>", "Forge for checkout-pr mode")
     .option(
-      "--workspace <id>",
-      "Run in an existing workspace (defaults to the caller workspace when agent-scoped)",
+      "--chat <id>",
+      "Run in an existing chat (defaults to the caller's chat when agent-scoped)",
     )
     .option(
       "--image <path>",
@@ -114,7 +114,7 @@ export interface AgentRunOptions extends CommandOptions {
   thinking?: string;
   profile?: string;
   mode?: string;
-  newWorkspace?: string;
+  newChat?: string;
   worktreeMode?: string;
   worktreeSlug?: string;
   newBranch?: string;
@@ -122,7 +122,7 @@ export interface AgentRunOptions extends CommandOptions {
   branch?: string;
   prNumber?: string;
   forge?: string;
-  workspace?: string;
+  chat?: string;
   image?: string[];
   cwd?: string;
   env?: string[];
@@ -132,10 +132,10 @@ export interface AgentRunOptions extends CommandOptions {
 }
 
 function buildRunWorkspaceSource(options: AgentRunOptions, cwd: string) {
-  const newWorkspace = options.newWorkspace ?? "local";
-  return buildWorkspaceSource({
+  const newChat = options.newChat ?? "local";
+  return buildChatSource({
     daemonTarget: options.daemonTarget,
-    isolation: newWorkspace,
+    isolation: newChat,
     path: cwd,
     mode: options.worktreeMode,
     worktreeSlug: options.worktreeSlug,
@@ -302,16 +302,12 @@ function structuredRunSchema(output: Record<string, unknown>): OutputSchema<Agen
 }
 
 function validateRunWorkspaceOptions(options: AgentRunOptions): void {
-  const newWorkspace = options.newWorkspace;
-  if (
-    options.newWorkspace &&
-    options.newWorkspace !== "local" &&
-    options.newWorkspace !== "worktree"
-  ) {
+  const newChat = options.newChat;
+  if (options.newChat && options.newChat !== "local" && options.newChat !== "worktree") {
     throw {
       code: "INVALID_OPTIONS",
-      message: `Unsupported new workspace kind: ${options.newWorkspace}`,
-      details: "Use --new-workspace local or --new-workspace worktree",
+      message: `Unsupported new chat kind: ${options.newChat}`,
+      details: "Use --new-chat local or --new-chat worktree",
     } satisfies CommandError;
   }
 
@@ -324,15 +320,15 @@ function validateRunWorkspaceOptions(options: AgentRunOptions): void {
     options.prNumber,
     options.forge,
   ].some((value) => value !== undefined);
-  if (hasWorktreeCreationOptions && newWorkspace !== "worktree") {
+  if (hasWorktreeCreationOptions && newChat !== "worktree") {
     throw {
       code: "INVALID_OPTIONS",
-      message: "Worktree options require --new-workspace worktree",
-      details: "Usage: pimi run --new-workspace worktree [worktree options] <prompt>",
+      message: "Worktree options require --new-chat worktree",
+      details: "Usage: pimi run --new-chat worktree [worktree options] <prompt>",
     } satisfies CommandError;
   }
 
-  if (newWorkspace === "worktree") {
+  if (newChat === "worktree") {
     try {
       buildRunWorkspaceSource(options, options.cwd ?? process.cwd());
     } catch (error) {
@@ -343,11 +339,11 @@ function validateRunWorkspaceOptions(options: AgentRunOptions): void {
     }
   }
 
-  if (options.newWorkspace && options.workspace) {
+  if (options.newChat && options.chat) {
     throw {
       code: "INVALID_OPTIONS",
-      message: "--new-workspace and --workspace cannot be combined",
-      details: "Select an existing workspace or explicitly create a new one",
+      message: "--new-chat and --chat cannot be combined",
+      details: "Select an existing chat or explicitly create a new one",
     } satisfies CommandError;
   }
 }
@@ -513,7 +509,7 @@ function parseKeyValueFlags(
   return labels;
 }
 
-// A workspace is the explicit home of a run: it owns the directory the agent
+// A chat is the explicit home of a run: it owns the directory the agent
 // runs in. The CLI resolves one before creating any agent, so no run leans on
 // createAgent's legacy cwd->workspace fallback.
 interface RunWorkspace {
@@ -542,41 +538,41 @@ export async function resolveExistingRunWorkspace(
   }
 
   throw {
-    code: "WORKSPACE_NOT_FOUND",
-    message: `Workspace not found: ${workspaceId}`,
+    code: "CHAT_NOT_FOUND",
+    message: `Chat not found: ${workspaceId}`,
   } satisfies CommandError;
 }
 
-// Workspace policy for `pimi run`. Precedence:
-//   1. --workspace <id>            -> run in that existing workspace
-//   2. caller agent                -> daemon resolves the caller's workspace
-//   3. $PIMI_WORKSPACE_ID         -> exported by workspace terminals
-//   4. --new-workspace <kind>      -> mint a new workspace explicitly
-//   5. bare run                    -> mint a new local-backed workspace for cwd
+// Chat policy for `pimi run`. Precedence:
+//   1. --chat <id>                 -> run in that existing chat
+//   2. caller agent                -> daemon resolves the caller's chat
+//   3. $PIMI_CHAT_ID               -> exported by chat terminals
+//   4. --new-chat <kind>           -> mint a new chat explicitly
+//   5. bare run                    -> mint a new local-backed chat for cwd
 async function resolveRunWorkspace(
   client: ConnectedDaemonClient,
   options: AgentRunOptions,
   cwd: string,
   callerAgentId: string | undefined,
 ): Promise<RunWorkspace> {
-  const newWorkspace = options.newWorkspace;
-  const explicit = newWorkspace ? undefined : options.workspace?.trim();
+  const newChat = options.newChat;
+  const explicit = newChat ? undefined : options.chat?.trim();
   if (explicit) {
-    console.error(`Using workspace ${explicit}`);
+    console.error(`Using chat ${explicit}`);
     return resolveExistingRunWorkspace(client, explicit);
   }
 
-  if (!newWorkspace && callerAgentId) {
+  if (!newChat && callerAgentId) {
     return { cwd };
   }
 
-  const ambientWorkspaceId = newWorkspace ? undefined : process.env.PIMI_WORKSPACE_ID?.trim();
+  const ambientWorkspaceId = newChat ? undefined : process.env.PIMI_CHAT_ID?.trim();
   if (ambientWorkspaceId) {
-    console.error(`Using workspace ${ambientWorkspaceId}`);
+    console.error(`Using chat ${ambientWorkspaceId}`);
     return resolveExistingRunWorkspace(client, ambientWorkspaceId);
   }
 
-  // TODO: thread the run `prompt` as firstAgentContext so workspace-level
+  // TODO: thread the run `prompt` as firstAgentContext so chat-level
   // title/branch generation picks up the task description (U8/U6 deferred).
   const source = buildRunWorkspaceSource(options, cwd);
   const result = await client.createWorkspace({
@@ -586,18 +582,16 @@ async function resolveRunWorkspace(
 
   if (!result.workspace) {
     throw {
-      code: "WORKSPACE_CREATE_FAILED",
-      message: result.error ?? "Failed to create workspace for this run",
+      code: "CHAT_CREATE_FAILED",
+      message: result.error ?? "Failed to create chat for this run",
     } satisfies CommandError;
   }
 
   const branch = result.workspace.gitRuntime?.currentBranch;
   const label = branch ? `${result.workspace.name} (${branch})` : result.workspace.name;
-  console.error(`Created workspace ${result.workspace.id} - ${label}`);
+  console.error(`Created chat ${result.workspace.id} - ${label}`);
   if (result.setupSkippedReason) console.error(result.setupSkippedReason);
-  console.error(
-    "Tip: pass --workspace <id> (or set PIMI_WORKSPACE_ID) to run in an existing workspace.",
-  );
+  console.error("Tip: pass --chat <id> (or set PIMI_CHAT_ID) to run in an existing chat.");
   return { id: result.workspace.id, cwd: result.workspace.workspaceDirectory ?? cwd };
 }
 

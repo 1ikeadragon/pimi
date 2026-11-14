@@ -9,8 +9,8 @@ import { workspaceAgentStatus } from "@/utils/workspace-agent-activity";
 
 /**
  * A chat as the UI names it: a visible root agent of a workspace. The workspace record is the
- * chat's hidden environment, so the first chat in it supplies the row label, header title and
- * rename target.
+ * chat's hidden environment. Every root agent in it is a chat; the primary (oldest) one only
+ * names the sidebar row of an agent-less record and the row's default menu target.
  */
 export interface WorkspaceRootChat {
   serverId: string;
@@ -134,6 +134,61 @@ export function useWorkspacePrimaryChat(
     [serverId, workspaceId],
   );
   return useStoreWithEqualityFn(useSessionStore, select, equal);
+}
+
+/**
+ * The chat a workspace is showing: the root chat of the focused agent when that agent lives in
+ * this workspace, else the primary chat.
+ */
+export function selectWorkspaceShownChat(
+  sessions: Readonly<Record<string, SessionAgents & { focusedAgentId?: string | null }>>,
+  serverId: string,
+  workspaceId: string,
+  focusedAgentId: string | null | undefined,
+): WorkspaceRootChat | null {
+  const roots = selectWorkspaceRootChats(sessions, serverId, workspaceId);
+  const agents = sessions[serverId]?.agents;
+  let current = focusedAgentId ? agents?.get(focusedAgentId) : undefined;
+  if (!agents || !current || current.workspaceId !== workspaceId) return roots[0] ?? null;
+  const seen = new Set<string>();
+  while (current.parentAgentId && !seen.has(current.id)) {
+    seen.add(current.id);
+    const parent = agents.get(current.parentAgentId);
+    if (!parent || parent.workspaceId !== workspaceId) break;
+    current = parent;
+  }
+  const rootId = current.id;
+  return roots.find((chat) => chat.agentId === rootId) ?? roots[0] ?? null;
+}
+
+export function useWorkspaceShownChat(
+  serverId: string | null | undefined,
+  workspaceId: string | null | undefined,
+): WorkspaceRootChat | null {
+  const select = useCallback(
+    (state: ReturnType<typeof useSessionStore.getState>) =>
+      serverId && workspaceId
+        ? selectWorkspaceShownChat(
+            state.sessions,
+            serverId,
+            workspaceId,
+            state.sessions[serverId]?.focusedAgentId,
+          )
+        : null,
+    [serverId, workspaceId],
+  );
+  return useStoreWithEqualityFn(useSessionStore, select, equal);
+}
+
+/** The primary chat, or the chat the workspace is showing. */
+export function useWorkspaceChat(
+  serverId: string | null | undefined,
+  workspaceId: string | null | undefined,
+  which: "primary" | "shown",
+): WorkspaceRootChat | null {
+  const primary = useWorkspacePrimaryChat(serverId, workspaceId);
+  const shown = useWorkspaceShownChat(serverId, workspaceId);
+  return which === "shown" ? shown : primary;
 }
 
 /** Primary chat title, then the workspace's own title, then the fallback. */

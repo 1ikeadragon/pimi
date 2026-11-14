@@ -5,10 +5,10 @@ import {
   toTerminalCommandError,
   type TerminalCommandOptions,
 } from "./shared.js";
-import { terminalSchema, type TerminalRow } from "./schema.js";
+import { terminalSchema, toTerminalRow, type TerminalRow } from "./schema.js";
 
 export interface TerminalLsOptions extends TerminalCommandOptions {
-  workspace?: string;
+  chat?: string;
   all?: boolean;
   cwd?: string;
 }
@@ -18,13 +18,13 @@ export async function runLsCommand(
   _command: Command,
 ): Promise<ListResult<TerminalRow>> {
   const { client, close } = await connectTerminalClient(options.daemonTarget);
-  const cwd = options.all || options.workspace ? undefined : (options.cwd ?? process.cwd());
+  const cwd = options.all || options.chat ? undefined : (options.cwd ?? process.cwd());
 
   try {
-    const payload = await client.terminals.list({ cwd, workspaceId: options.workspace });
+    const payload = await client.terminals.list({ cwd, workspaceId: options.chat });
     return {
       type: "list",
-      data: payload.entries,
+      data: payload.entries.map(toTerminalRow),
       schema: terminalSchema,
     };
   } catch (err) {

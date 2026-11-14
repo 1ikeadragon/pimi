@@ -19,17 +19,13 @@ export async function runStartCommand(
     const payload = await client.startWorkspaceScriptWithStatus(workspaceId, scriptName);
     if (payload.error || !payload.script) {
       throw {
-        code: "WORKSPACE_SCRIPT_START_FAILED",
+        code: "SCRIPT_START_FAILED",
         message: payload.error ?? `Script '${scriptName}' did not return status metadata`,
       } satisfies CommandError;
     }
     return { type: "single", data: payload.script, schema: workspaceScriptSchema };
   } catch (error) {
-    throw toWorkspaceScriptCommandError(
-      "WORKSPACE_SCRIPT_START_FAILED",
-      "start workspace script",
-      error,
-    );
+    throw toWorkspaceScriptCommandError("SCRIPT_START_FAILED", "start script", error);
   } finally {
     await client.close().catch(() => {});
   }

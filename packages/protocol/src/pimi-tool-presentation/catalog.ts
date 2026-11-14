@@ -31,10 +31,10 @@ export interface PimiToolEntry {
   detail?: PimiToolDetailSpec;
 }
 
-const WORKSPACE_FIELDS = [
+const CHAT_FIELDS = [
   "title",
-  "workspaceId",
-  "projectId",
+  "chatId",
+  "project",
   "isolation",
   "path",
   "mode",
@@ -44,12 +44,15 @@ const WORKSPACE_FIELDS = [
   "branch",
   "prNumber",
   "forge",
+  "provider",
+  "profile",
+  "initialPrompt",
 ] as const;
 const AGENT_FIELDS = [
   "title",
   "agentId",
   "provider",
-  "workspaceId",
+  "chatId",
   "cwd",
   "sessionMode",
   "modeId",
@@ -133,7 +136,7 @@ function fieldOrTargetAgent(key: string): PimiToolContext {
   return (input, agent) => (isPresent(input[key]) ? input[key] : agent);
 }
 
-function workspaceContext(): PimiToolContext {
+function chatContext(): PimiToolContext {
   return (input) =>
     [input.title, input.branchName, input.branch, baseName(input.path)].find(isPresent);
 }
@@ -202,7 +205,7 @@ export const PIMI_TOOL_CATALOG = {
   list_agents: {
     label: "List agents",
     completedLabel: "Listed agents",
-    detail: { inputOrder: ["cwd", "statuses", "sinceHours", "limit", "includeArchived"] },
+    detail: { inputOrder: ["chatId", "cwd", "statuses", "sinceHours", "limit", "includeArchived"] },
   },
   update_agent: {
     label: "Update agent",
@@ -242,46 +245,51 @@ export const PIMI_TOOL_CATALOG = {
     detail: { inputOrder: ["agentId", "requestId", "response"] },
   },
 
-  // Workspaces and scripts
-  create_workspace: {
-    label: "Create workspace",
-    completedLabel: "Created workspace",
-    context: workspaceContext(),
-    detail: { inputOrder: WORKSPACE_FIELDS, outputFields: ["workspaceId", "projectId"] },
-  },
-  list_hosts: { label: "List hosts", completedLabel: "Listed hosts" },
-  list_workspaces: { label: "List workspaces", completedLabel: "Listed workspaces" },
-  rename_workspace: {
-    label: "Rename workspace",
-    completedLabel: "Renamed workspace",
-    context: field("title"),
-    detail: { inputOrder: ["title", "workspaceId"] },
-  },
-  archive_workspace: {
-    label: "Archive workspace",
-    completedLabel: "Archived workspace",
-    context: field("workspaceId"),
+  // Chats and scripts
+  create_chat: {
+    label: "Create chat",
+    completedLabel: "Created chat",
+    context: chatContext(),
     detail: {
-      inputOrder: ["workspaceId"],
-      outputFields: ["workspaceId", "archivedAgentIds", "removedDirectory"],
+      promptField: "initialPrompt",
+      inputOrder: CHAT_FIELDS,
+      outputFields: ["chatId", "projectId", "agentId"],
     },
   },
-  list_workspace_scripts: {
+  list_hosts: { label: "List hosts", completedLabel: "Listed hosts" },
+  list_chats: { label: "List chats", completedLabel: "Listed chats" },
+  list_projects: { label: "List projects", completedLabel: "Listed projects" },
+  rename_chat: {
+    label: "Rename chat",
+    completedLabel: "Renamed chat",
+    context: field("title"),
+    detail: { inputOrder: ["title", "chatId"] },
+  },
+  archive_chat: {
+    label: "Archive chat",
+    completedLabel: "Archived chat",
+    context: field("chatId"),
+    detail: {
+      inputOrder: ["chatId"],
+      outputFields: ["chatId", "archivedAgentIds", "removedDirectory"],
+    },
+  },
+  list_scripts: {
     label: "List scripts",
     completedLabel: "Listed scripts",
-    detail: { inputOrder: ["workspaceId"] },
+    detail: { inputOrder: ["chatId"] },
   },
-  start_workspace_script: {
+  start_script: {
     label: "Start script",
     completedLabel: "Started script",
     context: field("scriptName"),
-    detail: { inputOrder: ["workspaceId", "scriptName"] },
+    detail: { inputOrder: ["chatId", "scriptName"] },
   },
-  stop_workspace_script: {
+  stop_script: {
     label: "Stop script",
     completedLabel: "Stopped script",
     context: field("scriptName"),
-    detail: { inputOrder: ["workspaceId", "scriptName"] },
+    detail: { inputOrder: ["chatId", "scriptName"] },
   },
 
   // Terminals
@@ -289,7 +297,7 @@ export const PIMI_TOOL_CATALOG = {
     label: "Create terminal",
     completedLabel: "Created terminal",
     context: field("name", "command"),
-    detail: { inputOrder: ["cwd", "workspaceId", "name", "command"] },
+    detail: { inputOrder: ["cwd", "chatId", "name", "command"] },
   },
   list_terminals: {
     label: "List terminals",

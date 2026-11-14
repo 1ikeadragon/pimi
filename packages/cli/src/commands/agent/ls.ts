@@ -15,7 +15,7 @@ export function addLsOptions(cmd: Command): Command {
     .description("List agents. By default excludes archived agents.")
     .option("-a, --all", "Include archived and background agents")
     .option("-g, --global", "List agents across all directories")
-    .option("--background", "Include background agents and agents in background workspaces")
+    .option("--background", "Include background agents and agents in background chats")
     .option(
       "--label <key=value>",
       "Filter by label (can be used multiple times)",
@@ -122,7 +122,7 @@ export interface AgentLsOptions extends CommandOptions {
   all?: boolean;
   /** -g: List agents across all directories */
   global?: boolean;
-  /** --background: Include background workspace agents */
+  /** --background: Include background chat agents */
   background?: boolean;
   /** Filter by specific status */
   status?: string;

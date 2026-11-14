@@ -252,22 +252,31 @@ export function createPimiConnection(settingsSource = {}) {
     workspaceId,
     agentId,
     chatProvider,
+    project,
     prompt,
     attachments,
     images,
   }) {
     const client = await connect();
     const serverId = await getDaemonHost(client);
-    let workspace = workspaceId ? client.workspaces.ref(workspaceId) : null;
-    if (workspace) await workspace.refresh();
-    if (!workspace?.directory) {
+    // A spoken chat is its own chat: it never joins the record the user is looking at.
+    const focused = workspaceId ? client.workspaces.ref(workspaceId) : null;
+    if (focused) await focused.refresh();
+    let source;
+    if (project) {
+      source = { kind: "directory", path: project.path, projectId: project.id };
+    } else if (focused?.directory) {
+      source = {
+        kind: "directory",
+        path: focused.directory,
+        projectId: focused.projectId ?? undefined,
+      };
+    } else {
       const voiceDirectory = join(workspaceRoot, "pimi-voice-chats");
       await mkdir(voiceDirectory, { recursive: true, mode: 0o700 });
-      workspace = await client.workspaces.create({
-        title: "Ask Pimi chats",
-        source: { kind: "directory", path: voiceDirectory },
-      });
+      source = { kind: "directory", path: voiceDirectory };
     }
+    const workspace = await client.workspaces.create({ source });
     const activeAgent = agentId ? (await client.agents.ref(agentId).refresh())?.agent : null;
     const selected =
       activeAgent?.provider && activeAgent.model

@@ -19,17 +19,13 @@ export async function runStopCommand(
     const payload = await client.stopWorkspaceScript(workspaceId, scriptName);
     if (payload.error || !payload.script) {
       throw {
-        code: "WORKSPACE_SCRIPT_STOP_FAILED",
+        code: "SCRIPT_STOP_FAILED",
         message: payload.error ?? `Script '${scriptName}' did not return status metadata`,
       } satisfies CommandError;
     }
     return { type: "single", data: payload.script, schema: workspaceScriptSchema };
   } catch (error) {
-    throw toWorkspaceScriptCommandError(
-      "WORKSPACE_SCRIPT_STOP_FAILED",
-      "stop workspace script",
-      error,
-    );
+    throw toWorkspaceScriptCommandError("SCRIPT_STOP_FAILED", "stop script", error);
   } finally {
     await client.close().catch(() => {});
   }

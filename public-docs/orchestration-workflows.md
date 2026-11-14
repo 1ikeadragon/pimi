@@ -14,7 +14,7 @@ category: Orchestration
 
 Keep planning in your main chat and delegate implementation:
 
-> Use Pimi to check my agent profiles and their notes. Choose one for implementation, create a workspace with worktree isolation, and launch a subagent there to implement the parser change. Have it run the focused tests and report back.
+> Use Pimi to check my agent profiles and their notes. Choose one for implementation, create a chat with worktree isolation, and launch a subagent there to implement the parser change. Have it run the focused tests and report back.
 
 The worker makes the change in its own worktree. If no profile fits, the agent can discover your configured providers and models and tell you what it chose.
 
@@ -22,7 +22,7 @@ The worker makes the change in its own worktree. If no profile fits, the agent c
 
 Split independent questions between workers:
 
-> Create three Pimi subagents in this workspace. Have one trace the request path, one inspect the tests, and one look for related regressions. Do not edit files. Synthesize their findings when all three report back.
+> Create three Pimi subagents in this chat. Have one trace the request path, one inspect the tests, and one look for related regressions. Do not edit files. Synthesize their findings when all three report back.
 
 The workers share your files and appear in the Subagents track. Your main agent collects their findings into one answer.
 
@@ -30,7 +30,7 @@ The workers share your files and appear in the Subagents track. Your main agent 
 
 Give each independent change its own worktree:
 
-> Split these two issues between two Pimi subagents. Create a separate workspace with worktree isolation from main for each issue. Check my profiles for suitable implementation settings, and have each agent run the focused checks for its change. Summarize both diffs when done.
+> Split these two issues between two Pimi subagents. Create a separate chat with worktree isolation from main for each issue. Check my profiles for suitable implementation settings, and have each agent run the focused checks for its change. Summarize both diffs when done.
 
 Each worker edits a separate checkout. You get two changes to inspect, with their check results.
 
@@ -38,18 +38,18 @@ Each worker edits a separate checkout. You get two changes to inspect, with thei
 
 Choose different agents for making and judging a change:
 
-> Check my Pimi profiles and their notes for implementation and review. Create a workspace with worktree isolation and launch an implementation worker there. When it finishes, launch an independent reviewer in that workspace to check correctness, missing tests, and unnecessary complexity. Bring the review back here.
+> Check my Pimi profiles and their notes for implementation and review. Create a chat with worktree isolation and launch an implementation worker there. When it finishes, launch an independent reviewer in that chat to check correctness, missing tests, and unnecessary complexity. Bring the review back here.
 
 The reviewer sees the worker's files in a fresh conversation. Use profiles from different providers when you want another model's judgment.
 
 ## Send a prompt to another agent
 
-Agents can prompt each other by **agent ID**, the identifier Pimi uses to address a specific agent. They can communicate across workspaces on the same host, including with agents they did not launch.
+Agents can prompt each other by **agent ID**, the identifier Pimi uses to address a specific agent. They can communicate across chats on the same host, including with agents they did not launch.
 
 1. Right-click the receiving agent's tab and select **Copy agent id**.
 2. Paste that ID into your conversation with the sending agent and ask:
 
-> Use Pimi to send this prompt to agent [paste agent ID here]: “Review the parser changes in your workspace and report any missing test cases.”
+> Use Pimi to send this prompt to agent [paste agent ID here]: “Review the parser changes in your chat and report any missing test cases.”
 
 The receiving agent gets the prompt in its existing conversation. Agent-originated sends default to steering a running turn, with interruption fallback when steering is unavailable. Set MCP `activeTurnBehavior` or CLI `--behavior` to `steer` or `interrupt` to override that default. To have it send a separate message back, give it the sender's agent ID too.
 
@@ -73,9 +73,9 @@ The current task stops; the worker remains available for a follow-up.
 
 ## Work on another machine
 
-The CLI can target another Pimi host. First [connect it to the remote daemon](/docs/cli#connecting-to-a-remote-daemon) and identify a workspace on that host. The repository and required provider must be available there.
+The CLI can target another Pimi host. First [connect it to the remote daemon](/docs/cli#connecting-to-a-remote-daemon) and identify a chat on that host. The repository and required provider must be available there.
 
-> Use the Pimi CLI with the remote host and workspace I supplied. Launch an agent there to investigate the failing build, inspect its output, and summarize the findings here. Do not change files.
+> Use the Pimi CLI with the remote host and chat I supplied. Launch an agent there to investigate the failing build, inspect its output, and summarize the findings here. Do not change files.
 
 The worker runs on the remote machine. Use the CLI's global `--host` option for that destination; injected Pimi tools operate on the main agent's own host.
 
@@ -94,10 +94,10 @@ Open the **Subagents track** near the composer to inspect delegated work.
 |              | Pimi subagents                                 | Native provider subagents                      |
 | ------------ | ---------------------------------------------- | ---------------------------------------------- |
 | Provider     | Any configured provider                        | Chosen within the parent provider's own system |
-| Workspace    | Current or explicitly selected workspace       | Managed by the provider                        |
+| Chat         | Current or explicitly selected chat            | Managed by the provider                        |
 | Conversation | Full agent session you can talk to             | Read-only timeline                             |
 | Controls     | Follow up, change settings, archive, or detach | Lifecycle managed by the provider              |
 
-A Pimi subagent in another workspace still belongs to its parent's track. It also opens as a tab in its own workspace. To make it a top-level agent, detach it in the app or with [`pimi agent detach`](/docs/cli#agent-modes).
+A Pimi subagent in another chat still belongs to its parent's track. It also opens as a tab in its own chat. To make it a top-level agent, detach it in the app or with [`pimi agent detach`](/docs/cli#agent-modes).
 
-See the [MCP reference](/docs/mcp#mental-model) for workspace and parentage rules.
+See the [MCP reference](/docs/mcp#mental-model) for chat and parentage rules.

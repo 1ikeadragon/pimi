@@ -4,7 +4,7 @@ import { buildDaemonConnectionCommandError, connectToDaemon } from "../../utils/
 
 interface ProjectDeleteResult {
   projectId: string;
-  removedWorkspaceIds: string[];
+  removedChatIds: string[];
 }
 
 const projectDeleteSchema = {
@@ -12,8 +12,8 @@ const projectDeleteSchema = {
   columns: [
     { header: "PROJECT ID", field: "projectId" as const, width: 20 },
     {
-      header: "REMOVED WORKSPACES",
-      field: (result: ProjectDeleteResult) => result.removedWorkspaceIds.length,
+      header: "REMOVED CHATS",
+      field: (result: ProjectDeleteResult) => result.removedChatIds.length,
       width: 18,
     },
   ],
@@ -32,7 +32,7 @@ export async function runDeleteCommand(
     const result = await client.removeProject(projectId);
     return {
       type: "single",
-      data: { projectId, removedWorkspaceIds: result.removedWorkspaceIds },
+      data: { projectId, removedChatIds: result.removedWorkspaceIds },
       schema: projectDeleteSchema,
     };
   } catch (error) {

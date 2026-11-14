@@ -7,7 +7,7 @@ import type { CommandError, CommandOptions } from "../../output/index.js";
 export interface WorkspaceScriptCommandOptions extends CommandOptions {
   host?: string;
   cwd?: string;
-  workspace?: string;
+  chat?: string;
 }
 
 export async function connectWorkspaceScriptClient(target: DaemonTarget): Promise<DaemonClient> {
@@ -31,8 +31,8 @@ export async function resolveWorkspaceScriptWorkspaceId(
   client: DaemonClient,
   options: WorkspaceScriptCommandOptions,
 ): Promise<string> {
-  if (options.workspace) {
-    return options.workspace;
+  if (options.chat) {
+    return options.chat;
   }
 
   const cwd = resolve(options.cwd ?? process.cwd());
@@ -45,15 +45,15 @@ export async function resolveWorkspaceScriptWorkspaceId(
   }
   if (matches.length > 1) {
     throw {
-      code: "WORKSPACE_AMBIGUOUS",
-      message: `Multiple workspaces use ${cwd}`,
-      details: "Pass --workspace <workspace-id> to select one.",
+      code: "CHAT_AMBIGUOUS",
+      message: `Multiple chats use ${cwd}`,
+      details: "Pass --chat <chat-id> to select one.",
     } satisfies CommandError;
   }
   throw {
-    code: "WORKSPACE_NOT_FOUND",
-    message: `No Pimi workspace found for ${cwd}`,
-    details: "Open the directory in Pimi first, or pass --workspace <workspace-id>.",
+    code: "CHAT_NOT_FOUND",
+    message: `No Pimi chat found for ${cwd}`,
+    details: "Open the directory in Pimi first, or pass --chat <chat-id>.",
   } satisfies CommandError;
 }
 

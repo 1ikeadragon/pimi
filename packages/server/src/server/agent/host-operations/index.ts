@@ -185,7 +185,7 @@ const remoteCreate = z.object({
   provider: z.string().min(1),
   title: z.string().trim().min(1).max(60),
   initialPrompt: z.string().min(1),
-  workspaceId: z.string().min(1),
+  chatId: z.string().min(1),
   labels: z.record(z.string(), z.string()).optional(),
   notifyOnFinish: z.boolean().optional(),
   background: z.boolean().optional(),
@@ -199,13 +199,13 @@ const remoteCreate = z.object({
     .optional(),
 });
 const REMOTE_CREATE_REQUIRES =
-  "On another host create_agent needs workspaceId and provider, and does not accept inheritContext, profile or cwd.";
+  "On another host create_agent needs chatId and provider, and does not accept inheritContext, profile or cwd.";
 
 /** Names every key the destination path cannot honor, so the agent can correct one call. */
 function parseRemoteCreate(args: Record<string, unknown>, serverId: string) {
   const known = new Set(Object.keys(remoteCreate.shape));
   const unsupported = Object.keys(args).filter((key) => args[key] !== undefined && !known.has(key));
-  const missing = (["workspaceId", "provider"] as const).filter((key) => !args[key]);
+  const missing = (["chatId", "provider"] as const).filter((key) => !args[key]);
   if (unsupported.length > 0 || missing.length > 0) {
     const details = [
       missing.length > 0 ? `Missing: ${missing.join(", ")}.` : "",
@@ -213,8 +213,8 @@ function parseRemoteCreate(args: Record<string, unknown>, serverId: string) {
       missing.includes("provider")
         ? `Call list_providers with serverId ${serverId} and pass provider as <provider>/<model>.`
         : "",
-      missing.includes("workspaceId")
-        ? `Get workspaceId from list_workspaces or create_workspace with serverId ${serverId}.`
+      missing.includes("chatId")
+        ? `Get chatId from list_chats or create_chat with serverId ${serverId}.`
         : "",
     ].filter(Boolean);
     throw new PimiToolInputError(`${REMOTE_CREATE_REQUIRES} ${details.join(" ")}`);
@@ -261,8 +261,8 @@ export function createHostResolver(input: {
           async createAgent(args) {
             const parsed = parseRemoteCreate(args, destination);
             const { provider, model } = remoteProviderModel(parsed.provider, destination);
-            const workspace = await client.findWorkspace(parsed.workspaceId);
-            if (!workspace) throw new Error(`Workspace ${parsed.workspaceId} not found`);
+            const workspace = await client.findWorkspace(parsed.chatId);
+            if (!workspace) throw new Error(`Chat ${parsed.chatId} not found`);
             const labels = {
               ...parsed.labels,
               ...(input.callerAgentId
@@ -281,8 +281,8 @@ export function createHostResolver(input: {
                   thinkingOptionId: parsed.settings?.thinkingOptionId,
                   featureValues: parsed.settings?.features,
                 },
-                workspaceId: parsed.workspaceId,
-                // Older hosts reject any background with a workspaceId, so a visible create omits it.
+                workspaceId: parsed.chatId,
+                // A visible create omits background; the destination rejects any background with a chatId.
                 ...(inheritAgentBackground(parsed.background, input.caller())
                   ? { background: true }
                   : {}),
@@ -299,7 +299,7 @@ export function createHostResolver(input: {
               type: snapshot.provider,
               status: snapshot.status,
               cwd: snapshot.cwd,
-              workspaceId: snapshot.workspaceId,
+              chatId: snapshot.workspaceId,
               currentModeId: snapshot.currentModeId,
               availableModes: snapshot.availableModes,
             };
@@ -410,7 +410,7 @@ export function createHostResolver(input: {
             const { entries } = await client.fetchWorkspaces({
               includeBackground: args.includeBackground === true,
             });
-            return result({ workspaces: entries.map(workspaceSummary) });
+            return result({ chats: entries.map(workspaceSummary) });
           },
           async listProviders() {
             const { entries } = await client.getProvidersSnapshot();
@@ -431,16 +431,28 @@ export function createHostResolver(input: {
             return result({ success: true });
           },
           async createWorkspace(args) {
+            const agentFields = [
+              "initialPrompt",
+              "provider",
+              "profile",
+              "settings",
+              "inheritContext",
+            ];
+            if (agentFields.some((key) => args[key] !== undefined)) {
+              throw new PimiToolInputError(
+                "On another host create_chat opens an empty chat. Then call create_agent with its chatId and serverId.",
+              );
+            }
             const isolation = z.enum(["local", "worktree"]).parse(args.isolation);
             const path = z.string().min(1).parse(args.path);
             const response = await client.createWorkspace({
               source:
                 isolation === "local"
-                  ? { kind: "directory", path, projectId: args.projectId as string | undefined }
+                  ? { kind: "directory", path, projectId: args.project as string | undefined }
                   : {
                       kind: "worktree",
                       cwd: path,
-                      projectId: args.projectId as string | undefined,
+                      projectId: args.project as string | undefined,
                       action:
                         args.mode === "checkout-branch" || args.mode === "checkout-pr"
                           ? "checkout"
@@ -461,7 +473,7 @@ export function createHostResolver(input: {
               ),
             });
             if (response.error || !response.workspace)
-              throw new Error(response.error ?? "Workspace creation failed");
+              throw new Error(response.error ?? "Chat creation failed");
             return result(workspaceSummary(response.workspace));
           },
         }),
@@ -479,7 +491,7 @@ function withProviderHint(error: unknown, serverId: string): unknown {
 }
 function workspaceSummary(workspace: FetchWorkspacesEntry) {
   return {
-    workspaceId: workspace.id,
+    chatId: workspace.id,
     projectId: workspace.projectId,
     cwd: workspace.workspaceDirectory,
     isolation: workspace.workspaceKind === "worktree" ? "worktree" : "local",

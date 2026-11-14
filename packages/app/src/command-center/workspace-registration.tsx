@@ -46,7 +46,7 @@ import { clearCommandCenterFocusRestoreElement } from "@/utils/command-center-fo
 import { getShortcutOs } from "@/utils/shortcut-platform";
 import { labelErrorMessage, labels, useHostLabels, useTargetLabelIds } from "@/labels/store";
 import { getLabelCommandCenterIcon } from "@/labels/command-center-icon";
-import { useWorkspacePrimaryChatTarget } from "@/labels/workspace-chat";
+import { useWorkspaceChatTarget } from "@/labels/workspace-chat";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { getCommandCenterIcon } from "./icon";
 import type { CommandCenterIcon } from "./contributions";
@@ -119,7 +119,7 @@ function useWorkspaceLabelCatalog(
   toggleLabel: (labelId: string, assigned: boolean) => void;
 } {
   const host = useHostLabels(serverId ?? "");
-  const target = useWorkspacePrimaryChatTarget(serverId, workspaceId ?? "");
+  const target = useWorkspaceChatTarget(serverId, workspaceId ?? "", "shown");
   const assignedIds = useTargetLabelIds(serverId ?? "", target);
   const toast = useToast();
   const labelCatalog = useMemo<readonly WorkspaceCommandCenterLabelChoice[] | null>(() => {

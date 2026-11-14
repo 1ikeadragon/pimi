@@ -5,7 +5,7 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { HostBadge } from "@/hosts/host-badge";
 import { useHostBadges } from "@/hosts/use-host-badges";
 import { LabelChips } from "@/labels";
-import { useWorkspacePrimaryChatTarget } from "@/labels/workspace-chat";
+import { useWorkspaceChatTarget } from "@/labels/workspace-chat";
 import { useTargetLabelIds } from "@/labels/store";
 
 /**
@@ -38,7 +38,7 @@ export function WorkspaceHeaderProjectRow({
 }) {
   const isCompact = useIsCompactFormFactor();
   // The header names the workspace's primary chat, so it shows that chat's labels.
-  const labelTarget = useWorkspacePrimaryChatTarget(serverId, workspaceId);
+  const labelTarget = useWorkspaceChatTarget(serverId, workspaceId, "shown");
   const hasLabels = useTargetLabelIds(serverId, labelTarget).length > 0;
   const hostBadge = useHostBadges({ enabled: isCompact }).get(serverId) ?? null;
   const showProject = isSubtitleDistinct || isCompact;

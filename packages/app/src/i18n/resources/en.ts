@@ -881,7 +881,7 @@ export const en = {
       },
     },
     hoverCard: {
-      scriptsAccessibility: "Workspace scripts",
+      scriptsAccessibility: "Scripts",
       copyPath: "Copy path",
       copyBranchName: "Copy branch name",
       copied: "Copied",
@@ -962,7 +962,7 @@ export const en = {
         label: "Setup",
         completed: "Setup completed",
         failed: "Setup failed",
-        workspace: "Workspace setup",
+        workspace: "Setup",
         blocked: "Setup blocked",
       },
       status: {
@@ -972,20 +972,20 @@ export const en = {
         waiting: "Waiting for setup output",
         blocked: "Blocked",
       },
-      waiting: "Setting up workspace...",
+      waiting: "Setting up...",
       blocked: {
         title: "Setup was not run",
         description:
           "This PR comes from {{repository}}, a different repository. Its setup and scripts could run code you have not reviewed.",
         run: "Run setup",
-        runFailed: "Failed to run workspace setup",
+        runFailed: "Failed to run setup",
       },
       empty: {
-        noCommands: "No setup commands ran for this workspace.",
+        noCommands: "No setup commands ran.",
       },
       accessibility: {
-        noCommands: "No setup commands ran for this workspace",
-        log: "Workspace setup log",
+        noCommands: "No setup commands ran",
+        log: "Setup log",
       },
       log: {
         noOutput: "No output",
@@ -1049,7 +1049,7 @@ export const en = {
       fallback: {
         newAgent: "New agent",
         setup: "Setup",
-        workspaceSetup: "Workspace setup",
+        workspaceSetup: "Setup",
         terminal: "Terminal",
         browser: "Browser",
         agent: "Agent",
@@ -1185,7 +1185,7 @@ export const en = {
         view: "View terminal",
       },
       accessibility: {
-        trigger: "Workspace scripts",
+        trigger: "Scripts",
         openService: "View {{scriptName}} service",
         viewTerminal: "View {{scriptName}} terminal",
         runScript: "Run {{scriptName}} script",
@@ -1902,8 +1902,6 @@ export const en = {
           'Hide "{{workspaceName}}" from the sidebar?\n\nFiles on disk will not be changed.',
         hideConfirm: "Hide",
         cancel: "Cancel",
-        archiveSiblingChats_one: "Also archives 1 other chat sharing this worktree.",
-        archiveSiblingChats_other: "Also archives {{count}} other chats sharing this worktree.",
       },
       rename: {
         title: "Rename chat",
@@ -2297,7 +2295,7 @@ export const en = {
         orchestration: {
           label: "Orchestration",
           title: "Let agents use Pimi",
-          description: "Let your agents create workspaces and talk to other agents",
+          description: "Let your agents open chats and talk to other agents",
         },
         attack: {
           label: "Attack mode",
@@ -4085,7 +4083,7 @@ export const en = {
           },
         },
         preview: {
-          workspaceName: "my-workspace",
+          workspaceName: "my-chat",
         },
       },
       notFound: "Host not found",

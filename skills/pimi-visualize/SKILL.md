@@ -1,6 +1,6 @@
 ---
 name: pimi-visualize
-description: Draw a chart, dashboard, diagram, table, or interactive visual (an explorer, calculator, simulator, or what-if sliders) inline in Pimi chat as a pimi-vega, pimi-view, or pimi-html block, never as a workspace file. Use for any request to visualize, chart, plot, diagram, compare, "show me", or "build an interactive X explorer/calculator/simulator", and before sending a table of numbers.
+description: Draw a chart, dashboard, diagram, table, or interactive visual (an explorer, calculator, simulator, or what-if sliders) inline in Pimi chat as a pimi-vega, pimi-view, or pimi-html block, never as a project file. Use for any request to visualize, chart, plot, diagram, compare, "show me", or "build an interactive X explorer/calculator/simulator", and before sending a table of numbers.
 ---
 
 The formats section at the end of this file gives each block's format, an example, and its limits. This skill decides which block to use and what goes in it.
@@ -92,8 +92,8 @@ Two approaches compared on qualities, not numbers, go in a `pimi-view` table wit
 
 ### Inline or file
 
-- Write the HTML inline in a `pimi-html` block. This is the default: nothing is written to the workspace, and the visual runs in the reply.
-- Write a workspace file and show it with a `pimi-artifact` block only when the user asked for a file to keep. When the HTML is larger than the `pimi-html` limit, aggregate or sample the data and say so in the title instead.
+- Write the HTML inline in a `pimi-html` block. This is the default: nothing is written to the project, and the visual runs in the reply.
+- Write a project file and show it with a `pimi-artifact` block only when the user asked for a file to keep. When the HTML is larger than the `pimi-html` limit, aggregate or sample the data and say so in the title instead.
 
 ```pimi-html
 <title>Tip calculator</title>
@@ -107,7 +107,7 @@ bill.addEventListener("input", draw); draw();
 </script>
 ```
 
-For a file, save one `.html` file of 1 MB at most and point at it with its workspace-relative path, using forward slashes:
+For a file, save one `.html` file of 1 MB at most and point at it with its path relative to the working directory, using forward slashes:
 
 ```pimi-artifact
 {"title":"Latency explorer","path":"latency-explorer.html"}
@@ -198,6 +198,6 @@ bill.addEventListener("input", draw); draw();
 - It runs in a sandbox with no network, storage, or navigation. Remote scripts, styles, fonts, images, and fetch all fail, so write the CSS, JavaScript, and data inline.
 - Pimi sets the page background, text color, and font. Style everything else with these custom properties so it follows light and dark themes, and never hardcode a page or text color: --pimi-bg, --pimi-surface, --pimi-fg, --pimi-muted, --pimi-border, --pimi-accent, --pimi-accent-fg, --pimi-font, --pimi-mono.
 - Start every control at a realistic value, so the first render already shows an answer. Lay it out to fit 360 px wide, and let the page take its natural height: no 100vh.
-- Data larger than the limit: aggregate or sample it into the block and say so in the title. Never save HTML to the workspace to get around the limit. Only when the user asks for a file to keep, save one .html file in the workspace and show it with a pimi-artifact block holding {"title":"...","path":"its-workspace-relative-path.html"}.
+- Data larger than the limit: aggregate or sample it into the block and say so in the title. Never save HTML to the project to get around the limit. Only when the user asks for a file to keep, save one .html file in the project and show it with a pimi-artifact block holding {"title":"...","path":"its-path-relative-to-the-working-directory.html"}.
 
 <!-- formats:end -->

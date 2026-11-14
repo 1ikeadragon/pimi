@@ -2,21 +2,21 @@ import type { Command } from "commander";
 import { connectToDaemon, getDaemonHost } from "../../utils/client.js";
 import type { CommandError, OutputSchema, SingleResult } from "../../output/index.js";
 
-interface WorkspaceRenameResult {
-  workspaceId: string;
+interface ChatRenameResult {
+  chatId: string;
   /** Raw title override; null once it has been reset to the derived name. */
   title: string | null;
 }
 
-const workspaceRenameSchema: OutputSchema<WorkspaceRenameResult> = {
-  idField: "workspaceId",
+const chatRenameSchema: OutputSchema<ChatRenameResult> = {
+  idField: "chatId",
   columns: [
-    { header: "WORKSPACE ID", field: "workspaceId", width: 20 },
+    { header: "CHAT ID", field: "chatId", width: 20 },
     { header: "TITLE", field: "title", width: 30 },
   ],
 };
 
-export interface WorkspaceRenameOptions {
+export interface ChatRenameOptions {
   host?: string;
   daemonTarget: import("../../utils/daemon-target.js").DaemonTarget;
   reset?: boolean;
@@ -24,16 +24,16 @@ export interface WorkspaceRenameOptions {
 
 /**
  * Resolve the title to send to the daemon. Null clears the override and
- * reverts the workspace to its branch- or directory-derived name.
+ * reverts the chat to its branch- or directory-derived name.
  */
-export function resolveWorkspaceTitle(input: { title?: string; reset?: boolean }): string | null {
+export function resolveChatTitle(input: { title?: string; reset?: boolean }): string | null {
   const title = input.title?.trim() ?? "";
   if (input.reset) {
     if (input.title !== undefined) {
       throw {
         code: "INVALID_OPTIONS",
         message: "--reset cannot be combined with a title",
-        details: "Pass a title to rename the workspace, or --reset to revert to the derived name",
+        details: "Pass a title to rename the chat, or --reset to revert to the derived name",
       } satisfies CommandError;
     }
     return null;
@@ -42,19 +42,19 @@ export function resolveWorkspaceTitle(input: { title?: string; reset?: boolean }
     throw {
       code: "MISSING_TITLE",
       message: "Title cannot be empty",
-      details: "Usage: pimi workspace rename <workspace-id> <title> | --reset",
+      details: "Usage: pimi chat rename <chat-id> <title> | --reset",
     } satisfies CommandError;
   }
   return title;
 }
 
 export async function runRenameCommand(
-  workspaceId: string,
+  chatId: string,
   titleArg: string | undefined,
-  options: WorkspaceRenameOptions,
+  options: ChatRenameOptions,
   _command: Command,
-): Promise<SingleResult<WorkspaceRenameResult>> {
-  const title = resolveWorkspaceTitle({ title: titleArg, reset: options.reset });
+): Promise<SingleResult<ChatRenameResult>> {
+  const title = resolveChatTitle({ title: titleArg, reset: options.reset });
 
   const host = getDaemonHost({ target: options.daemonTarget });
   const client = await connectToDaemon({ target: options.daemonTarget }).catch((error: unknown) => {
@@ -66,16 +66,16 @@ export async function runRenameCommand(
     } satisfies CommandError;
   });
   try {
-    const applied = await client.setWorkspaceTitle(workspaceId, title);
+    const applied = await client.setWorkspaceTitle(chatId, title);
     return {
       type: "single",
-      data: { workspaceId, title: applied.title },
-      schema: workspaceRenameSchema,
+      data: { chatId, title: applied.title },
+      schema: chatRenameSchema,
     };
   } catch (error) {
     if (error && typeof error === "object" && "code" in error) throw error;
     const message = error instanceof Error ? error.message : String(error);
-    throw { code: "WORKSPACE_RENAME_FAILED", message } satisfies CommandError;
+    throw { code: "CHAT_RENAME_FAILED", message } satisfies CommandError;
   } finally {
     await client.close().catch(() => undefined);
   }

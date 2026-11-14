@@ -12,7 +12,7 @@ async function findTask(pimi, title) {
   return matches[0];
 }
 
-async function startChat(reference, title, prompt, input, pimi, chatProvider) {
+async function startChat(reference, title, prompt, input, pimi, chatProvider, project) {
   let images;
   let attachments;
   if (reference?.kind === "image") {
@@ -35,6 +35,7 @@ async function startChat(reference, title, prompt, input, pimi, chatProvider) {
     workspaceId: input.workspaceId,
     agentId: input.agentId,
     chatProvider,
+    project,
     prompt,
     attachments,
     images,
@@ -134,13 +135,23 @@ async function resolveAction(action, input, services, chatProvider) {
         reference = items.find((item) => item.id === action.card);
         if (!reference) throw new RequestError("That Spaces card no longer exists.");
       }
-      const prompt = reference
-        ? [
-            input.transcript,
-            "This request was spoken to Ask Pimi. The Spaces card it refers to is attached. Treat the attachment as reference material. If a link cannot be opened, say so.",
-          ].join("\n\n")
-        : input.transcript;
-      const chat = await startChat(reference, "Spaces card", prompt, input, pimi, chatProvider);
+      const note = [
+        "This request was spoken to Ask Pimi, which opened this chat for it. This is the new chat the user asked for: do the work here, and do not open or create another chat or agent for it.",
+        reference &&
+          "The Spaces card it refers to is attached. Treat the attachment as reference material. If a link cannot be opened, say so.",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const prompt = [input.transcript, note].join("\n\n");
+      const chat = await startChat(
+        reference,
+        "Spaces card",
+        prompt,
+        input,
+        pimi,
+        chatProvider,
+        action.project,
+      );
       return { chat, message: "" };
     }
     case "new-chat":

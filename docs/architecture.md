@@ -176,7 +176,7 @@ Commander.js CLI with Docker-style commands. Common agent operations are also ex
 - `pimi automation create/update/compile/ls/inspect/pause/resume/approve/rm/run/retry/check/runs/steps`
 - `pimi heartbeat create/update/delete/ls`
 - `pimi project create/ls/rename/delete`
-- `pimi workspace create/ls/rename/archive`
+- `pimi chat create/ls/rename/archive`
 - `pimi permit allow/deny/ls`
 - `pimi provider ls/models`
 - `pimi speech …`

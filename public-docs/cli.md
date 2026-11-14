@@ -1,6 +1,6 @@
 ---
 title: CLI reference
-description: "Pimi CLI reference: manage projects, workspaces, agents, plugins, scripts, automations, daemons, and permissions from your terminal."
+description: "Pimi CLI reference: manage projects, chats, agents, plugins, scripts, automations, daemons, and permissions from your terminal."
 nav: CLI reference
 order: 35
 category: Orchestration
@@ -10,7 +10,7 @@ category: Orchestration
 
 The Pimi CLI lets you manage agents from your terminal. It's the same interface exposed by the daemon's API, so anything you can do in the app you can do from the command line.
 
-> **Agent orchestration:** You can tell coding agents to use the Pimi CLI to spawn and manage other agents. Pimi recognizes the calling agent, so CLI-created workers get the same workspace and parent defaults as MCP-created workers.
+> **Agent orchestration:** You can tell coding agents to use the Pimi CLI to spawn and manage other agents. Pimi recognizes the calling agent, so CLI-created workers get the same chat and parent defaults as MCP-created workers.
 
 ## Quick reference
 
@@ -87,7 +87,7 @@ JSON output never includes connection credentials.
 
 `update --meta` replaces supplied keys; `--remove-meta` removes keys. Replacing a connection retains
 the pinned daemon identity. Add `--replace-identity` with `--connection` only after verifying a changed
-destination. `rm` removes the saved connection; agents and workspaces on that host keep running.
+destination. `rm` removes the saved connection; agents and chats on that host keep running.
 
 ## Provider diagnostics
 
@@ -111,17 +111,17 @@ pimi run --provider codex "refactor the API layer"
 pimi run --profile "Adversarial reviewer" "review the current diff"
 pimi run --no-wait "run the focused test suite"
 pimi run --output-schema schema.json "name this branch"
-pimi run --new-workspace worktree --worktree-mode branch-off --new-branch feature/x --base origin/main "implement feature X"
-pimi run --workspace <workspace-id> "review the current diff"
+pimi run --new-chat worktree --worktree-mode branch-off --new-branch feature/x --base origin/main "implement feature X"
+pimi run --chat <chat-id> "review the current diff"
 pimi run --output-schema schema.json "extract release notes"
 pimi run --output-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' "summarize release notes"
 ```
 
-From a human shell, a bare `pimi run` creates a new local workspace for the current directory. Use `--workspace <id>` to add the agent to an existing workspace, or `--new-workspace local|worktree` to explicitly create a separate workspace for the run.
+From a human shell, a bare `pimi run` creates a new local chat for the current directory. Use `--chat <id>` to add the agent to an existing chat, or `--new-chat local|worktree` to explicitly create a separate chat for the run.
 
 Worktree creation accepts `--worktree-mode branch-off|checkout-branch|checkout-pr` plus the matching `--new-branch`/`--base`, `--branch`, or `--pr-number`/`--forge` options. Use `--worktree-slug` to choose the managed directory slug.
 
-When an existing Pimi agent runs the same command, Pimi recognizes it through `PIMI_AGENT_ID`. Without explicit placement, the new agent becomes its subagent in the same workspace. `--workspace` can place that subagent elsewhere without changing its parent.
+When an existing Pimi agent runs the same command, Pimi recognizes it through `PIMI_AGENT_ID`. Without explicit placement, the new agent becomes its subagent in the same chat. `--chat` can place that subagent elsewhere without changing its parent.
 
 Use `--output-schema` to return only matching JSON output. You can pass a schema file path or an inline JSON schema object. This mode cannot be used with `--no-wait`.
 
@@ -145,7 +145,7 @@ pimi project rename <project-id> --reset
 pimi project delete <project-id>
 ```
 
-`--reset` restores the name derived from the project directory. Deleting a project archives its active workspaces and removes the project from Pimi. It does not delete the project directory.
+`--reset` restores the name derived from the project directory. Deleting a project archives its active chats and removes the project from Pimi. It does not delete the project directory.
 
 For a local daemon, `pimi project create [path]` defaults to the current directory and resolves relative paths on the CLI machine. When you use the global `--host` option or `PIMI_HOST`, provide a path that the target daemon can access:
 
@@ -153,16 +153,16 @@ For a local daemon, `pimi project create [path]` defaults to the current directo
 pimi --host devbox:6767 project create /srv/repos/api
 ```
 
-The remote daemon interprets that path on its own machine. See [Workspaces](/docs/workspaces) for how projects group working directories and sessions.
+The remote daemon interprets that path on its own machine. See [Chats](/docs/workspaces) for how projects group working directories and sessions.
 
-## Workspaces
+## Chats
 
-Create a workspace independently when you want to prepare its files before starting an agent:
+Create a chat independently when you want to prepare its files before starting an agent:
 
 ```bash
-pimi workspace create --isolation local --path ~/dev/my-app --title main
+pimi chat create --isolation local --path ~/dev/my-app --title main
 
-pimi workspace create \
+pimi chat create \
   --isolation worktree \
   --path ~/dev/my-app \
   --mode branch-off \
@@ -170,69 +170,69 @@ pimi workspace create \
   --worktree-slug feature-auth \
   --base origin/main
 
-pimi workspace create \
+pimi chat create \
   --isolation worktree \
   --path ~/dev/my-app \
   --mode checkout-branch \
   --branch feature/existing \
   --worktree-slug existing-copy
 
-pimi workspace create \
+pimi chat create \
   --isolation worktree \
   --path ~/dev/my-app \
   --mode checkout-pr \
   --pr-number 2186
 ```
 
-Add `--background` to hide a workspace from default discovery. Its agents and terminals keep
+Add `--background` to hide a chat from default discovery. Its agents and terminals keep
 ordinary history, persistence, hooks, and restart recovery. `--no-background` explicitly overrides
-caller-workspace inheritance; omission inherits when run by a Pimi agent and defaults to false
+caller-chat inheritance; omission inherits when run by a Pimi agent and defaults to false
 from a human shell. Visibility is creation-only.
 
 ```bash
-pimi workspace create --isolation local --background --path /path/to/repo
-pimi run --workspace <workspace-id> --no-wait "review the checkout flow"
+pimi chat create --isolation local --background --path /path/to/repo
+pimi run --chat <chat-id> --no-wait "review the checkout flow"
 ```
 
-Exact workspace and agent IDs remain accessible regardless of listing visibility.
+Exact chat and agent IDs remain accessible regardless of listing visibility.
 
 Then list, use, rename, or archive it:
 
 ```bash
-pimi workspace ls
-pimi workspace ls --background               # Also include background workspaces
-pimi run --workspace <workspace-id> "implement authentication"
-pimi workspace rename <workspace-id> "Auth rework"
-pimi workspace rename <workspace-id> --reset   # back to the branch or directory name
-pimi workspace archive <workspace-id>
+pimi chat ls
+pimi chat ls --background               # Also include background chats
+pimi run --chat <chat-id> "implement authentication"
+pimi chat rename <chat-id> "Auth rework"
+pimi chat rename <chat-id> --reset   # back to the branch or directory name
+pimi chat archive <chat-id>
 ```
 
-Inside an agent session, `PIMI_WORKSPACE_ID` holds the agent's own workspace ID, so an agent can run `pimi workspace rename "$PIMI_WORKSPACE_ID" "Auth rework"` or `pimi workspace archive "$PIMI_WORKSPACE_ID"` even when other workspaces share its directory.
+Inside an agent session, `PIMI_CHAT_ID` holds the agent's own chat ID, so an agent can run `pimi chat rename "$PIMI_CHAT_ID" "Auth rework"` or `pimi chat archive "$PIMI_CHAT_ID"` even when other chats share its directory.
 
 Add `--forge <name>` to PR checkout when Pimi cannot infer the forge from the source checkout. See [Git worktrees](/docs/worktrees) for setup hooks and services.
 
 ## Terminals
 
-Use the workspace ID when multiple workspaces share a directory:
+Use the chat ID when multiple chats share a directory:
 
 ```bash
-pimi terminal create --workspace <workspace-id> --name Development
-pimi terminal ls --workspace <workspace-id> --json
+pimi terminal create --chat <chat-id> --name Development
+pimi terminal ls --chat <chat-id> --json
 pimi terminal send-keys <terminal-id> -l "echo ready"
 pimi terminal send-keys <terminal-id> Enter
 pimi terminal capture <terminal-id>
 pimi terminal kill <terminal-id>
 ```
 
-Creation defaults to the workspace directory. Add `--cwd <absolute-path>` to change the process directory while keeping that workspace as the owner. Unknown and archived workspace IDs fail.
+Creation defaults to the chat directory. Add `--cwd <absolute-path>` to change the process directory while keeping that chat as the owner. Unknown and archived chat IDs fail.
 
-Without `--workspace`, creation opens the project at `--cwd` or the current directory and reuses its oldest active workspace. Listing without `--workspace` filters by `--cwd` or the current directory and can include multiple workspaces. `ls --all` lists every terminal on the host and cannot be combined with directory or workspace filters.
+Without `--chat`, creation opens the project at `--cwd` or the current directory and reuses its oldest active chat. Listing without `--chat` filters by `--cwd` or the current directory and can include multiple chats. `ls --all` lists every terminal on the host and cannot be combined with directory or chat filters.
 
-Create and list results include `id`, `name`, `cwd`, and `workspaceId`. Use `--json` for structured output and the global `--host` option to target another daemon.
+Create and list results include `id`, `name`, `cwd`, and `chatId`. Use `--json` for structured output and the global `--host` option to target another daemon.
 
-## Workspace scripts
+## Scripts
 
-List, start, and stop the scripts configured in a workspace's `pimi.json`:
+List, start, and stop the scripts configured in a chat's `pimi.json`:
 
 ```bash
 pimi script ls
@@ -240,7 +240,7 @@ pimi script start web
 pimi script stop web
 ```
 
-By default, Pimi selects the workspace whose directory is the current directory. Pass `--cwd <path>` to select a different directory, or `--workspace <workspace-id>` when a directory has multiple workspaces. Use the global `--host` option to target another daemon. These commands also accept standard output options such as `--json`.
+By default, Pimi selects the chat whose directory is the current directory. Pass `--cwd <path>` to select a different directory, or `--chat <chat-id>` when a directory has multiple chats. Use the global `--host` option to target another daemon. These commands also accept standard output options such as `--json`.
 
 The output includes each script's lifecycle and supervised terminal ID. Services also include their assigned port, proxy URL, and health. See [Git worktrees](/docs/worktrees#scripts-and-services) for `pimi.json` configuration.
 
@@ -286,11 +286,11 @@ behavior.
 ## Listing agents
 
 ```bash
-pimi ls                    # Non-archived agents in active workspaces
+pimi ls                    # Non-archived agents in active chats
 pimi ls -a                 # Also include archived and background agents, with a BACKGROUND column
-pimi ls -g                 # Non-archived agents across all workspaces
+pimi ls -g                 # Non-archived agents across all chats
 pimi ls -a -g --json       # All agents, including archived, as JSON
-pimi ls --background       # Also include background agents and agents in background workspaces
+pimi ls --background       # Also include background agents and agents in background chats
 ```
 
 ## Streaming output
@@ -457,7 +457,7 @@ pimi wait "$agent_id"
 pimi logs "$agent_id" --tail 5
 ```
 
-Because Agent A's ID is present in the environment, Agent B is created as its subagent in the same workspace unless `--workspace` is specified.
+Because Agent A's ID is present in the environment, Agent B is created as its subagent in the same chat unless `--chat` is specified.
 
 Simple implement + verify loop:
 

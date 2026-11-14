@@ -196,7 +196,12 @@ function pimiActionInstructions(input: {
   }
   if (isPimiToolEnabled(policy, "create_agent")) {
     instructions.push(
-      'When the user asks for another agent, a worker, a second opinion, or another provider or model to do or answer something ("ask another agent", "use opencode to", "split this between two agents"), or for parallel workers, call create_agent once per worker, even on your own provider, with a focused initialPrompt. Pimi shows each as a card. Your built-in subagent tool (Task or Agent) and agent CLIs run from a shell (claude, codex, opencode, gemini) show the user nothing: never use them for a worker the user asked for or another model\'s answer, only for your own lookups. Follow up with send_agent_prompt; report here when the completion notification arrives.',
+      'When the user asks for another agent, a worker, a second opinion, or another provider or model to do or answer something ("ask another agent", "use opencode to", "split this between two agents"), or for parallel workers, call create_agent once per worker, even on your own provider, with a focused initialPrompt. Pimi shows each as a card nested under this chat. A new chat the user asks to open is not a worker: that is create_chat. Your built-in subagent tool (Task or Agent) and agent CLIs run from a shell (claude, codex, opencode, gemini) show the user nothing: never use them for a worker the user asked for or another model\'s answer, only for your own lookups. Follow up with send_agent_prompt; report here when the completion notification arrives.',
+    );
+  }
+  if (isPimiToolEnabled(policy, "create_chat")) {
+    instructions.push(
+      'When the user asks to open or start a new chat, or to do something "in a new chat", call create_chat with initialPrompt: that chat is the user\'s own, not your worker. If your first message says Pimi opened this chat for the request, do the work here.',
     );
   }
   if (isPimiToolEnabled(policy, "browser_show")) {
@@ -953,7 +958,7 @@ function createAbortError(signal: AbortSignal | undefined, fallbackMessage: stri
   return Object.assign(new Error(message), { name: "AbortError" });
 }
 
-// PIMI_WORKSPACE_ID lets an agent rename or archive its own workspace; several workspaces can
+// PIMI_CHAT_ID lets an agent rename or archive its own chat; several chats can
 // share one cwd, so the agent can't work it out from PIMI_AGENT_CWD.
 function agentIdentityEnv({
   agentId,
@@ -968,7 +973,7 @@ function agentIdentityEnv({
   return {
     PIMI_AGENT_ID: agentId,
     PIMI_AGENT_CWD: cwd,
-    ...(workspaceId ? { PIMI_WORKSPACE_ID: workspaceId } : {}),
+    ...(workspaceId ? { PIMI_CHAT_ID: workspaceId } : {}),
   };
 }
 

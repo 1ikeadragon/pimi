@@ -7,31 +7,26 @@ import { runStopCommand } from "./stop.js";
 
 function addWorkspaceSelectionOptions(command: Command): Command {
   return command
-    .option("--cwd <path>", "Workspace directory (default: current directory)")
-    .option(
-      "--workspace <workspace-id>",
-      "Workspace ID (required when a directory has multiple workspaces)",
-    );
+    .option("--cwd <path>", "Chat directory (default: current directory)")
+    .option("--chat <chat-id>", "Chat ID (required when a directory has multiple chats)");
 }
 
 export function createScriptCommand(): Command {
-  const script = new Command("script").description("Manage configured workspace scripts");
+  const script = new Command("script").description("Manage configured scripts");
 
   addJsonAndDaemonHostOptions(
-    addWorkspaceSelectionOptions(
-      script.command("ls").description("List configured workspace scripts"),
-    ),
+    addWorkspaceSelectionOptions(script.command("ls").description("List configured scripts")),
   ).action(withOutput(runLsCommand));
 
   addJsonAndDaemonHostOptions(
     addWorkspaceSelectionOptions(
-      script.command("start").description("Start a configured workspace script").argument("<name>"),
+      script.command("start").description("Start a configured script").argument("<name>"),
     ),
   ).action(withOutput(runStartCommand));
 
   addJsonAndDaemonHostOptions(
     addWorkspaceSelectionOptions(
-      script.command("stop").description("Stop a running workspace script").argument("<name>"),
+      script.command("stop").description("Stop a running script").argument("<name>"),
     ),
   ).action(withOutput(runStopCommand));
 

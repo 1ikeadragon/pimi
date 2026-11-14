@@ -12,16 +12,14 @@ import { runLsCommand } from "./ls.js";
 import { runSendKeysCommand } from "./send-keys.js";
 
 export function createTerminalCommand(): Command {
-  const terminal = new Command("terminal").description("Manage workspace terminals");
+  const terminal = new Command("terminal").description("Manage chat terminals");
 
   addJsonAndDaemonHostOptions(
     terminal
       .command("ls")
       .description("List terminals")
-      .addOption(
-        new Option("--all", "List terminals across all workspaces").conflicts(["cwd", "workspace"]),
-      )
-      .option("--workspace <id>", "Workspace ID")
+      .addOption(new Option("--all", "List terminals across all chats").conflicts(["cwd", "chat"]))
+      .option("--chat <id>", "Chat ID")
       .option("--cwd <path>", "Working directory"),
   ).action(withOutput(runLsCommand));
 
@@ -29,7 +27,7 @@ export function createTerminalCommand(): Command {
     terminal
       .command("create")
       .description("Create a terminal")
-      .option("--workspace <id>", "Workspace ID")
+      .option("--chat <id>", "Chat ID")
       .option("--cwd <path>", "Working directory")
       .option("--name <name>", "Terminal name"),
   ).action(withOutput(runCreateCommand));

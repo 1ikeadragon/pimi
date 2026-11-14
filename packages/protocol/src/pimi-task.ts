@@ -142,8 +142,13 @@ export const PimiAskAction = z.discriminatedUnion("action", [
   ...PimiVoiceNavigation.options,
   z.strictObject({ action: z.literal("task"), id: z.uuid() }),
   z.strictObject({ action: z.literal("card"), id: z.uuid(), intent: z.enum(["open", "remove"]) }),
-  // The chat starts from the user's own words. The agent only selects the card to attach.
-  z.strictObject({ action: z.literal("start-chat"), card: z.uuid().optional() }),
+  // The chat starts from the user's own words. The agent only selects the card to attach and
+  // the project to open it in; the host has already resolved the project name.
+  z.strictObject({
+    action: z.literal("start-chat"),
+    card: z.uuid().optional(),
+    project: z.strictObject({ id: z.string().min(1), path: z.string().min(1) }).optional(),
+  }),
 ]);
 export type PimiAskAction = z.infer<typeof PimiAskAction>;
 export const PIMI_ASK_ACTION_LIMIT = 3;

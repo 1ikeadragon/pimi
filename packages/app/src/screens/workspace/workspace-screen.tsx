@@ -157,7 +157,7 @@ import {
 } from "@/desktop/browser/open-url";
 import { clearVisibleWorkspaceKey, setVisibleWorkspaceKey } from "./visible-workspace";
 import { getDesktopHost } from "@/desktop/host";
-import { useWorkspacePrimaryChat } from "@/chats/primary-chat";
+import { useWorkspaceShownChat } from "@/chats/primary-chat";
 import { WorkspaceRenameModal } from "@/components/workspace-rename-modal";
 import { usePimiWorkspaceReview } from "@/desktop/use-pimi-workspace-review";
 import { buildProviderCommand } from "@/utils/provider-command-templates";
@@ -394,6 +394,7 @@ function WorkspaceChatRenameDialog({
       visible={visible && isRouteFocused}
       workspace={renamable}
       onClose={onClose}
+      chat="shown"
       testID="workspace-header-rename-modal"
     />
   );
@@ -770,12 +771,12 @@ function buildWorkspaceHeaderCheckoutState(input: {
 function deriveWorkspaceHeaderFields(input: {
   workspace: WorkspaceDescriptor | null;
   checkoutState: WorkspaceHeaderCheckoutState;
-  primaryChat: { title: string | null } | null;
+  chat: { title: string | null } | null;
 }): WorkspaceHeaderFields {
   const renderState = resolveWorkspaceHeaderRenderState({
     workspace: input.workspace,
     checkoutState: input.checkoutState,
-    primaryChatTitle: input.primaryChat?.title ?? null,
+    chatTitle: input.chat?.title ?? null,
   });
   if (renderState.kind !== "ready") {
     return {
@@ -1395,7 +1396,7 @@ function WorkspaceScreenContent({
     hasHydratedWorkspaces,
     recovery: workspaceRecovery.state,
   });
-  const primaryChat = useWorkspacePrimaryChat(normalizedServerId, normalizedWorkspaceId);
+  const shownChat = useWorkspaceShownChat(normalizedServerId, normalizedWorkspaceId);
   const workspaceHeaderCheckoutState = buildWorkspaceHeaderCheckoutState({
     isCheckoutStatusLoading,
     isError: checkoutQuery.isError,
@@ -1411,7 +1412,7 @@ function WorkspaceScreenContent({
   } = deriveWorkspaceHeaderFields({
     workspace: workspaceDescriptor,
     checkoutState: workspaceHeaderCheckoutState,
-    primaryChat,
+    chat: shownChat,
   });
   const showMobileAgent = usePanelStore((state) => state.showMobileAgent);
 

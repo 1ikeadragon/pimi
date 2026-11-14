@@ -2,26 +2,26 @@ import type { Command } from "commander";
 import { connectToDaemon, getDaemonHost } from "../../utils/client.js";
 import type { CommandError, OutputSchema, SingleResult } from "../../output/index.js";
 
-interface WorkspaceArchiveResult {
-  workspaceId: string;
+interface ChatArchiveResult {
+  chatId: string;
   status: "archived";
   archivedAt: string;
 }
 
-const workspaceArchiveSchema: OutputSchema<WorkspaceArchiveResult> = {
-  idField: "workspaceId",
+const chatArchiveSchema: OutputSchema<ChatArchiveResult> = {
+  idField: "chatId",
   columns: [
-    { header: "WORKSPACE ID", field: "workspaceId", width: 20 },
+    { header: "CHAT ID", field: "chatId", width: 20 },
     { header: "STATUS", field: "status", width: 10 },
     { header: "ARCHIVED AT", field: "archivedAt", width: 26 },
   ],
 };
 
 export async function runArchiveCommand(
-  workspaceId: string,
+  chatId: string,
   options: { host?: string; daemonTarget: import("../../utils/daemon-target.js").DaemonTarget },
   _command: Command,
-): Promise<SingleResult<WorkspaceArchiveResult>> {
+): Promise<SingleResult<ChatArchiveResult>> {
   const host = getDaemonHost({ target: options.daemonTarget });
   const client = await connectToDaemon({ target: options.daemonTarget }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
@@ -31,22 +31,22 @@ export async function runArchiveCommand(
     } satisfies CommandError;
   });
   try {
-    const payload = await client.archiveWorkspace(workspaceId);
+    const payload = await client.archiveWorkspace(chatId);
     if (payload.error) {
       throw new Error(payload.error);
     }
     if (!payload.archivedAt) {
-      throw new Error("Workspace archive did not return an archive timestamp");
+      throw new Error("Chat archive did not return an archive timestamp");
     }
     return {
       type: "single",
-      data: { workspaceId, status: "archived", archivedAt: payload.archivedAt },
-      schema: workspaceArchiveSchema,
+      data: { chatId, status: "archived", archivedAt: payload.archivedAt },
+      schema: chatArchiveSchema,
     };
   } catch (error) {
     if (error && typeof error === "object" && "code" in error) throw error;
     const message = error instanceof Error ? error.message : String(error);
-    throw { code: "WORKSPACE_ARCHIVE_FAILED", message } satisfies CommandError;
+    throw { code: "CHAT_ARCHIVE_FAILED", message } satisfies CommandError;
   } finally {
     await client.close().catch(() => undefined);
   }

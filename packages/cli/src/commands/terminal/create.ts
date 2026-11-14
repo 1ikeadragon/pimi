@@ -5,10 +5,10 @@ import {
   toTerminalCommandError,
   type TerminalCommandOptions,
 } from "./shared.js";
-import { terminalSchema, type TerminalRow } from "./schema.js";
+import { terminalSchema, toTerminalRow, type TerminalRow } from "./schema.js";
 
 export interface TerminalCreateOptions extends TerminalCommandOptions {
-  workspace?: string;
+  chat?: string;
   cwd?: string;
   name?: string;
 }
@@ -19,9 +19,9 @@ export async function runCreateCommand(
 ): Promise<SingleResult<TerminalRow>> {
   const { client, close } = await connectTerminalClient(options.daemonTarget);
   try {
-    const cwd = options.cwd ?? (options.workspace ? undefined : process.cwd());
+    const cwd = options.cwd ?? (options.chat ? undefined : process.cwd());
     const workspaceId =
-      options.workspace ?? (await client.workspaces.open(options.cwd ?? process.cwd())).id;
+      options.chat ?? (await client.workspaces.open(options.cwd ?? process.cwd())).id;
     const terminal = await client.terminals.create({
       workspaceId,
       cwd,
@@ -31,7 +31,7 @@ export async function runCreateCommand(
     if (!snapshot) throw new Error("The daemon did not create a terminal");
     return {
       type: "single",
-      data: snapshot,
+      data: toTerminalRow(snapshot),
       schema: terminalSchema,
     };
   } catch (err) {

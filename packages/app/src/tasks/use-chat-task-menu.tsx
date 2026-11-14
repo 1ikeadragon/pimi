@@ -2,7 +2,7 @@ import { useCallback, useMemo, type ReactElement } from "react";
 import { ListPlus, ListTodo } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
 import { TASK_TITLE_MAX_LENGTH } from "@pimi/protocol/task/types";
-import { resolveChatTitle, useWorkspacePrimaryChat } from "@/chats/primary-chat";
+import { resolveChatTitle, useWorkspaceChat } from "@/chats/primary-chat";
 import { DropdownMenuSubTrigger } from "@/components/ui/dropdown-menu";
 import { MenuHint, MenuItem, type MenuPageDefinition } from "@/components/ui/menu";
 import { useToast } from "@/contexts/toast-context";
@@ -24,17 +24,18 @@ const NEW_ICON = <ThemedListTodo size={16} uniProps={mutedMapping} />;
 const NO_PAGES: readonly MenuPageDefinition[] = [];
 
 /**
- * "Add to task" and "New task from chat" for a workspace's primary chat, for the menus that act
+ * "Add to task" and "New task from chat" for a workspace's primary or shown chat, for the menus that act
  * on a chat (the sidebar row and the chat header). The task list is read only while the page is
  * open, so a closed menu costs nothing. Rows are null while the workspace has no chat.
  */
 export function useChatTaskMenu(
   serverId: string,
   workspaceId: string,
+  which: "primary" | "shown" = "primary",
 ): { pages: readonly MenuPageDefinition[]; rows: ReactElement | null } {
   const { t } = useTranslation();
   const toast = useToast();
-  const chat = useWorkspacePrimaryChat(serverId, workspaceId);
+  const chat = useWorkspaceChat(serverId, workspaceId, which);
   const agentId = chat?.agentId ?? null;
   const chatTitle = chat?.title ?? null;
   const mutations = useTaskMutations({ serverId });

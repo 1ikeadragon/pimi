@@ -108,6 +108,7 @@ import { useSidebarModel } from "@/components/sidebar/sidebar-model";
 import { useLimitedSidebarGroup } from "@/components/sidebar/use-limited-sidebar-group";
 import {
   SidebarWorkspaceRowFrame,
+  usePrimaryRowSelected,
   SidebarWorkspaceRowContent,
   SidebarWorkspaceShortcutBadge,
   resolveTrailingActionVisibility,
@@ -143,6 +144,9 @@ import {
 import { redirectIfArchivingActiveWorkspace } from "@/utils/sidebar-workspace-archive-redirect";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { useArchiveChat } from "@/components/sidebar/use-archive-chat";
+import { selectWorkspaceRootChats } from "@/chats/primary-chat";
+import { navigateToAgent } from "@/utils/navigate-to-agent";
+import { useSessionStore } from "@/stores/session-store";
 import { removeProjectFromHosts } from "@/projects/project-remove";
 import {
   isWeb as platformIsWeb,
@@ -1130,20 +1134,26 @@ function WorkspaceRowInner({
     interaction.handlePressOut();
   }, [interaction]);
 
-  const accessibilityState = useMemo(() => ({ selected }), [selected]);
+  const rowSelected = usePrimaryRowSelected(workspace, selected);
+  const accessibilityState = useMemo(() => ({ selected: rowSelected }), [rowSelected]);
 
   return (
-    <SidebarWorkspaceRowFrame workspace={workspace} isDragging={isDragging}>
+    <SidebarWorkspaceRowFrame workspace={workspace} isDragging={isDragging} selected={selected}>
       {({ isHovered, contextMenuOpen, onContextMenuOpenChange, hoverHandlers }) => {
         const isDesktop = !isTouchPlatform;
         const serviceSummary = isDesktop ? selectWorkspaceServiceSummary(workspace.scripts) : null;
         const workspaceRowStyle = getProjectWorkspaceRowStyle({
           isDragging,
           isPressed,
-          selected,
+          selected: rowSelected,
           isHovered,
         });
-        const backdrop = getSidebarRowBackdrop({ isDragging, isPressed, selected, isHovered });
+        const backdrop = getSidebarRowBackdrop({
+          isDragging,
+          isPressed,
+          selected: rowSelected,
+          isHovered,
+        });
         return (
           <View
             {...dragAttributes}
@@ -1173,7 +1183,7 @@ function WorkspaceRowInner({
               onTogglePin={onTogglePin}
               openInFileManagerPath={workspace.workspaceDirectory}
               disabled={isArchiving}
-              aria-selected={selected}
+              aria-selected={rowSelected}
               accessibilityRole="button"
               accessibilityState={accessibilityState}
               style={workspaceRowStyle}
@@ -1266,6 +1276,7 @@ function WorkspaceRowWithMenu({
   const [isHidingWorkspace, setIsHidingWorkspace] = useState(false);
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const isArchiving = workspace.archivingAt !== null || isHidingWorkspace;
+  const rowSelected = usePrimaryRowSelected(workspace, selected);
   const redirectAfterArchive = useCallback(() => {
     redirectIfArchivingActiveWorkspace({
       serverId: workspace.serverId,
@@ -1333,7 +1344,7 @@ function WorkspaceRowWithMenu({
   useKeyboardActionHandler({
     handlerId: `workspace-archive-${workspace.workspaceKey}`,
     actions: ["workspace.archive"],
-    enabled: selected && !isArchiving,
+    enabled: rowSelected && !isArchiving,
     priority: 0,
     handle: () => {
       handleArchive();
@@ -1367,7 +1378,7 @@ function WorkspaceRowWithMenu({
         onRename={handleOpenRename}
         onMarkAsRead={hasClearableAttention ? handleMarkAsRead : undefined}
         onMarkAsUnread={canMarkUnread ? handleMarkAsUnread : undefined}
-        archiveShortcutKeys={selected ? archiveShortcutKeys : null}
+        archiveShortcutKeys={rowSelected ? archiveShortcutKeys : null}
         isPinned={isPinned}
         onTogglePin={handleTogglePin}
         reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
@@ -1426,6 +1437,16 @@ function WorkspaceRowItem({
       return;
     }
     onWorkspacePress?.();
+    // A record with several root chats opens the row's own chat, not whichever tab was last shown.
+    const roots = selectWorkspaceRootChats(
+      useSessionStore.getState().sessions,
+      workspace.serverId,
+      workspace.workspaceId,
+    );
+    if (roots.length >= 2) {
+      navigateToAgent({ serverId: workspace.serverId, agentId: roots[0]!.agentId });
+      return;
+    }
     navigateToWorkspace({ serverId: workspace.serverId, workspaceId: workspace.workspaceId });
   }, [onWorkspacePress, workspace.serverId, workspace.workspaceId]);
 

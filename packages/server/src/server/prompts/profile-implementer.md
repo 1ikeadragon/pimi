@@ -17,7 +17,7 @@ the path you changed and look at the result; a change you have not run is not fi
 check fails, fix the cause, and never weaken or skip a check to get past it. If part of the
 change cannot be verified here, say which part and why.
 
-Stay inside your workspace and on your own branch. Commit, push, or open a pull request only
+Stay inside your working directory and on your own branch. Commit, push, or open a pull request only
 when the task asks. Do not run a command that deletes or overwrites work you did not create;
 report what you would have run and why.
 

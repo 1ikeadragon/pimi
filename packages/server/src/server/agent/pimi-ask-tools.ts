@@ -29,7 +29,7 @@ const EXCERPT = 200;
 const HOST_TOOLS: ReadonlyArray<readonly [name: string, status: string, saves?: true]> = [
   ["search_pimi_spaces", "Searching Spaces"],
   ["read_pimi_space_item", "Reading a Spaces card"],
-  ["list_workspaces", "Checking workspaces"],
+  ["list_chats", "Checking chats"],
   ["list_agents", "Checking agents"],
   ["get_agent_activity", "Reading agent activity"],
   [PimiTaskTool.list, "Checking tasks"],
@@ -109,6 +109,8 @@ export function createAskPimiToolset(options: {
   spaces?: Pick<PimiSpaces, "list" | "read" | "addNote">;
   transcript: string;
   commands: readonly string[];
+  /** Resolves a project name the user said to its id and root folder, or throws a spoken error. */
+  resolveProject?: (name: string) => Promise<{ id: string; path: string }>;
   onStatus: (status: string) => void;
 }): AskPimiToolset {
   const { catalog, spaces } = options;
@@ -333,19 +335,26 @@ export function createAskPimiToolset(options: {
       "Starting a chat",
       {
         description:
-          "Start the new chat the user asked for. Pass card with a Spaces card to attach it as context. The chat begins from the user's own request, so you do not write its prompt. Set draft to true only when the user wants an empty chat to type in.",
+          "Start the new chat the user asked for. Pass project with the project name the user said to open it there; omit it to use the project of the chat in front of them. Pass card with a Spaces card to attach it. The chat begins from the user's own request, so you do not write its prompt. Set draft to true only when the user wants an empty chat to type in.",
         inputSchema: z.strictObject({
           card: cardReference.optional(),
           draft: z.boolean().optional(),
+          project: z.string().trim().min(1).max(160).optional(),
         }),
       },
-      async ({ card, draft }: { card?: string; draft?: boolean }) =>
-        queue(
+      async ({ card, draft, project }: { card?: string; draft?: boolean; project?: string }) => {
+        const target = project ? await options.resolveProject?.(project) : undefined;
+        return queue(
           draft && !card
             ? { action: "new-chat" }
-            : { action: "start-chat", ...(card && { card: cardId(card) }) },
+            : {
+                action: "start-chat",
+                ...(card && { card: cardId(card) }),
+                ...(target && { project: target }),
+              },
           OPENS,
-        ),
+        );
+      },
     );
   }
 

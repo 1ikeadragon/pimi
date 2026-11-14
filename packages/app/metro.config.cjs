@@ -9,6 +9,7 @@ const appSrcRoot = path.resolve(projectRoot, "src");
 const isWatchdogBuild = process.env.PIMI_WATCHDOG_BUILD === "1";
 const isPimiAndroid = process.env.APP_VARIANT === "pimi-android";
 const pimiAndroidNotificationsStub = path.resolve(appSrcRoot, "fdroid/expo-notifications.ts");
+const webBarcodeDetectorStub = path.resolve(appSrcRoot, "web/barcode-detector-stub.ts");
 const customWebPlatform = (process.env.PIMI_WEB_PLATFORM ?? "")
   .trim()
   .replace(/^\./, "")
@@ -172,6 +173,9 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     /implementations\/(ReactFabric|ReactNativeRenderer)-prod$/.test(moduleName)
   ) {
     return defaultResolveRequest(context, moduleName.replace(/-prod$/, "-profiling"), platform);
+  }
+  if (platform === "web" && moduleName === "barcode-detector") {
+    return { type: "sourceFile", filePath: webBarcodeDetectorStub };
   }
   if (platform === "android" && isPimiAndroid && moduleName === "expo-notifications") {
     return resolveWithCustomWebOverlay(context, pimiAndroidNotificationsStub, platform);

@@ -21,11 +21,7 @@ export async function runLsCommand(
     }
     return { type: "list", data: payload.scripts ?? [], schema: workspaceScriptSchema };
   } catch (error) {
-    throw toWorkspaceScriptCommandError(
-      "WORKSPACE_SCRIPT_LIST_FAILED",
-      "list workspace scripts",
-      error,
-    );
+    throw toWorkspaceScriptCommandError("SCRIPT_LIST_FAILED", "list scripts", error);
   } finally {
     await client.close().catch(() => {});
   }

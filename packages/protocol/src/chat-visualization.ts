@@ -151,7 +151,7 @@ function visualizationBrief(guide: string): string {
   return [
     `Pimi chat draws visuals from fenced blocks: ${PIMI_VEGA_FENCE} for a chart of numbers, ${PIMI_VIEW_FENCE} for metrics, tables, flows, state machines and message sequences, ${PIMI_HTML_FENCE} for something the user operates with sliders or inputs, and mermaid only for a gantt chart.`,
     "Draw when the user asked for a visual or you are about to send a table of numbers. Say one or two numbers in a sentence.",
-    `Before any visual, ${guide}, not a general charting skill: it holds each block's format and limits. A request to visualize, chart, plot, or explore data, or to build an interactive explorer, calculator, or simulator, means a block in the reply, even a large or interactive one (aggregate or sample big data), never a workspace HTML file unless the user asks for a file to keep.`,
+    `Before any visual, ${guide}, not a general charting skill: it holds each block's format and limits. A request to visualize, chart, plot, or explore data, or to build an interactive explorer, calculator, or simulator, means a block in the reply, even a large or interactive one (aggregate or sample big data), never a project HTML file unless the user asks for a file to keep.`,
     `A ${PIMI_VEGA_FENCE} block holds one Vega-Lite v6 spec as JSON, rows inline:`,
     ...fenced(PIMI_VEGA_FENCE, JSON.stringify(VEGA_EXAMPLE)),
   ].join("\n");
@@ -210,5 +210,5 @@ export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   "- It runs in a sandbox with no network, storage, or navigation. Remote scripts, styles, fonts, images, and fetch all fail, so write the CSS, JavaScript, and data inline.",
   `- Pimi sets the page background, text color, and font. Style everything else with these custom properties so it follows light and dark themes, and never hardcode a page or text color: ${PIMI_HTML_VARIABLES.map((name) => `--pimi-${name}`).join(", ")}.`,
   "- Start every control at a realistic value, so the first render already shows an answer. Lay it out to fit 360 px wide, and let the page take its natural height: no 100vh.",
-  `- Data larger than the limit: aggregate or sample it into the block and say so in the title. Never save HTML to the workspace to get around the limit. Only when the user asks for a file to keep, save one .html file in the workspace and show it with a ${PIMI_ARTIFACT_FENCE} block holding {"title":"...","path":"its-workspace-relative-path.html"}.`,
+  `- Data larger than the limit: aggregate or sample it into the block and say so in the title. Never save HTML to the project to get around the limit. Only when the user asks for a file to keep, save one .html file in the project and show it with a ${PIMI_ARTIFACT_FENCE} block holding {"title":"...","path":"its-path-relative-to-the-working-directory.html"}.`,
 ].join("\n");

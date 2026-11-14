@@ -163,7 +163,7 @@ Accepting new work after an ambiguous interruption would create a split-brain se
 
 ## Relationships
 
-Agents can launch other agents via the agent-scoped `create_agent` MCP tool. Agent-scoped creation is always asynchronous and always stamps `pimi.parent-agent-id`, pointing back at the caller. Omit `workspaceId` to use the caller's workspace, or pass an existing workspace ID returned by `create_workspace`. Placement never changes parentage.
+Agents can launch other agents via the agent-scoped `create_agent` MCP tool. Agent-scoped creation is always asynchronous and always stamps `pimi.parent-agent-id`, pointing back at the caller. Omit `chatId` to use the caller's chat, or pass an existing chat ID returned by `create_chat`. Placement never changes parentage. An agent that should be the user's own chat calls `create_chat` with `initialPrompt` instead: that agent carries no parent label.
 
 - **Subagents** — exist as part of the creating agent's work, appear in that agent's subagent track, and are archived with it.
 - **Detached agents** — stand on their own after an explicit detach transition, do not appear in the former parent's subagent track, and are not archived with it.
@@ -385,6 +385,8 @@ The asymmetry is intentional: a subagent's persistent relationship lives in the 
 Agent lifecycle status stays literal: a parent agent is `idle` when its own turn is idle, even if a child is running.
 
 Workspace status is an aggregate activity signal computed **per `workspaceId`**. Ownership is never derived from `cwd` — many workspaces may share one directory, and same-`cwd` siblings do not clump under one status. Root agents and cross-workspace subagents contribute their normal state bucket to their own workspace. Same-workspace descendants contribute `running` to the nearest ancestor in that workspace; their non-running attention, permission, and error states stay in the parent's subagents track. This makes a cross-workspace subagent behave like a detached agent for workspace visibility and status without removing its parent relationship.
+
+A workspace with several root agents shows one sidebar row per root chat. The row that highlights, and the header title, labels and rename target, follow the root chat of the focused agent (the oldest root when no agent in the workspace is focused). Archiving a row archives that chat's agent when other root chats share the workspace, and the workspace record when it is the only one.
 
 Running provider-native subagents contribute `running` to the workspace owned by their parent agent. Their completed, failed, and canceled states stay in the parent's subagents track.
 

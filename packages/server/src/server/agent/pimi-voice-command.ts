@@ -149,6 +149,7 @@ export function createPimiVoiceCommandHandler(options: {
   readConfig: () => StructuredGenerationDaemonConfig;
   createToolCatalog: (provider: AgentSessionConfig["provider"]) => PimiToolCatalog;
   spaces?: Pick<PimiSpaces, "list" | "read" | "addNote">;
+  resolveProject: (name: string) => Promise<{ id: string; path: string }>;
   sessions: AskPimiToolSessions;
   /** Where a harness on this machine reaches the Ask Pimi tools, once the host is listening. */
   toolsUrl: () => string | null;
@@ -181,6 +182,7 @@ export function createPimiVoiceCommandHandler(options: {
         spaces: options.spaces,
         transcript: input.transcript,
         commands,
+        resolveProject: options.resolveProject,
         onStatus,
       });
       const started = Date.now();

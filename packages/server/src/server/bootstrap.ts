@@ -175,6 +175,7 @@ import { SqlSentAttachmentStore } from "./agent/sent-attachments.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
+import { resolveProjectReference } from "./resolve-project-reference.js";
 import { createPimiMemoryHandler } from "./pimi-memory-route.js";
 import { PimiSpaces } from "./pimi-spaces.js";
 import { searchPimiCodebase } from "./pimi-codebase-index.js";
@@ -1312,6 +1313,10 @@ export async function createPimiDaemon(
         });
       },
       spaces: pimiSpaces,
+      resolveProject: async (name) => {
+        const project = resolveProjectReference(await projectRegistry.list(), name);
+        return { id: project.projectId, path: project.rootPath };
+      },
       sessions: askPimiSessions,
       toolsUrl: () => {
         const agentTools = createAgentMcpBaseUrl(boundListenTarget);

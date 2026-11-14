@@ -61,7 +61,7 @@ async function allocatePortFromScript(options: {
         cwd: options.cwd,
         envOverlay: {
           PIMI_SCRIPTNAME: options.scriptName,
-          PIMI_WORKSPACE_ID: options.workspaceId,
+          PIMI_CHAT_ID: options.workspaceId,
           PIMI_BRANCH_NAME: options.branchName ?? "",
           PIMI_WORKTREE_PATH: options.cwd,
         },

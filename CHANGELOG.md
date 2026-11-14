@@ -2,6 +2,17 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## Unreleased
+
+- Ask Pimi: "open a new chat under <project>" now starts its own chat in that project, with your words as its prompt. Before, the voice chat joined the chat on screen and could open a second chat nested under it.
+- Sidebar: every chat in a shared folder is its own row. The row of the chat on screen highlights, and the header title, labels, tasks and rename follow it. Archiving a row archives only that chat when others share its folder.
+- Agent tools and the CLI speak in projects and chats: `create_chat` (with an optional first prompt), `list_chats`, `list_projects`, `archive_chat`, `rename_chat`, `list_scripts`, `pimi chat`, `--chat`, `--new-chat`, and `PIMI_CHAT_ID`.
+- Themes switch instantly without reloading the app. Cmd+Alt+Left/Right steps through them, and Tide is a deeper blue.
+- Plugin themes can set an image, video or shader as the window backdrop.
+- Streamer mode hides the provider account emails Pimi shows.
+- New chats start in the provider's default mode (Auto for Claude).
+- The web build no longer contains a barcode-scanner fallback that could fetch WebAssembly from a CDN, so the app loads no code from the network.
+
 ## 0.17.47 - 2026-11-14
 
 - Five new themes: Day, Dusk, Night and Dawn painted skies, and Tide with live moving waves. On these themes one backdrop runs behind the whole window, with no bars or dividers. Tide pauses when the window is in the background and shows a still frame with reduced motion.

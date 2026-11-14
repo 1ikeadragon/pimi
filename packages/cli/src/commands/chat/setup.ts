@@ -2,24 +2,24 @@ import type { Command } from "commander";
 import { connectToDaemon, getDaemonHost } from "../../utils/client.js";
 import type { CommandError, OutputSchema, SingleResult } from "../../output/index.js";
 
-interface WorkspaceSetupResult {
-  workspaceId: string;
+interface ChatSetupResult {
+  chatId: string;
   status: "started" | "already_allowed";
 }
 
-const workspaceSetupSchema: OutputSchema<WorkspaceSetupResult> = {
-  idField: "workspaceId",
+const chatSetupSchema: OutputSchema<ChatSetupResult> = {
+  idField: "chatId",
   columns: [
-    { header: "WORKSPACE ID", field: "workspaceId", width: 20 },
+    { header: "CHAT ID", field: "chatId", width: 20 },
     { header: "STATUS", field: "status", width: 18 },
   ],
 };
 
 export async function runSetupCommand(
-  workspaceId: string,
+  chatId: string,
   options: { host?: string; daemonTarget: import("../../utils/daemon-target.js").DaemonTarget },
   _command: Command,
-): Promise<SingleResult<WorkspaceSetupResult>> {
+): Promise<SingleResult<ChatSetupResult>> {
   const host = getDaemonHost({ target: options.daemonTarget });
   const client = await connectToDaemon({ target: options.daemonTarget }).catch((error: unknown) => {
     throw {
@@ -28,17 +28,17 @@ export async function runSetupCommand(
     } satisfies CommandError;
   });
   try {
-    const payload = await client.runWorkspaceSetup(workspaceId);
+    const payload = await client.runWorkspaceSetup(chatId);
     if (payload.error) throw new Error(payload.error);
     return {
       type: "single",
-      data: { workspaceId, status: payload.started ? "started" : "already_allowed" },
-      schema: workspaceSetupSchema,
+      data: { chatId, status: payload.started ? "started" : "already_allowed" },
+      schema: chatSetupSchema,
     };
   } catch (error) {
     if (error && typeof error === "object" && "code" in error) throw error;
     const message = error instanceof Error ? error.message : String(error);
-    throw { code: "WORKSPACE_SETUP_FAILED", message } satisfies CommandError;
+    throw { code: "CHAT_SETUP_FAILED", message } satisfies CommandError;
   } finally {
     await client.close().catch(() => undefined);
   }

@@ -49,8 +49,8 @@ export function buildAskPimiPrompt(options: {
   const now = options.now ?? new Date();
   const lines = [
     `Local time: ${now.toString()}`,
-    `Selected workspace: ${JSON.stringify(options.workspaceId ?? null)}`,
-    `Focused chat: ${JSON.stringify(options.agentId ?? null)}`,
+    `Chat in front of the user: ${JSON.stringify(options.workspaceId ?? null)}`,
+    `Focused agent: ${JSON.stringify(options.agentId ?? null)}`,
   ];
   if (options.commands.length) {
     lines.push(`App commands (data, by index): ${JSON.stringify(options.commands)}`);

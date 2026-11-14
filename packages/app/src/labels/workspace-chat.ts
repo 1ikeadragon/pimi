@@ -1,19 +1,20 @@
 import { useMemo } from "react";
-import { useWorkspacePrimaryChat } from "@/chats/primary-chat";
+import { useWorkspaceChat } from "@/chats/primary-chat";
 import type { Label, LabelTarget } from "@pimi/protocol/labels";
 import { useTargetLabels } from "./store";
 
 /**
- * The label target a workspace row stands for: its primary chat, the first root chat in it.
- * Null while the workspace has no chat. Labels are not on workspaces; a row borrows its primary
- * chat's.
+ * The label target a workspace stands for: its primary chat (a sidebar row) or the chat it is
+ * showing (the header). Null while the workspace has no chat. Labels are not on workspaces; they
+ * borrow the chat's.
  */
-export function useWorkspacePrimaryChatTarget(
+export function useWorkspaceChatTarget(
   serverId: string | null | undefined,
   workspaceId: string,
+  which: "primary" | "shown" = "primary",
 ): LabelTarget | null {
-  const primary = useWorkspacePrimaryChat(serverId, workspaceId);
-  const agentId = primary?.agentId;
+  const chat = useWorkspaceChat(serverId, workspaceId, which);
+  const agentId = chat?.agentId;
   return useMemo(() => (agentId ? { kind: "agent", agentId } : null), [agentId]);
 }
 
@@ -22,6 +23,6 @@ export function useWorkspaceRowLabels(
   serverId: string | null | undefined,
   workspaceId: string,
 ): readonly Label[] {
-  const target = useWorkspacePrimaryChatTarget(serverId, workspaceId);
+  const target = useWorkspaceChatTarget(serverId, workspaceId);
   return useTargetLabels(serverId ?? "", target);
 }

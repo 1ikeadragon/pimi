@@ -36,8 +36,10 @@ import { resolveRowLabel } from "@/subagents/track-presentation";
 import {
   resolveChatTitle,
   useWorkspaceRootChats,
+  useWorkspaceShownChat,
   type WorkspaceRootChat,
 } from "@/chats/primary-chat";
+import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { getStatusDotColor } from "@/utils/status-dot-color";
@@ -81,17 +83,20 @@ const EMPTY_WORKERS: SidebarLineageWorker[] = [];
 
 /**
  * What hangs under a workspace's chat row: the live subagents of its primary chat, then every
- * further root chat as a row of its own (opening that chat), each followed by its subagents.
- * Renders nothing for the common single-chat workspace without subagents, so the cost there is
+ * further root chat as a full peer row of its own (opening that chat, highlighted while it is the
+ * one shown, archived on its own), each followed by its subagents. Renders nothing for the common single-chat workspace without subagents, so the cost there is
  * two shared-index lookups per session-store update.
  */
 export const SidebarAgentLineage = memo(function SidebarAgentLineage({
   serverId,
   workspaceId,
+  workspaceSelected = false,
   indentStyle,
 }: {
   serverId: string | null | undefined;
   workspaceId: string;
+  /** The workspace is on screen, so the row of the chat being shown highlights. */
+  workspaceSelected?: boolean;
   /** The workspace row's own indent, so nested rows keep its title rail in every grouping. */
   indentStyle?: StyleProp<ViewStyle>;
 }): ReactElement | null {
@@ -110,23 +115,32 @@ export const SidebarAgentLineage = memo(function SidebarAgentLineage({
   if (!workspaceKey || (roots.length < 2 && !lineage?.length)) return null;
   return (
     <SidebarChatTree
+      serverId={serverId}
+      workspaceId={workspaceId}
       workspaceKey={workspaceKey}
       roots={roots}
       lineage={lineage ?? []}
+      workspaceSelected={workspaceSelected}
       indentStyle={indentStyle}
     />
   );
 });
 
 function SidebarChatTree({
+  serverId,
+  workspaceId,
   workspaceKey,
   roots,
   lineage,
+  workspaceSelected,
   indentStyle,
 }: {
+  serverId: string | null | undefined;
+  workspaceId: string;
   workspaceKey: string;
   roots: WorkspaceRootChat[];
   lineage: SidebarLineageChat[];
+  workspaceSelected: boolean;
   indentStyle: StyleProp<ViewStyle>;
 }) {
   // Hides a chat or subagent the moment its archive is requested, as the track does. Only rows
@@ -150,13 +164,18 @@ function SidebarChatTree({
     [roots, pendingArchive],
   );
   const primary = roots[0];
+  const shown = useWorkspaceShownChat(serverId, workspaceId);
   const primaryWorkers = (primary && workersByChat.get(primary.agentId)) || EMPTY_WORKERS;
   return (
     <View testID={`sidebar-agent-lineage-${workspaceKey}`}>
       <SidebarWorkerList workers={primaryWorkers} indentStyle={indentStyle} />
       {siblings.map((chat) => (
         <View key={`${chat.serverId}:${chat.agentId}`}>
-          <SidebarSiblingChatRow chat={chat} indentStyle={indentStyle} />
+          <SidebarSiblingChatRow
+            chat={chat}
+            selected={workspaceSelected && shown?.agentId === chat.agentId}
+            indentStyle={indentStyle}
+          />
           <SidebarWorkerList
             workers={workersByChat.get(chat.agentId) ?? EMPTY_WORKERS}
             indentStyle={indentStyle}
@@ -191,9 +210,11 @@ function SidebarWorkerList({
 /** A further root chat in the same workspace, as its own row at the workspace row's indent. */
 function SidebarSiblingChatRow({
   chat,
+  selected,
   indentStyle,
 }: {
   chat: WorkspaceRootChat;
+  selected: boolean;
   indentStyle: StyleProp<ViewStyle>;
 }) {
   const open = useCallback(() => openAgent(chat), [chat]);
@@ -209,6 +230,17 @@ function SidebarSiblingChatRow({
     () => void archiveAgent({ serverId: chat.serverId, agentId: chat.agentId }),
     [archiveAgent, chat.serverId, chat.agentId],
   );
+  // Mirrors the workspace row's archive shortcut for the chat that is on screen.
+  useKeyboardActionHandler({
+    handlerId: `chat-archive-${chat.agentId}`,
+    actions: ["workspace.archive"],
+    enabled: selected,
+    priority: 0,
+    handle: () => {
+      archive();
+      return true;
+    },
+  });
   const siblingLabelTarget = useMemo<LabelTarget>(
     () => ({ kind: "agent", agentId: chat.agentId }),
     [chat.agentId],
@@ -228,7 +260,7 @@ function SidebarSiblingChatRow({
         accessibilityRole={isWeb ? undefined : "button"}
         accessibilityLabel={title}
         onPress={open}
-        style={siblingRowStyle}
+        style={selected ? siblingSelectedRowStyle : siblingRowStyle}
         highlightStyle={styles.rowPressed}
         testID={`sidebar-chat-row-${chat.agentId}`}
       >
@@ -302,6 +334,13 @@ function siblingRowStyle({ hovered, pressed }: PressableStateCallbackType & { ho
   return [styles.siblingRow, hovered && !pressed && styles.rowHovered];
 }
 
+function siblingSelectedRowStyle({
+  hovered,
+  pressed,
+}: PressableStateCallbackType & { hovered?: boolean }) {
+  return [styles.siblingRow, styles.rowSelected, hovered && !pressed && styles.rowHovered];
+}
+
 function rowStyle({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) {
   return [styles.row, hovered && !pressed && styles.rowHovered];
 }
@@ -361,6 +400,9 @@ const styles = StyleSheet.create((theme) => ({
     paddingRight: theme.spacing[3],
     borderRadius: theme.borderRadius.md,
     userSelect: "none",
+  },
+  rowSelected: {
+    backgroundColor: theme.colors.surfaceSidebarSelected,
   },
   rowHovered: {
     backgroundColor: theme.colors.surfaceSidebarHover,

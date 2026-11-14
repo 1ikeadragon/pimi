@@ -43,10 +43,10 @@ sandboxed by this feature.
 
 ## Delegating agents
 
-Agent MCP discovers destination IDs with `list_hosts`. `create_workspace`, `list_workspaces`,
+Agent MCP discovers destination IDs with `list_hosts`. `create_chat`, `list_chats`,
 `list_providers`, `list_models`, `create_agent`, `send_agent_prompt`, `get_agent_status`,
 `get_agent_activity`, `list_agents`, `cancel_agent`, and `archive_agent` accept `serverId`; omission
-selects the calling daemon. Remote creation requires a destination workspace and explicit
+selects the calling daemon. Remote creation requires a destination chat and explicit
 provider/model, and rejects `inheritContext`, `profile`, and `cwd`. Caller filesystem defaults apply only on the
 calling daemon. Prompting a remote child acknowledges acceptance and uses the existing idle wait for
 finish notifications. Remote agent lists have no caller-directory default; pass `cwd` to filter them.
@@ -55,7 +55,7 @@ The parent’s Subagents track shows qualified children across connected hosts. 
 the ordinary conversation on the destination's session. The runtime selects among that host's
 connection candidates, including direct connections and routes discovered through another daemon.
 Adding a direct connection to a discovered host adds another candidate. If no candidate connects,
-the destination workspace keeps its existing disconnected or reconnecting behavior.
+the destination chat keeps its existing disconnected or reconnecting behavior.
 
 Finish notifications name the destination server and child agent. The caller's daemon owns durable
 subscription intent and restores observation through the same routed wait and permission observation

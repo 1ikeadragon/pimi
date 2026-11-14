@@ -2,9 +2,9 @@ import type { Command } from "commander";
 import { connectToDaemon, getDaemonHost } from "../../utils/client.js";
 import { resolveCallerAgentId } from "../../utils/caller-agent.js";
 import type { CommandError, CommandOptions, SingleResult } from "../../output/index.js";
-import { toWorkspaceRow, workspaceSchema, type WorkspaceRow } from "./shared.js";
+import { toChatRow, chatSchema, type ChatRow } from "./shared.js";
 
-export interface WorkspaceCreateOptions extends CommandOptions {
+export interface ChatCreateOptions extends CommandOptions {
   isolation?: string;
   path?: string;
   project?: string;
@@ -32,7 +32,7 @@ function assertOptionsAbsent(values: unknown[], message: string): void {
   }
 }
 
-function buildLocalWorkspaceSource(options: WorkspaceCreateOptions, path: string) {
+function buildLocalChatSource(options: ChatCreateOptions, path: string) {
   assertOptionsAbsent(
     [
       options.mode,
@@ -52,7 +52,7 @@ function buildLocalWorkspaceSource(options: WorkspaceCreateOptions, path: string
   };
 }
 
-function buildBranchOffSource(options: WorkspaceCreateOptions, source: WorktreeSourceBase) {
+function buildBranchOffSource(options: ChatCreateOptions, source: WorktreeSourceBase) {
   assertOptionsAbsent(
     [options.branch, options.prNumber, options.forge],
     "--branch, --pr-number, and --forge require a checkout mode",
@@ -65,7 +65,7 @@ function buildBranchOffSource(options: WorkspaceCreateOptions, source: WorktreeS
   };
 }
 
-function buildBranchCheckoutSource(options: WorkspaceCreateOptions, source: WorktreeSourceBase) {
+function buildBranchCheckoutSource(options: ChatCreateOptions, source: WorktreeSourceBase) {
   if (!options.branch) {
     throw new Error("--branch is required for --mode checkout-branch");
   }
@@ -76,10 +76,7 @@ function buildBranchCheckoutSource(options: WorkspaceCreateOptions, source: Work
   return { ...source, action: "checkout" as const, refName: options.branch };
 }
 
-function buildPullRequestCheckoutSource(
-  options: WorkspaceCreateOptions,
-  source: WorktreeSourceBase,
-) {
+function buildPullRequestCheckoutSource(options: ChatCreateOptions, source: WorktreeSourceBase) {
   if (options.prNumber === undefined || options.prNumber === "") {
     throw new Error("--pr-number is required for --mode checkout-pr");
   }
@@ -102,7 +99,7 @@ function buildPullRequestCheckoutSource(
   };
 }
 
-function buildWorktreeWorkspaceSource(options: WorkspaceCreateOptions, path: string | undefined) {
+function buildWorktreeChatSource(options: ChatCreateOptions, path: string | undefined) {
   const source: WorktreeSourceBase = {
     kind: "worktree",
     ...(path ? { cwd: path } : {}),
@@ -121,21 +118,21 @@ function buildWorktreeWorkspaceSource(options: WorkspaceCreateOptions, path: str
   }
 }
 
-export function buildWorkspaceSource(options: WorkspaceCreateOptions) {
+export function buildChatSource(options: ChatCreateOptions) {
   if (options.isolation === "local") {
-    return buildLocalWorkspaceSource(options, options.path ?? process.cwd());
+    return buildLocalChatSource(options, options.path ?? process.cwd());
   }
   if (options.isolation === "worktree") {
     const sourcePath = options.path ?? (options.project ? undefined : process.cwd());
-    return buildWorktreeWorkspaceSource(options, sourcePath);
+    return buildWorktreeChatSource(options, sourcePath);
   }
-  throw new Error(`Unsupported workspace isolation: ${String(options.isolation)}`);
+  throw new Error(`Unsupported chat isolation: ${String(options.isolation)}`);
 }
 
 export async function runCreateCommand(
-  options: WorkspaceCreateOptions,
+  options: ChatCreateOptions,
   _command: Command,
-): Promise<SingleResult<WorkspaceRow>> {
+): Promise<SingleResult<ChatRow>> {
   const host = getDaemonHost({ target: options.daemonTarget });
   const client = await connectToDaemon({ target: options.daemonTarget }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
@@ -148,19 +145,19 @@ export async function runCreateCommand(
   try {
     const callerAgentId = await resolveCallerAgentId(client);
     const payload = await client.createWorkspace({
-      source: buildWorkspaceSource(options),
+      source: buildChatSource(options),
       ...(options.title ? { title: options.title } : {}),
       ...(options.background !== undefined ? { background: options.background } : {}),
       ...(callerAgentId ? { callerAgentId } : {}),
     });
     if (!payload.workspace) {
-      throw new Error(payload.error ?? "Workspace creation failed");
+      throw new Error(payload.error ?? "Chat creation failed");
     }
-    return { type: "single", data: toWorkspaceRow(payload.workspace), schema: workspaceSchema };
+    return { type: "single", data: toChatRow(payload.workspace), schema: chatSchema };
   } catch (error) {
     if (error && typeof error === "object" && "code" in error) throw error;
     const message = error instanceof Error ? error.message : String(error);
-    throw { code: "WORKSPACE_CREATE_FAILED", message } satisfies CommandError;
+    throw { code: "CHAT_CREATE_FAILED", message } satisfies CommandError;
   } finally {
     await client.close().catch(() => undefined);
   }

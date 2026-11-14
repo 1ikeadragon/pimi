@@ -811,7 +811,7 @@ export async function createTerminal(
     env: {
       ...env,
       ...activityEnv,
-      PIMI_WORKSPACE_ID: workspaceId,
+      PIMI_CHAT_ID: workspaceId,
     },
     ...resolveTerminalEnvironmentSource({ baseEnv, pimiCliPath }),
   });

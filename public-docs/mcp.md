@@ -1,6 +1,6 @@
 ---
 title: MCP reference
-description: Reference for the Pimi tools agents use to manage agents, workspaces, scripts, terminals, automations, and heartbeats.
+description: Reference for the Pimi tools agents use to manage agents, chats, scripts, terminals, automations, and heartbeats.
 nav: MCP reference
 order: 34
 category: Orchestration
@@ -74,12 +74,13 @@ that can access the host through a shell.
 
 ## Mental model
 
-Workspaces decide where work happens; agent parentage decides who owns the work.
+Chats decide where work happens; agent parentage decides who owns the work.
 
-- An agent that calls `create_agent` without a `workspaceId` gets a subagent in its own workspace.
-- Passing a `workspaceId` places that subagent in another workspace without detaching it from its parent.
-- A top-level MCP caller without a workspace gets a new local workspace.
-- Create a workspace first when you need worktree isolation, a specific branch, or a pull request checkout.
+- An agent that calls `create_agent` without a `chatId` gets a subagent in its own chat. `create_agent` always creates the caller's subagent.
+- Passing a `chatId` places that subagent in another chat without detaching it from its parent.
+- To open a new chat for the user, call `create_chat` with `initialPrompt`. The agent that starts there has no parent: it shows no card in the caller's chat, is not archived with the caller, and sends no finish notification.
+- A top-level MCP caller without a chat gets a new local chat.
+- Create a chat first when you need worktree isolation, a specific branch, or a pull request checkout.
 
 MCP does not expose an agent-detach tool. Detaching is a manual user action in the app or CLI.
 
@@ -87,41 +88,42 @@ MCP does not expose an agent-detach tool. Detaching is a manual user action in t
 
 ### Agents
 
-| Tool                 | Function                                                                                                                                                                                                                                                                                                                             |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `create_agent`       | Create an agent, optionally placing it in an existing workspace with `workspaceId`. Use `initialPrompt` to start work; returns without waiting for completion. `background: true` hides it from tabs, default lists, your subagent track and notifications; you still get its finish notification. Omission inherits your own value. |
-| `send_agent_prompt`  | Send a prompt using `agentId` and `prompt`; returns without waiting for completion.                                                                                                                                                                                                                                                  |
-| `get_agent_status`   | Return the latest snapshot for an agent.                                                                                                                                                                                                                                                                                             |
-| `list_agents`        | List recent agents as compact metadata; `includeBackground: true` includes background work.                                                                                                                                                                                                                                          |
-| `cancel_agent`       | Abort an agent's current run but keep the agent alive.                                                                                                                                                                                                                                                                               |
-| `archive_agent`      | Soft-delete an agent and remove it from the active list.                                                                                                                                                                                                                                                                             |
-| `kill_agent`         | Terminate an agent session permanently.                                                                                                                                                                                                                                                                                              |
-| `update_agent`       | Update an agent name, labels, or runtime settings such as mode/model/thinking/features.                                                                                                                                                                                                                                              |
-| `get_agent_activity` | Return recent agent timeline entries as a curated summary.                                                                                                                                                                                                                                                                           |
-| `set_agent_mode`     | Switch an agent's session mode.                                                                                                                                                                                                                                                                                                      |
+| Tool                 | Function                                                                                                                                                                                                                                                                                                                     |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create_agent`       | Create a subagent, optionally placing it in an existing chat with `chatId`. Use `initialPrompt` to start work; returns without waiting for completion. `background: true` hides it from tabs, default lists, your subagent track and notifications; you still get its finish notification. Omission inherits your own value. |
+| `send_agent_prompt`  | Send a prompt using `agentId` and `prompt`; returns without waiting for completion.                                                                                                                                                                                                                                          |
+| `get_agent_status`   | Return the latest snapshot for an agent.                                                                                                                                                                                                                                                                                     |
+| `list_agents`        | List recent agents as compact metadata; `includeBackground: true` includes background work.                                                                                                                                                                                                                                  |
+| `cancel_agent`       | Abort an agent's current run but keep the agent alive.                                                                                                                                                                                                                                                                       |
+| `archive_agent`      | Soft-delete an agent and remove it from the active list.                                                                                                                                                                                                                                                                     |
+| `kill_agent`         | Terminate an agent session permanently.                                                                                                                                                                                                                                                                                      |
+| `update_agent`       | Update an agent name, labels, or runtime settings such as mode/model/thinking/features.                                                                                                                                                                                                                                      |
+| `get_agent_activity` | Return recent agent timeline entries as a curated summary.                                                                                                                                                                                                                                                                   |
+| `set_agent_mode`     | Switch an agent's session mode.                                                                                                                                                                                                                                                                                              |
 
 Pimi agents receive finish, error, and permission notifications by default; set `notifyOnFinish: false` to disable them. External MCP clients use `get_agent_status` and `get_agent_activity` to check results.
 
-### Workspaces
+### Chats and projects
 
-| Tool                | Function                                                                                                                                                                                                                                                                                                        |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create_workspace`  | Create a local or worktree-isolated workspace. Worktrees can branch off, check out a branch, or a PR. `background: true` hides it from default lists and the sidebar while preserving history and access by ID. Omission inherits the calling agent’s workspace setting, or defaults to false without a caller. |
-| `list_workspaces`   | List active workspaces and their directories and isolation. Use `includeBackground: true` to include background workspaces.                                                                                                                                                                                     |
-| `rename_workspace`  | Change the user-visible name of the current or specified workspace.                                                                                                                                                                                                                                             |
-| `archive_workspace` | Archive a workspace and the sessions it owns.                                                                                                                                                                                                                                                                   |
+| Tool            | Function                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create_chat`   | Open a new top-level chat, in the caller's project or the one named by `project` (id or name). Local or worktree-isolated; worktrees can branch off, check out a branch, or a PR. With `initialPrompt` (and `title`) an agent starts there on its own. `background: true` hides the chat from default lists and the sidebar while preserving history and access by ID; it is not accepted with `initialPrompt`. |
+| `list_chats`    | List active chats and their directories and isolation. Use `includeBackground: true` to include background chats.                                                                                                                                                                                                                                                                                               |
+| `list_projects` | List the user's projects with `projectId`, `name`, and `path`.                                                                                                                                                                                                                                                                                                                                                  |
+| `rename_chat`   | Change the user-visible name of the current or specified chat.                                                                                                                                                                                                                                                                                                                                                  |
+| `archive_chat`  | Archive a chat and the sessions it owns.                                                                                                                                                                                                                                                                                                                                                                        |
 
-For worktree isolation, `create_workspace` accepts the same useful choices as the app: branch off from a base, check out an existing branch, or check out a pull request. The worktree remains an implementation detail of the workspace lifecycle.
+For worktree isolation, `create_chat` accepts the same useful choices as the app: branch off from a base, check out an existing branch, or check out a pull request. On another host `create_chat` opens an empty chat; follow with `create_agent` and that `chatId`.
 
-### Workspace scripts
+### Scripts
 
-These tools manage scripts configured in a workspace's `pimi.json`. Each requires an explicit `workspaceId`; start and stop also require the configured `scriptName`.
+These tools manage scripts configured in a chat's `pimi.json`. Each requires an explicit `chatId`; start and stop also require the configured `scriptName`.
 
-| Tool                     | Function                                                                                |
-| ------------------------ | --------------------------------------------------------------------------------------- |
-| `list_workspace_scripts` | List configured scripts with lifecycle, terminal, port, proxy URL, and health metadata. |
-| `start_workspace_script` | Start a configured script through Pimi's managed launcher.                              |
-| `stop_workspace_script`  | Stop a running script through its supervised terminal.                                  |
+| Tool           | Function                                                                                |
+| -------------- | --------------------------------------------------------------------------------------- |
+| `list_scripts` | List configured scripts with lifecycle, terminal, port, proxy URL, and health metadata. |
+| `start_script` | Start a configured script through Pimi's managed launcher.                              |
+| `stop_script`  | Stop a running script through its supervised terminal.                                  |
 
 See [Git worktrees](/docs/worktrees#scripts-and-services) for `pimi.json` configuration.
 

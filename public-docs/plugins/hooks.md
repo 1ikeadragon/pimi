@@ -598,7 +598,7 @@ Creation request
   → resolve defaults and validate provider configuration
   → derive launch configuration with Pimi runtime tools and daemon prompt
   → agent.open.before hooks (same ordering; env and plugin-local tools and MCP servers)
-  → set PIMI_AGENT_ID, PIMI_AGENT_CWD, and PIMI_WORKSPACE_ID when the agent has a workspace
+  → set PIMI_AGENT_ID, PIMI_AGENT_CWD, and PIMI_CHAT_ID when the agent has a chat
   → open provider session and save agent configuration
 ```
 

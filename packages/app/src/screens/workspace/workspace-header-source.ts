@@ -44,15 +44,15 @@ function areHeaderLabelsEquivalent(
 
 export function resolveWorkspaceHeader(input: {
   workspace: WorkspaceDescriptor;
-  /** The primary chat's own title, the same string its tab and sidebar row show. */
-  primaryChatTitle: string | null;
+  /** The shown chat's own title, the same string its tab and sidebar row show. */
+  chatTitle: string | null;
 }): {
   title: string;
   subtitle: string;
 } {
   return {
     title: resolveChatTitle({
-      primaryTitle: input.primaryChatTitle,
+      primaryTitle: input.chatTitle,
       workspaceTitle: input.workspace.name,
       fallback: "New chat",
     }),
@@ -63,7 +63,7 @@ export function resolveWorkspaceHeader(input: {
 export function resolveWorkspaceHeaderRenderState(input: {
   workspace: WorkspaceDescriptor | null;
   checkoutState: WorkspaceHeaderCheckoutState;
-  primaryChatTitle: string | null;
+  chatTitle: string | null;
 }): WorkspaceHeaderRenderState {
   if (!input.workspace) {
     return { kind: "skeleton" };
@@ -71,7 +71,7 @@ export function resolveWorkspaceHeaderRenderState(input: {
 
   const header = resolveWorkspaceHeader({
     workspace: input.workspace,
-    primaryChatTitle: input.primaryChatTitle,
+    chatTitle: input.chatTitle,
   });
   const checkout = input.checkoutState.kind === "ready" ? input.checkoutState.checkout : null;
   const currentBranchName =

@@ -87,6 +87,7 @@ export function WorkspaceRenameHost() {
       visible={isOpen}
       workspace={workspace}
       onClose={handleClose}
+      chat="shown"
       testID="workspace-rename-modal-global"
     />
   );

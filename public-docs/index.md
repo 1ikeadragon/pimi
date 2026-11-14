@@ -35,7 +35,7 @@ Configuration and local state live under `PIMI_HOME` (defaults to `~/.pimi`).
 
 - [Run parallel tasks](/docs/parallel-development), use separate worktrees, review diffs, and test changes in the desktop app.
 - [Connectivity](/docs/connectivity), connect through the relay or Tailscale.
-- [Chats and workspaces](/docs/workspaces), the project, chat, and session model Pimi is built around.
+- [Chats](/docs/workspaces), the project, chat, and session model Pimi is built around.
 - [Providers](/docs/providers), what a provider is and how Pimi wraps existing CLIs.
 - [Orchestration](/docs/orchestration), let one agent delegate work to other providers and models.
 - [Plugins](/docs/plugins), add trusted local surfaces, sidebar actions, daemon behavior, and composer attachments.

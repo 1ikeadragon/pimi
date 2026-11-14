@@ -46,7 +46,7 @@ import {
   type WorkspaceServiceSummary,
 } from "@/components/sidebar/workspace-meta-row";
 import { useLabelMenuPages, LABEL_PAGE_ID } from "@/labels/picker";
-import { useWorkspacePrimaryChatTarget } from "@/labels/workspace-chat";
+import { useWorkspaceChatTarget } from "@/labels/workspace-chat";
 import { useChatTaskMenu } from "@/tasks/use-chat-task-menu";
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
@@ -178,7 +178,7 @@ function SidebarWorkspaceMenuItems({
   openInFileManagerPath,
 }: SidebarWorkspaceMenuItemsProps & { surface: MenuSurface }): ReactNode {
   const { t } = useTranslation();
-  const hasLabelTarget = useWorkspacePrimaryChatTarget(serverId, workspaceId ?? "") !== null;
+  const hasLabelTarget = useWorkspaceChatTarget(serverId, workspaceId ?? "") !== null;
   const taskMenu = useChatTaskMenu(serverId ?? "", workspaceId ?? "");
   const archiveTrailing = useMemo(
     () => (archiveShortcutKeys ? <Shortcut chord={archiveShortcutKeys} /> : null),
@@ -318,7 +318,7 @@ export function SidebarWorkspaceMenu({
   onOpenChange,
 }: SidebarWorkspaceMenuProps) {
   const { t } = useTranslation();
-  const labelTarget = useWorkspacePrimaryChatTarget(serverId, workspaceId ?? "");
+  const labelTarget = useWorkspaceChatTarget(serverId, workspaceId ?? "");
   const labelPages = useLabelMenuPages(serverId ?? "", labelTarget);
   const taskMenu = useChatTaskMenu(serverId ?? "", workspaceId ?? "");
   const pages = useMemo(() => [...labelPages, ...taskMenu.pages], [labelPages, taskMenu.pages]);
@@ -424,7 +424,7 @@ export function SidebarWorkspaceContextMenu({
       : null,
     t,
   });
-  const labelTarget = useWorkspacePrimaryChatTarget(workspace.serverId, workspace.workspaceId);
+  const labelTarget = useWorkspaceChatTarget(workspace.serverId, workspace.workspaceId);
   const labelPages = useLabelMenuPages(workspace.serverId, labelTarget);
   const taskMenu = useChatTaskMenu(workspace.serverId, workspace.workspaceId);
   const pages = useMemo(() => [...labelPages, ...taskMenu.pages], [labelPages, taskMenu.pages]);

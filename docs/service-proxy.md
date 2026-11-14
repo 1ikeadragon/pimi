@@ -1,6 +1,6 @@
 # Service Proxy
 
-Pimi proxies HTTP traffic to services running inside your workspaces. Localhost service URLs are always enabled; optional public aliases and a separate service-only listener can be layered on through config.
+Pimi proxies HTTP traffic to services running inside your chats. Localhost service URLs are always enabled; optional public aliases and a separate service-only listener can be layered on through config.
 
 ## How it works
 
@@ -26,17 +26,17 @@ dev--feature-auth--miniweb.localhost
 
 Local and public routes use one combined leftmost label (`script--branch--project`). This keeps the hostname compatible with normal single-level wildcard DNS and TLS. If the combined label would exceed DNS's 63-character label limit, Pimi truncates it with a deterministic hash suffix to avoid collisions.
 
-## Managing workspace scripts
+## Managing scripts
 
 Configured `pimi.json` scripts can be managed without addressing their backing terminal directly:
 
 ```bash
-pimi script ls [--cwd <path> | --workspace <workspace-id>]
-pimi script start <name> [--cwd <path> | --workspace <workspace-id>]
-pimi script stop <name> [--cwd <path> | --workspace <workspace-id>]
+pimi script ls [--cwd <path> | --chat <chat-id>]
+pimi script start <name> [--cwd <path> | --chat <chat-id>]
+pimi script stop <name> [--cwd <path> | --chat <chat-id>]
 ```
 
-The commands return the same script metadata shown by the workspace: lifecycle, service port, proxy URLs, health, exit code, and supervised terminal ID. `stop` terminates the managed terminal rather than only removing the proxy route, so normal script lifecycle cleanup remains authoritative. MCP exposes matching `list_workspace_scripts`, `start_workspace_script`, and `stop_workspace_script` tools; those require an explicit workspace ID.
+The commands return the same script metadata shown by the chat: lifecycle, service port, proxy URLs, health, exit code, and supervised terminal ID. `stop` terminates the managed terminal rather than only removing the proxy route, so normal script lifecycle cleanup remains authoritative. MCP exposes matching `list_scripts`, `start_script`, and `stop_script` tools; those require an explicit chat ID.
 
 ## Configuration
 
@@ -77,7 +77,7 @@ For generated URLs to be reachable, you need wildcard DNS pointing to the machin
 
 3. If you put a reverse proxy (nginx, Caddy, Traefik, etc.) in front of Pimi, point it at either the daemon listener or the optional service-only listener and ensure it forwards the `Host` header unchanged. The proxy uses the `Host` header to route requests to the correct service — rewriting it will break routing.
 
-Public service URLs expose the workspace service itself. Daemon password authentication protects daemon APIs; it does not protect proxied dev services.
+Public service URLs expose the service itself. Daemon password authentication protects daemon APIs; it does not protect proxied dev services.
 
 The daemon trusts forwarded headers from loopback proxies by default. If your proxy reaches the daemon from another address, configure the proxy ranges explicitly:
 
@@ -111,7 +111,7 @@ Nginx's `$host` drops the port. If you terminate on a non-default port, use `$ht
 
 ## Forwarded headers
 
-Pimi sets these when it forwards a request to a workspace service:
+Pimi sets these when it forwards a request to a chat service:
 
 | Header              | Value                                                                                                                                   |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |

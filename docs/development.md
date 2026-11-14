@@ -432,7 +432,7 @@ Service ports use OS ephemeral allocation by default. Set `worktrees.servicePort
 `pimi.json`. The block accepts an inclusive `range` such as `"3000-4000"` or a `portScript`
 executable. Since `portScript` is executed directly without a shell, it must point to a real executable (e.g., a binary or a script with a proper shebang like `#!/bin/sh`) rather than an inline shell command or shell pipeline. For inline shell commands or pipelines, wrap them in a small script. `portScript` runs in the workspace directory with four arguments: service name,
 workspace ID, branch name, and worktree path. A missing branch is passed as an empty string. The same
-values are available as `PIMI_SCRIPTNAME`, `PIMI_WORKSPACE_ID`, `PIMI_BRANCH_NAME`, and
+values are available as `PIMI_SCRIPTNAME`, `PIMI_CHAT_ID`, `PIMI_BRANCH_NAME`, and
 `PIMI_WORKTREE_PATH`. The script must print one valid TCP port. Pimi trusts the external allocator,
 so the port may already be bound. `portScript` takes precedence when both values are present.
 
@@ -598,7 +598,7 @@ install.
 
 Use `npm run cli` to run the in-repo CLI from source (`npx tsx packages/cli/src/index.ts`). The script wraps the CLI with `scripts/dev-home.sh`, so it automatically uses this checkout's `.dev/pimi-home` and dev daemon endpoint unless you pass an explicit override. The globally installed `pimi` binary on macOS is a symlink into the installed Pimi desktop app, not this checkout — use it to drive the desktop's built-in daemon, but use `npm run cli` when you want to talk to the CLI you are editing.
 
-Canonical automation uses `pimi project create/ls/rename/delete`, `pimi workspace create/ls/rename/archive`, `pimi heartbeat create/update/delete/ls`, and the `pimi automation` group. Agent heartbeat tools are smaller: create, list, and delete. Detach remains an explicit user lifecycle action rather than an agent tool. `pimi run --new-workspace local|worktree` composes workspace creation with agent creation.
+Canonical automation uses `pimi project create/ls/rename/delete`, `pimi chat create/ls/rename/archive`, `pimi heartbeat create/update/delete/ls`, and the `pimi automation` group. Agent heartbeat tools are smaller: create, list, and delete. Detach remains an explicit user lifecycle action rather than an agent tool. `pimi run --new-chat local|worktree` composes chat creation with agent creation.
 
 ```bash
 npm run cli -- ls -a -g              # List all agents globally

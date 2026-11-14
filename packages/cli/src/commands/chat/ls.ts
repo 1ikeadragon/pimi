@@ -1,24 +1,19 @@
 import type { Command } from "commander";
 import { connectToDaemon, getDaemonHost } from "../../utils/client.js";
 import type { CommandError, ListResult } from "../../output/index.js";
-import {
-  toWorkspaceRow,
-  workspaceSchema,
-  workspaceWithBackgroundSchema,
-  type WorkspaceRow,
-} from "./shared.js";
+import { toChatRow, chatSchema, chatWithBackgroundSchema, type ChatRow } from "./shared.js";
 
-export interface WorkspaceLsOptions {
+export interface ChatLsOptions {
   host?: string;
   daemonTarget: import("../../utils/daemon-target.js").DaemonTarget;
-  /** --background: Include background workspaces */
+  /** --background: Include background chats */
   background?: boolean;
 }
 
 export async function runLsCommand(
-  options: WorkspaceLsOptions,
+  options: ChatLsOptions,
   _command: Command,
-): Promise<ListResult<WorkspaceRow>> {
+): Promise<ListResult<ChatRow>> {
   const host = getDaemonHost({ target: options.daemonTarget });
   const client = await connectToDaemon({ target: options.daemonTarget }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
@@ -28,20 +23,20 @@ export async function runLsCommand(
     } satisfies CommandError;
   });
   try {
-    const workspaces: WorkspaceRow[] = [];
+    const chats: ChatRow[] = [];
     let cursor: string | undefined;
     do {
       const payload = await client.fetchWorkspaces({
         ...(options.background ? { filter: { includeBackground: true } } : {}),
         page: { limit: 200, ...(cursor ? { cursor } : {}) },
       });
-      workspaces.push(...payload.entries.map(toWorkspaceRow));
+      chats.push(...payload.entries.map(toChatRow));
       cursor = payload.pageInfo.nextCursor ?? undefined;
     } while (cursor);
     return {
       type: "list",
-      data: workspaces,
-      schema: options.background ? workspaceWithBackgroundSchema : workspaceSchema,
+      data: chats,
+      schema: options.background ? chatWithBackgroundSchema : chatSchema,
     };
   } finally {
     await client.close().catch(() => undefined);

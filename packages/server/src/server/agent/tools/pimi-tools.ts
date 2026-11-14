@@ -128,7 +128,9 @@ import type {
   ProjectRegistry,
   WorkspaceRegistry,
 } from "../../workspace-registry.js";
+import { resolveProjectDisplayName } from "../../workspace-registry.js";
 import { resolveWorktreeSourceCwd } from "../../workspace-source.js";
+import { resolveProjectReference } from "../../resolve-project-reference.js";
 import type { WorkspaceScriptsService } from "../../session/workspace-scripts/workspace-scripts-service.js";
 import {
   type ArchiveCommandDependencies,
@@ -232,9 +234,10 @@ export interface PimiToolHostDependencies {
   logger: Logger;
 }
 
-const WorkspaceAutomationSummarySchema = z.object({
-  parentWorkspaceId: z.string().optional(),
-  workspaceId: z.string(),
+// The agent-facing view of a workspace record: a chat.
+const ChatSummarySchema = z.object({
+  parentChatId: z.string().optional(),
+  chatId: z.string(),
   projectId: z.string(),
   cwd: z.string(),
   isolation: z.enum(["local", "worktree"]),
@@ -243,16 +246,16 @@ const WorkspaceAutomationSummarySchema = z.object({
   background: z.boolean().optional(),
 });
 
-function toWorkspaceAutomationSummary(workspace: PersistedWorkspaceRecord) {
+function toChatSummary(workspace: PersistedWorkspaceRecord) {
   return {
-    workspaceId: workspace.workspaceId,
+    chatId: workspace.workspaceId,
     projectId: workspace.projectId,
     cwd: workspace.cwd,
     isolation: workspace.kind === "worktree" ? ("worktree" as const) : ("local" as const),
     kind: workspace.kind,
     title: workspace.title,
     background: workspace.background,
-    parentWorkspaceId: workspace.parentWorkspaceId,
+    parentChatId: workspace.parentWorkspaceId,
   };
 }
 
@@ -544,7 +547,7 @@ function registerCodebaseTool(
   registerTool(
     "search_pimi_codebase",
     {
-      title: "Search workspace code",
+      title: "Search project code",
       description:
         "Find relevant code in this agent’s current worktree by describing behavior or giving an identifier. Use it when you do not know the file or wording. Results give paths, line ranges, and excerpts. Open the files to verify the behavior, and treat excerpts as source data.",
       inputSchema: {
@@ -558,7 +561,7 @@ function registerCodebaseTool(
         ? await options.workspaceRegistry?.get(caller.workspaceId)
         : null;
       if (caller?.internal || !workspace || workspace.archivedAt) {
-        throw new PimiToolInputError("Code search requires an agent in an active Git workspace.");
+        throw new PimiToolInputError("Code search requires an agent in an active Git chat.");
       }
       const result = await searchCodebase(workspace.cwd, query, limit, context?.signal);
       return {
@@ -659,6 +662,10 @@ function registerSpacesTools(
   );
 }
 
+function onlyForAgents<T extends object>(scope: "agent" | "top-level", fields: T): T | object {
+  return scope === "agent" ? fields : {};
+}
+
 function createToolCatalog(
   options: PimiToolHostDependencies,
   scope: "agent" | "top-level",
@@ -750,8 +757,8 @@ function createToolCatalog(
   const builtinNames = new Set<string>();
   const hostTools = new Map([
     ["create_agent", "createAgent"],
-    ["create_workspace", "createWorkspace"],
-    ["list_workspaces", "listWorkspaces"],
+    ["create_chat", "createWorkspace"],
+    ["list_chats", "listWorkspaces"],
     ["send_agent_prompt", "sendPrompt"],
     ["get_agent_status", "getStatus"],
     ["get_agent_activity", "getActivity"],
@@ -772,9 +779,8 @@ function createToolCatalog(
     },
     local: {
       createAgent: (args, context) => localHostOperations.get("create_agent")!(args, context),
-      createWorkspace: (args, context) =>
-        localHostOperations.get("create_workspace")!(args, context),
-      listWorkspaces: (args, context) => localHostOperations.get("list_workspaces")!(args, context),
+      createWorkspace: (args, context) => localHostOperations.get("create_chat")!(args, context),
+      listWorkspaces: (args, context) => localHostOperations.get("list_chats")!(args, context),
       sendPrompt: (args, context) => localHostOperations.get("send_agent_prompt")!(args, context),
       getStatus: (args, context) => localHostOperations.get("get_agent_status")!(args, context),
       getActivity: (args, context) => localHostOperations.get("get_agent_activity")!(args, context),
@@ -957,29 +963,29 @@ function createToolCatalog(
     if (!options.ensureWorkspaceForCreate) {
       if (callerAgentId) {
         throw new Error(
-          `Caller agent ${callerAgentId} has no workspace and workspace minting is not configured`,
+          `Caller agent ${callerAgentId} has no chat and chat minting is not configured`,
         );
       }
-      throw new PimiToolInputError("workspaceId is required outside an agent-scoped session");
+      throw new PimiToolInputError("chatId is required outside an agent-scoped session");
     }
 
     return options.ensureWorkspaceForCreate(resolvedCwd);
   }
 
-  function resolveWorkspaceIdForRename(requestedWorkspaceId?: string): string {
-    const explicitWorkspaceId = requestedWorkspaceId?.trim();
-    if (explicitWorkspaceId) {
-      return explicitWorkspaceId;
+  function resolveWorkspaceIdForRename(requestedChatId?: string): string {
+    const explicitChatId = requestedChatId?.trim();
+    if (explicitChatId) {
+      return explicitChatId;
     }
 
     if (callerAgentId) {
       const callerAgent = resolveCallerAgent();
       if (!callerAgent?.workspaceId) {
-        throw new PimiToolInputError(`Caller agent ${callerAgentId} has no current workspace`);
+        throw new PimiToolInputError(`Caller agent ${callerAgentId} has no current chat`);
       }
       return callerAgent.workspaceId;
     }
-    throw new PimiToolInputError("workspaceId is required outside an agent-scoped session");
+    throw new PimiToolInputError("chatId is required outside an agent-scoped session");
   }
 
   function requireAutomationService(): AutomationService {
@@ -1198,12 +1204,12 @@ function createToolCatalog(
   };
   const canonicalCreateAgentFields = {
     ...commonCreateAgentFields,
-    workspaceId: z
+    chatId: z
       .string()
       .min(1)
       .optional()
       .describe(
-        "Omit to use your own workspace (top-level calls create a new local one). Pass only an id from list_workspaces or create_workspace.",
+        "Omit to work in your own chat (top-level calls open a new local one). Pass a chatId from list_chats or create_chat to put the worker in another chat, for example one on a fresh worktree.",
       ),
   };
   const agentToAgentInputSchema = {
@@ -1374,15 +1380,11 @@ function createToolCatalog(
           agent.internal ||
           agent.background
         ) {
-          throw new PimiToolInputError(
-            "Review suggestions are available in interactive workspace chats.",
-          );
+          throw new PimiToolInputError("Review suggestions are available in interactive chats.");
         }
         const workspace = await options.workspaceRegistry?.get(agent.workspaceId);
         if (!workspace || workspace.archivedAt || !workspace.worktreeRoot) {
-          throw new PimiToolInputError(
-            "The current workspace has no available Git worktree to review.",
-          );
+          throw new PimiToolInputError("This chat has no available Git worktree to review.");
         }
         const result = {
           pimiReviewSuggestion: {
@@ -1428,7 +1430,7 @@ function createToolCatalog(
             : null;
         if (caller?.internal || !project || project.archivedAt) {
           throw new PimiToolInputError(
-            "Project memory requires an agent in an active project workspace.",
+            "Project memory requires an agent in an active project chat.",
           );
         }
         return project.projectId;
@@ -1492,7 +1494,7 @@ function createToolCatalog(
     {
       title: "List hosts",
       description:
-        "List this computer and the other machines you can start agents on. Pass a machine's serverId to create_workspace, list_workspaces, list_providers, list_models, create_agent and the agent follow-up tools. A host not online cannot be used yet.",
+        "List this computer and the other machines you can start agents on. Pass a machine's serverId to create_chat, list_chats, list_providers, list_models, create_agent and the agent follow-up tools. A host not online cannot be used yet.",
       inputSchema: {},
     },
     async () => ({
@@ -1501,26 +1503,206 @@ function createToolCatalog(
     }),
   );
 
+  const agentCreationDependencies = () => ({
+    agentManager,
+    agentStorage,
+    finishSubscriptions: options.finishSubscriptions?.(),
+    logger: childLogger,
+    pimiHome: options.pimiHome,
+    worktreesRoot: options.worktreesRoot,
+    terminalManager,
+    providerSnapshotManager,
+    createPimiWorktree: options.createPimiWorktree,
+    ...(options.ensureWorkspaceForCreate
+      ? { ensureWorkspaceForCreate: options.ensureWorkspaceForCreate }
+      : {}),
+    getAgentProfiles: () => daemonConfigStore?.get().agentProfiles ?? [],
+  });
+
+  interface CreateChatArgs {
+    isolation: "local" | "worktree";
+    path?: string;
+    project?: string;
+    title?: string;
+    background?: boolean;
+    mode?: WorkspaceWorktreeMode;
+    worktreeSlug?: string;
+    branchName?: string;
+    baseBranch?: string;
+    branch?: string;
+    prNumber?: number;
+    forge?: string;
+    initialPrompt?: string;
+    provider?: string;
+    profile?: string;
+    settings?: z.infer<typeof CreateAgentSettingsInputSchema>;
+    inheritContext?: true;
+  }
+  interface ChatProject {
+    projectId?: string;
+    projectRoot?: string;
+  }
+  interface ChatIntent {
+    background?: boolean;
+    callerWorkspaceId?: string;
+  }
+
+  async function resolveChatProject(project: string | undefined): Promise<ChatProject> {
+    if (!project) return {};
+    if (!options.projectRegistry) {
+      throw new Error("Project registry is not configured");
+    }
+    const record = resolveProjectReference(await options.projectRegistry.list(), project);
+    const lockedCwd = callerContext?.lockedCwd?.trim();
+    if (lockedCwd && !isSameOrDescendantPath(expandUserPath(lockedCwd), record.rootPath)) {
+      throw new PimiToolInputError(
+        `Project "${resolveProjectDisplayName(record)}" is outside the allowed cwd`,
+      );
+    }
+    return { projectId: record.projectId, projectRoot: record.rootPath };
+  }
+
+  async function prepareChatAgent(args: CreateChatArgs) {
+    const { initialPrompt, title } = args;
+    if (initialPrompt === undefined) return undefined;
+    if (!title) throw new PimiToolInputError("title is required with initialPrompt");
+    if (callerAgentId && (await options.attackService?.runIdForAgent(callerAgentId))) {
+      throw new PimiToolInputError("Use create_agent inside an Attack run.");
+    }
+    const named = (await withDefaultModel(
+      withProfileProvider({ provider: args.provider, profile: args.profile }),
+    )) as { provider?: string };
+    if (!named.provider) {
+      throw new PimiToolInputError(
+        "provider is required with initialPrompt: name one, or a profile that sets one.",
+      );
+    }
+    const context =
+      callerAgentId && args.inheritContext
+        ? await agentManager.buildForkContext(callerAgentId)
+        : undefined;
+    return {
+      provider: named.provider,
+      title,
+      initialPrompt,
+      attachments: context ? [context.attachment] : undefined,
+    };
+  }
+
+  async function provisionLocalChat(
+    args: CreateChatArgs,
+    project: ChatProject,
+    title: string | undefined,
+    intent: ChatIntent,
+  ): Promise<PersistedWorkspaceRecord> {
+    const cwd =
+      args.path === undefined && project.projectRoot
+        ? project.projectRoot
+        : resolveScopedCwd(args.path, { required: true });
+    if (!(await isExistingDirectory(cwd))) {
+      throw new PimiToolInputError(`Directory not found: ${cwd}`);
+    }
+    assertOptionsAbsent(
+      [
+        ["mode", args.mode],
+        ["worktreeSlug", args.worktreeSlug],
+        ["branchName", args.branchName],
+        ["baseBranch", args.baseBranch],
+        ["branch", args.branch],
+        ["prNumber", args.prNumber],
+        ["forge", args.forge],
+      ],
+      "Worktree options require isolation worktree",
+    );
+    if (!options.createDirectoryWorkspace) {
+      throw new Error("Chat provisioning is not configured");
+    }
+    return options.createDirectoryWorkspace(cwd, title, project.projectId, intent);
+  }
+
+  async function provisionWorktreeChat(
+    args: CreateChatArgs,
+    project: ChatProject,
+    title: string | undefined,
+    intent: ChatIntent,
+  ): Promise<PersistedWorkspaceRecord> {
+    const { projectId } = project;
+    let cwd =
+      args.path !== undefined || !projectId
+        ? resolveScopedCwd(args.path, { required: true })
+        : null;
+    if (!cwd) {
+      if (!options.projectRegistry) {
+        throw new Error("Project registry is not configured");
+      }
+      cwd = await resolveWorktreeSourceCwd({ projectId }, options.projectRegistry);
+    }
+    const worktreeTarget = resolveWorkspaceWorktreeTarget({
+      mode: args.mode,
+      worktreeSlug: args.worktreeSlug,
+      branchName: args.branchName,
+      baseBranch: args.baseBranch,
+      branch: args.branch,
+      prNumber: args.prNumber,
+      forge: args.forge,
+    });
+    const result = await createPimiWorktreeCommand(
+      {
+        pimiHome: options.pimiHome,
+        worktreesRoot: options.worktreesRoot,
+        createPimiWorktreeWorkflow: options.createPimiWorktree,
+      },
+      {
+        cwd,
+        ...(projectId ? { projectId } : {}),
+        ...(args.worktreeSlug ? { worktreeSlug: args.worktreeSlug } : {}),
+        ...worktreeTarget,
+        ...(title ? { title } : {}),
+        ...intent,
+      },
+    );
+    if (!result.ok) {
+      throw result.cause;
+    }
+    return result.createdWorktree.workspace;
+  }
+
   registerTool(
-    "create_workspace",
+    "create_chat",
     {
-      title: "Create workspace",
-      description: "Create a workspace from an existing local checkout or a new managed worktree.",
+      title: "Create chat",
+      description:
+        "Open a new top-level chat in the sidebar, in your project or the one named by project. With initialPrompt an agent starts there on its own: it is not your subagent, shows no card here, is not archived with you, and sends you no finish notification. Use this when the user asks to open or start a new chat. Without initialPrompt the chat is empty; pass its chatId to create_agent to put a worker on a fresh worktree.",
       inputSchema: {
-        isolation: z.enum(["local", "worktree"]),
+        isolation: z
+          .enum(["local", "worktree"])
+          .optional()
+          .default("local")
+          .describe("local reuses an existing folder. worktree cuts a new git worktree."),
         path: z
           .string()
           .optional()
           .describe(
-            "Local directory or source checkout. Defaults to your current workspace. Local isolation adopts an existing directory, never creates one. On another host it is required and must already exist there; ask the user if none was named and list_workspaces has no match.",
+            "Local directory or source checkout. Defaults to the project's folder, or your own. Local isolation adopts an existing directory, never creates one. On another host it is required and must already exist there; ask the user if none was named and list_chats has no match.",
           ),
-        projectId: z.string().optional().describe("Existing project id to own the workspace."),
-        title: z.string().trim().min(1).optional(),
+        project: z
+          .string()
+          .optional()
+          .describe(
+            "Project id or name; the chat opens in that project's folder. Omit for your own project.",
+          ),
+        title: z
+          .string()
+          .trim()
+          .min(1)
+          .max(60)
+          .optional()
+          .describe("Chat title. With initialPrompt it is the agent's title and is required."),
         background: z
           .boolean()
           .optional()
           .describe(
-            "True hides the workspace from default lists and the sidebar; its contents stay durable and accessible. Omit to inherit your own visibility, and override only when the user explicitly asks.",
+            "True hides the chat from default lists and the sidebar; its contents stay durable and accessible. Omit to inherit your own visibility, and override only when the user explicitly asks. Not accepted with initialPrompt.",
           ),
         mode: z
           .enum(["branch-off", "checkout-branch", "checkout-pr"])
@@ -1552,139 +1734,166 @@ function createToolCatalog(
           .min(1)
           .optional()
           .describe("Forge for checkout-pr mode. Defaults to the source checkout."),
+        initialPrompt: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe(
+            "First task for an agent that starts in the new chat. Omit for an empty chat. Needs title.",
+          ),
+        provider: ProviderOrProviderModelInputSchema.optional().describe(
+          "With initialPrompt: provider/model, for example codex/gpt-5.4, or a provider alone for its default model. Omit for the profile's provider and model, or your own without one.",
+        ),
+        profile: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("With initialPrompt: profile id or name from list_profiles."),
+        settings: CreateAgentSettingsInputSchema.optional().describe(
+          "With initialPrompt: initial runtime settings.",
+        ),
+        ...onlyForAgents(scope, {
+          inheritContext: z
+            .literal(true)
+            .optional()
+            .describe(
+              "With initialPrompt: attach the current chat as reference. Same host only; history may be shortened.",
+            ),
+        }),
       },
-      outputSchema: WorkspaceAutomationSummarySchema.shape,
+      outputSchema: { ...ChatSummarySchema.shape, agentId: z.string().optional() },
     },
-    async ({
-      isolation,
-      path,
-      projectId,
-      title,
-      background,
-      mode,
-      worktreeSlug,
-      branchName,
-      baseBranch,
-      branch,
-      prNumber,
-      forge,
-    }) => {
-      let workspace: PersistedWorkspaceRecord;
-      if (isolation === "local") {
-        const cwd = resolveScopedCwd(path, { required: true });
-        if (!(await isExistingDirectory(cwd))) {
-          throw new PimiToolInputError(`Directory not found: ${cwd}`);
-        }
-        assertOptionsAbsent(
-          [
-            ["mode", mode],
-            ["worktreeSlug", worktreeSlug],
-            ["branchName", branchName],
-            ["baseBranch", baseBranch],
-            ["branch", branch],
-            ["prNumber", prNumber],
-            ["forge", forge],
-          ],
-          "Worktree options require isolation worktree",
-        );
-        if (!options.createDirectoryWorkspace) {
-          throw new Error("Workspace provisioning is not configured");
-        }
-        workspace = await options.createDirectoryWorkspace(
-          cwd,
-          title,
-          projectId,
-          workspaceBackgroundIntent(background),
-        );
-      } else {
-        let cwd =
-          path !== undefined || !projectId ? resolveScopedCwd(path, { required: true }) : null;
-        if (!cwd) {
-          if (!options.projectRegistry) {
-            throw new Error("Project registry is not configured");
-          }
-          cwd = await resolveWorktreeSourceCwd({ projectId }, options.projectRegistry);
-        }
-        const worktreeTarget = resolveWorkspaceWorktreeTarget({
-          mode,
-          worktreeSlug,
-          branchName,
-          baseBranch,
-          branch,
-          prNumber,
-          forge,
-        });
-        const result = await createPimiWorktreeCommand(
-          {
-            pimiHome: options.pimiHome,
-            worktreesRoot: options.worktreesRoot,
-            createPimiWorktreeWorkflow: options.createPimiWorktree,
-          },
-          {
-            cwd,
-            ...(projectId ? { projectId } : {}),
-            ...(worktreeSlug ? { worktreeSlug } : {}),
-            ...worktreeTarget,
-            ...(title ? { title } : {}),
-            ...workspaceBackgroundIntent(background),
-          },
-        );
-        if (!result.ok) {
-          throw result.cause;
-        }
-        workspace = result.createdWorktree.workspace;
-      }
+    async (args: CreateChatArgs) => {
+      const starts = args.initialPrompt !== undefined;
+      assertOptionsAbsent(
+        starts
+          ? [["background", args.background]]
+          : [
+              ["provider", args.provider],
+              ["profile", args.profile],
+              ["settings", args.settings],
+              ["inheritContext", args.inheritContext],
+            ],
+        starts
+          ? "background is not accepted with initialPrompt"
+          : "provider, profile, settings and inheritContext start an agent and need initialPrompt",
+      );
+      const project = await resolveChatProject(args.project);
+      // Everything an agent needs is resolved before the chat exists, so a bad request leaves
+      // no empty chat behind.
+      const agentStart = await prepareChatAgent(args);
+      // An independent chat is a top-level record: it neither inherits the caller's visibility
+      // nor records the caller as its parent, and its title belongs to its agent.
+      const intent = starts ? { background: false } : workspaceBackgroundIntent(args.background);
+      const recordTitle = starts ? undefined : args.title;
+      const workspace =
+        args.isolation === "local"
+          ? await provisionLocalChat(args, project, recordTitle, intent)
+          : await provisionWorktreeChat(args, project, recordTitle, intent);
 
+      if (!agentStart) {
+        return {
+          content: [],
+          structuredContent: ensureValidJson(toChatSummary(workspace)),
+        };
+      }
+      // No callerAgentId: the agent carries no parent label, so it is not the caller's
+      // subagent, is not archived with it, and notifies no one.
+      const { snapshot } = await createAgentCommand(agentCreationDependencies(), {
+        kind: "mcp",
+        provider: agentStart.provider,
+        profile: args.profile,
+        title: agentStart.title,
+        initialPrompt: agentStart.initialPrompt,
+        attachments: agentStart.attachments,
+        config: resolveInheritedProviderConfig(
+          resolveRequiredProviderModel(agentStart.provider).provider,
+        ),
+        cwd: workspace.cwd,
+        workspaceId: workspace.workspaceId,
+        thinking: args.settings?.thinkingOptionId,
+        features: args.settings?.features,
+        mode: args.settings?.modeId,
+        promptFailure: "throw",
+        notifyOnFinish: false,
+      });
       return {
         content: [],
-        structuredContent: ensureValidJson(toWorkspaceAutomationSummary(workspace)),
+        structuredContent: ensureValidJson({ ...toChatSummary(workspace), agentId: snapshot.id }),
       };
     },
   );
 
   registerTool(
-    "list_workspaces",
+    "list_chats",
     {
-      title: "List workspaces",
-      description: "List active workspaces.",
+      title: "List chats",
+      description: "List active chats.",
       inputSchema: { includeBackground: z.boolean().optional().default(false) },
-      outputSchema: { workspaces: z.array(WorkspaceAutomationSummarySchema) },
+      outputSchema: { chats: z.array(ChatSummarySchema) },
     },
     async ({ includeBackground = false }) => {
       if (!options.workspaceRegistry) {
-        throw new Error("Workspace registry is not configured");
+        throw new Error("Chat registry is not configured");
       }
-      const workspaces = (await options.workspaceRegistry.listActive())
+      const chats = (await options.workspaceRegistry.listActive())
         .filter(
           (workspace) => !workspace.archivedAt && (includeBackground || !workspace.background),
         )
-        .map(toWorkspaceAutomationSummary);
+        .map(toChatSummary);
       return {
         content: [],
-        structuredContent: ensureValidJson({ workspaces }),
+        structuredContent: ensureValidJson({ chats }),
       };
     },
   );
 
   registerTool(
-    "archive_workspace",
+    "list_projects",
     {
-      title: "Archive workspace",
-      description: "Archive a workspace and everything it owns.",
-      inputSchema: { workspaceId: z.string().min(1) },
+      title: "List projects",
+      description:
+        "List the user's projects. Pass a project's id or name as project to create_chat to open a chat there.",
+      inputSchema: {},
       outputSchema: {
-        workspaceId: z.string(),
+        projects: z.array(z.object({ projectId: z.string(), name: z.string(), path: z.string() })),
+      },
+    },
+    async () => {
+      if (!options.projectRegistry) {
+        throw new Error("Project registry is not configured");
+      }
+      const projects = (await options.projectRegistry.list())
+        .filter((project) => !project.archivedAt)
+        .map((project) => ({
+          projectId: project.projectId,
+          name: resolveProjectDisplayName(project),
+          path: project.rootPath,
+        }));
+      return { content: [], structuredContent: ensureValidJson({ projects }) };
+    },
+  );
+
+  registerTool(
+    "archive_chat",
+    {
+      title: "Archive chat",
+      description: "Archive a chat and everything it owns.",
+      inputSchema: { chatId: z.string().min(1) },
+      outputSchema: {
+        chatId: z.string(),
         archivedAgentIds: z.array(z.string()),
         removedDirectory: z.boolean(),
       },
     },
-    async ({ workspaceId }) => {
+    async ({ chatId }) => {
       if (!options.listActiveWorkspaces) {
-        throw new Error("Active workspace lister is required to archive workspaces");
+        throw new Error("Active chat lister is required to archive chats");
       }
       const workspace = await requireActiveWorkspaceForArchive(
         { listActiveWorkspaces: options.listActiveWorkspaces },
-        workspaceId,
+        chatId,
       );
       const result = await archiveByScope(
         archiveWorktreeDependencies(options, {
@@ -1694,14 +1903,14 @@ function createToolCatalog(
           logger: childLogger,
         }),
         {
-          requestId: "mcp:archive_workspace",
+          requestId: "mcp:archive_chat",
           scope: { kind: "workspace", workspaceId: workspace.workspaceId },
         },
       );
       return {
         content: [],
         structuredContent: ensureValidJson({
-          workspaceId,
+          chatId,
           archivedAgentIds: result.archivedAgentIds,
           removedDirectory: result.removedDirectory,
         }),
@@ -1715,15 +1924,15 @@ function createToolCatalog(
       title: "Create agent",
       description:
         scope === "agent"
-          ? "Create an agent in your workspace as your subagent; the user sees it as a card in this chat. Needs an initialPrompt. Create one per worker the user asked for, even on your own provider, and omit provider when no provider or model was named. Set inheritContext: true for work discussed in this chat unless the user wants an independent view. Keep the user's edit and launch constraints, use separate worktrees for parallel edits, and add the work to the Tasks board only when asked to track it. provider is a provider (codex) or provider/model (codex/gpt-5.4); omitted, it is your own. For another provider, omitting settings.modeId uses its default mode. Do not guess ids: call list_providers and list_models if unsure. For a machine the user names, call list_hosts and pass its serverId, a workspaceId from list_workspaces or create_workspace there, and a provider/model from list_providers and list_models there; inheritContext, profile and cwd are this-host only."
-          : "Create an agent. Without workspaceId it creates a new local workspace. Needs an initialPrompt and either a provider (codex, or codex/gpt-5.4 for a model) or a profile that sets one. Omitting settings.modeId uses the provider's default mode. Do not guess ids: call list_providers and list_models if unsure. For a machine the user names, call list_hosts and pass its serverId, a workspaceId from list_workspaces or create_workspace there, and a provider/model from list_providers and list_models there; inheritContext, profile and cwd are this-host only.",
+          ? "Starts a worker for this chat. When the user asks to open or start a new chat, call create_chat with initialPrompt instead. Creates an agent in your chat as your subagent; the user sees it as a card in this chat. Needs an initialPrompt. Create one per worker the user asked for, even on your own provider, and omit provider when no provider or model was named. Set inheritContext: true for work discussed in this chat unless the user wants an independent view. Keep the user's edit and launch constraints, use separate worktrees for parallel edits, and add the work to the Tasks board only when asked to track it. provider is a provider (codex) or provider/model (codex/gpt-5.4); omitted, it is your own. For another provider, omitting settings.modeId uses its default mode. Do not guess ids: call list_providers and list_models if unsure. For a machine the user names, call list_hosts and pass its serverId, a chatId from list_chats or create_chat there, and a provider/model from list_providers and list_models there; inheritContext, profile and cwd are this-host only."
+          : "Create an agent. Without chatId it opens a new local chat. Needs an initialPrompt and either a provider (codex, or codex/gpt-5.4 for a model) or a profile that sets one. Omitting settings.modeId uses the provider's default mode. Do not guess ids: call list_providers and list_models if unsure. For a machine the user names, call list_hosts and pass its serverId, a chatId from list_chats or create_chat there, and a provider/model from list_providers and list_models there; inheritContext, profile and cwd are this-host only.",
       inputSchema: createAgentInputSchema,
       outputSchema: {
         agentId: z.string(),
         type: AgentProviderEnum,
         status: AgentStatusEnum,
         cwd: z.string(),
-        workspaceId: z.string().optional(),
+        chatId: z.string().optional(),
         currentModeId: z.string().nullable(),
         availableModes: z.array(ProviderModeSchema),
         guidance: z.string().optional(),
@@ -1744,21 +1953,7 @@ function createToolCatalog(
         ? await options.attackService?.runIdForAgent(callerAgentId)
         : null;
       const { snapshot, initialPromptStarted } = await createAgentCommand(
-        {
-          agentManager,
-          agentStorage,
-          finishSubscriptions: options.finishSubscriptions?.(),
-          logger: childLogger,
-          pimiHome: options.pimiHome,
-          worktreesRoot: options.worktreesRoot,
-          terminalManager,
-          providerSnapshotManager,
-          createPimiWorktree: options.createPimiWorktree,
-          ...(options.ensureWorkspaceForCreate
-            ? { ensureWorkspaceForCreate: options.ensureWorkspaceForCreate }
-            : {}),
-          getAgentProfiles: () => daemonConfigStore?.get().agentProfiles ?? [],
-        },
+        agentCreationDependencies(),
         {
           kind: "mcp",
           provider: parsedArgs.provider,
@@ -1799,7 +1994,7 @@ function createToolCatalog(
         type: snapshot.provider,
         status: currentSnapshot.lifecycle,
         cwd: currentSnapshot.cwd,
-        ...(currentSnapshot.workspaceId ? { workspaceId: currentSnapshot.workspaceId } : {}),
+        ...(currentSnapshot.workspaceId ? { chatId: currentSnapshot.workspaceId } : {}),
         currentModeId: currentSnapshot.currentModeId,
         availableModes: currentSnapshot.availableModes,
         guidance,
@@ -1904,16 +2099,15 @@ function createToolCatalog(
   async function resolveCreateAgentToolArgs(args: unknown): Promise<ResolvedCreateAgentToolArgs> {
     if (callerAgentId) {
       const parsed = parseToolArguments(agentToAgentCreateAgentArgsSchema, args);
-      const { cwd, workspaceId } = await resolveCanonicalCreateAgentWorkspace(parsed.workspaceId, {
+      const { cwd, workspaceId } = await resolveCanonicalCreateAgentWorkspace(parsed.chatId, {
         prompt: parsed.initialPrompt,
       });
       return { kind: "agent-scoped", parsedArgs: parsed, cwd, workspaceId };
     }
     const parsedArgs = parseToolArguments(canonicalTopLevelCreateAgentArgsSchema, args);
-    const { cwd, workspaceId } = await resolveCanonicalCreateAgentWorkspace(
-      parsedArgs.workspaceId,
-      { prompt: parsedArgs.initialPrompt },
-    );
+    const { cwd, workspaceId } = await resolveCanonicalCreateAgentWorkspace(parsedArgs.chatId, {
+      prompt: parsedArgs.initialPrompt,
+    });
     return { kind: "top-level", parsedArgs, cwd, workspaceId };
   }
 
@@ -1926,23 +2120,23 @@ function createToolCatalog(
   }> {
     if (workspaceId) {
       if (!options.listActiveWorkspaces) {
-        throw new Error("Workspace lookup is not configured");
+        throw new Error("Chat lookup is not configured");
       }
       const existingWorkspace = (await options.listActiveWorkspaces()).find(
         (candidate) => candidate.workspaceId === workspaceId,
       );
       if (!existingWorkspace) {
-        throw new PimiToolInputError(`Workspace ${workspaceId} not found`);
+        throw new PimiToolInputError(`Chat ${workspaceId} not found`);
       }
       const lockedCwd = callerContext?.lockedCwd?.trim();
       if (lockedCwd && !isSameOrDescendantPath(expandUserPath(lockedCwd), existingWorkspace.cwd)) {
-        throw new PimiToolInputError(`Workspace ${workspaceId} is outside the allowed cwd`);
+        throw new PimiToolInputError(`Chat ${workspaceId} is outside the allowed cwd`);
       }
       return { cwd: existingWorkspace.cwd, workspaceId };
     }
     if (!callerAgentId) {
       if (!options.ensureWorkspaceForCreate) {
-        throw new Error("Workspace creation is not configured");
+        throw new Error("Chat creation is not configured");
       }
       const cwd = process.cwd();
       return {
@@ -1956,7 +2150,7 @@ function createToolCatalog(
     }
     const caller = resolveCallerAgent();
     if (!caller?.workspaceId) {
-      throw new PimiToolInputError(`Caller agent ${callerAgentId} has no current workspace`);
+      throw new PimiToolInputError(`Caller agent ${callerAgentId} has no current chat`);
     }
     return { cwd: undefined, workspaceId: caller.workspaceId };
   }
@@ -2151,11 +2345,11 @@ function createToolCatalog(
     "list_agents",
     {
       title: "List agents",
-      description: "List agents as compact metadata. Use workspaceId for one exact workspace.",
+      description: "List agents as compact metadata. Use chatId for one exact chat.",
       inputSchema: {
         includeBackground: z.boolean().optional().default(false),
         includeArchived: z.boolean().optional().default(false),
-        workspaceId: z.string().min(1).optional().describe("Exact ID from list_workspaces."),
+        chatId: z.string().min(1).optional().describe("Exact ID from list_chats."),
         cwd: z.string().optional(),
         sinceHours: z
           .number()
@@ -2174,13 +2368,13 @@ function createToolCatalog(
     async ({
       includeBackground = false,
       includeArchived = false,
-      workspaceId,
+      chatId,
       cwd,
       sinceHours = 48,
       statuses,
       limit = 50,
     }) => {
-      const callerCwd = callerAgentId && !workspaceId ? resolveCallerAgent()?.cwd : undefined;
+      const callerCwd = callerAgentId && !chatId ? resolveCallerAgent()?.cwd : undefined;
       const requestedCwd = cwd?.trim() ? expandUserPath(cwd) : callerCwd;
       if (!options.workspaceRegistry) throw new Error("Workspace registry is not configured");
       const directory = new AgentDirectory({
@@ -2202,7 +2396,7 @@ function createToolCatalog(
       });
       const snapshots = await directory.list({ includeBackground, includeArchived });
       const agents = selectAgentListItems(
-        workspaceId ? snapshots.filter((agent) => agent.workspaceId === workspaceId) : snapshots,
+        chatId ? snapshots.filter((agent) => agent.workspaceId === chatId) : snapshots,
         { cwd: requestedCwd, statuses, sinceHours, limit },
       );
 
@@ -2331,45 +2525,45 @@ function createToolCatalog(
   );
 
   registerTool(
-    "rename_workspace",
+    "rename_chat",
     {
-      title: "Rename workspace",
+      title: "Rename chat",
       description:
-        "Rename a workspace by setting its user-visible title. Omit workspaceId to rename your current workspace.",
+        "Rename a chat by setting its user-visible title. Omit chatId to rename your current chat.",
       inputSchema: {
-        workspaceId: z
+        chatId: z
           .string()
           .trim()
           .min(1)
           .optional()
-          .describe("Workspace id to rename. Omit to rename your current workspace."),
+          .describe("Chat id to rename. Omit to rename your current chat."),
         title: z
           .string()
           .trim()
           .min(1, "title is required")
-          .describe("New user-visible workspace title."),
+          .describe("New user-visible chat title."),
       },
       outputSchema: {
         success: z.boolean(),
-        workspaceId: z.string(),
+        chatId: z.string(),
         title: z.string(),
       },
     },
-    async ({ workspaceId: requestedWorkspaceId, title }) => {
+    async ({ chatId: requestedChatId, title }) => {
       if (!options.workspaceRegistry) {
-        throw new Error("Workspace registry is required to rename workspaces");
+        throw new Error("Chat registry is required to rename chats");
       }
       if (!options.emitWorkspaceUpdatesForWorkspaceIds) {
-        throw new Error("Workspace update emitter is required to rename workspaces");
+        throw new Error("Chat update emitter is required to rename chats");
       }
 
-      const workspaceId = resolveWorkspaceIdForRename(requestedWorkspaceId);
+      const workspaceId = resolveWorkspaceIdForRename(requestedChatId);
       const existing = await options.workspaceRegistry.get(workspaceId);
       if (!existing) {
-        throw new PimiToolInputError(`Workspace ${workspaceId} not found`);
+        throw new PimiToolInputError(`Chat ${workspaceId} not found`);
       }
       if (existing.archivedAt) {
-        throw new PimiToolInputError(`Workspace ${workspaceId} is archived`);
+        throw new PimiToolInputError(`Chat ${workspaceId} is archived`);
       }
 
       await options.workspaceRegistry.upsert({
@@ -2383,7 +2577,7 @@ function createToolCatalog(
         content: [],
         structuredContent: ensureValidJson({
           success: true,
-          workspaceId,
+          chatId: workspaceId,
           title,
         }),
       };
@@ -2391,77 +2585,76 @@ function createToolCatalog(
   );
 
   registerTool(
-    "list_workspace_scripts",
+    "list_scripts",
     {
-      title: "List workspace scripts",
+      title: "List scripts",
       description:
-        "List configured workspace scripts and their lifecycle, service port, proxy URL, health, and terminal ID.",
+        "List a chat's configured scripts and their lifecycle, service port, proxy URL, health, and terminal ID.",
       inputSchema: {
-        workspaceId: z.string().describe("Workspace ID whose configured scripts to list."),
+        chatId: z.string().describe("Chat ID whose configured scripts to list."),
       },
       outputSchema: {
         scripts: z.array(WorkspaceScriptPayloadSchema),
       },
     },
-    async ({ workspaceId }) => {
+    async ({ chatId }) => {
       if (!workspaceScripts) {
-        throw new Error("Workspace script management is not configured");
+        throw new Error("Script management is not configured");
       }
       return {
         content: [],
-        structuredContent: ensureValidJson({ scripts: await workspaceScripts.list(workspaceId) }),
+        structuredContent: ensureValidJson({ scripts: await workspaceScripts.list(chatId) }),
       };
     },
   );
 
   registerTool(
-    "start_workspace_script",
+    "start_script",
     {
-      title: "Start workspace script",
-      description:
-        "Start one configured workspace script through the managed workspace-script launcher.",
+      title: "Start script",
+      description: "Start one configured script through the managed script launcher.",
       inputSchema: {
-        workspaceId: z.string().describe("Workspace ID containing the configured script."),
+        chatId: z.string().describe("Chat ID containing the configured script."),
         scriptName: z.string().min(1).describe("Configured pimi.json script name to start."),
       },
       outputSchema: {
         script: WorkspaceScriptPayloadSchema,
       },
     },
-    async ({ workspaceId, scriptName }) => {
+    async ({ chatId, scriptName }) => {
       if (!workspaceScripts) {
-        throw new Error("Workspace script management is not configured");
+        throw new Error("Script management is not configured");
       }
       return {
         content: [],
         structuredContent: ensureValidJson({
-          script: await workspaceScripts.launch({ workspaceId, scriptName }),
+          script: await workspaceScripts.launch({ workspaceId: chatId, scriptName }),
         }),
       };
     },
   );
 
   registerTool(
-    "stop_workspace_script",
+    "stop_script",
     {
-      title: "Stop workspace script",
-      description: "Stop a running workspace script through its supervised terminal lifecycle.",
+      title: "Stop script",
+      description: "Stop a running script through its supervised terminal lifecycle.",
       inputSchema: {
-        workspaceId: z.string().describe("Workspace ID containing the running script."),
+        chatId: z.string().describe("Chat ID containing the running script."),
         scriptName: z.string().min(1).describe("Configured pimi.json script name to stop."),
       },
       outputSchema: {
         script: WorkspaceScriptPayloadSchema,
       },
     },
-    async ({ workspaceId, scriptName }) => {
+    async ({ chatId, scriptName }) => {
       if (!workspaceScripts) {
-        throw new Error("Workspace script management is not configured");
+        throw new Error("Script management is not configured");
       }
       return {
         content: [],
         structuredContent: ensureValidJson({
-          script: await workspaceScripts.stop({ workspaceId, scriptName }),
+          script: await workspaceScripts.stop({ workspaceId: chatId, scriptName }),
         }),
       };
     },
@@ -2685,7 +2878,10 @@ function createToolCatalog(
         ),
       provider: AgentProviderEnum.optional().describe("Provider or provider/model; see provider."),
       profile: z.string().trim().min(1).optional().describe("Profile id or name."),
-      workspace: z.enum(["project", "worktree"]).optional(),
+      workspace: z
+        .enum(["project", "worktree"])
+        .optional()
+        .describe("project folder or a fresh worktree per run."),
     }),
     z.object({
       id: z.string().trim().min(1),

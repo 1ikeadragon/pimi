@@ -179,7 +179,7 @@ export function WorkspaceHeaderMenuDesktop(props: WorkspaceHeaderWorkspaceAction
   const { t } = useTranslation();
   const { serverId, workspaceId, ...actions } = props;
   const labelMenu = useChatLabelMenu(serverId, workspaceId);
-  const taskMenu = useChatTaskMenu(serverId, workspaceId);
+  const taskMenu = useChatTaskMenu(serverId, workspaceId, "shown");
   const pages = useMemo(
     () => [...labelMenu.pages, ...taskMenu.pages],
     [labelMenu.pages, taskMenu.pages],
@@ -298,7 +298,7 @@ export function WorkspaceHeaderMenuMobile({
   const scriptsMenu = useWorkspaceScriptsMenuPages(scripts);
   const pluginMenu = usePluginWorkspaceMenu(normalizedServerId, normalizedWorkspaceId);
   const labelMenu = useChatLabelMenu(normalizedServerId, normalizedWorkspaceId);
-  const taskMenu = useChatTaskMenu(normalizedServerId, normalizedWorkspaceId);
+  const taskMenu = useChatTaskMenu(normalizedServerId, normalizedWorkspaceId, "shown");
   const pages = useMemo(
     () => [...scriptsMenu.pages, ...pluginMenu.pages, ...labelMenu.pages, ...taskMenu.pages],
     [scriptsMenu.pages, pluginMenu.pages, labelMenu.pages, taskMenu.pages],

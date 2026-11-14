@@ -10,13 +10,13 @@ category: Workspaces
 
 Git worktrees are one way to back a chat.
 
-A [chat](/docs/workspaces) is the place where a task happens; its environment is called a workspace in the CLI and MCP tools. When that chat is backed by a git worktree, Pimi creates a separate directory on a separate branch so parallel agents never step on each other.
+A [chat](/docs/workspaces) is the place where a task happens. When a chat is backed by a git worktree, Pimi creates a separate directory on a separate branch so parallel agents never step on each other.
 
 This page covers the git-specific details: where worktrees live, how branches are chosen, and how to configure setup hooks, scripts, terminals, and long-running services through `pimi.json`.
 
 ## Layout and workflow
 
-Worktrees live under `$PIMI_HOME/worktrees/` by default, grouped by a hash of the source checkout path. You can change the base directory with `worktrees.root` in `config.json`. Each worktree gets a slug and a branch when its workspace is created.
+Worktrees live under `$PIMI_HOME/worktrees/` by default, grouped by a hash of the source checkout path. You can change the base directory with `worktrees.root` in `config.json`. Each worktree gets a slug and a branch when its chat is created.
 
 ```
 ~/.pimi/worktrees/
@@ -37,19 +37,19 @@ With a custom root, Pimi keeps the same hashed layout under that directory:
 
 Plugins can choose a location anywhere on disk with [`worktree.create.before`](/docs/plugins/hooks#worktreecreatebefore). The [worktree-placement example](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/worktree-placement) places worktrees next to the source checkout. Pimi validates the path, refuses an existing destination, and manages listing, archive, and deletion there. Recovery uses the recorded path without running creation hooks.
 
-1. Create a workspace with worktree isolation, Pimi creates the worktree and runs your setup hooks
-2. Launch one or more agents in that workspace
+1. Create a chat with worktree isolation, Pimi creates the worktree and runs your setup hooks
+2. Launch one or more agents in that chat
 3. Review the diff against the base branch
-4. Merge or archive the workspace; after the last workspace using it is archived, Pimi runs teardown and removes the worktree
+4. Merge or archive the chat; after the last chat using it is archived, Pimi runs teardown and removes the worktree
 
-## Create a worktree-backed workspace
+## Create a worktree-backed chat
 
-The examples below use the current directory as the source checkout. Pass `--path ~/dev/my-app` to create the workspace from another checkout.
+The examples below use the current directory as the source checkout. Pass `--path ~/dev/my-app` to create the chat from another checkout.
 
 Branch off from a base branch:
 
 ```bash
-pimi workspace create \
+pimi chat create \
   --isolation worktree \
   --mode branch-off \
   --new-branch feature/auth \
@@ -62,17 +62,17 @@ Use `origin/main` rather than `main`. Pimi fetches remote refs in the background
 Check out an existing branch:
 
 ```bash
-pimi workspace create \
+pimi chat create \
   --isolation worktree \
   --mode checkout-branch \
   --branch feature/existing \
   --worktree-slug existing-copy
 ```
 
-Or open a pull request in its own workspace:
+Or open a pull request in its own chat:
 
 ```bash
-pimi workspace create \
+pimi chat create \
   --isolation worktree \
   --mode checkout-pr \
   --pr-number 2186
@@ -120,7 +120,7 @@ Commands run with the worktree as `cwd`. Use `$PIMI_SOURCE_CHECKOUT_PATH` to rea
 
 `scripts` are named commands you can run inside a worktree on demand. Mark one as a _service_ and Pimi supervises it as a long-running process, assigns it a port, and routes HTTP traffic to it through the daemon's reverse proxy.
 
-Run them from the app, or manage them from automation with [`pimi script`](/docs/cli#workspace-scripts) and the [workspace-script MCP tools](/docs/mcp#workspace-scripts).
+Run them from the app, or manage them from automation with [`pimi script`](/docs/cli#scripts) and the [script MCP tools](/docs/mcp#scripts).
 
 ### Plain scripts
 
@@ -190,9 +190,9 @@ For an external allocator, configure `portScript` instead:
 }
 ```
 
-Pimi runs the executable in the workspace directory with four arguments: service name, workspace
+Pimi runs the executable in the chat directory with four arguments: service name, chat
 ID, branch name, and worktree path. Since the script is executed directly without a shell, `portScript` must point to a real executable (such as a compiled binary or a script with a proper shebang line like `#!/bin/bash`) rather than an inline shell command or pipeline. If you need shell evaluation or pipelines, wrap them in a small executable script. A missing branch is passed as an empty string. The same values
-are available as `PIMI_SCRIPTNAME`, `PIMI_WORKSPACE_ID`, `PIMI_BRANCH_NAME`, and
+are available as `PIMI_SCRIPTNAME`, `PIMI_CHAT_ID`, `PIMI_BRANCH_NAME`, and
 `PIMI_WORKTREE_PATH`. It must print one valid TCP port to stdout. `portScript` wins over `range` in
 the same block. Pimi trusts the external allocator, so the returned port may already be in use, for
 example by a service Pimi will attach to.
@@ -212,7 +212,7 @@ http://<script>--<project>.localhost:<daemon-port>
 
 ### Service-to-service
 
-Services launched from the same workspace see each other's ports and proxy URLs. Given `web` and `api` above, each process gets:
+Services launched from the same chat see each other's ports and proxy URLs. Given `web` and `api` above, each process gets:
 
 ```
 PIMI_PORT=3000                         # this service's port
@@ -256,13 +256,13 @@ Services additionally get:
 - `$PIMI_SERVICE_<NAME>_PORT` / `_URL`, peer service ports and URLs
 - `$HOST`, `127.0.0.1` for local-only daemons, `0.0.0.0` when the daemon binds all interfaces
 
-## Manage the workspace
+## Manage the chat
 
 ```bash
-pimi workspace ls
-pimi run --workspace <workspace-id> "implement auth"
-pimi workspace rename <workspace-id> "Auth rework"
-pimi workspace archive <workspace-id>
+pimi chat ls
+pimi run --chat <chat-id> "implement auth"
+pimi chat rename <chat-id> "Auth rework"
+pimi chat archive <chat-id>
 ```
 
-For the common case, `pimi run --new-workspace worktree --worktree-mode branch-off --new-branch feature/auth --base origin/main "implement auth"` creates both the workspace and its first agent.
+For the common case, `pimi run --new-chat worktree --worktree-mode branch-off --new-branch feature/auth --base origin/main "implement auth"` creates both the chat and its first agent.

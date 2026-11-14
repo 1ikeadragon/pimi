@@ -12,7 +12,7 @@ import { createAutomationCommand } from "./commands/automation/index.js";
 import { createSpeechCommand } from "./commands/speech/index.js";
 import { createScriptCommand } from "./commands/script/index.js";
 import { createTerminalCommand } from "./commands/terminal/index.js";
-import { createWorkspaceCommand } from "./commands/workspace/index.js";
+import { createChatCommand } from "./commands/chat/index.js";
 import { createHeartbeatCommand } from "./commands/heartbeat/index.js";
 import { createHooksCommand } from "./commands/hooks.js";
 import { startCommand as daemonStartCommand } from "./commands/daemon/start.js";
@@ -73,7 +73,7 @@ export function createCli(): Command {
   addJsonAndDaemonHostOptions(
     program
       .command("clone")
-      .description("Clone a GitHub repo and register it as a Pimi workspace")
+      .description("Clone a GitHub repo and register it as a Pimi project")
       .argument("<repo>", "GitHub repo in owner/repo format or a full git remote URL")
       .requiredOption("--dir <path>", "Parent directory to clone into (for example: ~/workspace)"),
   )
@@ -137,7 +137,7 @@ export function createCli(): Command {
   // Terminal commands
   program.addCommand(createTerminalCommand());
 
-  // Workspace script commands
+  // Script commands
   program.addCommand(createScriptCommand());
 
   // Automation and heartbeat commands
@@ -155,9 +155,9 @@ export function createCli(): Command {
   // Speech model commands
   program.addCommand(createSpeechCommand());
 
-  // Workspace commands
+  // Chat commands
   program.addCommand(createProjectCommand());
-  program.addCommand(createWorkspaceCommand());
+  program.addCommand(createChatCommand());
 
   // Stop root parsing at the command so `plugin update --version` belongs to update.
   // Keep global options available after a command, as they were before positional parsing.
