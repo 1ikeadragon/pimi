@@ -85,9 +85,11 @@ export function useTaskMutations({ serverId }: { serverId: string }): TaskMutati
   const updateTask = useCallback(
     async (taskId: string, update: TaskUpdateInput): Promise<Task> => {
       await queryClient.cancelQueries({ queryKey: tasksQueryBaseKey });
+      // The PR URL is agent-set; its null (clear) form needs the daemon's projection, not this patch.
+      const { pullRequestUrl: _pullRequestUrl, ...optimistic } = update;
       const snapshot = patchTasks(queryClient, (tasks) =>
         tasks.map((task) =>
-          task.serverId === serverId && task.id === taskId ? { ...task, ...update } : task,
+          task.serverId === serverId && task.id === taskId ? { ...task, ...optimistic } : task,
         ),
       );
       try {

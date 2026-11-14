@@ -37,6 +37,22 @@ export const TaskLinkSchema = z.discriminatedUnion("kind", [
 ]);
 export type TaskLink = z.infer<typeof TaskLinkSchema>;
 
+export const TaskPullRequestStateSchema = z.enum(["open", "draft", "merged", "closed", "unknown"]);
+export type TaskPullRequestState = z.infer<typeof TaskPullRequestStateSchema>;
+
+/**
+ * A pull request relevant to a task. Never stored: the daemon derives it from the checkout of each
+ * linked chat, plus the task's explicit `pullRequestUrl`. `unknown` is an explicit URL whose state
+ * no linked checkout reports.
+ */
+export const TaskPullRequestSchema = z.object({
+  url: z.string(),
+  number: z.number().optional(),
+  title: z.string(),
+  state: TaskPullRequestStateSchema,
+});
+export type TaskPullRequest = z.infer<typeof TaskPullRequestSchema>;
+
 /**
  * Labels are not on the record: they live in the label assignment store under the target
  * `{ kind: "task", taskId }` (see `../labels.ts`).
@@ -49,12 +65,19 @@ export const TaskSchema = z.object({
   descriptionPending: z.boolean(),
   status: TaskStatusSchema,
   links: z.array(TaskLinkSchema),
+  // Set by an agent; listed first and wins over a PR derived from a linked chat.
+  pullRequestUrl: z.string().optional(),
   createdBy: TaskCreatedBySchema,
   createdAt: z.string(),
   updatedAt: z.string(),
   completedAt: z.string().optional(),
+  pullRequests: z.array(TaskPullRequestSchema),
 });
 export type Task = z.infer<typeof TaskSchema>;
+
+/** What `pimi.db` holds: a task without its derived pull requests. */
+export const StoredTaskSchema = TaskSchema.omit({ pullRequests: true });
+export type StoredTask = z.infer<typeof StoredTaskSchema>;
 
 /**
  * Wire create. The daemon stamps `createdBy: "user"`. A create with an empty description and a
@@ -74,6 +97,8 @@ export const TaskUpdateInputSchema = z.object({
   title: TaskTitleSchema.optional(),
   description: TaskDescriptionSchema.optional(),
   status: TaskStatusSchema.optional(),
+  // A PR URL for this task; null clears it.
+  pullRequestUrl: z.string().trim().url().max(500).nullable().optional(),
 });
 export type TaskUpdateInput = z.infer<typeof TaskUpdateInputSchema>;
 
