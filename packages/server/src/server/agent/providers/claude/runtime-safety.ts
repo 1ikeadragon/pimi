@@ -6,6 +6,8 @@ import { toBackgroundWorkInputs, type ClaudeBackgroundTask } from "./background-
 /** Process-local background ownership. Completion delivery can follow an empty roster. */
 export class ClaudeRuntimeSafety {
   private inventoryState: "unknown" | "supported" | "retired" = "unknown";
+  // A process that has emitted nothing has run no turn and owns no background work.
+  private observedMessage = false;
   private liveTasks: readonly ClaudeBackgroundTask[] = [];
   private published: AgentBackgroundWorkInput[] | undefined;
   private readonly awaitingNotifications = new Set<string>();
@@ -15,6 +17,7 @@ export class ClaudeRuntimeSafety {
 
   reset(): void {
     this.inventoryState = "unknown";
+    this.observedMessage = false;
     this.liveTasks = [];
     this.published = undefined;
     this.awaitingNotifications.clear();
@@ -31,6 +34,7 @@ export class ClaudeRuntimeSafety {
   /** Returns a full replacement only when the visible inventory changes. */
   observe(message: SDKMessage): AgentBackgroundWorkInput[] | undefined {
     if (this.inventoryState === "retired") return undefined;
+    this.observedMessage = true;
     const changed = this.observeTools(message);
     const systemChanged = message.type === "system" ? this.observeSystem(message) : false;
     if ((!changed && !systemChanged) || this.inventoryState !== "supported") return undefined;
@@ -115,6 +119,7 @@ export class ClaudeRuntimeSafety {
   }
 
   canStopRuntime(): boolean {
+    if (this.inventoryState === "unknown" && !this.observedMessage) return true;
     return (
       this.inventoryState === "supported" &&
       this.liveTasks.length === 0 &&

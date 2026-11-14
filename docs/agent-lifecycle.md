@@ -90,8 +90,10 @@ old runtime, install the new session. The differences:
 The old provider's native session is left as it was. It is not archived there and can be imported
 again as a separate chat.
 
-Idle resumable runtimes are collected after one hour without activity, checked once a minute.
-Collection releases the process and preserves the agent record, conversation, relationships, and
+Idle resumable runtimes are collected after 15 minutes without activity, checked once a minute. A
+runtime that has not been seen for 5 minutes is never collected, so opening an old chat does not
+release it under the user. A Claude process that never ran a turn owns no background work and is
+collected the same way. Collection releases the process and preserves the agent record, conversation, relationships, and
 provider session. The next prompt resumes that session. Set `agents.idleRuntimeCleanup: false` in
 host config to disable automatic collection. The host setting applies immediately; config-file edits
 apply on reload. Disabling invalidates pending safety checks and close admission. A close already

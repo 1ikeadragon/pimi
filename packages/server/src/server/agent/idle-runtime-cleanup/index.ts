@@ -30,11 +30,15 @@ interface CollectionResult {
   collected: CollectionEntry[];
   failures: Array<{ agentId: string; error: unknown }>;
 }
-const IDLE_PERIOD_MS = 60 * 60_000;
+const IDLE_PERIOD_MS = 15 * 60_000;
+// A resumed runtime keeps its stored lastActivityAt, so without a floor an old chat opened just
+// now would be released within a minute, possibly while the user is typing.
+const FRESH_RUNTIME_GRACE_MS = 5 * 60_000;
 
 /** Owns idle clocks, baseline eligibility, optional provider vetoes and the sweep lifetime. */
 export function createIdleRuntimeCleanup(options: Options) {
   const protectedAt = new WeakMap<object, { at: number; protected: boolean }>();
+  const firstSeenAt = new WeakMap<object, number>();
   let collection: Promise<CollectionResult> | null = null;
   let stopped = false;
   let enabled = options.enabled;
@@ -80,6 +84,7 @@ export function createIdleRuntimeCleanup(options: Options) {
     for (const runtime of runtimes) {
       if (!isCurrent()) break;
       if (!runtime.sessionId) continue;
+      if (!firstSeenAt.has(runtime.identity)) firstSeenAt.set(runtime.identity, timestamp);
       const family = familyOf(runtime, runtimes);
       try {
         const allowed = baselineAllows(family) && (await providersAllow(family, isCurrent));
@@ -100,6 +105,8 @@ export function createIdleRuntimeCleanup(options: Options) {
           protectedAt.get(runtime.identity)?.at ?? 0,
         );
         if (timestamp - idleSince < IDLE_PERIOD_MS) continue;
+        if (timestamp - (firstSeenAt.get(runtime.identity) ?? timestamp) < FRESH_RUNTIME_GRACE_MS)
+          continue;
         const revalidate = () => {
           const currentFamily = familyOf(runtime, options.runtimes());
           return (

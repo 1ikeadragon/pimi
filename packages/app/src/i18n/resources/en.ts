@@ -4186,7 +4186,7 @@ export const en = {
         },
         idleRuntimeCleanup: {
           title: "Release idle agents",
-          hint: "Free up memory after an hour of inactivity.",
+          hint: "Free up memory after 15 minutes of inactivity.",
           info: "Stops the agent's process while keeping its conversation. Send a message to resume.\n\nActive work, pending notifications, and provider safety checks prevent cleanup.",
         },
       },
