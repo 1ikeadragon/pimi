@@ -242,15 +242,9 @@ export function PimiConsoleContent({
     if (!publishBounds) return;
     const element = document.getElementById(PIMI_CONSOLE_CONTENT_ID);
     if (!element) return;
-    const wasCovered = element.inert;
+    // No fade on uncover: the workspace view is already gone, and an opacity ramp from 0.84 reads
+    // as a dim flash of the whole console.
     element.inert = covered;
-    if (wasCovered && !covered && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const animation = element.animate([{ opacity: 0.84 }, { opacity: 1 }], {
-        duration: 145,
-        easing: "ease-out",
-      });
-      return () => animation.cancel();
-    }
   }, [covered, publishBounds]);
 
   const slot = covered ? null : titlebarSlot;

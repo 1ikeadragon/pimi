@@ -14,6 +14,8 @@ export function createMemoryView({ $, api, button, element, message }) {
   let projectId = null;
   let current;
   let loadedScope = null;
+  let renderedNotes = null;
+  let renderedScopes = null;
   let busy = false;
   let mutating = false;
 
@@ -38,15 +40,26 @@ export function createMemoryView({ $, api, button, element, message }) {
     return false;
   }
 
-  // A background run only fetches. It disables what depends on the data being fetched and leaves
-  // the header, New note and the editor usable, so the chrome does not wait for the host.
-  function setBusy(value, background) {
-    busy = value;
-    mutating = value && !background;
+  // A background run only fetches. It leaves the header, New note and the editor usable, so the
+  // chrome does not wait for the host. Controls that depend on the data are guarded by `busy` and
+  // only look disabled when the fetch outlasts BUSY_LOOK_DELAY_MS, so a quick refresh never dims
+  // them for a frame.
+  const BUSY_LOOK_DELAY_MS = 150;
+  let busyLookTimer;
+
+  function applyDisabled() {
     for (const control of [picker, $("memory-forget"), $("memory-save")]) control.disabled = busy;
     for (const control of [$("memory-new"), $("memory-reload"), $("memory-cancel"), textInput])
       control.disabled = mutating;
     keyInput.disabled = mutating || Boolean(current);
+  }
+
+  function setBusy(value, background) {
+    busy = value;
+    mutating = value && !background;
+    clearTimeout(busyLookTimer);
+    if (value && background) busyLookTimer = setTimeout(applyDisabled, BUSY_LOOK_DELAY_MS);
+    else applyDisabled();
   }
 
   async function run(action, { background = false } = {}) {
@@ -85,24 +98,29 @@ export function createMemoryView({ $, api, button, element, message }) {
     const rows = notes.toSorted(
       (a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.key.localeCompare(b.key),
     );
-    $("memory-notes").replaceChildren(
-      ...rows.map(({ key, updatedAt }) => {
-        const row = button("memory-note", "", () => {
-          if (!canChangeView()) return;
-          void run(async () => {
-            const { note } = await api("memory", { action: "read", projectId, key });
-            showEditor(note);
+    const signature = JSON.stringify(rows.map(({ key, updatedAt }) => [key, updatedAt]));
+    // Rows for unchanged notes stay in place, so reopening keeps scroll position, hover and focus.
+    if (signature !== renderedNotes) {
+      renderedNotes = signature;
+      $("memory-notes").replaceChildren(
+        ...rows.map(({ key, updatedAt }) => {
+          const row = button("memory-note", "", () => {
+            if (!canChangeView()) return;
+            void run(async () => {
+              const { note } = await api("memory", { action: "read", projectId, key });
+              showEditor(note);
+            });
           });
-        });
-        row.dataset.key = key;
-        row.setAttribute("aria-pressed", String(current?.key === key));
-        row.append(
-          element("strong", "", key),
-          element("span", "subtitle", dateFormat.format(new Date(updatedAt))),
-        );
-        return row;
-      }),
-    );
+          row.dataset.key = key;
+          row.setAttribute("aria-pressed", String(current?.key === key));
+          row.append(
+            element("strong", "", key),
+            element("span", "subtitle", dateFormat.format(new Date(updatedAt))),
+          );
+          return row;
+        }),
+      );
+    }
     noteCount.textContent = String(rows.length);
     message("memory-empty", rows.length ? "" : "No notes saved in this scope.");
     content.removeAttribute("data-loading");
@@ -116,6 +134,7 @@ export function createMemoryView({ $, api, button, element, message }) {
   // and let the empty state wait until the new list says whether it is empty.
   function resetScope() {
     notes = [];
+    renderedNotes = null;
     showEditor(null);
     $("memory-notes").replaceChildren();
     noteCount.textContent = "";
@@ -155,18 +174,22 @@ export function createMemoryView({ $, api, button, element, message }) {
         if (!projects.some(({ id }) => id === projectId)) projectId = null;
         const nameCounts = new Map();
         for (const { name } of projects) nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
-        picker.replaceChildren(
-          new Option("Across projects", ""),
-          ...projects.map(({ id, name, root, archived }) => {
-            const duplicate = nameCounts.get(name) > 1;
-            const option = new Option(
-              name + (duplicate ? " — " + root : "") + (archived ? " (archived)" : ""),
-              id,
-            );
-            option.title = root;
-            return option;
-          }),
-        );
+        const scopes = JSON.stringify([projects, [...nameCounts]]);
+        if (scopes !== renderedScopes) {
+          renderedScopes = scopes;
+          picker.replaceChildren(
+            new Option("Across projects", ""),
+            ...projects.map(({ id, name, root, archived }) => {
+              const duplicate = nameCounts.get(name) > 1;
+              const option = new Option(
+                name + (duplicate ? " — " + root : "") + (archived ? " (archived)" : ""),
+                id,
+              );
+              option.title = root;
+              return option;
+            }),
+          );
+        }
         picker.value = projectId ?? "";
         if (previousScope !== projectId) resetScope();
         loadedScope = projectId;
@@ -177,7 +200,7 @@ export function createMemoryView({ $, api, button, element, message }) {
   }
 
   picker.addEventListener("change", () => {
-    if (!canChangeView()) {
+    if (busy || !canChangeView()) {
       picker.value = projectId ?? "";
       return;
     }
@@ -222,6 +245,7 @@ export function createMemoryView({ $, api, button, element, message }) {
   });
 
   $("memory-forget").addEventListener("click", () => {
+    if (busy) return;
     $("memory-forget-description").textContent =
       current.key + " will be removed from " + scopeLabel() + ".";
     dialog.returnValue = "";

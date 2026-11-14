@@ -773,24 +773,12 @@ h2 {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  :root:not([data-workspace-layout="hidden"]) main > section:not([hidden]) {
-    animation: layout-arrive 145ms ease-out;
-  }
-
   .glyph-button {
     transition:
       background-color 120ms ease-out,
       color 120ms ease-out;
   }
 
-  @keyframes layout-arrive {
-    from {
-      opacity: 0.84;
-    }
-    to {
-      opacity: 1;
-    }
-  }
   @keyframes pane-arrive {
     from {
       opacity: 0.72;

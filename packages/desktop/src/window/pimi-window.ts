@@ -221,10 +221,75 @@ export async function showPimiWindow(
     workspace = await opening;
   }
   if (request !== navigationRequest || requestedOwner !== owner || owner.isDestroyed()) return;
-  workspace.owner = owner;
-  attach(workspace, owner, destination && DESTINATION_SECTIONS[destination.view]);
-  reveal(owner, workspace.view);
-  if (destination) workspace.view.webContents.send("pimi:workspace:navigate", destination);
+  const surface = workspace;
+  surface.owner = owner;
+  // The page repaints as soon as the view is attached. Hand it the layout and the requested
+  // section first and wait until it has applied them, so the first painted frame is the final one
+  // and not the previous section in the hidden layout.
+  if (surface.host !== owner) {
+    const layout = layoutFor(owner);
+    if (surface.layout !== layout) sendLayout(surface, layout);
+  }
+  if (destination) surface.view.webContents.send("pimi:workspace:navigate", destination);
+  await flushView(surface.view.webContents);
+  if (surface.view.webContents.isDestroyed()) return;
+  if (request !== navigationRequest || requestedOwner !== owner || owner.isDestroyed()) {
+    if (!surface.host) sendLayout(surface, "hidden");
+    return;
+  }
+  attach(surface, owner, destination && DESTINATION_SECTIONS[destination.view]);
+  reveal(owner, surface.view);
+}
+
+let flushRequest = 0;
+const FLUSH_TIMEOUT_MS = 300;
+const PAGE_READY_TIMEOUT_MS = 1500;
+
+/**
+ * Resolves once the page has run every message sent to it before this call. IPC to one renderer is
+ * ordered, so the reply proves the earlier layout and navigation handlers ran.
+ */
+function flushView(contents: Electron.WebContents): Promise<void> {
+  const id = ++flushRequest;
+  return waitForPage(
+    contents,
+    "pimi:workspace:flushed",
+    FLUSH_TIMEOUT_MS,
+    (value) => value === id,
+    () => contents.send("pimi:workspace:flush", id),
+  );
+}
+
+/**
+ * Waits for the page's main frame to send `channel`. The timeout only keeps an unresponsive page
+ * from blocking the open; the view then shows whatever state it has.
+ */
+async function waitForPage(
+  contents: Electron.WebContents,
+  channel: string,
+  timeoutMs: number,
+  accepts: (value: unknown) => boolean,
+  start?: () => void,
+): Promise<void> {
+  let listener: ((event: Electron.IpcMainEvent, value: unknown) => void) | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await new Promise<void>((resolve) => {
+      listener = (event, value) => {
+        if (event.senderFrame === contents.mainFrame && accepts(value)) resolve();
+      };
+      timer = setTimeout(resolve, timeoutMs);
+      contents.ipc.on(channel, listener);
+      start?.();
+    });
+  } finally {
+    clearTimeout(timer);
+    if (listener) contents.ipc.removeListener(channel, listener);
+  }
+}
+
+function layoutFor(win: BrowserWindow): WorkspaceLayout {
+  return consoleBounds.get(win)?.sidebar ? "inline" : "attached";
 }
 
 export function hidePimiWorkspace(win?: BrowserWindow): void {
@@ -294,7 +359,7 @@ function attach(
       width: Math.max(0, Math.min(right, width) - x),
       height: Math.max(0, Math.min(bottom, height) - y),
     });
-    const layout = content?.sidebar ? "inline" : "attached";
+    const layout = layoutFor(win);
     if (surface.layout !== layout) sendLayout(surface, layout);
   };
   const closed = () => {
@@ -467,8 +532,12 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     }
     return { action: "deny" };
   });
+  // The page reports once Memory and Spaces have their first data, so the first open does not
+  // show an empty list that fills in a moment later.
+  const loaded = waitForPage(contents, "pimi:workspace:ready", PAGE_READY_TIMEOUT_MS, () => true);
   try {
     await contents.loadURL(runtime.origin);
+    await loaded;
     return surface;
   } catch (error) {
     contents.close();

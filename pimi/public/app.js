@@ -165,4 +165,16 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
   view("memory");
   await memoryView.load(destination.view === "memory" ? destination.projectId : undefined);
 });
-void memoryView.load();
+// Fetch both lists before the view is first shown, so the first open already has its data.
+async function prefetch() {
+  await Promise.allSettled([
+    memoryView.load(),
+    (async () => {
+      // The Spaces load activates the view, so park it again unless the user got there first.
+      await spacesView.load();
+      if ($("spaces").hidden) spacesView.suspend();
+    })(),
+  ]);
+  window.pimiWorkspace?.ready();
+}
+void prefetch();
