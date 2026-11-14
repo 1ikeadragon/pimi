@@ -32,7 +32,8 @@ function buildModelRowKey(provider: string, modelId: string): string {
 export type ProviderModelSelection =
   | { kind: "models"; rows: ProviderSelectionModelRow[] }
   | { kind: "loading" }
-  | { kind: "error"; message: string };
+  // `unavailable`: the host reports the provider unusable (not installed, disabled), not a failed load.
+  | { kind: "error"; message: string; unavailable?: boolean };
 
 export interface ProviderSelectorProvider {
   id: string;
@@ -118,6 +119,7 @@ function buildEntryModelSelection(
   }
   return {
     kind: "error",
+    unavailable: entry.status === "unavailable",
     message:
       entry.error ??
       (entry.status === "unavailable"

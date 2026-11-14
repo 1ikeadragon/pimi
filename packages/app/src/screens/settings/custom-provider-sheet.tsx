@@ -11,11 +11,6 @@ import { Field, FormTextInput } from "@/components/ui/form-field";
 import { SelectField } from "@/components/ui/select-field";
 import { generateDraftId } from "@/stores/draft-keys";
 import {
-  configDirectoryName,
-  useDetectedConfigDirectories,
-  type DetectedConfigDirectory,
-} from "./detected-config-dirs";
-import {
   buildCustomProvider,
   customProviderFields,
   defaultProviderId,
@@ -33,38 +28,12 @@ interface EnvironmentEntry {
   value: string;
 }
 
-function DetectedDirectoryButton({
-  directory,
-  disabled,
-  onPick,
-}: {
-  directory: DetectedConfigDirectory;
-  disabled: boolean;
-  onPick: (path: string) => void;
-}) {
-  const name = configDirectoryName(directory.path);
-  const handlePress = useCallback(() => onPick(directory.path), [directory.path, onPick]);
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      disabled={disabled}
-      onPress={handlePress}
-      testID={`custom-provider-detected-${name}`}
-    >
-      {directory.accountLabel ? `${name} \u00b7 ${directory.accountLabel}` : name}
-    </Button>
-  );
-}
-
 export function CustomProviderSheet({
-  serverId,
   initial,
   onClose,
   onSave,
   onDiagnostics,
 }: {
-  serverId: string;
   initial?: { id: string; provider: ProviderOverride };
   onClose: () => void;
   onSave: (id: string, provider: ProviderOverride) => Promise<void>;
@@ -81,13 +50,6 @@ export function CustomProviderSheet({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const configKey = PROVIDER_CONFIG_DIRECTORIES[harness];
   const [configDirectory, setConfigDirectory] = useState(initial?.provider.env?.[configKey] ?? "");
-  // Picking a detected install replaces the uncontrolled input, so its key changes with it.
-  const [directoryPicks, setDirectoryPicks] = useState(0);
-  const detectedDirectories = useDetectedConfigDirectories(serverId, harness);
-  const pickDirectory = useCallback((path: string) => {
-    setConfigDirectory(path);
-    setDirectoryPicks((current) => current + 1);
-  }, []);
   const [environment, setEnvironment] = useState<EnvironmentEntry[]>(() =>
     Object.entries(initial?.provider.env ?? {})
       .filter(([name]) => name !== configKey)
@@ -223,7 +185,7 @@ export function CustomProviderSheet({
         {configKey ? (
           <Field label="Config directory" hint={configKey}>
             <FormTextInput
-              key={`${configKey}:${directoryPicks}`}
+              key={configKey}
               initialValue={configDirectory}
               onChangeText={setConfigDirectory}
               editable={!saving}
@@ -232,36 +194,11 @@ export function CustomProviderSheet({
               accessibilityLabel="Config directory"
               testID="custom-provider-config-directory"
             />
-            {detectedDirectories.length > 0 ? (
-              <View style={styles.detected}>
-                <Text style={styles.detectedHint}>Found on this host</Text>
-                <View style={styles.detectedRow}>
-                  {detectedDirectories.map((directory) => (
-                    <DetectedDirectoryButton
-                      key={directory.path}
-                      directory={directory}
-                      disabled={saving}
-                      onPick={pickDirectory}
-                    />
-                  ))}
-                </View>
-              </View>
-            ) : null}
           </Field>
         ) : null}
       </>
     ),
-    [
-      args,
-      binary,
-      configDirectory,
-      configKey,
-      detectedDirectories,
-      directoryPicks,
-      harness,
-      pickDirectory,
-      saving,
-    ],
+    [args, binary, configDirectory, configKey, harness, saving],
   );
 
   return (
@@ -435,9 +372,6 @@ const styles = StyleSheet.create((theme) => ({
   args: { minHeight: 54, textAlignVertical: "top" },
   json: { minHeight: 100, textAlignVertical: "top" },
   footer: { flexDirection: "row", justifyContent: "flex-end", gap: theme.spacing[2] },
-  detected: { gap: theme.spacing[1], marginTop: theme.spacing[2] },
-  detectedHint: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
-  detectedRow: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing[2] },
   environmentHeading: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -2198,12 +2198,6 @@ export const UsageProviderAccountsListRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
-// Extra harness installs found on the host (for example `~/.claude-work`) that no provider uses yet.
-export const ProviderConfigDirsDetectRequestMessageSchema = z.object({
-  type: z.literal("provider.config_dirs.detect.request"),
-  requestId: z.string(),
-});
-
 export const UsageListReportsRequestMessageSchema = z.object({
   type: z.literal("usage.list_reports.request"),
   agentId: z.string().optional(),
@@ -3839,7 +3833,6 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ProviderHarnessUpdatesRequestMessageSchema,
   UsageListReportsRequestMessageSchema,
   UsageProviderAccountsListRequestMessageSchema,
-  ProviderConfigDirsDetectRequestMessageSchema,
   UsageGetSummaryRequestMessageSchema,
   UsageGetBreakdownRequestMessageSchema,
   UsageGetAgentTreeRequestMessageSchema,
@@ -7099,22 +7092,6 @@ export const UsageProviderAccountsListResponseMessageSchema = z.object({
     accounts: z.array(z.object({ provider: z.string(), label: z.string() })),
   }),
 });
-export const ProviderConfigDirsDetectResponseMessageSchema = z.object({
-  type: z.literal("provider.config_dirs.detect.response"),
-  payload: z.object({
-    requestId: z.string(),
-    error: z.string().nullable(),
-    directories: z.array(
-      z.object({
-        provider: z.string(),
-        envKey: z.string(),
-        path: z.string(),
-        // The signed-in account, when usage is on and the sources can identify it.
-        accountLabel: z.string().optional(),
-      }),
-    ),
-  }),
-});
 export const UsageListReportsResponseMessageSchema = z.object({
   type: z.literal("usage.list_reports.response"),
   payload: z.object({ requestId: z.string(), error: z.string().nullable() }),
@@ -7862,7 +7839,6 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   UsageListReportsUpdateMessageSchema,
   UsageListReportsResponseMessageSchema,
   UsageProviderAccountsListResponseMessageSchema,
-  ProviderConfigDirsDetectResponseMessageSchema,
   UsageGetSummaryResponseMessageSchema,
   UsageGetBreakdownResponseMessageSchema,
   UsageGetAgentTreeResponseMessageSchema,

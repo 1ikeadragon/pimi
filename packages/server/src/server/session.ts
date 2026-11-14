@@ -1057,7 +1057,7 @@ export class Session {
       logger: this.sessionLogger,
     });
     this.usageSession = new UsageSession({
-      isEnabled: () => daemonConfigStore.get().usage?.enabled === true,
+      isEnabled: () => daemonConfigStore.get().usage?.enabled !== false,
       emit: (msg) => this.emit(msg),
       runtime: pluginRuntime,
       providerAccountScopes: () => providerSnapshotManager.listProviderAccountScopes(),
@@ -3210,8 +3210,6 @@ export class Session {
         return this.providerCatalogSession.handleProviderDiagnosticRequest(msg);
       case "usage.list_reports.request":
         return this.usageSession.handleListReports(msg);
-      case "provider.config_dirs.detect.request":
-        return this.usageSession.handleDetectConfigDirs(msg);
       case "usage.provider_accounts.list.request":
         return this.usageSession.handleListProviderAccounts(msg);
       case "usage.get_summary.request":
