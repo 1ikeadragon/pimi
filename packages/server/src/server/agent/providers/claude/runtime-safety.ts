@@ -14,8 +14,16 @@ export class ClaudeRuntimeSafety {
   private readonly monitorTools = new Set<string>();
   private readonly toolInputs = new Map<string, { description?: string; command?: string }>();
   private readonly taskTools = new Map<string, string>();
+  // Scheduled wakeups (ScheduleWakeup, CronCreate, /loop) live only in this process.
+  private scheduledWakeups = 0;
+
+  /** The Stop hook reports the wakeups still scheduled when a turn ends. */
+  observeStop(sessionCrons: readonly unknown[] | undefined): void {
+    this.scheduledWakeups = sessionCrons?.length ?? 0;
+  }
 
   reset(): void {
+    this.scheduledWakeups = 0;
     this.inventoryState = "unknown";
     this.observedMessage = false;
     this.liveTasks = [];
@@ -123,7 +131,8 @@ export class ClaudeRuntimeSafety {
     return (
       this.inventoryState === "supported" &&
       this.liveTasks.length === 0 &&
-      this.awaitingNotifications.size === 0
+      this.awaitingNotifications.size === 0 &&
+      this.scheduledWakeups === 0
     );
   }
 

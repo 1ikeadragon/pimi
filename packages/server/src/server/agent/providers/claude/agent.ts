@@ -5645,6 +5645,18 @@ class ClaudeAgentSession implements AgentSession {
       PreToolUse: [{ hooks: [observe] }],
       PostToolUse: [{ hooks: [observe] }],
       SubagentStop: [{ hooks: [observe] }],
+      Stop: [
+        {
+          hooks: [
+            async (input: unknown): Promise<Record<string, never>> => {
+              this.runtimeSafety.observeStop(
+                (input as { session_crons?: unknown[] }).session_crons,
+              );
+              return {};
+            },
+          ],
+        },
+      ],
     };
   }
 
@@ -5714,6 +5726,11 @@ class ClaudeAgentSession implements AgentSession {
       this.taskState.reset();
       historyPath = await this.resolveHistoryPath(sessionId);
       if (!historyPath || !(await transcriptExists(historyPath))) {
+        // A rewind to the first message leaves a session id Claude never wrote. Resuming it fails
+        // with "No conversation found", so the next query creates the session under that id.
+        if (historyPath && this.claudeSessionId === sessionId) {
+          this.pendingFreshSessionId = sessionId;
+        }
         this.logger.info(
           { sessionId, cwd: this.config.cwd, historyPath },
           "No Claude transcript to load history from",
