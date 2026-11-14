@@ -3,7 +3,7 @@ import type pino from "pino";
 import type { UsageScope } from "@pimi/plugin/server/usage";
 import type { UsageReportEntry } from "@pimi/protocol/messages";
 import type { SessionInboundMessage, SessionOutboundMessage } from "../../messages.js";
-import { pricesAsOf, type UsageReader } from "../../usage/aggregate.js";
+import type { UsageReader } from "../../usage/aggregate.js";
 import type { UsageScanner } from "../../usage/scanner.js";
 
 // A scan newer than this is not repeated when a screen asks for history; the stored rows answer.
@@ -121,7 +121,6 @@ export class UsageSession {
             today: reader.today(msg.timezoneOffsetMinutes),
             days: reader.lastDays(msg.timezoneOffsetMinutes, 7),
             scanning: scanner.scanning,
-            prices: { asOf: pricesAsOf() },
           },
         },
       });
@@ -156,7 +155,6 @@ export class UsageSession {
             ...result,
             firstEventAt: reader.firstEventAt(),
             scanning: scanner.scanning,
-            prices: { asOf: pricesAsOf() },
           },
         },
       });

@@ -10,7 +10,6 @@ import type {
 } from "@pimi/protocol/messages";
 import { PARENT_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
 import type { PimiDatabase } from "../db/pimi-db.js";
-import { PRICES_AS_OF } from "./prices.js";
 
 const DAY_MS = 86_400_000;
 const MAX_CHATS = 50;
@@ -30,7 +29,6 @@ interface Bucket {
   output: number;
   reasoning: number;
   total: number;
-  pricedTokens: number;
   costUsd: number | null;
   events: number;
   firstTs: number;
@@ -55,7 +53,6 @@ interface Accumulator {
   output: number;
   reasoning: number;
   total: number;
-  pricedTokens: number;
   costUsd: number | null;
   events: number;
   chats: Set<string>;
@@ -69,7 +66,6 @@ function emptyAccumulator(): Accumulator {
     output: 0,
     reasoning: 0,
     total: 0,
-    pricedTokens: 0,
     costUsd: null,
     events: 0,
     chats: new Set(),
@@ -83,7 +79,6 @@ function add(target: Accumulator, bucket: Bucket, chatKey: string): void {
   target.output += bucket.output;
   target.reasoning += bucket.reasoning;
   target.total += bucket.total;
-  target.pricedTokens += bucket.pricedTokens;
   if (bucket.costUsd !== null) target.costUsd = (target.costUsd ?? 0) + bucket.costUsd;
   target.events += bucket.events;
   target.chats.add(chatKey);
@@ -98,7 +93,6 @@ function finish(accumulator: Accumulator): UsageAggregate {
     reasoning: accumulator.reasoning,
     total: accumulator.total,
     costUsd: accumulator.costUsd,
-    pricedTokens: accumulator.pricedTokens,
     events: accumulator.events,
     chats: accumulator.chats.size,
   };
@@ -249,7 +243,6 @@ export class UsageReader {
            ${bucketExpression} AS bucket,
            SUM(input) AS input, SUM(cache_read) AS cache_read, SUM(cache_write) AS cache_write,
            SUM(output) AS output, SUM(reasoning) AS reasoning, SUM(total) AS total,
-           SUM(CASE WHEN cost_usd IS NOT NULL THEN total ELSE 0 END) AS priced,
            SUM(cost_usd) AS cost, COUNT(*) AS events, MIN(ts) AS first_ts, MAX(ts) AS last_ts
          FROM usage_events WHERE ts >= ? ${providerClause}
          GROUP BY provider, model, session_id, subagent_id, parent_session_id, cwd, bucket`,
@@ -269,7 +262,6 @@ export class UsageReader {
       output: Number(row.output),
       reasoning: Number(row.reasoning),
       total: Number(row.total),
-      pricedTokens: Number(row.priced),
       costUsd: row.cost === null ? null : Number(row.cost),
       events: Number(row.events),
       firstTs: Number(row.first_ts),
@@ -558,7 +550,6 @@ function mergeAggregates(a: UsageAggregate, b: UsageAggregate): UsageAggregate {
     reasoning: a.reasoning + b.reasoning,
     total: a.total + b.total,
     costUsd: a.costUsd === null && b.costUsd === null ? null : (a.costUsd ?? 0) + (b.costUsd ?? 0),
-    pricedTokens: a.pricedTokens + b.pricedTokens,
     events: a.events + b.events,
     chats: a.chats + b.chats,
   };
@@ -596,10 +587,6 @@ function groupOf(
     case "tool":
       return null;
   }
-}
-
-export function pricesAsOf(): string {
-  return PRICES_AS_OF;
 }
 
 function rangeStart(range: UsageRange, timezoneOffsetMinutes: number): number {

@@ -3223,10 +3223,7 @@ export const en = {
     },
     tiles: {
       tokens: "Tokens",
-      cost: "API-equivalent cost",
-      costNote: "Estimated at API prices as of {{date}}. Not a bill.",
-      costUnknown: "No price for these models",
-      costPartial: "{{percent}} of tokens priced",
+      cost: "API cost",
       cacheShare: "Served from cache",
       chats: "Chats",
       activeDays: "Active days",
@@ -3241,7 +3238,6 @@ export const en = {
     },
     overTime: {
       title: "Over time",
-      costHint: "Estimated at API prices. Models without a price count as zero.",
     },
     breakdown: {
       title: "Where it goes",
@@ -3275,7 +3271,6 @@ export const en = {
       title: "Insights",
       none: "Nothing stands out in this range.",
       askAgent: "Ask an agent",
-      askAgentHint: "Starts a chat with these totals attached. That chat uses tokens too.",
       askPrompt:
         "Analyse my usage totals below. Name the three biggest wastes and what to change, with numbers.",
       coldCache:

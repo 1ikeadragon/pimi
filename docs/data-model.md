@@ -58,16 +58,22 @@ one-time import and are never read again.
 
 `pimi.db` also holds `usage_events` (one row per provider request), `usage_tool_calls` and
 `usage_scan_cursors`. The daemon scans Claude Code (`~/.claude/projects`, honoring
-`CLAUDE_CONFIG_DIR`) and Codex (`~/.codex/sessions` and `~/.codex/archived_sessions`, honoring `CODEX_HOME`; compressed `.zst` rollouts in the archive are not read) transcripts read-only,
-always on, resuming each file from a byte offset. The first scan is the backfill. Rows keep their
+`CLAUDE_CONFIG_DIR`) and Codex (`~/.codex/sessions` and `~/.codex/archived_sessions`, honoring `CODEX_HOME`; Codex also stores old rollouts as `.jsonl.zst`, read whole) transcripts
+read-only, always on, resuming each plain file from a byte offset. The first scan is the backfill. Rows keep their
 history after the provider deletes the transcript (Claude Code removes them after 30 days).
 
 - Rows carry the provider session id, not a Pimi agent id. The owning chat is resolved at query time
   through `agents.provider_session_id`; a session with no match was run outside Pimi.
 - `input` excludes cache reads and writes; `output` includes `reasoning`. Codex reports cached input
   inside `input_tokens`, so the scanner subtracts it.
-- `cost_usd` is an estimate from `usage/prices.ts`; a model with no entry has no cost. Rates for the
-  5.5 Claude models are fitted, see the comment there.
+- Codex rows count growth of the thread's cumulative `total_token_usage`, not `last_token_usage`:
+  Codex repeats events and writes context-size estimates after compaction. A fork's or
+  continuation's first event can carry usage billed in another file, which is skipped. The dedupe
+  key is the rollout file name plus the cumulative total.
+- `cost_usd` is the list-price cost from `usage/prices.ts` (sources and rules in its header); a
+  model with no entry has no cost. The inputs that price a row (`cache_write_1h`, `speed`,
+  `us_geo`) are stored, and the scanner reprices every row when the table's version changes,
+  because transcripts outlive neither Claude's retention nor Codex's.
 - Aggregation is SQL grouped per session, model and day or hour; ownership, projects and subagent
   folding run over those grouped rows in `usage/aggregate.ts`. Day boundaries use the offset the
   client sends, applied as one constant, so days before a DST change can shift by an hour.

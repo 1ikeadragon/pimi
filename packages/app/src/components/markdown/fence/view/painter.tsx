@@ -1,13 +1,4 @@
-import Svg, {
-  Circle,
-  G,
-  Line,
-  Path,
-  Polygon,
-  Polyline,
-  Rect,
-  Text as SvgText,
-} from "react-native-svg";
+import Svg, { Circle, G, Line, Path, Polyline, Rect, Text as SvgText } from "react-native-svg";
 import { withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
 import type { ChartScene, Point, SceneMark } from "./scene";
@@ -50,12 +41,12 @@ function Mark({
 }) {
   const color = colors.series[mark.slot % colors.series.length];
   if (mark.type === "area") {
-    return <Polygon points={pointList(mark.points)} fill={color} opacity={AREA_OPACITY} />;
+    return <Path d={mark.path} fill={color} opacity={AREA_OPACITY} />;
   }
   if (mark.type === "line") {
     return (
-      <Polyline
-        points={pointList(mark.points)}
+      <Path
+        d={mark.path}
         fill="none"
         stroke={color}
         strokeWidth={2}

@@ -1,40 +1,22 @@
-import type { TFunction } from "i18next";
 import { useTranslation } from "@/i18n/use-translation";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { UsageAggregate } from "@pimi/protocol/messages";
-import { cacheShare, formatEstimatedUsd, formatPercent, formatTokens } from "./format";
+import { UsageGrid } from "./grid";
+import { cacheShare, formatCostUsd, formatPercent, formatTokens } from "./format";
 
 interface TileInput {
   totals: UsageAggregate;
   activeDays: number;
   streak: number;
   busiestHour: string | null;
-  pricesAsOf: string;
 }
 
-function describeCost(input: {
-  cost: string | null;
-  coverage: number;
-  pricesAsOf: string;
-  locale: string | undefined;
-  t: TFunction;
-}): string {
-  const { cost, coverage, pricesAsOf, locale, t } = input;
-  if (cost === null) return t("usageOverview.tiles.costUnknown");
-  if (coverage < 0.995) {
-    return t("usageOverview.tiles.costPartial", { percent: formatPercent(coverage, locale) });
-  }
-  return t("usageOverview.tiles.costNote", { date: pricesAsOf });
-}
-
-export function UsageStatTiles({ totals, activeDays, streak, busiestHour, pricesAsOf }: TileInput) {
+export function UsageStatTiles({ totals, activeDays, streak, busiestHour }: TileInput) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
-  const cost = formatEstimatedUsd(totals, locale);
+  const cost = formatCostUsd(totals, locale);
   const share = cacheShare(totals);
-  const coverage = totals.total === 0 ? 1 : totals.pricedTokens / totals.total;
-  const costNote = describeCost({ cost, coverage, pricesAsOf, locale, t });
   const tiles = [
     {
       id: "tokens",
@@ -45,7 +27,6 @@ export function UsageStatTiles({ totals, activeDays, streak, busiestHour, prices
       id: "cost",
       label: t("usageOverview.tiles.cost"),
       value: cost ?? "—",
-      note: costNote,
     },
     {
       id: "cache",
@@ -66,7 +47,7 @@ export function UsageStatTiles({ totals, activeDays, streak, busiestHour, prices
     },
   ];
   return (
-    <View style={styles.grid} testID="usage-overview-tiles">
+    <UsageGrid minColumn={150} maxColumns={3} gap={8} testID="usage-overview-tiles">
       {tiles.map((tile) => (
         <View key={tile.id} style={styles.tile} testID={`usage-tile-${tile.id}`}>
           <Text style={styles.label}>{tile.label}</Text>
@@ -74,16 +55,13 @@ export function UsageStatTiles({ totals, activeDays, streak, busiestHour, prices
           {tile.note ? <Text style={styles.note}>{tile.note}</Text> : null}
         </View>
       ))}
-    </View>
+    </UsageGrid>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing[2] },
   tile: {
-    flexGrow: 1,
-    flexBasis: 220,
-    minWidth: 160,
+    flex: 1,
     gap: theme.spacing[1],
     padding: theme.spacing[3],
     borderRadius: theme.borderRadius.lg,

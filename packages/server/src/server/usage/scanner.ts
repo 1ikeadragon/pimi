@@ -1,9 +1,13 @@
+import { createReadStream } from "node:fs";
 import { open, opendir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { Transform } from "node:stream";
+import * as zlib from "node:zlib";
 import type { Logger } from "pino";
 import type { PimiDatabase } from "../db/pimi-db.js";
 import { createClaudeParser } from "./parsers/claude.js";
+import { PRICES_VERSION, requestCostUsd } from "./prices.js";
 import { createCodexParser } from "./parsers/codex.js";
 import type {
   UsageEventRow,
@@ -63,7 +67,8 @@ export function defaultCodexSessionsRoot(): string {
 }
 
 // Codex moves a thread's rollout here when the thread is archived, and Pimi archives the threads of
-// chats it closes. Compressed (.zst) rollouts in this folder are not read.
+// chats it closes. Codex also compresses old rollouts there as `.jsonl.zst`; those are read whole
+// (a compressed file has no resumable byte offset) and are rescanned only when they change.
 export function defaultCodexArchivedRoot(): string {
   return join(codexHome(), "archived_sessions");
 }
@@ -128,6 +133,7 @@ export class UsageScanner {
 
   private async runScan(): Promise<UsageScanSummary> {
     const startedAt = Date.now();
+    this.repriceIfPricesChanged();
     const files: DiscoveredFile[] = [];
     for (const { provider, root } of this.roots) await discover(root, provider, files, 0);
     const cursors = this.loadCursors();
@@ -161,6 +167,42 @@ export class UsageScanner {
     return summary;
   }
 
+  // Stored costs come from the price table of the build that wrote them. Transcripts are deleted
+  // after a while, so a changed table reprices the rows from their stored token counts instead of
+  // rescanning.
+  private repriceIfPricesChanged(): void {
+    const db = this.database.db;
+    const stored = db.prepare("SELECT value FROM meta WHERE key = 'usage_prices_version'").get();
+    if (stored?.value === PRICES_VERSION) return;
+    const rows = db
+      .prepare(
+        `SELECT id, provider, model, input, cache_read, cache_write, cache_write_1h, output, speed,
+           us_geo FROM usage_events`,
+      )
+      .all();
+    const update = db.prepare("UPDATE usage_events SET cost_usd = ? WHERE id = ?");
+    this.database.transaction(() => {
+      for (const row of rows) {
+        const cost = requestCostUsd({
+          provider: row.provider === "codex" ? "codex" : "claude",
+          model: row.model === null ? null : String(row.model),
+          input: Number(row.input),
+          cacheRead: Number(row.cache_read),
+          cacheWrite: Number(row.cache_write),
+          cacheWrite1h: Number(row.cache_write_1h),
+          output: Number(row.output),
+          speed: row.speed === "fast" || row.speed === "ultrafast" ? row.speed : "standard",
+          usGeo: Number(row.us_geo) === 1,
+        });
+        update.run(cost, Number(row.id));
+      }
+      db.prepare(
+        "INSERT INTO meta (key, value) VALUES ('usage_prices_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      ).run(PRICES_VERSION);
+    });
+    this.logger.info({ rows: rows.length, version: PRICES_VERSION }, "usage.prices.repriced");
+  }
+
   private loadCursors(): Map<string, Cursor> {
     const map = new Map<string, Cursor>();
     const rows = this.database.db
@@ -191,7 +233,8 @@ export class UsageScanner {
     file: DiscoveredFile,
     cursor: Cursor | undefined,
   ): Promise<{ bytes: number; events: number }> {
-    const resumable = cursor !== undefined && cursor.offset <= file.size;
+    const compressed = file.path.endsWith(".zst");
+    const resumable = !compressed && cursor !== undefined && cursor.offset <= file.size;
     const startOffset = resumable ? cursor.offset : 0;
     let parserState: unknown = null;
     if (resumable && cursor.state) {
@@ -202,18 +245,22 @@ export class UsageScanner {
       }
     }
     const parser: UsageLineParser =
-      file.provider === "claude" ? createClaudeParser(file.path) : createCodexParser(parserState);
+      file.provider === "claude"
+        ? createClaudeParser(file.path)
+        : createCodexParser(file.path, parserState);
 
     const db = this.database.db;
     const insertEvent = db.prepare(
       `INSERT INTO usage_events (ts, provider, model, session_id, subagent_id, parent_session_id,
-         cwd, input, cache_read, cache_write, output, reasoning, total, cost_usd, dedupe_key)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         cwd, input, cache_read, cache_write, cache_write_1h, output, reasoning, total, speed,
+         us_geo, cost_usd, dedupe_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(dedupe_key) DO UPDATE SET
          model = excluded.model, input = excluded.input, cache_read = excluded.cache_read,
-         cache_write = excluded.cache_write, output = excluded.output,
-         reasoning = excluded.reasoning, total = excluded.total, cost_usd = excluded.cost_usd
-       WHERE excluded.total > usage_events.total`,
+         cache_write = excluded.cache_write, cache_write_1h = excluded.cache_write_1h,
+         output = excluded.output, reasoning = excluded.reasoning, total = excluded.total,
+         speed = excluded.speed, us_geo = excluded.us_geo, cost_usd = excluded.cost_usd
+       WHERE excluded.total >= usage_events.total`,
     );
     const insertTool = db.prepare(
       "INSERT OR IGNORE INTO usage_tool_calls (call_id, ts, provider, name) VALUES (?, ?, ?, ?)",
@@ -247,9 +294,12 @@ export class UsageScanner {
             row.input,
             row.cacheRead,
             row.cacheWrite,
+            row.cacheWrite1h,
             row.output,
             row.reasoning,
             row.total,
+            row.speed,
+            row.usGeo ? 1 : 0,
             row.costUsd,
             row.dedupeKey,
           );
@@ -273,20 +323,18 @@ export class UsageScanner {
       });
     };
 
-    const handle = await open(file.path, "r");
     let consumed = startOffset;
     let bytes = 0;
-    try {
-      for await (const item of readLines(handle, startOffset)) {
-        bytes = item.bytesRead;
-        consumed = item.end;
-        if (item.line) handleLine(item.line, parser, sink);
-        if (events.length >= FLUSH_ROWS) flush(null);
-      }
-    } finally {
-      await handle.close();
+    const chunks = compressed ? zstdChunks(file.path) : fileChunks(file.path, startOffset);
+    for await (const item of readLines(chunks, startOffset)) {
+      bytes = item.bytesRead;
+      consumed = item.end;
+      if (item.line) handleLine(item.line, parser, sink);
+      if (events.length >= FLUSH_ROWS) flush(null);
     }
-    flush({ offset: consumed });
+    parser.finish?.(sink);
+    // A compressed file is always read from its start, so its cursor only records that it was read.
+    flush({ offset: compressed ? file.size : consumed });
     return { bytes, events: eventCount };
   }
 }
@@ -299,25 +347,44 @@ interface LineItem {
   bytesRead: number;
 }
 
-// Splits a file into complete lines starting at `startOffset`, one 1 MiB read at a time. A final
-// line without a newline is not yielded, so its bytes are read again once it is finished.
+async function* fileChunks(path: string, startOffset: number): AsyncGenerator<Buffer> {
+  const handle = await open(path, "r");
+  try {
+    let position = startOffset;
+    for (;;) {
+      const chunk = Buffer.allocUnsafe(CHUNK_BYTES);
+      const read = await handle.read(chunk, 0, CHUNK_BYTES, position);
+      if (read.bytesRead === 0) return;
+      position += read.bytesRead;
+      yield chunk.subarray(0, read.bytesRead);
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
+// Node 22.15+ ships zstd in zlib; the pinned @types/node (20) does not declare it yet.
+const createZstdDecompress = (zlib as unknown as { createZstdDecompress(): Transform })
+  .createZstdDecompress;
+
+async function* zstdChunks(path: string): AsyncGenerator<Buffer> {
+  const stream = createReadStream(path).pipe(createZstdDecompress());
+  for await (const chunk of stream) yield chunk as Buffer;
+}
+
+// Splits a byte stream into complete lines. A final line without a newline is not yielded, so for
+// a plain file its bytes are read again once it is finished.
 async function* readLines(
-  handle: Awaited<ReturnType<typeof open>>,
+  chunks: AsyncIterable<Buffer>,
   startOffset: number,
 ): AsyncGenerator<LineItem> {
-  let position = startOffset;
   let consumed = startOffset;
   let bytesRead = 0;
   let parts: Buffer[] = [];
   let partsBytes = 0;
   let skipping = false;
-  for (;;) {
-    const chunk = Buffer.allocUnsafe(CHUNK_BYTES);
-    const read = await handle.read(chunk, 0, CHUNK_BYTES, position);
-    if (read.bytesRead === 0) return;
-    position += read.bytesRead;
-    bytesRead += read.bytesRead;
-    const view = chunk.subarray(0, read.bytesRead);
+  for await (const view of chunks) {
+    bytesRead += view.length;
     let pos = 0;
     let newline = view.indexOf(10, pos);
     while (newline !== -1) {
@@ -355,6 +422,10 @@ function handleLine(line: Buffer, parser: UsageLineParser, sink: UsageSink): voi
   parser.handle(line.toString("utf8", 0, end), sink);
 }
 
+function isTranscript(name: string, provider: UsageProvider): boolean {
+  return name.endsWith(".jsonl") || (provider === "codex" && name.endsWith(".jsonl.zst"));
+}
+
 function isMissing(error: unknown): boolean {
   return (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
 }
@@ -378,7 +449,7 @@ async function discover(
       // Claude keeps per-project "memory" notes next to transcripts; they hold no usage.
       if (entry.name === "memory" || entry.name === "tool-results") continue;
       await discover(path, provider, out, depth + 1);
-    } else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+    } else if (entry.isFile() && isTranscript(entry.name, provider)) {
       try {
         const info = await stat(path);
         out.push({ path, provider, size: info.size, mtimeMs: Math.floor(info.mtimeMs) });
