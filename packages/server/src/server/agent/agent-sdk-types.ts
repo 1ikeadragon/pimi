@@ -604,7 +604,10 @@ export interface ImportedProviderSession {
   session: AgentSession;
   config: AgentSessionConfig;
   persistence: AgentPersistenceHandle;
+  /** The newest history the session replayed; a windowed session leaves older turns unread. */
   timeline: ImportedTimelineEntry[];
+  /** The chat's first user prompt, for a provider whose `timeline` may not start at it. */
+  firstPrompt?: string | null;
   providerSubagentEvents?: Extract<AgentStreamEvent, { type: "provider_subagent" }>[];
 }
 

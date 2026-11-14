@@ -1909,13 +1909,20 @@ export class ClaudeAgentClient implements AgentClient {
       sessionId: input.providerHandleId,
       configDir: claudeConfigDir(this.buildProviderEnv(context.launchContext?.env)),
     });
-    return importSessionFromPersistence({
+    const imported = await importSessionFromPersistence({
       provider: "claude",
       request: input,
       context,
       resumeSession: this.resumeSession.bind(this),
       ...(renamedTitle ? { config: { title: renamedTitle } } : {}),
     });
+    // The replay is windowed, so its first prompt is not the chat's first prompt.
+    const firstPrompt = await readClaudeFirstPrompt({
+      cwd: input.cwd,
+      sessionId: input.providerHandleId,
+      configDir: claudeConfigDir(this.buildProviderEnv(context.launchContext?.env)),
+    });
+    return { ...imported, firstPrompt };
   }
 
   async isAvailable(): Promise<boolean> {
@@ -7551,6 +7558,54 @@ async function readClaudeRenamedSessionTitle(input: {
     }
     throw error;
   }
+}
+
+/** The first user prompt of a transcript, read from the start of the file and stopping there. */
+async function readClaudeFirstPrompt(input: {
+  cwd: string;
+  sessionId: string;
+  configDir: string;
+}): Promise<string | null> {
+  const acc: ClaudeSessionDescriptorAccumulator = {
+    sessionId: null,
+    cwd: null,
+    customTitle: null,
+    aiTitle: null,
+    firstPromptTitle: null,
+    firstPromptPreview: null,
+    lastPromptPreview: null,
+  };
+  const stream = fs.createReadStream(await claudeTranscriptPath(input), {
+    highWaterMark: 64 * 1024,
+  });
+  const record: Buffer[] = [];
+  try {
+    for await (const chunk of stream) {
+      let start = 0;
+      while (start < chunk.length) {
+        const newline = chunk.indexOf(10, start);
+        record.push(chunk.subarray(start, newline === -1 ? chunk.length : newline));
+        if (newline === -1) break;
+        const line = Buffer.concat(record).toString("utf8");
+        record.length = 0;
+        start = newline + 1;
+        if (!line || !CLAUDE_IMPORT_DESCRIPTOR_RECORD_PATTERN.test(line)) continue;
+        try {
+          applyClaudeSessionEntryToAccumulator(JSON.parse(line), acc);
+        } catch {
+          continue;
+        }
+        if (acc.firstPromptTitle) return acc.firstPromptTitle;
+      }
+    }
+  } catch (error) {
+    // A session with no transcript on disk has no prompt to read.
+    if (isErrnoException(error) && error.code === "ENOENT") return null;
+    throw error;
+  } finally {
+    stream.destroy();
+  }
+  return acc.firstPromptTitle;
 }
 
 function normalizeImportablePromptPreview(text: string): string | null {

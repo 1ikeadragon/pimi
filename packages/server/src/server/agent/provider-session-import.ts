@@ -32,7 +32,9 @@ export async function importSessionFromPersistence(input: {
   } as AgentSessionConfig;
   const persistence =
     input.persistence ?? buildImportPersistenceHandle(input.provider, input.request, storedConfig);
-  const session = await input.resumeSession(persistence, config, input.context.launchContext);
+  const session = await input.resumeSession(persistence, config, input.context.launchContext, {
+    windowedHistory: true,
+  });
   const history = await collectImportedHistory(session.streamHistory());
 
   return {
