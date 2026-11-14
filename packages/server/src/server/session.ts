@@ -8759,6 +8759,25 @@ export class Session {
     try {
       const agentId = resolved.agentId;
 
+      // A send un-archives its agent, so one that raced a chat archive or project delete would
+      // revive an agent inside a chat nobody can see.
+      const stored = await this.agentStorage.get(agentId);
+      if (stored?.workspaceId) {
+        const chat = await this.workspaceRegistry.get(stored.workspaceId);
+        if (!chat || chat.archivedAt) {
+          this.emit({
+            type: "send_agent_message_response",
+            payload: {
+              requestId: msg.requestId,
+              agentId: msg.agentId,
+              accepted: false,
+              error: "Chat is archived",
+            },
+          });
+          return;
+        }
+      }
+
       const prompt = buildAgentPrompt(msg.text, msg.images, msg.attachments);
       this.sessionLogger.trace(
         {
