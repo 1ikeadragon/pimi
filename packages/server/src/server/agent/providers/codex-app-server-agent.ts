@@ -30,6 +30,7 @@ import {
   type AgentSlashCommand,
   type AgentStreamEvent,
   type AgentTimelineItem,
+  type AgentTurnLimit,
   type ToolCallTimelineItem,
   type AgentUsage,
   type FetchCatalogOptions,
@@ -986,6 +987,18 @@ function toCodexMcpConfig(config: McpServerConfig): CodexMcpServerConfig {
       throw new Error(`Unsupported MCP config type: ${String(_exhaustive.type)}`);
     }
   }
+}
+
+/**
+ * `codexErrorInfo` is a typed variant in the app-server protocol: a bare string for the limit
+ * cases (checked against the generated schema of codex-cli 0.167). Neither carries a reset time.
+ * Other limit-like variants (`sessionBudgetExceeded`, `flexUnavailable`, `serverOverloaded`) are
+ * not an account limit another provider can route around, so they stay plain failures.
+ */
+function codexLimitFromErrorInfo(info: unknown): { limit?: AgentTurnLimit } {
+  if (info === "usageLimitExceeded") return { limit: { kind: "usage" } };
+  if (info === "rateLimitExceeded") return { limit: { kind: "rate" } };
+  return {};
 }
 
 function toObjectRecord(value: unknown): Record<string, unknown> | undefined {
@@ -2344,6 +2357,7 @@ const TurnCompletedNotificationSchema = z
         error: z
           .object({
             message: z.string().optional(),
+            codexErrorInfo: z.unknown().optional(),
           })
           .passthrough()
           .nullable()
@@ -2633,6 +2647,7 @@ type ParsedCodexNotification =
       kind: "turn_completed";
       status: string;
       errorMessage: string | null;
+      limit?: AgentTurnLimit;
       threadId: string | null;
     }
   | {
@@ -2785,6 +2800,7 @@ const CodexNotificationSchema = z.union([
         kind: "turn_completed",
         status: params.turn.status,
         errorMessage: params.turn.error?.message ?? null,
+        ...codexLimitFromErrorInfo(params.turn.error?.codexErrorInfo),
         threadId: params.threadId ?? null,
       }),
     ),
@@ -6676,6 +6692,7 @@ export class CodexAppServerAgentSession implements AgentSession {
         type: "turn_failed",
         provider: CODEX_PROVIDER,
         error: parsed.errorMessage ?? "Codex turn failed",
+        ...(parsed.limit ? { limit: parsed.limit } : {}),
       });
     } else if (parsed.status === "interrupted") {
       this.dismissInterruptedAsyncQuestions();

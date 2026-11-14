@@ -2,7 +2,7 @@ import { memo, useMemo, useCallback, useState, type ReactNode } from "react";
 import { overridable } from "@/extension-points";
 import { Text, View, type ViewStyle } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { Check, CircleAlert, Folder, FolderGit2, Monitor } from "lucide-react-native";
+import { CircleAlert, Folder, FolderGit2, Monitor } from "lucide-react-native";
 import { ProjectStatusIndicator } from "@/components/sidebar/project-leading-visual";
 import type { SidebarSurfaceBackdrop } from "@/styles/surface-backdrop";
 import {
@@ -34,23 +34,16 @@ import {
   ARCHIVE_BUTTON_SIZE,
   SidebarWorkspaceArchiveButton,
 } from "@/components/sidebar/sidebar-workspace-menu";
-import { PimiAgentLabels, usePimiLabelNames } from "@/desktop/pimi-labels";
-import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
-import { usePimiTaskBranches } from "./sidebar-model";
+import { useWorkspaceRowLabels } from "@/labels/workspace-chat";
 import { getDesktopHost } from "@/desktop/host";
 import { openPimiReview, pullRequestUrlToSource } from "@/navigation/pimi-review";
-import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
-import { PressHighlight } from "@/components/ui/press-highlight";
-import type { Agent } from "@/stores/session-store";
 import { SidebarAgentLineage } from "@/components/sidebar/sidebar-agent-lineage";
 
 const needsInputColorMapping = (theme: Theme) => ({
   color: theme.colors.surface0,
   fill: getStatusDotColor({ theme, bucket: "needs_input" }) ?? undefined,
 });
-const ThemedCheck = withUnistyles(Check);
-const completedColorMapping = (theme: Theme) => ({ color: theme.colors.statusSuccess });
 
 const ThemedCircleAlert = withUnistyles(CircleAlert);
 
@@ -108,93 +101,7 @@ export function SidebarWorkspaceRowFrame({
           indentStyle={indented ? sidebarWorkspaceRowStyles.rowIndented : undefined}
         />
       ) : null}
-      {!isDragging ? <PimiTaskBranchRows workspaceKey={workspace.workspaceKey} /> : null}
     </>
-  );
-}
-
-function PimiTaskBranchRows({ workspaceKey }: { workspaceKey: string }) {
-  const branches = usePimiTaskBranches(workspaceKey);
-  if (!branches?.length) return null;
-  const groups = new Map<string, typeof branches>();
-  for (const branch of branches) {
-    const siblings = groups.get(branch.parent.id);
-    if (siblings) siblings.push(branch);
-    else groups.set(branch.parent.id, [branch]);
-  }
-  return (
-    <View style={styles.taskBranches} testID={`pimi-task-branches-${workspaceKey}`}>
-      {[...groups].map(([parentId, children]) => (
-        <View key={parentId}>
-          {groups.size > 1 ? (
-            <Text numberOfLines={1} style={styles.taskBranchTitle}>
-              {children[0].parent.title || "Original chat"}
-            </Text>
-          ) : null}
-          {children.map(({ worker, workspace }) => (
-            <PimiTaskBranchRow key={worker.id} worker={worker} workspace={workspace} />
-          ))}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function PimiTaskBranchRow({
-  worker,
-  workspace,
-}: {
-  worker: Agent;
-  workspace: SidebarWorkspaceEntry;
-}) {
-  const open = useCallback(() => {
-    getDesktopHost()?.dismissPimiWorkspace?.();
-    navigateToAgent({ serverId: worker.serverId, agentId: worker.id });
-  }, [worker.serverId, worker.id]);
-  return (
-    <View>
-      <PressHighlight
-        accessibilityRole="button"
-        onPress={open}
-        style={styles.taskBranchRow}
-        highlightStyle={styles.taskBranchPressed}
-        testID={`pimi-task-branch-${worker.id}`}
-      >
-        <PimiTaskBranchStatus worker={worker} workspace={workspace} />
-        <Text numberOfLines={1} style={styles.taskBranchTitle}>
-          {worker.title || workspace.name}
-        </Text>
-      </PressHighlight>
-      <PimiAgentLabels
-        serverId={worker.serverId}
-        workspaceId={worker.workspaceId}
-        agentId={worker.id}
-      />
-      <PimiTaskBranchRows workspaceKey={workspace.workspaceKey} />
-    </View>
-  );
-}
-
-function PimiTaskBranchStatus({
-  worker,
-  workspace,
-}: {
-  worker: Agent;
-  workspace: SidebarWorkspaceEntry;
-}) {
-  if (worker.requiresAttention && worker.attentionReason === "finished") {
-    return (
-      <View style={styles.workspaceStatusDot} testID="pimi-task-branch-completed">
-        <ThemedCheck size={16} uniProps={completedColorMapping} />
-      </View>
-    );
-  }
-  return (
-    <WorkspaceStatusIndicator
-      bucket={workspace.statusBucket}
-      workspaceKind={workspace.workspaceKind}
-      loading={false}
-    />
   );
 }
 
@@ -231,10 +138,8 @@ const SidebarWorkspaceRowContentBase = memo(function SidebarWorkspaceRowContent(
   children?: ReactNode;
 }) {
   const workspaceLabel = useSidebarChatTitle(workspace);
-  // The workspace carries label names; their colors live in its host's catalog, so the row is
-  // where the two meet — the meta line is handed finished definitions.
-  const names = usePimiLabelNames(workspace.serverId, workspace.workspaceId, workspace.labels);
-  const labels = useWorkspaceLabelDefinitions(workspace.serverId, names);
+  // Labels belong to chats; the row shows its primary chat's.
+  const labels = useWorkspaceRowLabels(workspace.serverId, workspace.workspaceId);
   const workspaceBranchTextStyle = useMemo(
     () => [
       styles.workspaceBranchText,
@@ -637,28 +542,6 @@ export function SidebarWorkspaceTrailingActionOverlay({
 const TITLE_LINE_HEIGHT = 20;
 
 const styles = StyleSheet.create((theme) => ({
-  taskBranches: {
-    marginLeft: 18,
-    paddingLeft: 7,
-    borderLeftWidth: 1,
-    borderLeftColor: theme.colors.border,
-  },
-  taskBranchRow: {
-    minHeight: 26,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    borderRadius: 5,
-    paddingRight: 8,
-  },
-  taskBranchPressed: {
-    backgroundColor: theme.colors.surface1,
-  },
-  taskBranchTitle: {
-    flexShrink: 1,
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-  },
   workspaceRowContent: {
     position: "relative",
   },

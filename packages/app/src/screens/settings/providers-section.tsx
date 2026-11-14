@@ -39,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { HarnessUpdatesSection } from "./harness-updates-section";
+import { LimitFallbackSection } from "./limit-fallback-section";
 import { CustomProviderSheet } from "./custom-provider-sheet";
 import { SettingsCard, SettingsRow } from "@/components/settings";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
@@ -613,6 +614,7 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
         ) : null}
       </SettingsSection>
 
+      <LimitFallbackSection serverId={serverId} />
       <HarnessUpdatesSection serverId={serverId} />
 
       {hasServer && isConnected ? (

@@ -90,7 +90,8 @@ workspace for a directory clears it. The store lives in memory and resets on dae
 | `server/websocket-server.ts`    | WebSocket connection management, hello handshake, binary frame routing         |
 | `server/session.ts`             | Per-client session state, timeline subscriptions, terminal operations          |
 | `server/directory-sync/`        | Daemon-global latest-state sequences for projects, workspaces, and agents      |
-| `server/workspace-labels/`      | Host-local label catalog, assignment mutations, and explicit subscriptions     |
+| `server/labels/`                | Host-local label catalog, assignments, and explicit subscriptions              |
+| `server/task/`                  | Tasks: the to-do records, links to chats, description generation               |
 | `server/agent/agent-manager.ts` | Agent lifecycle state machine, timeline tracking, subscriber management        |
 | `server/agent/agent-storage.ts` | Agent records in `$PIMI_HOME/pimi.db` (`node:sqlite`)                          |
 | `server/agent/tools/`           | Transport-neutral catalog for workspaces, agents, permissions, and automation  |
@@ -130,7 +131,7 @@ Cross-platform React Native app that connects to one or more daemons.
 - `HostRuntimeController` manages saved host connections, reconnection, and per-host runtime state. Direct TCP and relay connections use the ordinary client transport; desktop socket, pipe, and SSH connections cross one Electron-owned transport boundary. SSH only tunnels to an already-running daemon.
 - `runtime/replica-cache` is typed storage behind the directory and timeline owners. It never observes or mutates `SessionStore`.
 - `runtime/directory-sync` owns directory cache selection and network reconciliation. On demand it paints accepted rows for one host, then passes the persisted per-entity cursor through `project.list`, `fetch_workspaces`, and `fetch_agents`; the daemon returns each entity's latest projection when its sequence is newer, plus tombstones.
-- `workspace-labels` owns one sequenced catalog replica per connected host, the deterministic cross-host projection that surfaces spanning hosts use (the filter page, the manager), and the per-host resolution a workspace row's chips use. Two hosts may give one name different colors, so a row resolves against its own host's catalog and a merged answer would be wrong there. Catalogs never synchronize between hosts; assignment creates a missing definition only on the target host. On the daemon, catalog and assignment rewrites share a journaled commit boundary. Startup recovery completes that commit before workspace or catalog publication.
+- `labels` owns one catalog-and-assignments replica per connected host, the deterministic cross-host projection that surfaces spanning hosts use (the filter page, the manager), and the per-host resolution a chip uses. Two hosts may give one name different ids and colors, so a chat, subagent or task resolves its labels against its own host's catalog and a merged answer would be wrong there. Catalogs never synchronize between hosts.
 - `SessionContext` wraps the daemon client for the active session
 - Composer UI and submit/draft behavior live in `packages/app/src/composer/`; screens and panels should integrate it from there instead of dropping composer internals into `components/`, `hooks/`, or `screens/workspace/`
 - Timeline reducers in `timeline/session-stream-reducers.ts` handle compaction, gap detection, sequence-based deduplication
@@ -158,10 +159,11 @@ generation. The daemon retains only the latest projection per entity and bounded
 event log. A missing, expired, or previous-generation cursor receives a full snapshot. Projects are
 independent records; a project with no workspaces does not need a workspace placeholder.
 
-Workspace label definitions use a separate, explicitly subscribed sequence. The list request both
-fetches and grants live updates for that session. A current cursor receives an empty correlated
-catch-up response when nothing changed; idle sessions and unsubscribed sessions receive no label
-traffic. Workspace assignments stay on the workspace directory sequence.
+Labels and tasks are not on the directory sequences. `label.list.request` with `subscribe` returns
+the whole catalog and every assignment, then pushes `label.update` for that session; unsubscribed
+sessions receive no label traffic. Tasks are fetched with `task.list.request` and refetched when the
+daemon pushes `status.tasks_changed`. Both ride ordinary session auth, so a task tool works with
+no desktop app open.
 
 ### `packages/cli` — Command-line client
 
@@ -503,11 +505,10 @@ writing; `pimi daemon db dump <table>` reads it read-only. Zod stays the schema 
 are parsed on read and before write, and each row keeps the record as JSON next to indexed columns.
 
 In the database: agents (`agents`, `agent_persistence`), automations, runs, triggers, drafts,
-heartbeats, attack runs and findings, carried timelines, projects and workspaces (`records`, by
-kind), both audit logs (`audit`), creation and message receipts (`receipts`), sent-attachment
+heartbeats, attack runs and findings, carried timelines, projects, workspaces, tasks, labels and
+label assignments (`records`, by kind), both audit logs (`audit`), creation and message receipts (`receipts`), sent-attachment
 metadata and the image index. Still files: `config.json` and the small identity, secret and lock
-files, image and attachment bytes, annotation images, network logs, Spaces, project memory, and the
-workspace label catalog with its two-file commit journal.
+files, image and attachment bytes, annotation images, network logs, Spaces and project memory.
 
 Each migrated store imports its old JSON once, gated by a `meta` row (`imported_<name>`), and renames
 what it read with a `.migrated` suffix. There is no dual write and no fallback reader; to go back,

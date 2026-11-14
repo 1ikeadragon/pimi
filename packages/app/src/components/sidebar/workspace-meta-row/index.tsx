@@ -3,10 +3,10 @@ import { useTranslation } from "@/i18n/use-translation";
 import { Pressable, Text, View, type GestureResponderEvent } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ExternalLink, Folder, GitBranch, Globe } from "lucide-react-native";
-import { workspaceLabelKey, type WorkspaceLabelDefinition } from "@pimi/protocol/workspace-labels";
+import type { Label } from "@pimi/protocol/labels";
 import type { HostBadgeModel } from "@/hosts/appearance";
 import { HostBadge, HOST_BADGE_ICON_SIZE } from "@/hosts/host-badge";
-import { WorkspaceLabelChip, WORKSPACE_LABEL_CHIP_INSET } from "@/workspace-labels/chip";
+import { LabelChip, LABEL_CHIP_INSET } from "@/labels/chip";
 import type { PrHint } from "@/git/pr-hint";
 import { getForgePresentation, normalizeForge } from "@/git/forge";
 import { openExternalUrl } from "@/utils/open-external-url";
@@ -37,7 +37,7 @@ const ThemedGitBranch = withUnistyles(GitBranch);
 const ThemedGlobe = withUnistyles(Globe);
 
 /** Stable identity so a row without labels doesn't re-select its items on every render. */
-const EMPTY_LABELS: readonly WorkspaceLabelDefinition[] = [];
+const EMPTY_LABELS: readonly Label[] = [];
 
 const foregroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
@@ -72,7 +72,7 @@ export function WorkspaceMetaRow({
   prHint: PrHint | null;
   openPullRequest?: () => void;
   serviceSummary: WorkspaceServiceSummary | null;
-  labels?: readonly WorkspaceLabelDefinition[];
+  labels?: readonly Label[];
 }) {
   const { rowItems, checksDisplay } = useSidebarMetaPreferences();
   const items = selectMetaRowItems({
@@ -165,17 +165,11 @@ function IdentityItem({ kind, name }: { kind: "branch" | "project"; name: string
  * letter lands on the rail the title above it uses. Mid-line the ground stays in the flow: there
  * is a separator to its left, and pulling the tint up against that dot buys nothing.
  */
-function LabelsItem({
-  labels,
-  leading,
-}: {
-  labels: readonly WorkspaceLabelDefinition[];
-  leading: boolean;
-}) {
+function LabelsItem({ labels, leading }: { labels: readonly Label[]; leading: boolean }) {
   return (
     <View style={[styles.labels, leading && styles.labelsLeading]}>
       {labels.map((label) => (
-        <WorkspaceLabelChip key={workspaceLabelKey(label.name)} label={label} />
+        <LabelChip key={label.id} label={label} />
       ))}
     </View>
   );
@@ -373,7 +367,7 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 1,
   },
   labelsLeading: {
-    marginLeft: -WORKSPACE_LABEL_CHIP_INSET,
+    marginLeft: -LABEL_CHIP_INSET,
   },
   // The one item that gives way when the line runs out of room — see `ServiceItem`.
   serviceItem: {

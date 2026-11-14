@@ -512,6 +512,7 @@ function resolveStaticLoadConfigSettings(
     usageEnabled: resolveUsageEnabled(persisted),
     browserToolsEnabled: resolveBrowserToolsEnabled(persisted),
     autoArchiveAfterMerge: persisted.daemon?.autoArchiveAfterMerge ?? false,
+    limitFallback: persisted.daemon?.limitFallback ?? { enabled: false, chain: [] },
     ...resolveNetworkLogConfig(persisted),
     appendSystemPrompt: resolveAppendSystemPrompt(persisted),
     ...resolveProfileLists(persisted),
@@ -542,6 +543,7 @@ export type ResolvedDaemonSettings = Pick<
   | "browserToolsEnabled"
   | "git"
   | "autoArchiveAfterMerge"
+  | "limitFallback"
   | "logNetworkEnabled"
   | "logNetworkRetentionDays"
   | "enableTerminalAgentHooks"

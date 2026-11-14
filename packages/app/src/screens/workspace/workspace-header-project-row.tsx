@@ -4,6 +4,9 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { HostBadge } from "@/hosts/host-badge";
 import { useHostBadges } from "@/hosts/use-host-badges";
+import { LabelChips } from "@/labels";
+import { useWorkspacePrimaryChatTarget } from "@/labels/workspace-chat";
+import { useTargetLabelIds } from "@/labels/store";
 
 /**
  * Which project the workspace belongs to, and which machine it runs on.
@@ -24,17 +27,22 @@ export function WorkspaceHeaderProjectRow({
   isSubtitleDistinct,
   branch,
   serverId,
+  workspaceId,
 }: {
   subtitle: string;
   isSubtitleDistinct: boolean;
   /** The checked-out branch, shown as a chip next to the project. */
   branch: string | null;
   serverId: string;
+  workspaceId: string;
 }) {
   const isCompact = useIsCompactFormFactor();
+  // The header names the workspace's primary chat, so it shows that chat's labels.
+  const labelTarget = useWorkspacePrimaryChatTarget(serverId, workspaceId);
+  const hasLabels = useTargetLabelIds(serverId, labelTarget).length > 0;
   const hostBadge = useHostBadges({ enabled: isCompact }).get(serverId) ?? null;
   const showProject = isSubtitleDistinct || isCompact;
-  if (!showProject && !hostBadge && !branch) {
+  if (!showProject && !hostBadge && !branch && !hasLabels) {
     return null;
   }
   return (
@@ -59,6 +67,7 @@ export function WorkspaceHeaderProjectRow({
       ) : null}
       {(showProject || branch) && hostBadge ? <Text style={styles.separator}>·</Text> : null}
       {hostBadge ? <HostBadge badge={hostBadge} /> : null}
+      {hasLabels ? <LabelChips serverId={serverId} target={labelTarget} /> : null}
     </View>
   );
 }

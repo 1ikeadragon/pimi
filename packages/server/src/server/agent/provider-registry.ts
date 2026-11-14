@@ -200,6 +200,7 @@ const PROVIDER_CLIENT_FACTORIES: Record<string, ProviderClientFactory> = {
       runtime: options?.ompRuntime,
     }),
   mock: (logger) => new MockLoadTestAgentClient(logger),
+  "mock-b": (logger) => new MockLoadTestAgentClient(logger, "mock-b"),
   "mock-slow": () => new MockSlowProviderClient(),
 };
 

@@ -5,9 +5,8 @@
 [Download the signed ARM64 APK](https://github.com/1ikeadragon/pimi/releases/latest/download/Pimi-Android-arm64.apk).
 
 Pimi for Android runs chats on your paired host. You can browse workspace
-files and diffs, open Work, tile agents, and check usage. Tasks reads and
-writes the board on a running Pimi Desktop 0.16.6 or newer. It needs an
-encrypted Wi-Fi pairing or a password-protected host paired over the encrypted relay. Memory, Spaces,
+files and diffs, tile agents, keep tasks and labels, and check usage. Tasks live on
+the host, so they work with the desktop app closed. Memory, Spaces,
 cross-repository Review, and Usage Recap stay on desktop for this preview.
 Cloud push notifications are unavailable in the preview.
 

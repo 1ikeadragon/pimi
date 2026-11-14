@@ -33,8 +33,6 @@ import {
 } from "@/utils/desktop-window";
 import { isWeb } from "@/constants/platform";
 import { getDesktopHost, usesPimiMacTitlebar } from "./host";
-import { usePimiReportLinks } from "./use-pimi-report-links";
-import { usePimiReviewRequests } from "./use-pimi-review-requests";
 import { PimiNavigationHistory } from "./pimi-navigation-history";
 import { PimiDraftEditorAction, usePimiWorkbench } from "./use-pimi-workbench";
 
@@ -44,8 +42,6 @@ const PIMI_GLASS = { "pimi-glass": "" };
 type ProjectPickerControls = Pick<PimiSidebarControls, "mode" | "openPeek" | "closePeek">;
 const SLOT_STYLE = { flex: 1, minWidth: 0, height: "100%", display: "flex" } as const;
 const SECTION_TITLES: Record<PimiWorkspaceSection, string> = {
-  tasks: "Tasks",
-  board: "Work",
   memory: "Memory",
   spaces: "Spaces",
 };
@@ -201,8 +197,6 @@ export function PimiConsoleContent({
   pathname: string;
   projects?: ProjectPickerControls;
 }) {
-  usePimiReportLinks();
-  usePimiReviewRequests();
   const host = getDesktopHost();
   const publishBounds = host?.setPimiContentBounds;
   const section = usePimiWorkspaceSection();

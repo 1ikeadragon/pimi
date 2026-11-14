@@ -69,6 +69,8 @@ interface CombinedModelSelectorProps {
     glyph: ToolbarGlyph;
     showCaret: boolean;
   };
+  /** Rendered under the picker, outside its scroll area. */
+  footer?: React.ReactNode;
 }
 
 export function CombinedModelSelector({
@@ -94,6 +96,7 @@ export function CombinedModelSelector({
   desktopMinWidth,
   triggerFill = false,
   toolbar,
+  footer,
 }: CombinedModelSelectorProps) {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
@@ -288,6 +291,7 @@ export function CombinedModelSelector({
         desktopFixedHeight={browser.desktopFixedHeight}
         desktopChildrenScrollEnabled={false}
         header={browser.header}
+        footer={footer}
         mobileChildrenScrollEnabled={!browser.isProviderView || !isNative}
         mobileChildrenContentContainerStyle={styles.mobileBrowserContent}
       >

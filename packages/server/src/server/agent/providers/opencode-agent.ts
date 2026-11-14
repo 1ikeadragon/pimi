@@ -42,6 +42,7 @@ import {
   type AgentSlashCommand,
   type AgentStreamEvent,
   type AgentTimelineItem,
+  type AgentTurnLimit,
   type AgentUsage,
   type FetchCatalogOptions,
   type ProviderRefreshContext,
@@ -519,12 +520,25 @@ function toTerminalTurnEvent(event: AgentStreamEvent): TerminalTurnEvent | null 
       type: "turn_failed",
       provider: "opencode",
       error: toDiagnosticErrorMessage(event.error),
+      ...(event.limit ? { limit: event.limit } : {}),
     };
   }
   if (event.type === "turn_completed" || event.type === "turn_canceled") {
     return event;
   }
   return null;
+}
+
+/**
+ * OpenCode's typed `APIError` carries the upstream HTTP status. 429 is the one status that means
+ * this account is being limited. OpenCode retries retryable errors on its own and reports that
+ * only as a status string, so a chat still retrying never reaches here.
+ */
+function openCodeLimitFromError(error: unknown): { limit?: AgentTurnLimit } {
+  if (typeof error !== "object" || error === null) return {};
+  const { name, data } = error as { name?: unknown; data?: unknown };
+  if (name !== "APIError" || typeof data !== "object" || data === null) return {};
+  return (data as { statusCode?: unknown }).statusCode === 429 ? { limit: { kind: "rate" } } : {};
 }
 
 function isOpenCodeNotFoundError(error: unknown): boolean {
@@ -3163,6 +3177,7 @@ function appendOpenCodeSessionError(
       type: "turn_failed",
       provider: "opencode",
       error: toDiagnosticErrorMessage(error),
+      ...openCodeLimitFromError(error),
     });
   }
 }
@@ -3954,6 +3969,7 @@ class OpenCodeAgentSession implements AgentSession {
                   type: "turn_failed",
                   provider: "opencode",
                   error: toDiagnosticErrorMessage(response.error),
+                  ...openCodeLimitFromError(response.error),
                 },
                 turnId,
               );

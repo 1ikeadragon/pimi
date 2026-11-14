@@ -5,12 +5,6 @@ import type { DesktopWindowChromeMode } from "./window/chrome.js";
 import type { PimiAppearance, PimiContentBounds, PimiDestination } from "./window/pimi-window.js";
 import type {
   PimiActivitySection,
-  PimiLinkedLabels,
-  PimiRecap,
-  PimiRecapPeriod,
-  PimiReportLinkTarget,
-  PimiReportLinkError,
-  PimiReviewRequest,
   PimiReviewSummary,
   PimiVoiceBubbleState,
   PimiVoiceCommandInput,
@@ -101,16 +95,6 @@ function isPimiAppearance(value: unknown): value is PimiAppearance {
 }
 
 const pimiAppearance = createPimiAppearanceBridge();
-const isTaskDictation = process.argv.includes("--pimi-task-dictation");
-if (isTaskDictation) {
-  document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-      document.documentElement.dataset.pimiDictation = "";
-    },
-    { once: true },
-  );
-}
 let settingsPending = false;
 let openSettings: (() => void) | undefined;
 let workspaceSection: PimiWorkspaceSection | null = null;
@@ -143,8 +127,6 @@ contextBridge.exposeInMainWorld("pimiDesktop", {
           ipcRenderer.send("pimi:workspace:show", destination),
         getPimiReviewSummary: (checkout: string): Promise<PimiReviewSummary | null> =>
           ipcRenderer.invoke("pimi:review:summary", checkout),
-        getPimiRecap: (period: PimiRecapPeriod): Promise<PimiRecap> =>
-          ipcRenderer.invoke("pimi:recap:get", period),
         onPimiWorkspaceActivity: (listener: (section: PimiActivitySection) => void) => {
           const onChange = (_event: Electron.IpcRendererEvent, section: PimiActivitySection) =>
             listener(section);
@@ -156,14 +138,6 @@ contextBridge.exposeInMainWorld("pimiDesktop", {
           ipcRenderer.invoke("pimi:workspace:close-dialog"),
         setPimiContentBounds: (bounds: PimiContentBounds) =>
           ipcRenderer.send("pimi:workspace:content-bounds", bounds),
-        pimiLabels: {
-          get: (): Promise<PimiLinkedLabels> => ipcRenderer.invoke("pimi:labels:get"),
-          subscribe: (listener: () => void) => {
-            const onChange = () => listener();
-            ipcRenderer.on("pimi:labels:changed", onChange);
-            return () => ipcRenderer.removeListener("pimi:labels:changed", onChange);
-          },
-        },
         pimiWorkspaceSection: {
           get: () => workspaceSection,
           subscribe: (listener: () => void) => {
@@ -173,28 +147,12 @@ contextBridge.exposeInMainWorld("pimiDesktop", {
             };
           },
         },
-        onPimiReviewRequest: (listener: (request: PimiReviewRequest) => void) => {
-          const onRequest = (_event: Electron.IpcRendererEvent, request: PimiReviewRequest) =>
-            listener(request);
-          ipcRenderer.on("pimi:workspace:open-review", onRequest);
-          return () => ipcRenderer.removeListener("pimi:workspace:open-review", onRequest);
-        },
         onPimiWorkspaceClick: (listener: () => void) => {
           const onClick = () => listener();
           ipcRenderer.on("pimi:workspace:click", onClick);
           return () => {
             ipcRenderer.removeListener("pimi:workspace:click", onClick);
           };
-        },
-        pimiReportLinks: {
-          onOpen: (listener: (target: PimiReportLinkTarget) => void) => {
-            const onOpen = (_event: Electron.IpcRendererEvent, target: PimiReportLinkTarget) =>
-              listener(target);
-            ipcRenderer.on("pimi:workspace:open-report-link", onOpen);
-            return () => ipcRenderer.removeListener("pimi:workspace:open-report-link", onOpen);
-          },
-          reportError: (error: PimiReportLinkError) =>
-            ipcRenderer.send("pimi:workspace:report-link-error", error),
         },
         pimiVoice: {
           runCommand: (input: PimiVoiceCommandInput): Promise<PimiVoiceResult> =>
@@ -232,13 +190,6 @@ contextBridge.exposeInMainWorld("pimiDesktop", {
           return () => {
             if (openSettings === open) openSettings = undefined;
           };
-        },
-      }
-    : {}),
-  ...(isTaskDictation
-    ? {
-        taskDictation: {
-          complete: (text: string | null) => ipcRenderer.send("pimi:task-dictation:complete", text),
         },
       }
     : {}),

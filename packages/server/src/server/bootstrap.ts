@@ -1,3 +1,4 @@
+import { createLimitFallback } from "./agent/limit-fallback/index.js";
 import { createRestartRecovery } from "./agent/restart-recovery/index.js";
 import { sendPromptToAgent } from "./agent/agent-prompt.js";
 import { generateChatTitle } from "./agent/chat-title-generator.js";
@@ -139,7 +140,11 @@ export async function fanOutReconciledWorkspaceUpdates(input: {
 
 import { VoiceAssistantWebSocketServer } from "./websocket-server.js";
 import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
-import { createWorkspaceLabelService } from "./workspace-labels/index.js";
+import { LabelService } from "./labels/service.js";
+import { migrateWorkspaceLabels } from "./labels/migrate.js";
+import { TaskService } from "./task/service.js";
+import { describeTask } from "./task/describe.js";
+import { toTaskPullRequest } from "./task/pull-request.js";
 import { createGitHubService, runGitHubCli } from "../services/github-service.js";
 import { createPimiWorktree as createRegisteredPimiWorktree } from "./pimi-worktree-service.js";
 import { createWorkspaceProvisioningService } from "./session/workspace-provisioning/workspace-provisioning-service.js";
@@ -464,6 +469,7 @@ export interface PimiDaemonConfig {
     maxProcessConcurrency: number;
   };
   autoArchiveAfterMerge?: boolean;
+  limitFallback?: MutableDaemonConfig["limitFallback"];
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
   terminalProfiles?: TerminalProfile[];
@@ -602,6 +608,12 @@ function createInitialLogConfig(config: ResolvedDaemonSettings): MutableDaemonCo
   };
 }
 
+function resolveLimitFallback(
+  config: ResolvedDaemonSettings["limitFallback"],
+): MutableDaemonConfig["limitFallback"] {
+  return config ?? { enabled: false, chain: [] };
+}
+
 function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): MutableDaemonConfig {
   const providers = config.providerOverrides ?? {};
 
@@ -624,6 +636,7 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
     providers,
     metadataGeneration: resolveMetadataGeneration(config.metadataGeneration),
     autoArchiveAfterMerge: config.autoArchiveAfterMerge ?? false,
+    limitFallback: resolveLimitFallback(config.limitFallback),
     enableTerminalAgentHooks: config.enableTerminalAgentHooks ?? false,
     log: createInitialLogConfig(config),
     idleRuntimeCleanup: config.idleRuntimeCleanup !== false,
@@ -1113,10 +1126,6 @@ export async function createPimiDaemon(
     path.join(config.pimiHome, "projects", "workspaces.json"),
     logger,
   );
-  const workspaceLabelService = createWorkspaceLabelService({
-    pimiHome: config.pimiHome,
-    workspaceRegistry,
-  });
   const github = createGitHubService();
   const workspaceGitService = new WorkspaceGitServiceImpl({
     logger,
@@ -1127,7 +1136,20 @@ export async function createPimiDaemon(
     },
   });
   const workspaceRuntimeStore = createWorkspaceRuntimeStore();
-  workspaceGitService.onSnapshotUpdated((snapshot) => workspaceRuntimeStore.set(snapshot));
+  // Set once the task service exists; a linked checkout's PR change refreshes task projections.
+  let onCheckoutPullRequestChanged: () => void = () => {};
+  workspaceGitService.onSnapshotUpdated((snapshot) => {
+    const before = workspaceRuntimeStore.get(snapshot.cwd)?.forge.pullRequest;
+    workspaceRuntimeStore.set(snapshot);
+    const after = snapshot.forge.pullRequest;
+    if (
+      before?.url !== after?.url ||
+      before?.state !== after?.state ||
+      before?.isDraft !== after?.isDraft
+    ) {
+      onCheckoutPullRequestChanged();
+    }
+  });
   workspaceRegistry.subscribeToMutations(async (mutation) => {
     if (mutation.kind === "remove" && mutation.workspace) {
       const cwd = path.resolve(mutation.workspace.cwd);
@@ -1301,10 +1323,17 @@ export async function createPimiDaemon(
       sendPromptToAgent({ agentId, prompt, agentManager, agentStorage, logger, unarchive: false }),
     report: (agentId, err) => logger.error({ agentId, err }, "Agent restart recovery failed"),
   });
+  const limitFallback = createLimitFallback({
+    agentManager,
+    agentStorage,
+    providerSnapshotManager,
+    config: () => daemonConfigStore.get().limitFallback,
+    logger,
+  });
   await restartRecovery.prepareStartup();
   logger.info({ elapsed: elapsed() }, "Agent storage initialized");
   await Promise.all([projectRegistry.initialize(), workspaceRegistry.initialize()]);
-  await workspaceLabelService.initialize();
+  await migrateWorkspaceLabels({ database: pimiDatabase, pimiHome: config.pimiHome, logger });
   logger.info({ elapsed: elapsed() }, "Workspace registries bootstrapped");
   const teardownArchivedWorkspaceRuntime = (workspaceId: string): void => {
     closeCodeNavigationWorkspace(workspaceId);
@@ -1615,6 +1644,53 @@ export async function createPimiDaemon(
       ),
   });
   await automationService.start();
+  const agentRecordExists = async (agentId: string): Promise<boolean> =>
+    Boolean(agentManager.getAgent(agentId) ?? (await agentStorage.get(agentId)));
+  const labelService = new LabelService({
+    database: pimiDatabase,
+    logger,
+    targetExists: async (target) => {
+      if (target.kind === "agent") return agentRecordExists(target.agentId);
+      if (target.kind === "subagent") return agentRecordExists(target.parentAgentId);
+      return Boolean(await taskService.get(target.taskId).catch(() => null));
+    },
+  });
+  const taskService: TaskService = new TaskService({
+    database: pimiDatabase,
+    labels: labelService,
+    logger,
+    agentExists: agentRecordExists,
+    resolvePullRequest: async (agentId) => {
+      const cwd = (agentManager.getAgent(agentId) ?? (await agentStorage.get(agentId)))?.cwd;
+      if (!cwd) return null;
+      // A warm checkout answers from the store; a cold one loads its forge status once.
+      const snapshot =
+        workspaceRuntimeStore.get(cwd) ?? (await workspaceGitService.getSnapshot(cwd));
+      return toTaskPullRequest(snapshot.forge.pullRequest);
+    },
+    describe: ({ title, agentId }) =>
+      describeTask({
+        manager: agentManager,
+        providerSnapshotManager,
+        daemonConfig: daemonConfigStore.get(),
+        logger,
+        title,
+        agentId,
+      }),
+  });
+  onCheckoutPullRequestChanged = () => taskService.notifyPullRequestsChanged();
+  await taskService.start();
+  // A deleted chat leaves no label assignments or task links behind.
+  const unsubscribeTaskCleanup = agentManager.subscribe(
+    (event) => {
+      if (event.type !== "agent_removed") return;
+      labelService.removeTarget({ kind: "agent", agentId: event.agentId });
+      void taskService.removeAgentLinks(event.agentId).catch((error) => {
+        logger.error({ err: error, agentId: event.agentId }, "Task link cleanup failed");
+      });
+    },
+    { replayState: false, includeInternal: true },
+  );
   const attackService = new AttackService({
     pimiHome: config.pimiHome,
     database: pimiDatabase,
@@ -1750,7 +1826,8 @@ export async function createPimiDaemon(
     projectMemory: canUseCallerScopedTools ? projectMemory : undefined,
     pimiSpaces: canUseCallerScopedTools ? pimiSpaces : undefined,
     searchCodebase: canUseCallerScopedTools ? searchPimiCodebase : undefined,
-    pimiTaskHome: canUseCallerScopedTools ? config.pimiHome : undefined,
+    taskService: canUseCallerScopedTools ? taskService : undefined,
+    labelService: canUseCallerScopedTools ? labelService : undefined,
     createDirectoryWorkspace: async (cwd, title, projectId, context) => {
       const workspace = await workspaceProvisioning.createWorkspaceForDirectory(
         cwd,
@@ -2119,7 +2196,8 @@ export async function createPimiDaemon(
               workspaceSetupRuntime,
               pluginRuntime,
               orchestrationSkills,
-              workspaceLabelService,
+              taskService,
+              labelService,
               finishSubscriptions,
               usageLedger,
             );
@@ -2207,6 +2285,7 @@ export async function createPimiDaemon(
     // they serve has been closed, further down.
     unsubscribePluginProviders();
     unsubscribePluginSessionChanges();
+    limitFallback.dispose();
     workspaceReconciliation.dispose();
     closeAllCodeNavigation();
     scriptHealthMonitor.stop();
@@ -2245,6 +2324,7 @@ export async function createPimiDaemon(
       logger.error({ err: error }, "Terminal shutdown failed");
     }
     await speechService.stop();
+    unsubscribeTaskCleanup();
     await automationService.stop().catch(() => undefined);
     await heartbeatService.stop().catch(() => undefined);
     await attackScheduler.stop().catch(() => undefined);

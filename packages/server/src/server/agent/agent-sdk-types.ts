@@ -8,6 +8,7 @@ import type {
   AgentProviderNotice,
   AgentProviderSwitchMarker,
   AgentTaskItem,
+  AgentTurnLimit,
   AgentUsage,
   JsonValue,
   ProviderOptions,
@@ -24,6 +25,7 @@ export type {
   AgentFeatureToggle,
   AgentProviderNotice,
   AgentTaskItem,
+  AgentTurnLimit,
   AgentUsage,
 };
 
@@ -440,6 +442,7 @@ export type AgentStreamEvent =
       error: string;
       code?: string;
       diagnostic?: string;
+      limit?: AgentTurnLimit;
       turnId?: string;
     }
   | { type: "turn_canceled"; provider: AgentProvider; reason: string; turnId?: string }

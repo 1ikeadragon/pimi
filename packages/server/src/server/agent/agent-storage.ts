@@ -82,6 +82,8 @@ const STORED_AGENT_SCHEMA = z.object({
   internal: z.boolean().optional(),
   background: z.boolean().optional(),
   archivedAt: z.string().nullable().optional(),
+  // Set by the user from the composer; survives provider switches because the record keeps the id.
+  limitFallbackDisabled: z.boolean().optional(),
 });
 
 export type SerializableAgentConfig = Pick<
@@ -98,6 +100,14 @@ export type SerializableAgentConfig = Pick<
 >;
 
 export type StoredAgentRecord = z.infer<typeof STORED_AGENT_SCHEMA>;
+
+/** Set by the user's toggles rather than the live agent, so a snapshot flush must not drop them. */
+function keepUserOwnedFlags(
+  existing: StoredAgentRecord | null | undefined,
+  record: StoredAgentRecord,
+): void {
+  if (existing?.limitFallbackDisabled) record.limitFallbackDisabled = true;
+}
 export function parseStoredAgentRecord(value: unknown): StoredAgentRecord {
   return STORED_AGENT_SCHEMA.parse(value);
 }
@@ -337,6 +347,7 @@ export class AgentStorage {
       }
       // Background is fixed at creation; a runtime opened without it cannot clear it.
       if (existing?.background) record.background = true;
+      keepUserOwnedFlags(existing, record);
       record.resumeOnStartup =
         existing?.resumeOnStartup && agent.lifecycle !== "idle" && agent.lifecycle !== "error";
       return record;

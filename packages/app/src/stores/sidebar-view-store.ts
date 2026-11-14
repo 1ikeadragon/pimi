@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { persist, type StateStorage } from "zustand/middleware";
 import { z } from "zod";
-import { workspaceLabelKey } from "@pimi/protocol/workspace-labels";
 import { createValidatedPersistStorage } from "@/storage/validated-persist-storage";
 
 export type SidebarGroupMode = "project" | "status";
@@ -15,16 +14,15 @@ const SIDEBAR_VIEW_STORE_VERSION = 8;
 /**
  * The key standing for "this workspace carries no labels at all".
  *
- * `normalizeWorkspaceLabelName` trims, so no real label can ever normalize to the empty string
- * and nothing in `labels` can collide with it. That is the whole reason the empty string is the
- * choice: a sentinel like `"__unlabelled__"` would be a name a person is free to type.
+ * Label ids are non-empty daemon-generated strings, so nothing in `labels` can collide with the
+ * empty string.
  */
 export const SIDEBAR_UNLABELLED_LABEL_KEY = "";
 
 /**
  * What the sidebar's Labels page currently says.
  *
- * The labels pinned to, keyed by `workspaceLabelKey`, exactly as `hostFilters` holds server ids:
+ * The label ids pinned to, exactly as `hostFilters` holds server ids:
  * empty means "every label", non-empty includes workspaces carrying any selected label.
  */
 export interface SidebarLabelFilter {
@@ -39,8 +37,7 @@ export function hasActiveSidebarLabelFilter(filter: SidebarLabelFilter): boolean
  * Include/exclude toggle over an allowlist, shared by the host and project filters.
  *
  * Both filters answer the same question — "is this one of the things I pinned the sidebar to" —
- * so they share the operation. The label filter does not: its keys go through
- * `workspaceLabelKey` first, which is a different identity.
+ * so they share the operation.
  */
 function toggleFilterEntry(list: readonly string[], key: string): string[] {
   return list.includes(key) ? list.filter((entry) => entry !== key) : [...list, key];
@@ -71,9 +68,9 @@ interface SidebarViewStoreState {
   clearHostFilters: () => void;
   toggleProjectFilter: (viewKey: string) => void;
   clearProjectFilters: () => void;
-  toggleLabelFilter: (name: string) => void;
+  toggleLabelFilter: (labelId: string) => void;
   clearLabelFilter: () => void;
-  reconcileLabelFilter: (labels: readonly string[]) => void;
+  reconcileLabelFilter: (labelIds: readonly string[]) => void;
   reconcileHostFilters: (serverIds: readonly string[]) => void;
 }
 
@@ -152,12 +149,11 @@ export function migrateSidebarViewState(persistedState: unknown): SidebarViewPer
 }
 
 /**
- * Re-keys a persisted filter through `workspaceLabelKey`, so the invariant on `labels` holds for
- * state that was written by an older build of this page rather than by the current one.
+ * Dedupes a persisted filter. Values written before labels had ids are names; they match no id
+ * and `reconcileLabelFilter` drops them once the catalogs load.
  */
 function normalizeSidebarLabelFilter(filter: SidebarLabelFilter): SidebarLabelFilter {
-  const labels = new Set(filter.labels.map(workspaceLabelKey));
-  return { labels: [...labels] };
+  return { labels: [...new Set(filter.labels)] };
 }
 
 export function createSidebarViewStorage(
@@ -194,18 +190,17 @@ export const useSidebarViewStore = create<SidebarViewStoreState>()(
       toggleProjectFilter: (viewKey) =>
         set((state) => ({ projectFilters: toggleFilterEntry(state.projectFilters, viewKey) })),
       clearProjectFilters: () => set({ projectFilters: [] }),
-      toggleLabelFilter: (name) =>
-        set((state) => {
-          const key = workspaceLabelKey(name);
-          const labels = state.labelFilter.labels.includes(key)
-            ? state.labelFilter.labels.filter((label) => label !== key)
-            : [...state.labelFilter.labels, key];
-          return { labelFilter: { ...state.labelFilter, labels } };
-        }),
+      toggleLabelFilter: (labelId) =>
+        set((state) => ({
+          labelFilter: {
+            ...state.labelFilter,
+            labels: toggleFilterEntry(state.labelFilter.labels, labelId),
+          },
+        })),
       clearLabelFilter: () => set({ labelFilter: emptyLabelFilter() }),
-      reconcileLabelFilter: (labels) =>
+      reconcileLabelFilter: (labelIds) =>
         set((state) => {
-          const available = new Set(labels.map(workspaceLabelKey));
+          const available = new Set(labelIds);
           const next = state.labelFilter.labels.filter(
             (label) => label === SIDEBAR_UNLABELLED_LABEL_KEY || available.has(label),
           );

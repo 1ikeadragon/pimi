@@ -69,6 +69,9 @@ import {
   type PimiVoiceEffect,
   type PimiVoiceView,
 } from "@pimi/protocol/pimi-task";
+import { TASK_TITLE_MAX_LENGTH } from "@pimi/protocol/task/types";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
+import { openPimiTasks } from "@/navigation/pimi-tasks";
 
 interface VoiceBubbleProps {
   enabled: boolean;
@@ -150,11 +153,12 @@ const TYPING_DOTS = ["first", "second", "third"].map((id, index) => ({
 
 const showWorkView = (destination: PimiDestination) => (host: DesktopHostBridge) =>
   host.showPimiWorkspace?.(destination);
-// Screens opened without the agent chat behind them. Review is an app route; the rest are
-// sections of the Work window.
-const VOICE_SCREEN_OPENERS: Partial<Record<PimiVoiceView, (host: DesktopHostBridge) => void>> = {
-  tasks: showWorkView({ view: "tasks" }),
-  work: showWorkView({ view: "worktrees" }),
+// Screens opened without the agent chat behind them. Review and Tasks are app routes; Memory and
+// Spaces are sections of the Pimi window.
+const VOICE_SCREEN_OPENERS: Partial<
+  Record<PimiVoiceView, (host: DesktopHostBridge, localServerId: string) => void>
+> = {
+  tasks: (_host, localServerId) => openPimiTasks(localServerId),
   memory: showWorkView({ view: "memory" }),
   spaces: showWorkView({ view: "spaces" }),
   review: () => openPimiReview(),
@@ -200,22 +204,38 @@ function showVoiceDestination(
   destination: PimiVoiceDestination,
   localServerId: string,
 ) {
-  if (destination.view !== "review") {
-    host.showPimiWorkspace?.(destination);
-    return;
+  switch (destination.view) {
+    case "review":
+      openPimiReview(
+        checkoutReviewSource({
+          serverId: destination.serverId ?? localServerId,
+          cwd: destination.path,
+        }),
+      );
+      return;
+    case "tasks":
+      openPimiTasks(localServerId);
+      return;
+    case "task":
+      openPimiTasks(localServerId, destination.id);
+      return;
+    case "new-task":
+      openPimiTasks(localServerId);
+      return;
+    default:
+      host.showPimiWorkspace?.(destination);
   }
-  openPimiReview(
-    checkoutReviewSource({
-      serverId: destination.serverId ?? localServerId,
-      cwd: destination.path,
-    }),
-  );
 }
 
-function openVoiceView(view: PimiVoiceView, host: DesktopHostBridge, pathname: string) {
+function openVoiceView(
+  view: PimiVoiceView,
+  host: DesktopHostBridge,
+  pathname: string,
+  localServerId: string,
+) {
   const openScreen = VOICE_SCREEN_OPENERS[view];
   if (openScreen) {
-    openScreen(host);
+    openScreen(host, localServerId);
     return;
   }
   host.dismissPimiWorkspace?.();
@@ -256,17 +276,38 @@ function openVoiceView(view: PimiVoiceView, host: DesktopHostBridge, pathname: s
   }
 }
 
+// A spoken title is enough to save the task; without one there is nothing to save, so the Tasks
+// list opens for the user to add it.
+function addVoiceTask(
+  command: Extract<PimiVoiceNavigation, { action: "new-task" }>,
+  client: DaemonClient | null,
+  localServerId: string,
+): string {
+  const { description } = command;
+  const title = command.title ?? description?.slice(0, TASK_TITLE_MAX_LENGTH).trim();
+  if (title && client) {
+    void client
+      .taskCreate({ task: { title, ...(description ? { description } : {}) } })
+      .then((created) => openPimiTasks(localServerId, created.task.id));
+    return "Adding a task";
+  }
+  openPimiTasks(localServerId);
+  return "Opening Tasks";
+}
+
 function applyVoiceCommand(
   command: PimiVoiceNavigation,
   {
     host,
     localServerId,
+    client,
     selection,
     pathname,
     agentId,
   }: {
     host: DesktopHostBridge;
     localServerId: string;
+    client: DaemonClient | null;
     selection: ReturnType<typeof useActiveWorkspaceSelection>;
     pathname: string;
     agentId?: string;
@@ -274,7 +315,7 @@ function applyVoiceCommand(
 ) {
   switch (command.action) {
     case "show":
-      openVoiceView(command.view, host, pathname);
+      openVoiceView(command.view, host, pathname, localServerId);
       return `Opening ${command.view[0].toUpperCase() + command.view.slice(1)}`;
     case "new-space":
       host.showPimiWorkspace?.({
@@ -298,12 +339,7 @@ function applyVoiceCommand(
       );
       return "Opening Usage";
     case "new-task":
-      host.showPimiWorkspace?.({
-        view: "new-task",
-        title: command.title,
-        brief: command.brief,
-      });
-      return "Opening task draft";
+      return addVoiceTask(command, client, localServerId);
     case "new-chat": {
       const draftId = generateDraftId();
       const draftKey = selection
@@ -516,7 +552,7 @@ function DesktopVoiceBubble({
       setReceiptId(recordId);
       const agentId =
         useSessionStore.getState().sessions[localServerId]?.focusedAgentId ?? undefined;
-      const navigationContext = { host, localServerId, selection, pathname, agentId };
+      const navigationContext = { host, localServerId, client, selection, pathname, agentId };
       if (command) {
         const parsed = PimiVoiceNavigation.safeParse(command);
         try {

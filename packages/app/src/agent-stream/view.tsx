@@ -21,7 +21,6 @@ import { useTranslation } from "@/i18n/use-translation";
 import { View, Text, Pressable, Platform, type StyleProp, type ViewStyle } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
-import { isPimiAndroid } from "@/utils/pimi-mobile";
 import { useMutation } from "@tanstack/react-query";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { ChevronDown } from "lucide-react-native";
@@ -44,17 +43,11 @@ import { readPimiDelegationToolCall } from "@/utils/pimi-delegation";
 import {
   PimiCreatedTaskCard,
   PimiReviewSuggestionCard,
-  PimiTaskProposalCard,
   readPimiCreatedTask,
   readPimiReviewSuggestion,
-  readPimiTaskProposal,
 } from "@/components/pimi-task-proposal-card";
 import { getDesktopHost } from "@/desktop/host";
-import {
-  isPimiReviewSuggestionTool,
-  isPimiTaskCreateTool,
-  isPimiTaskProposalTool,
-} from "@pimi/protocol/pimi-task";
+import { isPimiReviewSuggestionTool, isPimiTaskCreateTool } from "@pimi/protocol/pimi-task";
 import { getStreamItemMessageId, type AgentToolCallData, type StreamItem } from "@/types/stream";
 import type { PendingMessageSubmission } from "@/composer/submission/model";
 import type { TurnPresentation } from "@/timeline/turn-liveness";
@@ -297,12 +290,9 @@ function renderPimiAction(data: AgentToolCallData, serverId: string | undefined,
   const matches = (source: { serverId: string; agentId: string }) =>
     source.serverId === serverId && source.agentId === agentId;
   if (isPimiTaskCreateTool(data.name)) {
-    if (!desktop && !isPimiAndroid()) return null;
+    if (!serverId) return null;
     const result = readPimiCreatedTask(data.detail.output);
-    if (result && matches(result.source)) return <PimiCreatedTaskCard result={result} />;
-  } else if (desktop && isPimiTaskProposalTool(data.name)) {
-    const proposal = readPimiTaskProposal(data.detail.output);
-    if (proposal && matches(proposal.source)) return <PimiTaskProposalCard proposal={proposal} />;
+    if (result) return <PimiCreatedTaskCard result={result} serverId={serverId} />;
   } else if (desktop && isPimiReviewSuggestionTool(data.name)) {
     const suggestion = readPimiReviewSuggestion(data.detail.output);
     if (suggestion && matches(suggestion.source))
@@ -569,51 +559,6 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const effectiveStreamHead = useRetainedValue(streamHead, isActive);
     const effectiveTurnPresentation = useRetainedValue(turnPresentation, isActive);
     const isTurnActive = effectiveTurnPresentation.isActive;
-    const openedPimiDraft = useRef<string | null>(null);
-    const activeTurnId = effectiveTurnPresentation.turnId;
-    const settledDraft = useMemo(
-      () =>
-        activeTurnId
-          ? effectiveStreamItems.findLast(
-              (item) =>
-                item.turnId === activeTurnId &&
-                item.kind === "tool_call" &&
-                item.payload.source === "agent" &&
-                isPimiTaskProposalTool(item.payload.data.name),
-            )
-          : undefined,
-      [activeTurnId, effectiveStreamItems],
-    );
-    useEffect(() => {
-      const show = getDesktopHost()?.showPimiWorkspace;
-      if (!show || !isActive || readOnly || !isTurnActive || !document.hasFocus()) return;
-      for (const item of [...(effectiveStreamHead ?? []), settledDraft]) {
-        if (!item) continue;
-        if (item.kind !== "tool_call" || item.payload.source !== "agent") continue;
-        const data = item.payload.data;
-        if (data.status !== "completed" || data.error || data.detail.type !== "unknown") continue;
-        if (!isPimiTaskProposalTool(data.name)) continue;
-        const proposal = readPimiTaskProposal(data.detail.output);
-        if (
-          !proposal ||
-          proposal.source.agentId !== agentId ||
-          proposal.source.serverId !== resolvedServerId
-        )
-          continue;
-        if (proposal.id === openedPimiDraft.current) return;
-        openedPimiDraft.current = proposal.id;
-        show({ view: "task-draft", proposal });
-        break;
-      }
-    }, [
-      agentId,
-      effectiveStreamHead,
-      isActive,
-      isTurnActive,
-      readOnly,
-      resolvedServerId,
-      settledDraft,
-    ]);
     const lastTurnId = useMemo(() => {
       for (let i = effectiveStreamItems.length - 1; i >= 0; i -= 1) {
         const turnId = effectiveStreamItems[i]?.turnId;
@@ -1100,7 +1045,11 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           case "notification":
             if (item.providerSwitch) {
               return (
-                <ProviderSwitchMarker marker={item.providerSwitch} serverId={resolvedServerId} />
+                <ProviderSwitchMarker
+                  marker={item.providerSwitch}
+                  serverId={resolvedServerId}
+                  agentId={agentId}
+                />
               );
             }
             if (item.permissionResolution) {
