@@ -1,6 +1,6 @@
 {
   "name": "@pimi/cli",
-  "version": "0.17.47",
+  "version": "0.17.48",
   "private": true,
   "description": "Pimi CLI - control your AI coding agents from the command line",
   "license": "PolyForm-Noncommercial-1.0.0",
@@ -22,9 +22,9 @@
   },
   "dependencies": {
     "@clack/prompts": "1.1.0",
-    "@pimi/client": "0.17.47",
-    "@pimi/protocol": "0.17.47",
-    "@pimi/server": "0.17.47",
+    "@pimi/client": "0.17.48",
+    "@pimi/protocol": "0.17.48",
+    "@pimi/server": "0.17.48",
     "commander": "12.1.0",
     "mime-types": "2.1.35",
     "yaml": "2.8.4",

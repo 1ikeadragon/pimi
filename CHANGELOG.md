@@ -2,7 +2,7 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
-## Unreleased
+## 0.17.48 - 2026-11-14
 
 - Ask Pimi: "open a new chat under <project>" now starts its own chat in that project, with your words as its prompt. Before, the voice chat joined the chat on screen and could open a second chat nested under it.
 - Sidebar: every chat in a shared folder is its own row. The row of the chat on screen highlights, and the header title, labels, tasks and rename follow it. Archiving a row archives only that chat when others share its folder.

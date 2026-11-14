@@ -1,6 +1,6 @@
 {
   "name": "@pimi/builtin-plugins",
-  "version": "0.17.47",
+  "version": "0.17.48",
   "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
@@ -8,7 +8,7 @@
     "typecheck": "tsgo -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@pimi/plugin": "0.17.47",
+    "@pimi/plugin": "0.17.48",
     "zod": "4.6.7"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 {
   "name": "@pimi/protocol",
-  "version": "0.17.47",
+  "version": "0.17.48",
   "private": true,
   "description": "Pimi shared protocol schemas and wire types",
   "license": "PolyForm-Noncommercial-1.0.0",
