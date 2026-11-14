@@ -1,0 +1,6 @@
+{
+  "id": "aurora-backdrop",
+  "requirements": {
+    "pimi": ">=0.17.46"
+  }
+}

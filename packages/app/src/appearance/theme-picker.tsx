@@ -59,13 +59,17 @@ function PimiThemePicker({ bridge }: { bridge: NonNullable<DesktopHostBridge["pi
   const [mode, setMode] = useState(bridge.get);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
+  const { updateSettings } = useAppSettings();
+  const { options: pluginThemes, selected: selectedPluginTheme, select } = useContributedThemes();
   useEffect(() => bridge.subscribe(setMode), [bridge]);
   const selectMode = useCallback(
     async (next: PimiAppearance) => {
-      if (next === mode) return;
+      if (next === mode && selectedPluginTheme === null) return;
       setSaving(true);
       setError(false);
       try {
+        // Picking a built-in ends a plugin theme, which the provider ranks above this bridge.
+        if (selectedPluginTheme) await updateSettings({ theme: DEFAULT_THEME_PREFERENCE });
         await bridge.set(next);
       } catch {
         setError(true);
@@ -73,7 +77,7 @@ function PimiThemePicker({ bridge }: { bridge: NonNullable<DesktopHostBridge["pi
         setSaving(false);
       }
     },
-    [bridge, mode],
+    [bridge, mode, selectedPluginTheme, updateSettings],
   );
   return (
     <View style={styles.pimiSettings}>
@@ -82,9 +86,17 @@ function PimiThemePicker({ bridge }: { bridge: NonNullable<DesktopHostBridge["pi
           <PimiThemeTile
             key={option.mode}
             option={option}
-            selected={mode === option.mode}
+            selected={selectedPluginTheme === null && mode === option.mode}
             disabled={saving}
             selectMode={selectMode}
+          />
+        ))}
+        {pluginThemes.map((option) => (
+          <PluginThemeTile
+            key={option.id}
+            option={option}
+            selected={selectedPluginTheme?.id === option.id}
+            onSelect={select}
           />
         ))}
       </View>

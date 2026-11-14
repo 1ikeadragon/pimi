@@ -30,6 +30,9 @@ import {
   THEME_TO_UNISTYLES,
 } from "@/styles/theme";
 import { applyAppearance } from "./apply";
+import { PLUGIN_BACKDROP_APPEARANCE } from "./active-backdrop";
+import { applyBackdrop } from "./apply-backdrop";
+import { BUILTIN_BACKDROPS } from "./builtin-backdrops";
 import { AppearanceSystemBars } from "./system-bars";
 
 interface ContributedThemes {
@@ -45,14 +48,28 @@ interface ApplyThemeInput {
 
 const ContributedThemesContext = createContext<ContributedThemes | null>(null);
 
+/** `data-appearance` tells appearance.css which textures the root drops; null removes it. */
+function setRootAppearance(value: string | null): void {
+  if (typeof document === "undefined") return;
+  if (value === null) delete document.documentElement.dataset.appearance;
+  else document.documentElement.dataset.appearance = value;
+}
+
 function applyTheme({ preference, contributedTheme }: ApplyThemeInput): void {
   if (contributedTheme) {
     const themeName = PLUGIN_THEME_NAMES[contributedTheme.theme.colorScheme];
     UnistylesRuntime.updateTheme(themeName, () => contributedTheme.theme);
     UnistylesRuntime.setAdaptiveThemes(false);
     UnistylesRuntime.setTheme(themeName);
+    applyBackdrop(contributedTheme.backdrop);
+    setRootAppearance(contributedTheme.backdrop ? PLUGIN_BACKDROP_APPEARANCE : null);
+    if (typeof document !== "undefined") {
+      document.documentElement.style.removeProperty("--pimi-focus-ring");
+    }
     return;
   }
+  applyBackdrop(null);
+  setRootAppearance(null);
 
   const builtInPreference =
     preference === PLUGIN_THEME_PREFERENCE ? DEFAULT_THEME_PREFERENCE : preference;
@@ -88,14 +105,16 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
         ? themePreference
         : undefined;
     const appearance = pimiAppearance ?? mobileMode;
-    if (appearance) {
+    // A selected plugin theme wins over the desktop shell's appearance until a built-in is picked.
+    if (appearance && !selected) {
       const systemMode = systemDark ? "dark" : "light";
       const mode = appearance === "system" ? systemMode : appearance;
       const theme = PIMI_APPEARANCE_THEMES[mode];
       UnistylesRuntime.setAdaptiveThemes(false);
       UnistylesRuntime.setTheme(theme);
+      applyBackdrop(BUILTIN_BACKDROPS[mode] ?? null);
+      setRootAppearance(mode);
       if (typeof document !== "undefined") {
-        document.documentElement.dataset.appearance = mode;
         document.documentElement.style.setProperty(
           "--pimi-focus-ring",
           REGISTERED_THEMES[theme].colors.ring,

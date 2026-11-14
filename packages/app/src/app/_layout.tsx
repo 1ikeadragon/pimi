@@ -99,7 +99,7 @@ import {
 import { registerWorkspaceRouteNavigationRef } from "@/navigation/workspace-route-navigation";
 import { useSettingsRouteEntry } from "@/navigation/settings-presentation";
 import { ThemedStack } from "@/navigation/themed-stack";
-import { LiveBackdrop } from "@/appearance/live/live-backdrop";
+import { WindowBackdrop } from "@/appearance/window-backdrop";
 import { shouldUseDesktopDaemon } from "@/desktop/daemon/desktop-daemon";
 import { AgentNavigationListener } from "@/desktop/agent-navigation";
 import { LegacyAgentSkillsMigration } from "@/agent-skills/legacy-migration";
@@ -1186,7 +1186,7 @@ function RootAppTree() {
   return (
     <GestureHandlerRootView style={flexStyle}>
       <View style={layoutStyles.surfaceFill} dataSet={PIMI_BACKDROP}>
-        <LiveBackdrop />
+        <WindowBackdrop />
         <LucideProvider strokeWidth={ICON_STROKE_WIDTH}>
           <AddHostProvider>
             <RootProviders>
