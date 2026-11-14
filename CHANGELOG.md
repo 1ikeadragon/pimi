@@ -2,6 +2,18 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.50 - 2026-11-15
+
+- The daemon recovers when its worker crashes twice in a row. Before, it stayed down.
+- A turn cut by Stop, a provider switch or a daemon restart ends with an "Interrupted" row.
+- Claude chats free their process after 15 minutes idle instead of 60, and an opened chat that never ran a turn is freed too. A chat waiting on a scheduled wakeup is kept.
+- Rewinding a Claude chat to its first message no longer breaks it after a restart. Rewinding a message with images puts the images back in the composer.
+- Chat titles you or an agent set stay put; other tabs in the chat still get their own title.
+- Sending into an archived chat is refused instead of reviving its agent.
+- CLI: `chat create --project` starts in the project folder, `--new-branch` errors when the branch exists, `permit ls` shows full ids and the request, and `attach` and `logs --follow` say when the connection drops.
+- Agent text can't flip itself with right-to-left override characters, and agent links to unknown hosts do nothing.
+- The agent tool endpoint rejects requests from other web origins.
+
 ## 0.17.49 - 2026-11-14
 
 - Tide plays in the installed app. Before, the packaged app could not load the video and showed the still image.
