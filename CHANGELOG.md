@@ -2,6 +2,11 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.51 - 2026-11-15
+
+- iOS: an unsigned IPA ships with each release. Install it with SideStore.
+- Removed the one-time migration from Paseo homes and settings.
+
 ## 0.17.50 - 2026-11-15
 
 - The daemon recovers when its worker crashes twice in a row. Before, it stayed down.
