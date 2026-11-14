@@ -16,7 +16,7 @@ export interface PermissionResponseItem {
 export const permitResponseSchema: OutputSchema<PermissionResponseItem> = {
   idField: "requestId",
   columns: [
-    { header: "REQUEST ID", field: (item) => item.requestId.slice(0, 8), width: 12 },
+    { header: "REQUEST ID", field: "requestId", width: 48 },
     { header: "AGENT", field: "agentShortId", width: 10 },
     { header: "TOOL", field: "name", width: 20 },
     {
@@ -136,7 +136,7 @@ export function createAllowCommand(connect: PermitClientConnector = connectToDae
           const error: CommandError = {
             code: "PERMISSION_NOT_FOUND",
             message: `Permission request not found: ${reqId}`,
-            details: `Available requests: ${pendingPermissions.map((p) => p.id.slice(0, 8)).join(", ")}`,
+            details: `Available requests: ${pendingPermissions.map((p) => p.id).join(", ")}`,
           };
           throw error;
         }

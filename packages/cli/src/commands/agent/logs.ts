@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { connectToDaemon } from "../../utils/client.js";
-import { waitForStop } from "../../utils/wait-for-stop.js";
+import { stopOrConnectionLoss, waitForStop } from "../../utils/wait-for-stop.js";
 import type { CommandError, CommandOptions } from "../../output/index.js";
 import {
   fetchProjectedTimelineItems,
@@ -473,7 +473,7 @@ async function runFollowMode({
     if (!ready) return;
     notice(`\n--- Following logs (${tailLabel}; Ctrl+C to stop) ---\n`);
 
-    await stopped;
+    await stopOrConnectionLoss(stopped, client);
   } finally {
     stopController.abort();
     writer.end();

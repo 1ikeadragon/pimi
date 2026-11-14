@@ -33,7 +33,7 @@ export function createProjectCommand(): Command {
   addJsonAndDaemonHostOptions(
     project
       .command("delete")
-      .description("Delete a project and its chats")
+      .description("Remove a project and archive its chats")
       .argument("<project-id>", "Project id"),
   ).action(withOutput(runDeleteCommand));
 

@@ -12,7 +12,7 @@ const projectDeleteSchema = {
   columns: [
     { header: "PROJECT ID", field: "projectId" as const, width: 20 },
     {
-      header: "REMOVED CHATS",
+      header: "ARCHIVED CHATS",
       field: (result: ProjectDeleteResult) => result.removedChatIds.length,
       width: 18,
     },

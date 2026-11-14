@@ -1,3 +1,5 @@
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
+
 // Commands that stream until stopped (`pimi agent logs --follow`, `pimi agent
 // attach`) stop on Ctrl+C, a termination signal, or when the program reading
 // their output closes its end, as `| head` does. A closed reader shows up as
@@ -24,4 +26,25 @@ export function waitForStop(signal?: AbortSignal): Promise<void> {
     signal?.addEventListener("abort", stop, { once: true });
     if (signal?.aborted) stop();
   });
+}
+
+// The CLI client does not reconnect, so a closed socket would otherwise empty the event loop and
+// exit silently. Rejects when the daemon connection drops before `stopped` settles.
+export async function stopOrConnectionLoss(
+  stopped: Promise<void>,
+  client: DaemonClient,
+): Promise<void> {
+  let unsubscribe = () => {};
+  const lost = new Promise<never>((_, reject) => {
+    unsubscribe = client.subscribeConnectionStatus((status) => {
+      if (status.status === "disconnected" || status.status === "disposed") {
+        reject(new Error("Connection to the daemon was lost"));
+      }
+    });
+  });
+  try {
+    await Promise.race([stopped, lost]);
+  } finally {
+    unsubscribe();
+  }
 }
