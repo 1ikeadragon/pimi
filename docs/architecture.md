@@ -522,5 +522,5 @@ files, image and attachment bytes, annotation images, network logs, Spaces and p
 
 Each migrated store imports its old JSON once, gated by a `meta` row (`imported_<name>`), and renames
 what it read with a `.migrated` suffix. There is no dual write and no fallback reader; to go back,
-restore the renamed files. The import runs after the `~/.paseo` home migration. Not done: a durable
+restore the renamed files. Not done: a durable
 timeline (rows still replay from the provider transcript) and cross-chat search.

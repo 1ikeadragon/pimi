@@ -46,7 +46,6 @@ import {
   BrowserWindow,
   ClipboardItem,
   clipboard,
-  dialog,
   Menu,
   ipcMain,
   nativeImage,
@@ -77,12 +76,6 @@ import {
 import { setupDarwinCompositorWatchdog } from "./window/compositor-watchdog/index.js";
 import { showWindowWhenReady } from "./window/show-when-ready.js";
 import { resolveDesktopWindowChromeMode, windowChromeModeArgument } from "./window/chrome.js";
-import { migrateLegacyHome } from "@pimi/server/daemon-control";
-import {
-  LEGACY_APP_SCHEME,
-  STORAGE_MIGRATION_PATH,
-  migrateLegacyRendererStorage,
-} from "./settings/legacy-renderer-storage.js";
 import { registerDialogHandlers } from "./features/dialogs.js";
 import {
   registerNotificationHandlers,
@@ -725,10 +718,6 @@ protocol.registerSchemesAsPrivileged([
       stream: true,
     },
   },
-  {
-    scheme: LEGACY_APP_SCHEME,
-    privileges: { standard: true, secure: true, supportFetchAPI: true },
-  },
 ]);
 
 // ---------------------------------------------------------------------------
@@ -1293,19 +1282,6 @@ async function bootstrap(loginShellEnvReady: Promise<void>): Promise<void> {
   // process.env, so they wait for the login-shell PATH instead.
   deferIpcHandlersUntil(ipcMain, loginShellEnvReady);
   await app.whenReady();
-  try {
-    // The upgrade replaced the build that launched the old daemon but did not stop it.
-    await migrateLegacyHome(process.env, (message) => console.info(message), {
-      stopRunningDaemon: true,
-    });
-  } catch (error) {
-    dialog.showErrorBox(
-      "Pimi cannot start",
-      error instanceof Error ? error.message : String(error),
-    );
-    app.exit(1);
-    return;
-  }
   startDesktopNetworkLog();
   setupPimiSessionPermissions();
 
@@ -1315,11 +1291,6 @@ async function bootstrap(loginShellEnvReady: Promise<void>): Promise<void> {
     if (host === SEALED_FRAME_HOST && !username && !password) return sealedFrameResponse(request);
     if (host !== "app" || username || password) return new Response("Not found", { status: 404 });
     const decodedPath = decodeURIComponent(pathname);
-    if (decodedPath === STORAGE_MIGRATION_PATH) {
-      return new Response("<!doctype html><title></title>", {
-        headers: { "content-type": "text/html", "content-security-policy": CONSOLE_CSP },
-      });
-    }
 
     // Chromium can occasionally request the exported entrypoint directly.
     // Canonicalize it back to the route URL so Expo Router sees `/`, not `/index.html`.
@@ -1344,8 +1315,6 @@ async function bootstrap(loginShellEnvReady: Promise<void>): Promise<void> {
 
     return withConsolePolicy(await net.fetch(pathToFileURL(filePath).toString()));
   });
-
-  await migrateLegacyRendererStorage(APP_SCHEME);
 
   await applyAppIcon();
   setupApplicationMenu({

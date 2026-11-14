@@ -28,7 +28,6 @@ const killTree = (pid: number, signal: string): Promise<void> =>
 // Keep daemon bootstrap and WebSocket schemas out of its dependency tree.
 export { resolvePimiHome } from "./pimi-home.js";
 export { dumpPimiDatabaseTable } from "./db/pimi-db.js";
-export { migrateLegacyHome, LegacyDaemonRunningError } from "./legacy-home-migration.js";
 export { ensurePrivateDirectory } from "./private-files.js";
 export { daemonLaunchEnvironment } from "./config-environment.js";
 export { readLocalCredentialForTarget } from "./local-credential.js";

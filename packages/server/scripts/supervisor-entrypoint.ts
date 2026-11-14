@@ -9,7 +9,6 @@ import {
   updatePidLock,
 } from "../src/server/pid-lock.js";
 import { resolvePimiHome } from "../src/server/pimi-home.js";
-import { migrateLegacyHome } from "../src/server/legacy-home-migration.js";
 import { daemonLogPath } from "../src/server/daemon-instance.js";
 import { PRIVATE_FILE_MODE } from "../src/server/private-files.js";
 import { loadPersistedConfig } from "../src/server/persisted-config.js";
@@ -109,19 +108,7 @@ async function main(): Promise<void> {
       ? resolvePackagedNodeEntrypointRunnerPath(fileURLToPath(import.meta.url))
       : null;
 
-  let migrationNotice: string | null = null;
-  try {
-    await migrateLegacyHome(workerEnv, (message) => {
-      migrationNotice = message;
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    failStartup(message, message);
-  }
   const pimiHome = resolvePimiHome(workerEnv);
-  if (migrationNotice) {
-    appendFileSync(daemonLogPath(pimiHome), `${migrationNotice}\n`);
-  }
   const persistedConfig = loadPersistedConfig(pimiHome);
   const supervisorLogFile = resolveSupervisorLogFile(pimiHome, persistedConfig, workerEnv);
 

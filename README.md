@@ -12,8 +12,6 @@ Pimi will always be free and source-available. Made for everyone, never for sale
 
 Work on a Linux dev machine? [Connect it over SSH](docs/remote-ssh.md) and Pimi installs its daemon there.
 
-Replacing Paseo? [Keep your sessions and plugins](docs/paseo-migration.md).
-
 ## Use Pimi from your phone
 
 Pimi Mobile lets you chat with your agents, approve permissions, and review changes from anywhere. It works out of the box with the free Pimi Relay, so you don't need a server or a VPN.

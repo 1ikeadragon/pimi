@@ -100,24 +100,6 @@ resolve_dev_daemon_endpoint() {
   esac
 }
 
-# COMPAT(paseo-home): checkouts used .dev/paseo-home before the rename. Move it once and
-# rewrite the absolute paths JSON files inside it store.
-migrate_legacy_dev_home() {
-  local dev_root="$1"
-  local legacy="$dev_root/.dev/paseo-home"
-  local target="$dev_root/.dev/pimi-home"
-  if [ ! -d "$legacy" ] || [ -e "$target" ]; then
-    return
-  fi
-  mv "$legacy" "$target"
-  rm -f "$target/paseo.pid"
-  find "$target" -maxdepth 4 -name '*.json' -not -path '*/node_modules/*' -exec \
-    grep -l -F "$legacy" {} + 2>/dev/null | while IFS= read -r file; do
-    LEGACY="$legacy" TARGET="$target" perl -0pi -e 's/\Q$ENV{LEGACY}\E/$ENV{TARGET}/g' "$file"
-  done
-  echo "Migrated dev home $legacy -> $target" >&2
-}
-
 configure_dev_pimi_home() {
   if [ -n "${PIMI_HOME:-}" ]; then
     export PIMI_HOME
@@ -135,7 +117,6 @@ configure_dev_pimi_home() {
   export PIMI_HOME
   local dev_root
   dev_root="${PIMI_DEV_ROOT:-$(default_dev_pimi_root)}"
-  migrate_legacy_dev_home "$dev_root"
   PIMI_HOME="$dev_root/.dev/pimi-home"
   export PIMI_DEV_MANAGED_HOME=1
 
