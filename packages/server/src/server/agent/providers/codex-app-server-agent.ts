@@ -104,6 +104,7 @@ import {
   readCodexThreadHistory,
   readCodexThreadHistoryMode,
   readCodexThreadHistoryPageBefore,
+  readCodexThreadTitleHint,
 } from "./codex/thread-history.js";
 import { materializeProviderImage } from "./prompt-image-file.js";
 import type { ProviderImageOutput } from "../agent-images.js";
@@ -4335,6 +4336,12 @@ export class CodexAppServerAgentSession implements AgentSession {
     return this.olderHistoryCursor !== null;
   }
 
+  async readThreadTitleHint(): Promise<{ name: string | null; preview: string | null }> {
+    const threadId = this.currentThreadId;
+    if (!this.client || !threadId) return { name: null, preview: null };
+    return readCodexThreadTitleHint(this.client, threadId);
+  }
+
   async loadOlderHistory(): Promise<OlderHistoryEvent[]> {
     const previous = this.olderHistoryLoad;
     const load = (async () => {
@@ -8009,12 +8016,24 @@ export class CodexAppServerAgentClient implements AgentClient {
   }
 
   async importSession(input: ImportProviderSessionInput, context: ImportProviderSessionContext) {
-    return importSessionFromPersistence({
+    const imported = await importSessionFromPersistence({
       provider: CODEX_PROVIDER,
       request: input,
       context,
       resumeSession: this.resumeSession.bind(this),
     });
+    // The replay is windowed, so its first user message is not the chat's: take the name Codex
+    // gave the thread, else the thread's own first-prompt preview.
+    if (!(imported.session instanceof CodexAppServerAgentSession)) return imported;
+    try {
+      const { name, preview } = await imported.session.readThreadTitleHint();
+      if (name) return { ...imported, config: { ...imported.config, title: name } };
+      return { ...imported, firstPrompt: preview };
+    } catch (error) {
+      // A missing name only costs the title; the import itself already succeeded.
+      this.logger.warn({ err: error, threadId: input.providerHandleId }, "codex.import_title_hint");
+      return imported;
+    }
   }
 
   async getCatalogCacheKey(_options: FetchCatalogOptions): Promise<string> {
