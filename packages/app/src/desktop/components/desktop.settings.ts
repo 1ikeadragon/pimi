@@ -1,5 +1,4 @@
 import { hasDesktopTargetBridge } from "@/attack/use-desktop-target";
-import { getDesktopHost } from "@/desktop/host";
 import { defineSettingsPage } from "@/settings-index/define";
 
 export const notificationsSettings = defineSettingsPage(
@@ -10,13 +9,6 @@ export const notificationsSettings = defineSettingsPage(
       title: t("settings.notifications.permission"),
       keywords: ["allow", "enable", "access", "system", "alerts"],
     },
-    getDesktopHost()?.pimiAppearance
-      ? {
-          id: "notifications.task",
-          title: t("settings.notifications.taskTitle"),
-          keywords: ["tasks", "done", "finished", "alerts"],
-        }
-      : null,
     {
       id: "notifications.sound",
       title: t("settings.notifications.playSound"),

@@ -98,17 +98,6 @@ export function DesktopNotificationsSection() {
           onRequest={handleRequestNotifications}
           labels={permissionLabels}
         />
-        {pimi ? (
-          <SettingAnchor
-            id="notifications.task"
-            style={[settingsStyles.row, settingsStyles.rowBorder]}
-          >
-            <View style={settingsStyles.rowContent}>
-              <Text style={settingsStyles.rowTitle}>{t("settings.notifications.taskTitle")}</Text>
-              <Text style={settingsStyles.rowHint}>{t("settings.notifications.taskHint")}</Text>
-            </View>
-          </SettingAnchor>
-        ) : null}
         <SettingAnchor
           id="notifications.sound"
           style={[settingsStyles.row, settingsStyles.rowBorder]}

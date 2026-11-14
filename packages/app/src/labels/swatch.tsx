@@ -24,7 +24,7 @@ const DOT_SIZE = 10;
 const SWATCH_SIZE = 20;
 
 export function labelColorName(color: LabelColor): string {
-  return i18n.t(`workspaceLabels.colors.${color}`);
+  return i18n.t(`labels.colors.${color}`);
 }
 
 /**

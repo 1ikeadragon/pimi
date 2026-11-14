@@ -1539,7 +1539,8 @@ export const ptBR: TranslationResources = {
       },
     },
   },
-  workspaceLabels: {
+  labels: {
+    chat: en.labels.chat,
     title: "Etiquetas",
     unlabelled: "Sem etiqueta",
     create: "Criar etiqueta",
@@ -3266,9 +3267,6 @@ export const ptBR: TranslationResources = {
     notifications: {
       title: "Notificações",
       permission: "Permissão de notificações",
-      taskTitle: "Tarefas concluídas",
-      taskHint:
-        "No modo automático, o Pimi move a tarefa para Concluído e avisa quando todo o trabalho for mesclado.",
       refreshAccessibility: "Atualizar permissão de notificações",
       playSound: "Reproduzir som",
       playSoundHint: "Reproduz um som quando chega uma notificação da área de trabalho",

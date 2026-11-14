@@ -1529,7 +1529,8 @@ export const ja: TranslationResources = {
       },
     },
   },
-  workspaceLabels: {
+  labels: {
+    chat: en.labels.chat,
     title: "ラベル",
     unlabelled: "ラベルなし",
     create: "ラベルを作成",
@@ -3256,9 +3257,6 @@ export const ja: TranslationResources = {
     notifications: {
       title: "通知",
       permission: "通知の権限",
-      taskTitle: "タスクの完了",
-      taskHint:
-        "自動モードでは、すべての変更がマージされると Pimi がタスクを完了に移動して通知します。",
       refreshAccessibility: "通知の権限を更新",
       playSound: "サウンドを再生",
       playSoundHint: "デスクトップ通知が届いたときにサウンドを再生します",

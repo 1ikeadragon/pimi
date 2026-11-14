@@ -33,11 +33,12 @@ export function parsePimiVoiceCommand(transcript: string): PimiVoiceCommand | nu
   const task = command.match(
     /^(?:open|start) (?:a )?new task (?:called|titled)[\s,:]+(.+?)(?:[,.:]? (?:with (?:a |the )?brief|and (?:write|type)(?: in)?)[\s,:]+(\S[\s\S]*))?$/i,
   );
-  if (task) return { action: "new-task", title: task[1].replace(/[.!?]+$/, ""), brief: task[2] };
+  if (task)
+    return { action: "new-task", title: task[1].replace(/[.!?]+$/, ""), description: task[2] };
   const brief = command.match(
     /^(?:open|start) (?:a )?new task[,.:]? (?:to|for|with (?:a |the )?brief|and (?:write|type)(?: in)?)[\s,:]+(\S[\s\S]*)$/i,
   );
-  if (brief) return { action: "new-task", brief: brief[1] };
+  if (brief) return { action: "new-task", description: brief[1] };
 
   const view = instruction.match(
     /^(?:open|show(?: me)?|go to|switch to) (?:(?:my|the) )?([a-z]+)(?: (?:view|screen|page|tab))?$/i,

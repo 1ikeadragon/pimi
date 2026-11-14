@@ -4,7 +4,7 @@ See the [main README](../README.md) for the demo, features, and macOS build.
 
 ## Development
 
-Run `npm run build:server` and then `npm run pimi:desktop`. Use the sidebar or **File → Show Pimi Workspace** to switch layouts in the current window. The packaged app uses the normal Pimi daemon home and settings. Set `PIMI_HOME` and `PIMI_LISTEN` before launching the executable to use a separate daemon and state directory.
+Run `npm run build:server` and then `npm run pimi:desktop`. Use the sidebar to switch layouts in the current window. The packaged app uses the normal Pimi daemon home and settings. Set `PIMI_HOME` and `PIMI_LISTEN` before launching the executable to use a separate daemon and state directory.
 
 ## Desktop releases
 
@@ -12,22 +12,11 @@ Set the root version, run `npm run version:sync-internal`, and refresh the lockf
 
 Push the version commit to `main`, then push its `pimi-vX.Y.Z` tag. The release workflow builds both installers, publishes checksums, and adds a commit list for subsequent releases. Push one release tag at a time. If a run fails transiently, rerun all jobs so the publisher gets every artifact from the same attempt. For a code fix, ship a new version.
 
-## Tasks
+## What this page serves
 
-- The board derives the automatic task stage from its work items. Managed work is ready for review when its agent report arrives; linked checkouts use Git and agent activity. Manual stage overrides persist in the task record. Done closes a task; moving it out of Done reopens it.
-- Tasks, linked worktrees, and their chats show shared labels. A label stays editable where it was assigned. Manage the catalog from a workspace’s Labels menu. Pimi picks up catalog renames and removals while connected. If you rename a label while Pimi is closed, update its task assignments when you reopen it.
-- Chat is the default worker workspace. Agents can write artifacts in their own folders and optionally reference an attached repository. Choose Git worktree when agents should edit a repository from its pinned commit.
-- **Suggest 2 drafts** sends the brief to the selected provider and saves the suggestions for review. **Start agents** makes a short model check without the brief, then starts up to four drafts in parallel. Each draft keeps its launch identity for retries.
-- **Dictate brief** opens a small control at the bottom of Tasks and uses Agent Console’s existing dictation flow and configured speech provider. Insert puts editable text in the brief; closing the draft or leaving Tasks cancels the recording.
-- A managed work item’s report comes from its finished agent. Pimi collects it automatically as agent status changes. If retrieval fails, **Retry report** fetches the agent’s result again. Closing a task leaves its worktrees available for review.
-- Workers from a chat proposal appear as branches under the originating chat. Pimi delivers their completion and final responses to that chat, while Tasks keeps a copy of each report. Open a branch to continue directly with that worker.
-- The desktop saves task records in its local app data. With Agent tools enabled, interactive chats on the local daemon can find and update saved tasks, attach repositories from Work, link existing worktrees, and assign existing Pimi labels while the desktop app runs. These tools use the same task store as the board. For the standalone server, set `PIMI_TASK_STATE` to an absolute JSON file path to persist records across restarts.
+The embedded page (`pimi/public`) shows Memory and Spaces, and hosts the voice dock. Tasks and labels are not here: the daemon owns them and the app renders the Tasks screen (see [data-model.md](../docs/data-model.md#tasks-and-labels)). Desktop imports an old `<userData>/pimi-tasks.json` into the daemon once and renames it `.migrated`.
 
-## Work behavior
-
-- Work shows checkouts associated with active workspaces and tasks. **Watch repository** includes its other available checkouts. Tasks and Work update from daemon events and periodic local Git checks while open. Use Agent Console to import a supported session started elsewhere.
-- **Review changes** and **View PR** in Work ask the app to open the Review screen (`/pimi-review`) for that checkout or pull request. Review is part of the app, not this page: it reads diffs and pull requests through the daemon's `forge.change_request.*` and checkout diff RPCs. Sign in to `gh` to review private PRs.
-- Local previews use running workspace services. Pimi’s Work surface listens on loopback. The agent console uses the daemon’s host and provider settings.
+The page listens on loopback. The agent console uses the daemon’s host and provider settings.
 
 ## Source audit
 

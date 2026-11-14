@@ -207,7 +207,7 @@ class LabelsController {
           input.serverId,
           replica,
           "online",
-          error instanceof Error ? error.message : i18n.t("workspaceLabels.errors.load"),
+          error instanceof Error ? error.message : i18n.t("labels.errors.load"),
         );
       },
     });
@@ -273,7 +273,7 @@ class LabelsController {
         serverId,
         connection.replica,
         "online",
-        error instanceof Error ? error.message : i18n.t("workspaceLabels.errors.load"),
+        error instanceof Error ? error.message : i18n.t("labels.errors.load"),
       );
       throw error;
     }
@@ -281,7 +281,7 @@ class LabelsController {
 
   private async mutate<T>(serverId: string, operation: (client: DaemonClient) => Promise<T>) {
     const connection = this.connections.get(serverId);
-    if (!connection) throw new Error(i18n.t("workspaceLabels.manage.offline"));
+    if (!connection) throw new Error(i18n.t("labels.manage.offline"));
     try {
       return await operation(connection.client);
     } catch (error) {

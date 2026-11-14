@@ -96,7 +96,6 @@ import { resolveCreateAgentTitles } from "./create-agent-title.js";
 import type { PimiToolCatalogFactory } from "./tools/types.js";
 import { memoryRecallInstructions } from "./tools/project-memory-tools.js";
 import { isPimiToolEnabled, isPimiToolPolicyEnabled } from "./pimi-tool-policy.js";
-import { PIMI_VOICE_TRACK_WORK_TOOLS } from "@pimi/protocol/pimi-task";
 import {
   ProviderSubagentStore,
   type ProviderSubagentDescriptor,
@@ -7006,10 +7005,6 @@ export class AgentManager {
     const serverNames = new Set(Object.keys(config.mcpServers ?? {}));
     for (const grant of config.toolPolicy.preapproved) {
       if (serverNames.has(grant.server)) continue;
-      // The daemon injects this server after normalizing the request. Only these
-      // app-owned tools can be named without an explicit MCP server configuration.
-      if (grant.server === PIMI_MCP_SERVER_NAME && PIMI_VOICE_TRACK_WORK_TOOLS.includes(grant.tool))
-        continue;
       throw new Error(
         `toolPolicy preapproval '${grant.server}.${grant.tool}' requires MCP server '${grant.server}' in the same agent request`,
       );

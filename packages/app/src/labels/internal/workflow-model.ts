@@ -313,11 +313,11 @@ export class LabelManagerModel extends ObservableModel {
  * error too, so the suffix is removed by identity rather than by guessing at the format.
  */
 export function labelErrorMessage(cause: unknown): string {
-  if (!(cause instanceof Error)) return i18n.t("workspaceLabels.errors.update");
+  if (!(cause instanceof Error)) return i18n.t("labels.errors.update");
   const { requestType, code } = cause as { requestType?: string; code?: string };
   const message = cause.message
     .replace(` requestType=${requestType}`, "")
     .replace(` code=${code}`, "")
     .trim();
-  return message || i18n.t("workspaceLabels.errors.update");
+  return message || i18n.t("labels.errors.update");
 }

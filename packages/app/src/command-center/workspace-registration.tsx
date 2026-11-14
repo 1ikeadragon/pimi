@@ -255,7 +255,7 @@ export function useWorkspaceCommandCenterActions(): void {
           pin: t("sidebar.workspace.actions.pin"),
           unpin: t("sidebar.workspace.actions.unpin"),
           showSetup: t("workspace.header.actions.showSetup"),
-          labelsGroup: t("workspaceLabels.title"),
+          labelsGroup: t("labels.title"),
         },
         icons: {
           ...WORKSPACE_COMMAND_CENTER_ICONS,

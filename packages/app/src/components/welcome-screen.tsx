@@ -19,6 +19,7 @@ import { resolveAppVersion } from "@/utils/app-version";
 import { formatVersionWithPrefix } from "@/desktop/updates/desktop-updates";
 import { buildOpenProjectRoute } from "@/utils/host-routes";
 import { PimiLogo } from "@/components/icons/pimi-logo";
+import { openPimiTasks } from "@/navigation/pimi-tasks";
 import { isPimiAndroid } from "@/utils/pimi-mobile";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { isWeb, isNative } from "@/constants/platform";
@@ -167,10 +168,9 @@ export function WelcomeScreen() {
   const showPimi = getDesktopHost()?.showPimiWorkspace;
   const pimiAndroid = isPimiAndroid();
   let welcomeSubtitle = t("onboarding.subtitle");
-  if (showPimi)
-    welcomeSubtitle = "Connect to a host to start chatting. Tasks are available offline.";
+  if (showPimi) welcomeSubtitle = "Connect to a host to start chatting.";
   if (pimiAndroid) welcomeSubtitle = "Pair with your Pimi host to pick up your work on your phone.";
-  const openTasks = useCallback(() => showPimi?.({ view: "tasks" }), [showPimi]);
+  const openTasks = useCallback(() => openPimiTasks(), []);
   const appVersion = resolveAppVersion();
   const appVersionText = formatVersionWithPrefix(appVersion);
   const hosts = useHosts();

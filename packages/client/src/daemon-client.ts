@@ -43,7 +43,6 @@ import type { AutomationDefinition, AutomationOrigin } from "@pimi/protocol/auto
 import type { HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
 import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
-import type { PimiMobileTaskOperation, PimiMobileTaskResult } from "@pimi/protocol/pimi-task";
 import {
   AgentRefreshedStatusPayloadSchema,
   AgentCreateFailedStatusPayloadSchema,
@@ -908,26 +907,6 @@ export type FetchWorkspacesOptions = Omit<FetchWorkspacesRequest, "type" | "requ
 };
 export type FetchWorkspacesEntry = FetchWorkspacesPayload["entries"][number];
 export type FetchWorkspacesPageInfo = FetchWorkspacesPayload["pageInfo"];
-export type WorkspaceLabelListPayload = Extract<
-  SessionOutboundMessage,
-  { type: "workspace.label.list.response" }
->["payload"];
-export type WorkspaceLabelAssignmentPayload = Extract<
-  SessionOutboundMessage,
-  { type: "workspace.label.assignment.set.response" }
->["payload"];
-export type WorkspaceLabelUpdatePayload = Extract<
-  SessionOutboundMessage,
-  { type: "workspace.label.update.response" }
->["payload"];
-export type WorkspaceLabelDeletePayload = Extract<
-  SessionOutboundMessage,
-  { type: "workspace.label.delete.response" }
->["payload"];
-export type WorkspaceLabelDeleteInspectPayload = Extract<
-  SessionOutboundMessage,
-  { type: "workspace.label.delete.inspect.response" }
->["payload"];
 export type TaskListPayload = Extract<
   SessionOutboundMessage,
   { type: "task.list.response" }
@@ -2971,91 +2950,6 @@ export class DaemonClient {
       requestId = undefined;
     } while (cursor);
     return null;
-  }
-
-  listWorkspaceLabels(
-    options: {
-      sync?: { generation: string; afterSeq: number };
-      requestId?: string;
-    } = {},
-  ): Promise<WorkspaceLabelListPayload> {
-    return this.sendNamespacedCorrelatedSessionRequest({
-      requestId: options.requestId,
-      message: {
-        type: "workspace.label.list.request",
-        ...(options.sync ? { sync: options.sync } : {}),
-      },
-    });
-  }
-
-  observeWorkspaceLabels(options?: {
-    signal?: AbortSignal;
-  }): OwnedSubscription<WorkspaceLabelListPayload> {
-    return this.observe(
-      "workspace.label.list.response",
-      { type: "workspace.label.list.request", subscribe: {} },
-      options,
-    );
-  }
-
-  setWorkspaceLabel(options: {
-    workspaceId: string;
-    label: Extract<
-      SessionInboundMessage,
-      { type: "workspace.label.assignment.set.request" }
-    >["label"];
-    assigned: boolean;
-    requestId?: string;
-  }): Promise<WorkspaceLabelAssignmentPayload> {
-    return this.sendNamespacedCorrelatedSessionRequest({
-      requestId: options.requestId,
-      message: {
-        type: "workspace.label.assignment.set.request",
-        workspaceId: options.workspaceId,
-        label: options.label,
-        assigned: options.assigned,
-      },
-    });
-  }
-
-  updateWorkspaceLabel(options: {
-    name: string;
-    newName?: string;
-    color?: Extract<SessionInboundMessage, { type: "workspace.label.update.request" }>["color"];
-    requestId?: string;
-  }): Promise<WorkspaceLabelUpdatePayload> {
-    return this.sendNamespacedCorrelatedSessionRequest<"workspace.label.update.response">({
-      requestId: options.requestId,
-      message: {
-        type: "workspace.label.update.request",
-        name: options.name,
-        ...(options.newName === undefined ? {} : { newName: options.newName }),
-        ...(options.color === undefined ? {} : { color: options.color }),
-      },
-    });
-  }
-
-  deleteWorkspaceLabel(options: {
-    name: string;
-    requestId?: string;
-  }): Promise<WorkspaceLabelDeletePayload> {
-    return this.sendNamespacedCorrelatedSessionRequest<"workspace.label.delete.response">({
-      requestId: options.requestId,
-      message: { type: "workspace.label.delete.request", name: options.name },
-    });
-  }
-
-  inspectWorkspaceLabelDelete(options: {
-    name: string;
-    requestId?: string;
-  }): Promise<WorkspaceLabelDeleteInspectPayload> {
-    return this.sendNamespacedCorrelatedSessionRequest<"workspace.label.delete.inspect.response">({
-      requestId: options.requestId,
-      message: {
-        type: "workspace.label.delete.inspect.request",
-        name: options.name,
-      },
-    });
   }
 
   async listProjects(options?: string | ProjectListOptions): Promise<ProjectListPayload> {
@@ -6228,15 +6122,6 @@ export class DaemonClient {
       requestId,
       response,
     });
-  }
-
-  async requestPimiTask(operation: PimiMobileTaskOperation): Promise<PimiMobileTaskResult> {
-    const payload = await this.sendCorrelatedSessionRequest({
-      message: { type: "pimi.tasks.request", operation },
-      responseType: "pimi.tasks.response",
-    });
-    if (payload.status === "error") throw new Error(payload.error);
-    return payload.result;
   }
 
   async getPluginCatalog(): Promise<PluginCatalogEntry[]> {

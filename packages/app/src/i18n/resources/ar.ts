@@ -1512,7 +1512,8 @@ export const ar: TranslationResources = {
       },
     },
   },
-  workspaceLabels: {
+  labels: {
+    chat: en.labels.chat,
     title: "التسميات",
     unlabelled: "بلا تسمية",
     create: "إنشاء تسمية",
@@ -3258,8 +3259,6 @@ export const ar: TranslationResources = {
     notifications: {
       title: "الإشعارات",
       permission: "إذن الإشعارات",
-      taskTitle: "اكتمال المهمة",
-      taskHint: "في الوضع التلقائي، ينقل Pimi المهمة إلى «تم» ويبلغك عند دمج كل عملها.",
       refreshAccessibility: "تحديث إذن الإشعارات",
       playSound: "تشغيل صوت",
       playSoundHint: "تشغيل صوت عند وصول إشعار سطح مكتب",

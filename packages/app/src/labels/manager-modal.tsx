@@ -108,9 +108,9 @@ export function LabelManagerModal({
     if (!editing) return;
     void model.delete((affected) =>
       confirmDialog({
-        title: t("workspaceLabels.manage.deleteTitle", { name: editing.name }),
-        message: t("workspaceLabels.manage.deleteMessage", { count: affected }),
-        confirmLabel: t("workspaceLabels.manage.delete"),
+        title: t("labels.manage.deleteTitle", { name: editing.name }),
+        message: t("labels.manage.deleteMessage", { count: affected }),
+        confirmLabel: t("labels.manage.delete"),
         destructive: true,
       }),
     );
@@ -124,15 +124,15 @@ export function LabelManagerModal({
     () =>
       isEditing
         ? {
-            title: t("workspaceLabels.manage.edit"),
+            title: t("labels.manage.edit"),
             back: { onPress: cancelEdit },
           }
         : {
-            title: t("workspaceLabels.manage.title"),
+            title: t("labels.manage.title"),
             search: {
               onChange: setQuery,
               resetKey: Number(visible),
-              placeholder: t("workspaceLabels.manage.search"),
+              placeholder: t("labels.manage.search"),
               testID: "label-manager-search",
             },
           },
@@ -149,7 +149,7 @@ export function LabelManagerModal({
             onPress={remove}
             testID="label-manager-delete"
           >
-            {t("workspaceLabels.manage.delete")}
+            {t("labels.manage.delete")}
           </Button>
           <Button
             style={styles.saveButton}
@@ -158,7 +158,7 @@ export function LabelManagerModal({
             onPress={save}
             testID="label-manager-save"
           >
-            {t("workspaceLabels.manage.save")}
+            {t("labels.manage.save")}
           </Button>
         </View>
       ) : undefined,
@@ -202,11 +202,11 @@ export function LabelManagerModal({
               <LabelManagerRow key={label.id} label={label} disabled={disabled} onEdit={edit} />
             ))}
             {state.labels.length === 0 ? (
-              <Text style={styles.muted}>{t("workspaceLabels.manage.empty")}</Text>
+              <Text style={styles.muted}>{t("labels.manage.empty")}</Text>
             ) : null}
           </View>
           {state.host?.status === "offline" ? (
-            <Text style={styles.muted}>{t("workspaceLabels.manage.offline")}</Text>
+            <Text style={styles.muted}>{t("labels.manage.offline")}</Text>
           ) : null}
           {(state.error ?? state.host?.error) ? (
             <Text style={styles.error} testID="label-manager-error">
@@ -255,7 +255,7 @@ function LabelCreateForm({
   }, [color, pending, serverId, trimmed]);
   return (
     <View style={styles.createForm}>
-      <Field label={t("workspaceLabels.create")}>
+      <Field label={t("labels.create")}>
         <FormTextInput
           size="md"
           initialValue=""
@@ -265,8 +265,8 @@ function LabelCreateForm({
           editable={!disabled && !pending}
           autoCapitalize="none"
           autoCorrect={false}
-          placeholder={t("workspaceLabels.name")}
-          accessibilityLabel={t("workspaceLabels.name")}
+          placeholder={t("labels.name")}
+          accessibilityLabel={t("labels.name")}
           testID="label-manager-create-name"
         />
       </Field>
@@ -283,7 +283,7 @@ function LabelCreateForm({
         onPress={submit}
         testID="label-manager-create-submit"
       >
-        {t("workspaceLabels.createConfirm")}
+        {t("labels.createConfirm")}
       </Button>
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
@@ -337,7 +337,7 @@ function LabelManagerRow({
       </Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("workspaceLabels.manage.editLabel", { name: label.name })}
+        accessibilityLabel={t("labels.manage.editLabel", { name: label.name })}
         disabled={disabled}
         hitSlop={EDIT_HIT_SLOP}
         onPress={edit}
@@ -376,7 +376,7 @@ function LabelEditView({
   const size: ControlSize = "md";
   return (
     <>
-      <Field label={t("workspaceLabels.manage.name")}>
+      <Field label={t("labels.manage.name")}>
         <FormTextInput
           size={size}
           initialValue={draft.name}
@@ -386,11 +386,11 @@ function LabelEditView({
           editable={!disabled}
           autoCapitalize="none"
           autoCorrect={false}
-          accessibilityLabel={t("workspaceLabels.manage.name")}
+          accessibilityLabel={t("labels.manage.name")}
           testID="label-manager-name"
         />
       </Field>
-      <Field label={t("workspaceLabels.manage.color")}>
+      <Field label={t("labels.manage.color")}>
         <LabelSwatchRow
           value={draft.color}
           onChange={onChangeColor}

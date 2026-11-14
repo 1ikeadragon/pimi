@@ -1,44 +1,7 @@
 // Pimi. Apache-2.0.
 import { z } from "zod";
 import { getPimiToolLeafName } from "./tool-name-normalization.js";
-import { WORKSPACE_LABEL_COLORS } from "./workspace-labels.js";
-
-export const PimiTaskLabels = z.array(z.string().min(1));
-export const PimiTaskMode = z.enum(["chat", "worktree"]);
-export const PimiStoredTaskMode = z.enum(["chat", "worktree", "research", "code"]);
-export const PIMI_TASK_WORKER_LABEL = "pimi.task-id";
-
-export const PimiTaskFields = z.object({
-  title: z.string().trim().min(1).max(100),
-  brief: z.string().trim().min(1).max(2400),
-  mode: PimiTaskMode.optional().describe(
-    "Use chat for general work in separate folders. Choose worktree when workers should edit an attached Git repository.",
-  ),
-  labels: PimiTaskLabels.optional().describe(
-    "Existing Pimi label names from list_pimi_labels. Replaces task labels; [] removes all.",
-  ),
-});
-
-export const PimiExperimentFields = z.object({
-  title: z.string().trim().min(1).max(55),
-  hypothesis: z.string().trim().min(1).max(1600),
-});
-
-export const PimiTaskWorkProvider = z
-  .string()
-  .trim()
-  .min(1)
-  .max(512)
-  .describe(
-    "Requested provider ID or exact provider/model from the provider catalog. Omit to use the task's default model.",
-  );
-
-export const PimiTaskProposalInput = PimiTaskFields.extend({
-  experiments: z
-    .array(PimiExperimentFields.extend({ provider: PimiTaskWorkProvider.optional() }))
-    .max(4)
-    .optional(),
-});
+import { TaskDescriptionSchema, TaskTitleSchema } from "./task/types.js";
 
 export const PimiTaskSource = z.object({
   serverId: z.string().trim().min(1).max(256),
@@ -61,150 +24,10 @@ export const PimiDelegationResult = z.object({
   }),
 });
 
-export const PimiTaskProposal = PimiTaskProposalInput.extend({
-  mode: PimiStoredTaskMode.transform((mode) => {
-    if (mode === "research") return "chat";
-    if (mode === "code") return "worktree";
-    return mode;
-  }).optional(),
-  id: z.uuid(),
-  source: PimiTaskSource,
-});
-
-export type PimiTaskProposal = z.infer<typeof PimiTaskProposal>;
-
-export const PimiTaskStage = z.enum(["backlog", "ready", "in-progress", "review", "done"]);
-export const PIMI_TASK_AGENT_SOCKET_FILE = "pimi-task-socket";
-export const PIMI_TASK_PIPE_PREFIX = "\\\\.\\pipe\\pimi-tasks-";
-export const PimiTaskPipeDescriptor = z.strictObject({
-  socketPath: z
-    .string()
-    .startsWith(PIMI_TASK_PIPE_PREFIX)
-    .refine((value) => z.uuid().safeParse(value.slice(PIMI_TASK_PIPE_PREFIX.length)).success),
-  secret: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
-});
-export const PimiTaskAgentTool = {
-  create: "create_pimi_task",
-  list: "list_pimi_tasks",
-  get: "get_pimi_task",
-  repositories: "list_pimi_repositories",
-  update: "update_pimi_task",
-  linkWork: "link_pimi_task_work",
-  labels: "list_pimi_labels",
-  labelWork: "set_pimi_work_label",
-  createLabel: "create_pimi_label",
-} as const;
-export const PIMI_VOICE_TRACK_WORK_TOOLS: readonly string[] = [
-  "list_workspaces",
-  "list_agents",
-  "get_agent_activity",
-  PimiTaskAgentTool.list,
-  PimiTaskAgentTool.get,
-  PimiTaskAgentTool.repositories,
-  PimiTaskAgentTool.create,
-  PimiTaskAgentTool.linkWork,
-];
-export const PimiTaskAgentListInput = z.strictObject({
-  query: z.string().trim().max(100).optional().describe("Search task titles and briefs."),
-  offset: z.number().int().nonnegative().optional().describe("Use nextOffset from the prior page."),
-});
-export const PimiTaskAgentGetInput = z.strictObject({
-  id: z.uuid().describe("Saved task ID."),
-});
-
-export const PIMI_MOBILE_TASK_SOCKET_OPERATION = "mobile_tasks";
-export const PIMI_TASK_PAGE_SIZE = 50;
-// A title and brief may each require up to six JSON characters per input character.
-export const PIMI_MOBILE_TASK_REQUEST_LIMIT = 16 * 1024;
-export const PimiMobileTaskOperation = z.discriminatedUnion("action", [
-  PimiTaskAgentListInput.extend({ action: z.literal("list") }),
-  PimiTaskAgentGetInput.extend({ action: z.literal("get") }),
-  z.strictObject({
-    action: z.literal("create"),
-    ...PimiTaskAgentGetInput.shape,
-    title: PimiTaskFields.shape.title,
-    brief: PimiTaskFields.shape.brief,
-  }),
-  PimiTaskAgentGetInput.extend({ action: z.literal("set-stage"), stage: PimiTaskStage.nullable() }),
-]);
-export type PimiMobileTaskOperation = z.infer<typeof PimiMobileTaskOperation>;
-
-const PimiMobileTaskSummary = z.object({
-  ...PimiTaskAgentGetInput.shape,
-  title: PimiTaskFields.shape.title,
-  stage: PimiTaskStage.nullable(),
-});
-const PimiMobileTaskDetail = PimiMobileTaskSummary.extend({ brief: PimiTaskFields.shape.brief });
-export type PimiMobileTaskDetail = z.infer<typeof PimiMobileTaskDetail>;
-export const PimiMobileTaskResult = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("page"),
-    tasks: z.array(PimiMobileTaskSummary).max(PIMI_TASK_PAGE_SIZE),
-    nextOffset: z.number().int().nonnegative().nullable(),
-  }),
-  z.object({ kind: z.literal("task"), task: PimiMobileTaskDetail }),
-]);
-export type PimiMobileTaskResult = z.infer<typeof PimiMobileTaskResult>;
-
-const PimiTaskRepositoryPath = z
-  .string()
-  .min(1)
-  .max(4096)
-  .describe("Repository path returned by list_pimi_repositories.");
-export const PimiTaskAgentCreateInput = PimiTaskFields.omit({ mode: true })
-  .extend({
-    labels: PimiTaskLabels.optional().describe("Existing Pimi label names from list_pimi_labels."),
-    repository: PimiTaskRepositoryPath.optional(),
-    stage: PimiTaskStage.optional().describe(
-      "Set when the request specifies a stage. Defaults to To do.",
-    ),
-  })
-  .strict();
-export const PimiTaskCreatedResult = z.object({
-  task: z.object({ id: PimiTaskAgentGetInput.shape.id, title: PimiTaskFields.shape.title }),
-  created: z.boolean(),
-  source: PimiTaskSource,
-});
-export type PimiTaskCreatedResult = z.infer<typeof PimiTaskCreatedResult>;
-
-export const PimiTaskAgentUpdateInput = PimiTaskFields.partial()
-  .extend({
-    ...PimiTaskAgentGetInput.shape,
-    stage: PimiTaskStage.nullable()
-      .optional()
-      .describe("Use null to return to automatic progress."),
-    repository: PimiTaskRepositoryPath.optional(),
-  })
-  .strict();
-export const PimiWorkLabelInput = z.strictObject({
-  workspaceId: z.string().min(1).describe("Workspace ID from list_pimi_labels workspaces."),
-  name: z.string().min(1).describe("Existing Pimi label name."),
-  assigned: z.boolean().describe("True to attach, false to remove."),
-});
-export const PimiWorkLabelCreateInput = z.strictObject({
-  workspaceId: z.string().min(1).describe("Workspace ID from list_pimi_labels workspaces."),
-  name: z.string().trim().min(1).describe("Name for the new shared Pimi label."),
-  color: z.enum(WORKSPACE_LABEL_COLORS).describe("Color for the new label."),
-});
-
-export const PimiTaskAgentLinkWorkInput = z.strictObject({
-  ...PimiTaskAgentGetInput.shape,
-  ...PimiExperimentFields.shape,
-  path: z.string().min(1).max(4096).describe("Exact path of an existing worktree shown in Work."),
-});
-
 export const PimiMemoryDestination = z.object({
   view: z.literal("memory"),
   projectId: z.string().min(1).max(4096).optional(),
 });
-export const PimiNewTaskDestination = PimiTaskFields.pick({
-  title: true,
-  brief: true,
-})
-  .partial()
-  .extend({ view: z.literal("new-task") });
-export const PimiOpenTaskDestination = PimiTaskAgentGetInput.extend({ view: z.literal("task") });
-export const PimiSimpleDestinationView = z.enum(["tasks", "worktrees"]);
 export const PimiSpacesDestination = z.object({
   view: z.literal("spaces"),
   action: z
@@ -216,42 +39,24 @@ export const PimiSpacesDestination = z.object({
     ])
     .optional(),
 });
-/**
- * A request from the Work window to open the Review screen. Review itself is an app route, so the
- * Work window asks the host app to navigate instead of showing a destination of its own.
- */
-export const PimiReviewRequest = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("checkout"),
-    path: z.string().min(1).max(4096),
-    baseRef: z.string().min(1).max(512).optional(),
-  }),
-  z.object({
-    kind: z.literal("pull-request"),
-    url: z
-      .string()
-      .max(512)
-      .regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/[1-9]\d*\/?$/),
-  }),
-]);
-export type PimiReviewRequest = z.infer<typeof PimiReviewRequest>;
-
-/** Screens the Work window shows. */
+/** Screens the Pimi window shows. */
 export type PimiDestination =
-  | { view: z.infer<typeof PimiSimpleDestinationView> }
   | z.infer<typeof PimiMemoryDestination>
-  | z.infer<typeof PimiNewTaskDestination>
-  | z.infer<typeof PimiOpenTaskDestination>
-  | z.infer<typeof PimiSpacesDestination>
-  | { view: "task-draft"; proposal: PimiTaskProposal };
+  | z.infer<typeof PimiSpacesDestination>;
 
-/** A destination a voice command can name: the Work window's screens, or a checkout's Review. */
+/**
+ * A destination a voice command can name: the Pimi window's screens, a checkout's Review, or the
+ * native Tasks screen, which the app opens itself.
+ */
 export type PimiVoiceDestination =
   | PimiDestination
-  | { view: "review"; path: string; serverId?: string };
+  | { view: "review"; path: string; serverId?: string }
+  | { view: "tasks" }
+  | { view: "task"; id: string }
+  | { view: "new-task"; title?: string; description?: string };
 
-export type PimiWorkspaceSection = "tasks" | "board" | "memory" | "spaces";
-export type PimiActivitySection = "tasks" | "board" | "review";
+export type PimiWorkspaceSection = "memory" | "spaces";
+export type PimiActivitySection = "review";
 
 export const PIMI_VOICE_COMMAND_ROUTE = "/api/pimi/voice-command";
 export const PIMI_VOICE_COMMAND_LIMIT = 128;
@@ -266,7 +71,6 @@ export type PimiVoiceCommandInput = z.infer<typeof PimiVoiceCommandInput>;
 export const PimiVoiceView = z.enum([
   "chat",
   "tasks",
-  "work",
   "review",
   "memory",
   "spaces",
@@ -288,8 +92,8 @@ export const PimiVoiceNavigation = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("new-chat"), text: voiceNote.optional() }),
   z.strictObject({
     action: z.literal("new-task"),
-    title: PimiTaskFields.shape.title.optional(),
-    brief: PimiTaskFields.shape.brief.optional(),
+    title: TaskTitleSchema.optional(),
+    description: TaskDescriptionSchema.optional(),
   }),
   z.strictObject({ action: z.literal("new-space"), text: voiceNote.optional() }),
   z.strictObject({
@@ -502,23 +306,6 @@ export const PimiVoiceBubbleState = z.strictObject({
 });
 export type PimiVoiceBubbleState = z.infer<typeof PimiVoiceBubbleState>;
 
-export const PimiReportLinkRequest = z.strictObject({
-  taskId: z.uuid(),
-  reportId: z.uuid(),
-  href: z.string().trim().min(1).max(8192),
-});
-export type PimiReportLinkRequest = z.infer<typeof PimiReportLinkRequest>;
-export const PimiReportLinkTarget = PimiReportLinkRequest.extend({
-  serverId: z.string().min(1).max(256).optional(),
-  workspaceId: z.string().min(1).max(256).optional(),
-});
-export type PimiReportLinkTarget = z.infer<typeof PimiReportLinkTarget>;
-export const PimiReportLinkError = z.strictObject({
-  reportId: z.uuid(),
-  message: z.string().min(1).max(1000),
-});
-export type PimiReportLinkError = z.infer<typeof PimiReportLinkError>;
-
 export interface PimiReviewSummary {
   filesChanged: number;
   additions: number;
@@ -529,20 +316,6 @@ export interface PimiReviewSummary {
 export const PimiRecapPeriod = z.enum(["last-week", "this-week"]);
 export type PimiRecapPeriod = z.infer<typeof PimiRecapPeriod>;
 
-export interface PimiRecap {
-  startsAt: string;
-  endsBefore: string;
-  tasks: { id: string; title: string; completedAt: string }[];
-  pullRequests: { url: string; title?: string; mergedAt: string }[];
-  taskCount: number;
-  pullRequestCount: number;
-  hasUndatedCompletions: boolean;
-}
-
-export const PIMI_TASK_PROPOSAL_TOOL = "propose_pimi_task";
-export const PimiTaskProposalResult = z.object({
-  pimiTaskProposal: PimiTaskProposal,
-});
 export const PIMI_REVIEW_SUGGESTION_TOOL = "suggest_pimi_review";
 export const PimiReviewSuggestionInput = z.object({
   summary: z.string().trim().min(1).max(300).optional(),
@@ -560,16 +333,12 @@ function matchesToolName(name: string, tool: string): boolean {
   return name === tool || getPimiToolLeafName(name) === tool || name === `pimi_${tool}`;
 }
 
-export function isPimiTaskProposalTool(name: string): boolean {
-  return matchesToolName(name, PIMI_TASK_PROPOSAL_TOOL);
-}
-
 export function isPimiReviewSuggestionTool(name: string): boolean {
   return matchesToolName(name, PIMI_REVIEW_SUGGESTION_TOOL);
 }
 
 export function isPimiTaskCreateTool(name: string): boolean {
-  return matchesToolName(name, PimiTaskAgentTool.create);
+  return matchesToolName(name, "create_pimi_task");
 }
 
 export function isPimiDelegationTool(name: string): boolean {
@@ -582,16 +351,6 @@ export function isPimiPermissionResponseTool(name: string): boolean {
 
 export function isPimiActionTool(name: string): boolean {
   return (
-    isPimiTaskProposalTool(name) ||
-    isPimiReviewSuggestionTool(name) ||
-    isPimiTaskCreateTool(name) ||
-    isPimiDelegationTool(name)
+    isPimiReviewSuggestionTool(name) || isPimiTaskCreateTool(name) || isPimiDelegationTool(name)
   );
-}
-
-/** Read-only label projection for the desktop console. Assignments stay with the task or workspace. */
-export interface PimiLinkedLabels {
-  serverId?: string;
-  workspaces: Record<string, string[]>;
-  agents: Record<string, string[]>;
 }

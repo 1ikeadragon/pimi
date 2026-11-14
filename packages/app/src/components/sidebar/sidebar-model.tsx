@@ -106,9 +106,10 @@ export function SidebarModelProvider({
   const hasActiveProjectFilter = resolvedProjectFilters.length > 0;
   // The project filter is deliberately absent from this gate. It reads `projectViewKey`, which
   // lives on the project and the placement, so it can narrow the project list without hydrating
-  // anything; the label filter reads `labels`, which only exists on an entry. Hydration opens a
-  // live session-store subscription over every workspace on every visible host, so widening this
-  // for a filter that does not need it costs a retained-but-inactive sidebar real work.
+  // anything; the label filter reads each workspace's root chats, which are keyed by an entry.
+  // Hydration opens a live session-store subscription over every workspace on every visible host,
+  // so widening this for a filter that does not need it costs a retained-but-inactive sidebar
+  // real work.
   // Hardware keyboard navigation needs the same filtered targets while the sidebar is hidden.
   const needsWorkspaceEntries = groupMode !== "project" || hasActiveLabelFilter;
   const workspaceEntriesByKey = useSidebarWorkspaceEntries(

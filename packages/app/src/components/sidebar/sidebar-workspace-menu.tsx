@@ -47,6 +47,7 @@ import {
 } from "@/components/sidebar/workspace-meta-row";
 import { useLabelMenuPages, LABEL_PAGE_ID } from "@/labels/picker";
 import { useWorkspacePrimaryChatTarget } from "@/labels/workspace-chat";
+import { useChatTaskMenu } from "@/tasks/use-chat-task-menu";
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({
@@ -178,6 +179,7 @@ function SidebarWorkspaceMenuItems({
 }: SidebarWorkspaceMenuItemsProps & { surface: MenuSurface }): ReactNode {
   const { t } = useTranslation();
   const hasLabelTarget = useWorkspacePrimaryChatTarget(serverId, workspaceId ?? "") !== null;
+  const taskMenu = useChatTaskMenu(serverId ?? "", workspaceId ?? "");
   const archiveTrailing = useMemo(
     () => (archiveShortcutKeys ? <Shortcut chord={archiveShortcutKeys} /> : null),
     [archiveShortcutKeys],
@@ -262,9 +264,10 @@ function SidebarWorkspaceMenuItems({
           leading={labelLeading}
           testID={`sidebar-workspace-menu-labels-${workspaceKey}`}
         >
-          {t("workspaceLabels.title")}
+          {t("labels.title")}
         </DropdownMenuSubTrigger>
       ) : null}
+      {taskMenu.rows}
       <OpenInFileManagerMenuItem
         surface={surface}
         path={openInFileManagerPath}
@@ -316,7 +319,9 @@ export function SidebarWorkspaceMenu({
 }: SidebarWorkspaceMenuProps) {
   const { t } = useTranslation();
   const labelTarget = useWorkspacePrimaryChatTarget(serverId, workspaceId ?? "");
-  const pages = useLabelMenuPages(serverId ?? "", labelTarget);
+  const labelPages = useLabelMenuPages(serverId ?? "", labelTarget);
+  const taskMenu = useChatTaskMenu(serverId ?? "", workspaceId ?? "");
+  const pages = useMemo(() => [...labelPages, ...taskMenu.pages], [labelPages, taskMenu.pages]);
   return (
     <DropdownMenu compactMode="sheet" open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
@@ -420,7 +425,9 @@ export function SidebarWorkspaceContextMenu({
     t,
   });
   const labelTarget = useWorkspacePrimaryChatTarget(workspace.serverId, workspace.workspaceId);
-  const pages = useLabelMenuPages(workspace.serverId, labelTarget);
+  const labelPages = useLabelMenuPages(workspace.serverId, labelTarget);
+  const taskMenu = useChatTaskMenu(workspace.serverId, workspace.workspaceId);
+  const pages = useMemo(() => [...labelPages, ...taskMenu.pages], [labelPages, taskMenu.pages]);
 
   return (
     <ContextMenu open={contextMenuOpen} onOpenChange={onContextMenuOpenChange}>

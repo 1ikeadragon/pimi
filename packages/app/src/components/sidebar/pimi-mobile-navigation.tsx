@@ -1,6 +1,6 @@
 // Pimi Android navigation for remote-capable app views. Apache-2.0.
 import { usePathname } from "expo-router";
-import { BriefcaseBusiness, LayoutGrid, ListTodo } from "lucide-react-native";
+import { LayoutGrid, ListTodo } from "lucide-react-native";
 import { UsageIcon } from "@/usage/icon";
 import { useCallback } from "react";
 import { Text, View } from "react-native";
@@ -9,7 +9,6 @@ import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
 import { openPimiAgentGrid, PIMI_AGENT_GRID_ROUTE } from "@/navigation/pimi-agent-grid";
 import { openPimiTasks, PIMI_TASKS_ROUTE } from "@/navigation/pimi-tasks";
 import { openPimiUsage, PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
-import { openPimiWork, PIMI_WORK_ROUTE } from "@/navigation/pimi-work";
 import { isPimiAndroid } from "@/utils/pimi-mobile";
 
 export function PimiMobileNavigation({ onNavigate }: { onNavigate?: () => void }) {
@@ -26,24 +25,12 @@ export function PimiMobileNavigation({ onNavigate }: { onNavigate?: () => void }
     onNavigate?.();
     openPimiUsage();
   }, [onNavigate]);
-  const openWork = useCallback(() => {
-    onNavigate?.();
-    openPimiWork();
-  }, [onNavigate]);
 
   if (!isPimiAndroid()) return null;
 
   return (
     <View style={styles.container} testID="pimi-mobile-navigation">
       <Text style={styles.heading}>Pimi</Text>
-      <SidebarHeaderRow
-        icon={BriefcaseBusiness}
-        label="Work"
-        onPress={openWork}
-        isActive={pathname === PIMI_WORK_ROUTE}
-        testID="pimi-work"
-        variant="compact"
-      />
       <SidebarHeaderRow
         icon={ListTodo}
         label="Tasks"

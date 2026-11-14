@@ -234,10 +234,9 @@ export function createAskPimiToolset(options: {
     {
       description:
         "Show a Pimi screen when the user asks to open, show, or go to it. tasks is the Tasks list. review is diffs and pull requests. agents is the agent grid. automations is schedules. history is past sessions.",
-      inputSchema: z.strictObject({ view: PimiVoiceView.exclude(["work"]) }),
+      inputSchema: z.strictObject({ view: PimiVoiceView }),
     },
-    async ({ view }: { view: Exclude<PimiVoiceView, "work"> }) =>
-      queue({ action: "show", view }, OPENS),
+    async ({ view }: { view: PimiVoiceView }) => queue({ action: "show", view }, OPENS),
   );
   register(
     "open_pimi_task",
@@ -320,7 +319,7 @@ export function createAskPimiToolset(options: {
     async (input: { kind: "task" | "spaces-note"; title?: string; text?: string }) =>
       queue(
         input.kind === "task"
-          ? { action: "new-task", title: input.title, brief: input.text }
+          ? { action: "new-task", title: input.title, description: input.text }
           : { action: "new-space", text: input.text },
         OPENS,
       ),

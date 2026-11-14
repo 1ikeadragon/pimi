@@ -32,7 +32,7 @@ export function useChatLabelMenu(
           leading={TAG_ICON}
           testID="workspace-header-labels"
         >
-          {t("workspaceLabels.title")}
+          {t("labels.title")}
         </DropdownMenuSubTrigger>
       ) : null,
     [t, target],

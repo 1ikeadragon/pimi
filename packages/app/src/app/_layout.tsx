@@ -99,7 +99,6 @@ import {
 import { registerWorkspaceRouteNavigationRef } from "@/navigation/workspace-route-navigation";
 import { useSettingsRouteEntry } from "@/navigation/settings-presentation";
 import { ThemedStack } from "@/navigation/themed-stack";
-import TaskDictation from "./pimi-dictation";
 import { shouldUseDesktopDaemon } from "@/desktop/daemon/desktop-daemon";
 import { AgentNavigationListener } from "@/desktop/agent-navigation";
 import { LegacyAgentSkillsMigration } from "@/agent-skills/legacy-migration";
@@ -113,7 +112,6 @@ import { PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
 import { PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
 import { PIMI_TASKS_ROUTE } from "@/navigation/pimi-tasks";
 import { PIMI_REVIEW_ROUTE } from "@/navigation/pimi-review";
-import { PIMI_WORK_ROUTE } from "@/navigation/pimi-work";
 import { PimiVoiceBubble } from "@/desktop/pimi-voice-bubble";
 import {
   loadDesktopSettings,
@@ -1038,7 +1036,6 @@ function AppWithSidebar({ children }: { children: ReactNode }) {
       pathname === PIMI_AGENT_GRID_ROUTE ||
       pathname === PIMI_USAGE_ROUTE ||
       pathname === PIMI_TASKS_ROUTE ||
-      pathname === PIMI_WORK_ROUTE ||
       pathname === PIMI_REVIEW_ROUTE ||
       pathname === PIMI_LIBRARY_ROUTE ||
       pathname === "/new" ||
@@ -1071,7 +1068,6 @@ function RootStack() {
       nestedNavigatorScreens={ROOT_STACK_NESTED_NAVIGATOR_SCREENS}
     >
       <Stack.Screen name="index" />
-      <Stack.Screen name="pimi-dictation" />
       <Stack.Screen name="pair" />
       <Stack.Protected guard={storeReady}>
         <Stack.Screen name="welcome" />
@@ -1082,7 +1078,6 @@ function RootStack() {
         <Stack.Screen name="pimi-agent-grid" />
         <Stack.Screen name="pimi-usage" />
         <Stack.Screen name="pimi-tasks" />
-        <Stack.Screen name="pimi-work" />
         <Stack.Screen name="pimi-review" />
         <Stack.Screen name="pimi-library" />
         <Stack.Screen name="sessions" />
@@ -1113,11 +1108,9 @@ function WorkspaceRouteNavigationBridge() {
 }
 
 function AppShellBase() {
-  const isTaskDictation = Boolean(getDesktopHost()?.taskDictation);
   useEffect(() => {
-    if (!isTaskDictation && getDesktopHost()) void ensureOsNotificationPermission();
-  }, [isTaskDictation]);
-  if (isTaskDictation) return <TaskDictation />;
+    if (getDesktopHost()) void ensureOsNotificationPermission();
+  }, []);
   return (
     <MobilePanelsProvider>
       <HorizontalScrollProvider>
@@ -1188,10 +1181,9 @@ function RootProviders({ children }: { children: ReactNode }) {
 }
 
 function RootAppTree() {
-  const isTaskDictation = Boolean(getDesktopHost()?.taskDictation);
   return (
     <GestureHandlerRootView style={flexStyle}>
-      <View style={isTaskDictation ? flexStyle : layoutStyles.surfaceFill}>
+      <View style={layoutStyles.surfaceFill}>
         <LucideProvider strokeWidth={ICON_STROKE_WIDTH}>
           <AddHostProvider>
             <RootProviders>

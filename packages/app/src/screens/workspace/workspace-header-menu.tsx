@@ -31,6 +31,7 @@ import {
 } from "@/screens/workspace/scripts";
 import { usePluginWorkspaceMenu } from "@/plugins";
 import { useChatLabelMenu } from "@/labels/chat-label-menu";
+import { useChatTaskMenu } from "@/tasks/use-chat-task-menu";
 
 const ThemedEllipsis = withUnistyles(Ellipsis);
 const ThemedCopy = withUnistyles(Copy);
@@ -92,6 +93,7 @@ export interface WorkspaceHeaderWorkspaceActions {
 
 function WorkspaceHeaderWorkspaceActionItems({
   labelsTrigger,
+  taskRows,
   currentBranchName,
   showWorkspaceSetup,
   importAgentDisabled,
@@ -103,6 +105,7 @@ function WorkspaceHeaderWorkspaceActionItems({
   onRenameChat,
 }: Omit<WorkspaceHeaderWorkspaceActions, "serverId" | "workspaceId"> & {
   labelsTrigger: ReactNode;
+  taskRows: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -115,6 +118,7 @@ function WorkspaceHeaderWorkspaceActionItems({
         {t("workspace.header.actions.renameChat")}
       </DropdownMenuItem>
       {labelsTrigger}
+      {taskRows}
       <DropdownMenuItem
         testID="workspace-header-copy-path"
         leading={MENU_COPY_ICON}
@@ -175,6 +179,11 @@ export function WorkspaceHeaderMenuDesktop(props: WorkspaceHeaderWorkspaceAction
   const { t } = useTranslation();
   const { serverId, workspaceId, ...actions } = props;
   const labelMenu = useChatLabelMenu(serverId, workspaceId);
+  const taskMenu = useChatTaskMenu(serverId, workspaceId);
+  const pages = useMemo(
+    () => [...labelMenu.pages, ...taskMenu.pages],
+    [labelMenu.pages, taskMenu.pages],
+  );
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -185,13 +194,12 @@ export function WorkspaceHeaderMenuDesktop(props: WorkspaceHeaderWorkspaceAction
       >
         <WorkspaceHeaderMenuTriggerIcon />
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        width={220}
-        testID="workspace-header-menu"
-        pages={labelMenu.pages}
-      >
-        <WorkspaceHeaderWorkspaceActionItems {...actions} labelsTrigger={labelMenu.trigger} />
+      <DropdownMenuContent align="start" width={220} testID="workspace-header-menu" pages={pages}>
+        <WorkspaceHeaderWorkspaceActionItems
+          {...actions}
+          labelsTrigger={labelMenu.trigger}
+          taskRows={taskMenu.rows}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -290,9 +298,10 @@ export function WorkspaceHeaderMenuMobile({
   const scriptsMenu = useWorkspaceScriptsMenuPages(scripts);
   const pluginMenu = usePluginWorkspaceMenu(normalizedServerId, normalizedWorkspaceId);
   const labelMenu = useChatLabelMenu(normalizedServerId, normalizedWorkspaceId);
+  const taskMenu = useChatTaskMenu(normalizedServerId, normalizedWorkspaceId);
   const pages = useMemo(
-    () => [...scriptsMenu.pages, ...pluginMenu.pages, ...labelMenu.pages],
-    [scriptsMenu.pages, pluginMenu.pages, labelMenu.pages],
+    () => [...scriptsMenu.pages, ...pluginMenu.pages, ...labelMenu.pages, ...taskMenu.pages],
+    [scriptsMenu.pages, pluginMenu.pages, labelMenu.pages, taskMenu.pages],
   );
 
   return (
@@ -363,6 +372,7 @@ export function WorkspaceHeaderMenuMobile({
         <WorkspaceHeaderWorkspaceActionItems
           {...workspaceActions}
           labelsTrigger={labelMenu.trigger}
+          taskRows={taskMenu.rows}
         />
         <DropdownMenuSeparator />
         <DropdownMenuLabel>{t("workspace.tabs.actions.terminalProfilesMenu")}</DropdownMenuLabel>

@@ -244,7 +244,7 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
     if (showLabelFilter) {
       definitions.push({
         id: "labelFilter",
-        title: t("workspaceLabels.title"),
+        title: t("labels.title"),
         content: (
           <LabelFilterPage labels={labels} preferences={preferences} onManage={openManager} />
         ),
@@ -337,7 +337,7 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
                 indicator={hasActiveSidebarLabelFilter(preferences.labelFilter)}
                 testID="sidebar-display-label-filter"
               >
-                {t("workspaceLabels.title")}
+                {t("labels.title")}
               </MenuSubTrigger>
             </>
           ) : null}
@@ -412,7 +412,7 @@ function LabelFilterPage({
       ))}
       <LabelFilterItem
         name={SIDEBAR_UNLABELLED_LABEL_KEY}
-        label={t("workspaceLabels.unlabelled")}
+        label={t("labels.unlabelled")}
         color={null}
         selected={selected.includes(SIDEBAR_UNLABELLED_LABEL_KEY)}
         onToggle={preferences.toggleLabelFilter}
@@ -426,13 +426,13 @@ function LabelFilterPage({
             onSelect={preferences.clearLabelFilter}
             testID="sidebar-label-filter-clear"
           >
-            {t("workspaceLabels.filter.clear")}
+            {t("labels.filter.clear")}
           </MenuItem>
         </>
       ) : null}
       <MenuSeparator />
       <MenuItem onSelect={onManage} testID="sidebar-label-manage">
-        {t("workspaceLabels.manage.open")}
+        {t("labels.manage.open")}
       </MenuItem>
     </>
   );

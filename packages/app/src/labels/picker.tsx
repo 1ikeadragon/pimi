@@ -82,19 +82,19 @@ export function useLabelMenuPages(
     return [
       {
         id: LABEL_PAGE_ID,
-        title: t("workspaceLabels.title"),
+        title: t("labels.title"),
         content: <LabelPickerPage serverId={serverId} target={target} />,
       },
       {
         id: LABEL_CREATE_PAGE_ID,
-        title: t("workspaceLabels.create"),
+        title: t("labels.create"),
         // A page you type into is not one the pointer opens or dismisses on its own.
         hoverIntent: false,
         content: <LabelCreatePage serverId={serverId} target={target} />,
       },
       {
         id: LABEL_EDIT_PAGE_ID,
-        title: t("workspaceLabels.manage.edit"),
+        title: t("labels.manage.edit"),
         hoverIntent: false,
         content: <LabelEditPage serverId={serverId} />,
       },
@@ -138,7 +138,7 @@ function LabelPickerPage({
   }, [assignedIds, catalog, host?.status, model]);
   const snapshot = useSyncExternalStore(model.subscribe, model.snapshot, model.snapshot);
   const offline = !snapshot.online;
-  const error = snapshot.error ?? (host?.error ? t("workspaceLabels.errors.load") : null);
+  const error = snapshot.error ?? (host?.error ? t("labels.errors.load") : null);
   const pending = useMemo(() => new Set(snapshot.pendingIds), [snapshot.pendingIds]);
   const toggle = useCallback(
     (label: Label, assigned: boolean) => {
@@ -165,7 +165,7 @@ function LabelPickerPage({
         disabled={offline}
         testID="label-picker-create"
       >
-        {t("workspaceLabels.create")}
+        {t("labels.create")}
       </MenuSubTrigger>
       {error ? <MenuHint testID="label-picker-error">{error}</MenuHint> : null}
     </>
@@ -200,7 +200,7 @@ function LabelAssignRow({
       <View style={styles.trailing}>
         <ToolbarButton
           compact
-          label={t("workspaceLabels.manage.editLabel", { name: row.name })}
+          label={t("labels.manage.editLabel", { name: row.name })}
           disabled={offline}
           onPress={edit}
           testID={`label-picker-edit-${row.name}`}
@@ -269,7 +269,7 @@ function LabelCreatePage({
     <>
       <MenuTextField
         onChangeText={setName}
-        placeholder={t("workspaceLabels.name")}
+        placeholder={t("labels.name")}
         autoFocus
         editable={!offline && !pending}
         onSubmitEditing={submit}
@@ -287,12 +287,12 @@ function LabelCreatePage({
       <MenuItem
         disabled={offline || !normalizeLabelName(name)}
         status={pending ? "pending" : "idle"}
-        pendingLabel={t("workspaceLabels.creating")}
+        pendingLabel={t("labels.creating")}
         closeOnSelect={false}
         onSelect={submit}
         testID="label-picker-create-submit"
       >
-        {t("workspaceLabels.createConfirm")}
+        {t("labels.createConfirm")}
       </MenuItem>
       {error ? <MenuHint testID="label-picker-error">{error}</MenuHint> : null}
     </>
@@ -361,9 +361,9 @@ function LabelEditPage({ serverId }: { serverId: string }): ReactElement | null 
           labelId: label.id,
         });
         const confirmed = await confirmDialog({
-          title: t("workspaceLabels.manage.deleteTitle", { name: label.name }),
-          message: t("workspaceLabels.manage.deleteMessage", { count: affectedCount }),
-          confirmLabel: t("workspaceLabels.manage.delete"),
+          title: t("labels.manage.deleteTitle", { name: label.name }),
+          message: t("labels.manage.deleteMessage", { count: affectedCount }),
+          confirmLabel: t("labels.manage.delete"),
           destructive: true,
         });
         if (!confirmed) return;
@@ -383,7 +383,7 @@ function LabelEditPage({ serverId }: { serverId: string }): ReactElement | null 
       <MenuTextField
         initialValue={label.name}
         onChangeText={setName}
-        placeholder={t("workspaceLabels.name")}
+        placeholder={t("labels.name")}
         autoFocus
         editable={!offline && !pending}
         onSubmitEditing={save}
@@ -405,7 +405,7 @@ function LabelEditPage({ serverId }: { serverId: string }): ReactElement | null 
         onSelect={save}
         testID="label-picker-edit-save"
       >
-        {t("workspaceLabels.manage.save")}
+        {t("labels.manage.save")}
       </MenuItem>
       <MenuItem
         destructive
@@ -414,7 +414,7 @@ function LabelEditPage({ serverId }: { serverId: string }): ReactElement | null 
         onSelect={remove}
         testID="label-picker-edit-delete"
       >
-        {t("workspaceLabels.manage.delete")}
+        {t("labels.manage.delete")}
       </MenuItem>
       {error ? <MenuHint testID="label-picker-error">{error}</MenuHint> : null}
     </>

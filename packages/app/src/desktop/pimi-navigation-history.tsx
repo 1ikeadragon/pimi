@@ -24,8 +24,6 @@ type Visit =
   | { kind: "route"; href: string };
 
 const SECTION_DESTINATIONS: Record<PimiWorkspaceSection, PimiDestination> = {
-  tasks: { view: "tasks" },
-  board: { view: "worktrees" },
   memory: { view: "memory" },
   spaces: { view: "spaces" },
 };

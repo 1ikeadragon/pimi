@@ -11,12 +11,6 @@ import type {
 import type {
   PimiActivitySection,
   PimiDestination,
-  PimiLinkedLabels,
-  PimiRecap,
-  PimiRecapPeriod,
-  PimiReportLinkTarget,
-  PimiReportLinkError,
-  PimiReviewRequest,
   PimiReviewSummary,
   PimiVoiceBubbleState,
   PimiVoiceCommandInput,
@@ -276,11 +270,9 @@ export interface DesktopHostBridge {
   windowChromeMode?: DesktopWindowChromeMode;
   networkActivity?: DesktopNetworkActivityBridge;
   invoke?: DesktopInvokeBridge["invoke"];
-  taskDictation?: { complete: (text: string | null) => void };
   getPimiGitAuthStatus?: (provider: PimiGitProvider) => Promise<PimiGitAuthStatus>;
   showPimiWorkspace?: (destination: PimiDestination) => void;
   getPimiReviewSummary?: (checkout: string) => Promise<PimiReviewSummary | null>;
-  getPimiRecap?: (period: PimiRecapPeriod) => Promise<PimiRecap>;
   onPimiWorkspaceActivity?: (listener: (section: PimiActivitySection) => void) => () => void;
   dismissPimiWorkspace?: () => void;
   /** Closes a card open in the workspace; false when none was open. */
@@ -292,21 +284,11 @@ export interface DesktopHostBridge {
     height: number;
     sidebar: boolean;
   }) => void;
-  pimiLabels?: {
-    get: () => Promise<PimiLinkedLabels>;
-    subscribe: (listener: () => void) => () => void;
-  };
   pimiWorkspaceSection?: {
     get: () => PimiWorkspaceSection | null;
     subscribe: (listener: () => void) => () => void;
   };
-  /** The Work window asks to open Review for a checkout or a pull request. */
-  onPimiReviewRequest?: (listener: (request: PimiReviewRequest) => void) => () => void;
   onPimiWorkspaceClick?: (listener: () => void) => () => void;
-  pimiReportLinks?: {
-    onOpen: (listener: (target: PimiReportLinkTarget) => void) => () => void;
-    reportError: (error: PimiReportLinkError) => void;
-  };
   pimiVoice?: {
     runCommand: (input: PimiVoiceCommandInput) => Promise<PimiVoiceResult>;
     /** Progress lines from the command now running, such as "Searching Spaces". */

@@ -759,7 +759,6 @@ function serializeWorkspace(workspace: WorkspaceDescriptor): StoredWorkspace {
     name: workspace.name,
     title: workspace.title ?? null,
     pinnedAt: workspace.pinnedAt ?? null,
-    labels: workspace.labels,
     status: workspace.status,
     statusEnteredAt: workspace.statusEnteredAt?.toISOString() ?? null,
     activityAt: null,

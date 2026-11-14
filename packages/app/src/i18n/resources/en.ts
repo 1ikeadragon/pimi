@@ -1521,7 +1521,12 @@ export const en = {
       },
     },
   },
-  workspaceLabels: {
+  labels: {
+    chat: {
+      addToTask: "Add to task…",
+      noOpenTasks: "No open tasks",
+      newTaskFromChat: "New task from chat",
+    },
     title: "Labels",
     unlabelled: "Unlabelled",
     create: "Create label",
@@ -3433,9 +3438,6 @@ export const en = {
     notifications: {
       title: "Notifications",
       permission: "Notification permission",
-      taskTitle: "Task completion",
-      taskHint:
-        "In Auto, Pimi moves the task to Done and lets you know when all its work has merged.",
       refreshAccessibility: "Refresh notification permission",
       playSound: "Play sound",
       playSoundHint: "Play a sound when a desktop notification arrives",
