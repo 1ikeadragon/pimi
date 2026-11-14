@@ -529,7 +529,6 @@ export const HOST_SECTION_SLUGS = [
   "metadata",
   "voice",
   "providers",
-  "usage",
   "terminals",
   "plugins",
   "host",

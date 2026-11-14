@@ -3311,7 +3311,6 @@ export const en = {
     signInAgain: "Sign in again.",
     loginRejected: "Login rejected (HTTP {{status}}). {{remedy}}",
     loginExpired: "Login expired {{relativeTime}}. {{remedy}}",
-    title: "Plan usage",
     refresh: "Refresh",
     refreshAll: "Refresh all",
     refreshing: "Refreshing...",
@@ -3473,7 +3472,6 @@ export const en = {
       metadata: "Pimi models",
       voice: "Voice & dictation",
       providers: "Providers",
-      usage: "Usage",
       terminals: "Terminals & language servers",
       plugins: "Plugins",
       host: "Host",
@@ -4189,7 +4187,6 @@ export const en = {
         emptyState: "No profiles yet. Add one to launch terminals with a specific command.",
       },
       agentProfiles: {
-        sectionTitle: "Agent profiles",
         unavailable: "Connect to this host to manage agent profiles",
         emptyState: "No profiles yet. Add one to start agents from a saved provider and model.",
         addProfileTitle: "Add agent profile",
@@ -4384,7 +4381,7 @@ export const en = {
       },
       limitFallback: {
         title: "On limit",
-        info: "When a provider reports a usage, rate, or credit limit, Pimi moves the chat to the next model in this list and continues the request there. Only Claude, Codex, and OpenCode (HTTP 429 errors) report a limit this way; other providers never trigger it.",
+        info: "Supported for Claude, Codex, and OpenCode.",
         enableTitle: "Continue on another model when a limit is hit",
         enableHint:
           "The chat's history is sent to the next provider without asking, and its permission mode moves to the closest equivalent there. Chats can opt out from the model picker.",
@@ -4585,8 +4582,6 @@ export const en = {
     detach: "Remove profile",
     instructionsApplyToNewAgents: "{{name}}: instructions apply to new agents",
     startNewAgent: "Start new agent with this profile",
-    movedToProfiles: "Agent profiles have their own page now.",
-    openProfiles: "Open profiles",
     automationProfileLabel: "Profile",
     automationNoProfile: "None",
     automationProfileHint: "The run's agent starts with the profile's instructions",

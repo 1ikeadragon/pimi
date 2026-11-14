@@ -1,6 +1,7 @@
 import { useHardwareKeyboardPresent } from "@/keyboard";
 import { overridable, Slot } from "@/extension-points";
 import { UsageIcon } from "@/usage/icon";
+import { openPimiUsage } from "@/navigation/pimi-usage";
 import { useAddHost } from "@/hosts/add-host";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
@@ -102,7 +103,6 @@ import {
   HostAgentsPage,
   HostSettingsPage,
   HostProvidersPage,
-  HostUsagePage,
   HostTerminalsPage,
 } from "@/screens/settings/host-page";
 import { PluginSettingsContent } from "@/plugins/settings";
@@ -236,7 +236,6 @@ const HOST_SECTION_ICONS: Record<HostSectionSlug, SettingsIcon> = {
   agents: Bot,
   voice: Mic,
   projects: FolderGit2,
-  usage: UsageIcon,
   terminals: SquareTerminal,
   plugins: Blocks,
   host: Server,
@@ -261,8 +260,6 @@ function renderHostSettingsContent(
       return <HostVoicePage serverId={view.serverId} />;
     case "providers":
       return <HostProvidersPage serverId={view.serverId} />;
-    case "usage":
-      return <HostUsagePage serverId={view.serverId} />;
     case "terminals":
       return <HostTerminalsPage serverId={view.serverId} />;
     case "plugins":
@@ -787,6 +784,40 @@ function SidebarHostSectionButton({
   );
 }
 
+interface SidebarLinkButtonProps {
+  label: string;
+  icon: ComponentType<{ size: number; color: string; strokeWidth?: number }>;
+  onPress: () => void;
+  testID: string;
+}
+
+/** A sidebar row that leaves Settings for another screen. */
+function SidebarLinkButton({
+  label,
+  icon: IconComponent,
+  onPress,
+  testID,
+}: SidebarLinkButtonProps) {
+  const { theme, rt } = useUnistyles();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      testID={testID}
+      style={sidebarItemStyle}
+    >
+      <IconComponent
+        size={densityIconSize(rt, "md")}
+        color={theme.colors.foregroundMuted}
+        strokeWidth={SIDEBAR_ICON_STROKE_WIDTH}
+      />
+      <Text style={sidebarStyles.label} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 interface HostPickerProps {
   activeServerId: string | null;
   sortedHosts: HostProfile[];
@@ -967,6 +998,12 @@ function SettingsSidebar({
               onSelect={onSelectHostSection}
             />
           ))}
+          <SidebarLinkButton
+            label={t("usageOverview.title")}
+            icon={UsageIcon}
+            onPress={openPimiUsage}
+            testID="settings-open-usage"
+          />
         </SidebarGroup>
       ) : (
         <SidebarGroup>

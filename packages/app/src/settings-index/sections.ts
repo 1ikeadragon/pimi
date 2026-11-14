@@ -119,11 +119,6 @@ export const HOST_SETTINGS_PAGES = [
     keywords: ["repositories", "repos", "folders"],
   },
   {
-    id: "usage",
-    titleKey: "settings.hostSections.usage",
-    keywords: ["limits", "quota", "tokens", "cost"],
-  },
-  {
     id: "terminals",
     titleKey: "settings.hostSections.terminals",
     keywords: ["shell", "profiles", "console", "language servers", "lsp", "code intelligence"],

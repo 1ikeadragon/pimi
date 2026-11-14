@@ -58,7 +58,6 @@ import {
 } from "@/runtime/host-runtime";
 import type { ConnectionProbeState } from "@/utils/connection-selection";
 import { ProvidersSection } from "@/screens/settings/providers-section";
-import { HostUsageSection } from "@/usage";
 import { HostAppearanceSection } from "@/screens/settings/host-appearance-section";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { useSessionStore } from "@/stores/session-store";
@@ -67,7 +66,7 @@ import { settingsStyles } from "@/styles/settings";
 import type { HostConnection, HostProfile } from "@/types/host-connection";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { isVersionMismatch } from "@/desktop/updates/desktop-updates";
-import { buildProfilesRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import { resolveAppVersion } from "@/utils/app-version";
 import { formatConnectionStatus, getConnectionStatusTone } from "@/utils/daemons";
 import { formatLatency } from "@/utils/latency";
@@ -324,26 +323,7 @@ export function HostAgentsPage({ serverId }: { serverId: string }) {
         </View>
       )}
       <AgentSkillsSection serverId={serverId} />
-      <AgentProfilesLinkSection />
     </View>
-  );
-}
-
-function AgentProfilesLinkSection() {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const openProfiles = useCallback(() => {
-    router.push(buildProfilesRoute());
-  }, [router]);
-  return (
-    <SettingsSection title={t("settings.host.agentProfiles.sectionTitle")}>
-      <View style={[settingsStyles.card, styles.emptyCard]} testID="agent-profiles-moved">
-        <Text style={styles.emptyText}>{t("profiles.movedToProfiles")}</Text>
-        <Button variant="secondary" onPress={openProfiles} testID="agent-profiles-open">
-          {t("profiles.openProfiles")}
-        </Button>
-      </View>
-    </SettingsSection>
   );
 }
 
@@ -357,20 +337,6 @@ export function HostProvidersPage({ serverId }: { serverId: string }) {
   return (
     <View>
       <ProvidersSection serverId={serverId} />
-    </View>
-  );
-}
-
-export function HostUsagePage({ serverId }: { serverId: string }) {
-  const host = useHostProfile(serverId);
-
-  if (!host) {
-    return <HostNotFound />;
-  }
-
-  return (
-    <View>
-      <HostUsageSection serverId={serverId} />
     </View>
   );
 }
