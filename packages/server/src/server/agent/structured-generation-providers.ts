@@ -97,10 +97,34 @@ export async function resolvePimiModel(
     return { providers: [await resolveFeatureOverride(options, override)], pinned: true };
   }
   const configuredProviders = readConfiguredProviders(options.daemonConfig);
-  return {
-    providers: await resolveStructuredGenerationProviders(options),
-    pinned: configuredProviders.length > 0,
-  };
+  const providers = await resolveStructuredGenerationProviders(options);
+  const pinned = configuredProviders.length > 0;
+  // Titles, branch names and commit text need no reasoning, so an automatic pick runs at the
+  // model's lowest effort instead of the chat's. A model the user listed keeps their setting.
+  return { providers: pinned ? providers : await withLowestEffort(options, providers), pinned };
+}
+
+const LOWEST_EFFORT_IDS = ["none", "off", "minimal", "low"];
+
+async function withLowestEffort(
+  options: ResolveStructuredGenerationProvidersOptions,
+  providers: StructuredGenerationProvider[],
+): Promise<StructuredGenerationProvider[]> {
+  const entries = await options.providerSnapshotManager.listProviders({
+    cwd: options.cwd,
+    wait: true,
+  });
+  return providers.map((candidate) => {
+    const entry = entries.find((item) => item.provider === candidate.provider);
+    const models = entry?.models ?? [];
+    const model = candidate.model
+      ? models.find((item) => item.id === candidate.model)
+      : selectDefaultModel(models);
+    const ids = model?.thinkingOptions?.map((option) => option.id) ?? [];
+    const lowest = LOWEST_EFFORT_IDS.find((id) => ids.includes(id)) ?? ids[0];
+    const { thinkingOptionId: _chat, ...rest } = candidate;
+    return lowest ? { ...rest, thinkingOptionId: lowest } : rest;
+  });
 }
 
 async function resolveFeatureOverride(

@@ -173,6 +173,21 @@ const CLAUDE_SETTING_SOURCES: NonNullable<ClaudeOptions["settingSources"]> = [
   "local",
 ];
 
+/**
+ * A bare session (titles, branch names, commit text) sends only this prompt: no Claude Code
+ * preset, no user, project or plugin settings, no CLAUDE.md, no built-in tools, and no MCP
+ * servers other than the ones the caller passed. The user's own Claude login still applies.
+ */
+const BARE_CLAUDE_OPTIONS: Pick<
+  ClaudeOptions,
+  "systemPrompt" | "settingSources" | "tools" | "strictMcpConfig"
+> = {
+  systemPrompt: "Answer the user's message directly, in exactly the format it asks for.",
+  settingSources: [],
+  tools: [],
+  strictMcpConfig: true,
+};
+
 function readNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
@@ -3843,6 +3858,7 @@ class ClaudeAgentSession implements AgentSession {
   private async buildOptions(permissionMode: PermissionMode): Promise<ClaudeOptions> {
     const { thinking, effort, ultracode } = this.resolveThinkingConfig();
     const appendedSystemPrompt = this.buildAppendedSystemPrompt();
+    const bare = this.config.bare === true;
     const providerOptions = applyClaudeToolPolicy(
       this.config.providerOptions,
       this.config.toolPolicy,
@@ -3877,23 +3893,27 @@ class ClaudeAgentSession implements AgentSession {
       // bypass launch capability available so later setPermissionMode("bypassPermissions")
       // calls do not fail after a model/thinking/rewind-driven restart.
       allowDangerouslySkipPermissions: true,
-      agents: this.defaults?.agents,
       canUseTool: this.handlePermissionRequest,
       pathToClaudeCodeExecutable: claudeBinary,
-      // Use Claude Code preset system prompt and load CLAUDE.md files
-      // Append provider-agnostic system prompts for agents.
-      systemPrompt: {
-        type: "preset",
-        preset: "claude_code",
-        append: appendedSystemPrompt,
-      },
-      settingSources: CLAUDE_SETTING_SOURCES,
+      ...(bare
+        ? BARE_CLAUDE_OPTIONS
+        : {
+            agents: this.defaults?.agents,
+            // Use Claude Code preset system prompt and load CLAUDE.md files
+            // Append provider-agnostic system prompts for agents.
+            systemPrompt: {
+              type: "preset",
+              preset: "claude_code",
+              append: appendedSystemPrompt,
+            },
+            settingSources: CLAUDE_SETTING_SOURCES,
+          }),
       stderr: (data: string) => {
         this.captureStderr(data);
         this.logger.error({ stderr: data.trim() }, "Claude Agent SDK stderr");
       },
       // Required for provider-level /rewind support.
-      enableFileCheckpointing: true,
+      enableFileCheckpointing: !bare,
       // If we have a session ID from a previous query (e.g., after interrupt),
       // resume that session to continue the conversation history.
       ...sessionBinding,
@@ -3907,7 +3927,7 @@ class ClaudeAgentSession implements AgentSession {
       // subagents keep running. Without this declaration an interrupt kills every one of them.
       // Claude stops a helper itself with its TaskStop tool.
       perTaskStopAffordance: true,
-      hooks: this.buildSubagentEffortHooks(),
+      ...(bare ? {} : { hooks: this.buildSubagentEffortHooks() }),
       ...(this.persistSession === undefined ? {} : { persistSession: this.persistSession }),
       env: sdkEnv,
     };

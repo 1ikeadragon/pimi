@@ -154,6 +154,11 @@ import {
 } from "./types.js";
 import type { ProviderPimiToolsPolicy } from "@pimi/protocol/provider-config";
 import { isPimiToolEnabled } from "../pimi-tool-policy.js";
+import { lazyPimiToolCatalog } from "./lazy-tool-groups.js";
+import {
+  PIMI_VISUALIZATION_GUIDE_TOOL,
+  PIMI_VISUALIZATION_INSTRUCTIONS,
+} from "@pimi/protocol/chat-visualization";
 
 // Reading a link fetches the page; Ask Pimi has 90 seconds for its whole request.
 const PAGE_TIMEOUT_MS = 20_000;
@@ -508,7 +513,7 @@ export function createPimiAgentToolManifest(
   options: PimiToolHostDependencies,
 ): Pick<PimiToolCatalog, "tools"> {
   // Plugins register before a caller exists, but every execution uses an agent-bound catalog.
-  return { tools: createToolCatalog(options, "agent").tools };
+  return { tools: lazyPimiToolCatalog(createToolCatalog(options, "agent")).tools };
 }
 
 function registerBrowserShowWhenAvailable(input: {
@@ -799,7 +804,7 @@ function createToolCatalog(
           .string()
           .min(1)
           .optional()
-          .describe("Destination server ID from list_hosts; omit for this host."),
+          .describe("Server ID from list_hosts; omit for this host."),
       };
       config = {
         ...config,
@@ -1126,7 +1131,7 @@ function createToolCatalog(
     );
   const CreateAgentSettingsInputSchema = z
     .object({
-      modeId: z.string().optional().describe("Session mode to configure before the first run."),
+      modeId: z.string().optional().describe("Session mode before the first run."),
       thinkingOptionId: z.string().optional().describe("Thinking option ID."),
       features: z
         .record(z.string(), z.unknown())
@@ -1166,9 +1171,9 @@ function createToolCatalog(
       .trim()
       .min(1, "Title is required")
       .max(60, "Title must be 60 characters or fewer")
-      .describe("Short descriptive title (<= 60 chars) summarizing the agent's focus."),
+      .describe("Short title (<= 60 chars) for the agent's focus."),
     provider: ProviderOrProviderModelInputSchema.describe(
-      "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model.",
+      "Provider/model, for example codex/gpt-5.4, or a provider alone for its default model.",
     ),
     labels: z.record(z.string(), z.string()).optional().describe("Labels to set on the agent"),
     profile: z
@@ -1176,21 +1181,19 @@ function createToolCatalog(
       .min(1)
       .optional()
       .describe(
-        "Profile id or name from list_profiles. The agent starts with the profile's instructions as its system prompt. The profile's provider and model apply when you omit provider; its mode, thinking, and features apply only on the profile's own provider and only where settings leaves them out.",
+        "Profile id or name from list_profiles. Its instructions become the agent's system prompt. Its provider and model apply when you omit provider; its mode, thinking, and features apply only on its own provider and only where settings leaves them out.",
       ),
-    settings: CreateAgentSettingsInputSchema.optional().describe(
-      "Initial runtime settings for the new agent.",
-    ),
+    settings: CreateAgentSettingsInputSchema.optional().describe("Initial runtime settings."),
     initialPrompt: z
       .string()
       .trim()
       .min(1, "initialPrompt is required")
-      .describe("Required first task to run immediately after creation."),
+      .describe("First task, run right after creation."),
     background: z
       .boolean()
       .optional()
       .describe(
-        "True hides the agent from the user: no tab, no card in your subagent track or the sidebar, no notifications. You still get its finish notification and can address it by id. Omit it (inherits your own value, false without a caller) for any worker the user asked for; set true only when the user asks for a hidden agent.",
+        "True hides the agent from the user: no tab, no subagent card, no sidebar entry, no notifications. You still get its finish notification and can address it by id. Omit it (inherits your own value) for any worker the user asked for; set true only when the user asks for a hidden agent.",
       ),
   };
   const canonicalCreateAgentFields = {
@@ -1200,7 +1203,7 @@ function createToolCatalog(
       .min(1)
       .optional()
       .describe(
-        "Omit to use your own workspace (top-level calls create a new local workspace). Pass only an id returned by list_workspaces or create_workspace.",
+        "Omit to use your own workspace (top-level calls create a new local one). Pass only an id from list_workspaces or create_workspace.",
       ),
   };
   const agentToAgentInputSchema = {
@@ -1209,14 +1212,14 @@ function createToolCatalog(
       .literal(true)
       .optional()
       .describe(
-        "Attach the current chat as reference for a handoff or another agent's contribution to this task. Same host only. The new initialPrompt defines the assignment; history may be shortened.",
+        "Attach the current chat as reference for a handoff or another agent's contribution. Same host only. initialPrompt defines the assignment; history may be shortened.",
       ),
     notifyOnFinish: z
       .boolean()
       .optional()
       .default(true)
       .describe(
-        "Get notified when the created agent finishes, errors, or needs permission. Set false for explicit reporting or no completion callback.",
+        "Get notified when the created agent finishes, errors, or needs permission. Set false for explicit reporting or no callback.",
       ),
   };
   const canonicalTopLevelInputSchema = {
@@ -1226,7 +1229,7 @@ function createToolCatalog(
       .optional()
       .default(false)
       .describe(
-        "Agent-scoped only: get notified when the created agent finishes, errors, or needs permission.",
+        "Agent callers only: get notified when the created agent finishes, errors, or needs permission.",
       ),
   };
   // Advertised shape only: withDefaultModel fills an omitted provider before the strict parse.
@@ -1236,13 +1239,13 @@ function createToolCatalog(
         ? {
             ...agentToAgentInputSchema,
             provider: ProviderOrProviderModelInputSchema.optional().describe(
-              "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model. Omit to use the profile's provider and model, or your own when there is no profile or it sets no provider.",
+              "Provider/model, for example codex/gpt-5.4, or a provider alone for its default model. Omit for the profile's provider and model, or your own without one.",
             ),
           }
         : {
             ...canonicalTopLevelInputSchema,
             provider: ProviderOrProviderModelInputSchema.optional().describe(
-              "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model. Omit only with a profile that sets a provider.",
+              "Provider/model, for example codex/gpt-5.4, or a provider alone for its default model. Omit only with a profile that sets a provider.",
             ),
           },
     )
@@ -1474,11 +1477,22 @@ function createToolCatalog(
   });
 
   registerTool(
+    PIMI_VISUALIZATION_GUIDE_TOOL,
+    {
+      title: "Pimi visualization guide",
+      description:
+        "Return the formats and limits of Pimi's chart, view and html blocks. Call it before drawing any visual.",
+      inputSchema: {},
+    },
+    async () => ({ content: [{ type: "text", text: PIMI_VISUALIZATION_INSTRUCTIONS }] }),
+  );
+
+  registerTool(
     "list_hosts",
     {
       title: "List hosts",
       description:
-        "List this computer and the other machines you can start agents on. Use a machine's serverId with create_workspace, list_workspaces, list_providers, list_models, create_agent and the agent follow-up tools. A host whose status is not online cannot be used yet.",
+        "List this computer and the other machines you can start agents on. Pass a machine's serverId to create_workspace, list_workspaces, list_providers, list_models, create_agent and the agent follow-up tools. A host not online cannot be used yet.",
       inputSchema: {},
     },
     async () => ({
@@ -1491,14 +1505,14 @@ function createToolCatalog(
     "create_workspace",
     {
       title: "Create workspace",
-      description: "Create a workspace using an existing local checkout or a new managed worktree.",
+      description: "Create a workspace from an existing local checkout or a new managed worktree.",
       inputSchema: {
         isolation: z.enum(["local", "worktree"]),
         path: z
           .string()
           .optional()
           .describe(
-            "Local directory or source checkout. Defaults to your current workspace. Local isolation adopts an existing directory and never creates one. On another host this is required and must already exist there; ask the user when they named no directory and list_workspaces has no match.",
+            "Local directory or source checkout. Defaults to your current workspace. Local isolation adopts an existing directory, never creates one. On another host it is required and must already exist there; ask the user if none was named and list_workspaces has no match.",
           ),
         projectId: z.string().optional().describe("Existing project id to own the workspace."),
         title: z.string().trim().min(1).optional(),
@@ -1506,7 +1520,7 @@ function createToolCatalog(
           .boolean()
           .optional()
           .describe(
-            "True hides the workspace from default lists and the sidebar while its contents remain durable and accessible; omit background to inherit your own visibility (true when you or your current workspace are background, false without a caller), and override it only when the user explicitly asks.",
+            "True hides the workspace from default lists and the sidebar; its contents stay durable and accessible. Omit to inherit your own visibility, and override only when the user explicitly asks.",
           ),
         mode: z
           .enum(["branch-off", "checkout-branch", "checkout-pr"])
@@ -1531,7 +1545,7 @@ function createToolCatalog(
           .int()
           .positive()
           .optional()
-          .describe("Pull request or change request number for checkout-pr mode."),
+          .describe("Pull or change request number for checkout-pr mode."),
         forge: z
           .string()
           .trim()
@@ -1701,8 +1715,8 @@ function createToolCatalog(
       title: "Create agent",
       description:
         scope === "agent"
-          ? "Create an agent in your workspace as your subagent; the user sees it as a card in this chat. Requires an initial prompt. Create one per worker the user asked for, even on your own provider, and omit provider for a worker with no named provider or model. Set inheritContext: true for work discussed in this chat unless the user wants an independent view. Preserve the user's edit and launch constraints, use separate worktrees for parallel edits, and add the work to the Tasks board only when the user asks to track it. provider is a provider (codex) or provider/model (codex/gpt-5.4); omit it to use your own provider and model. For a different provider, omitting settings.modeId starts the agent in that provider's default mode. Do not guess ids; call list_providers and list_models first if uncertain. To start it on another machine the user names, call list_hosts and pass that host's serverId, a workspaceId from list_workspaces or create_workspace on that host, and a provider/model from list_providers and list_models on that host; inheritContext, profile and cwd are this-host only."
-          : "Create an agent. Top-level creation without workspaceId creates a new local workspace. Requires an initial prompt and either a provider (codex, or codex/gpt-5.4 for a specific model) or a profile that sets one. Omitting settings.modeId starts the agent in the provider's default mode. Do not guess; call list_providers and list_models first if uncertain. To start it on another machine the user names, call list_hosts and pass that host's serverId, a workspaceId from list_workspaces or create_workspace on that host, and a provider/model from list_providers and list_models on that host; inheritContext, profile and cwd are this-host only.",
+          ? "Create an agent in your workspace as your subagent; the user sees it as a card in this chat. Needs an initialPrompt. Create one per worker the user asked for, even on your own provider, and omit provider when no provider or model was named. Set inheritContext: true for work discussed in this chat unless the user wants an independent view. Keep the user's edit and launch constraints, use separate worktrees for parallel edits, and add the work to the Tasks board only when asked to track it. provider is a provider (codex) or provider/model (codex/gpt-5.4); omitted, it is your own. For another provider, omitting settings.modeId uses its default mode. Do not guess ids: call list_providers and list_models if unsure. For a machine the user names, call list_hosts and pass its serverId, a workspaceId from list_workspaces or create_workspace there, and a provider/model from list_providers and list_models there; inheritContext, profile and cwd are this-host only."
+          : "Create an agent. Without workspaceId it creates a new local workspace. Needs an initialPrompt and either a provider (codex, or codex/gpt-5.4 for a model) or a profile that sets one. Omitting settings.modeId uses the provider's default mode. Do not guess ids: call list_providers and list_models if unsure. For a machine the user names, call list_hosts and pass its serverId, a workspaceId from list_workspaces or create_workspace there, and a provider/model from list_providers and list_models there; inheritContext, profile and cwd are this-host only.",
       inputSchema: createAgentInputSchema,
       outputSchema: {
         agentId: z.string(),

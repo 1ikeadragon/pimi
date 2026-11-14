@@ -10,7 +10,6 @@ import {
   retireManagedSkill,
   syncSkills,
 } from "./sync.js";
-import { RENAMED_SKILLS } from "./selection-store.js";
 
 export type SkillsState = "not-installed" | "up-to-date" | "drift";
 
@@ -52,6 +51,7 @@ export const LEGACY_SKILL_NAMES = [
   "pimi-artifacts",
   "pimi-shape-work",
   "pimi-walk-the-flow",
+  "pimi-work",
 ] as const;
 
 type SkillFiles = Map<string, string>;
@@ -254,24 +254,18 @@ export async function autoUpdateInstalledSkills(
 ): Promise<SkillsStatus> {
   const status = await getSkillsStatus(targets, selection);
   const homes = new Set([targets.agentsDir, targets.claudeDir, targets.codexDir]);
-  const desired = resolveDesiredSkills(selection, status.available);
-  const renamed: Array<{ directory: string; successor: string }> = [];
-  for (const [oldName, successor] of Object.entries(RENAMED_SKILLS)) {
-    if (!desired.has(successor)) continue;
-    for (const home of homes) {
-      const directory = path.join(home, oldName);
-      if (await readManagedFilesManifest(directory)) renamed.push({ directory, successor });
-    }
-  }
-  if (status.state === "not-installed" && !installByDefault && renamed.length === 0) return status;
+  if (status.state === "not-installed" && !installByDefault) return status;
   const updated = await applySkills(targets, selection, nonDestructivePlan(status));
-  // Edited copies are kept: retireManagedSkill only removes files Pimi wrote and nobody changed.
-  for (const name of LEGACY_SKILL_NAMES) {
-    for (const home of homes) await retireManagedSkill(path.join(home, name));
-  }
-  for (const { directory, successor } of renamed) {
-    if (updated.installed.includes(successor) && !updated.ops.some((op) => op.name === successor))
-      await retireManagedSkill(directory);
+  // Edited copies are kept: retireManagedSkill only removes files Pimi wrote and nobody changed,
+  // and a skill without Pimi's manifest is never touched.
+  const shipped = new Set(status.available);
+  for (const home of homes) {
+    const entries = await fs.readdir(home, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !/^pimi(-|$)/.test(entry.name) || shipped.has(entry.name))
+        continue;
+      await retireManagedSkill(path.join(home, entry.name));
+    }
   }
   return updated;
 }

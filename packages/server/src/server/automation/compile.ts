@@ -225,7 +225,7 @@ export async function compileAutomation(
       turnTimeoutMs: COMPILE_TURN_TIMEOUT_MS,
       persistSession: false,
       logger: deps.logger,
-      agentConfigOverrides: { title: "Automation compiler", internal: true },
+      agentConfigOverrides: { title: "Automation compiler", internal: true, bare: true },
     });
     last = toDefinition(compiled, cwd, profiles);
     problems = validateAutomationDefinition(last).map((issue) => issue.message);

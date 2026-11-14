@@ -166,6 +166,51 @@ const INTERRUPTED_TURN_CLEANUP_WAIT_MS =
 // Turns whose commands are remembered; older turns are forgotten first.
 const INTERRUPTED_TURN_TRACKED_TURNS = 16;
 const CODEX_PROVIDER = "codex" as const;
+
+/**
+ * A bare session (titles, branch names, commit text) replaces Codex's base instructions with one
+ * line, and turns off every tool surface Codex would otherwise describe to the model: shell,
+ * plugins, apps, browser, memories, skills, web search and the like. The user's own login still
+ * applies, because only config and features change.
+ */
+const BARE_CODEX_BASE_INSTRUCTIONS =
+  "Answer the user's message directly, in exactly the format it asks for.";
+const BARE_CODEX_DISABLED_FEATURES = [
+  "shell_tool",
+  "unified_exec",
+  "plugins",
+  "plugin_sharing",
+  "remote_plugin",
+  "apps",
+  "multi_agent",
+  "image_generation",
+  "memories",
+  "hooks",
+  "skill_search",
+  "browser_use",
+  "browser_use_external",
+  "computer_use",
+  "in_app_browser",
+  "in_app_chat",
+  "in_app_local_automation",
+  "in_app_voice",
+  "mentions_v2",
+  "goals",
+  "view_image",
+  "sleep_tool",
+  "tool_suggest",
+  "code_mode_host",
+  "workspace_dependencies",
+  "write_stdin_approval",
+] as const;
+const BARE_CODEX_CONFIG: Record<string, unknown> = {
+  web_search: "disabled",
+  include_environment_context: false,
+  include_apply_patch_tool: false,
+  include_permissions_instructions: false,
+  include_apps_instructions: false,
+  mcp_servers: {},
+};
 // User messages a windowed history replay covers first, and per older block after that.
 const CODEX_HISTORY_TAIL_PROMPTS = 20;
 const CODEX_HISTORY_OLDER_PROMPTS = 40;
@@ -4000,6 +4045,7 @@ export class CodexAppServerAgentSession implements AgentSession {
     settings: Record<string, unknown>;
     name: string;
   } | null {
+    if (this.config.bare) return null;
     const match = this.findCollaborationMode(this.planModeEnabled ? "plan" : "code");
     if (!match) return null;
 
@@ -5860,6 +5906,7 @@ export class CodexAppServerAgentSession implements AgentSession {
         : {}),
       ...(sandbox && this.providerOptions.sandbox_mode === undefined ? { sandbox } : {}),
       ...(developerInstructions ? { developerInstructions } : {}),
+      ...(this.config.bare ? { baseInstructions: BARE_CODEX_BASE_INSTRUCTIONS } : {}),
       ...(innerConfig ? { config: innerConfig } : {}),
       ...(this.ephemeral ? { ephemeral: true } : {}),
     };
@@ -5882,6 +5929,7 @@ export class CodexAppServerAgentSession implements AgentSession {
       }
       innerConfig.mcp_servers = mcpServers;
     }
+    if (this.config.bare) Object.assign(innerConfig, BARE_CODEX_CONFIG);
     const configured = applyCodexToolPolicy(innerConfig, this.config.toolPolicy);
     return Object.keys(configured).length > 0 ? configured : null;
   }
@@ -7788,14 +7836,21 @@ export class CodexAppServerAgentClient implements AgentClient {
 
   private async spawnAppServer(
     launchEnv?: Record<string, string>,
-    options?: { goalsEnabled?: boolean; agentId?: string; environment?: Record<string, string> },
+    options?: {
+      goalsEnabled?: boolean;
+      bare?: boolean;
+      agentId?: string;
+      environment?: Record<string, string>;
+    },
   ): Promise<ChildProcessWithoutNullStreams> {
     const launchPrefix = await resolveCodexLaunchPrefix(this.runtimeSettings);
     const args = [...launchPrefix.args, "app-server"];
     if (this.runtimeSettings?.command?.mode !== "replace") {
       args.push("-c", "analytics.enabled=false");
     }
-    if (options?.goalsEnabled) {
+    if (options?.bare) {
+      for (const feature of BARE_CODEX_DISABLED_FEATURES) args.push("--disable", feature);
+    } else if (options?.goalsEnabled) {
       args.push("--enable", "goals");
     }
     this.logger.trace(
@@ -7830,6 +7885,7 @@ export class CodexAppServerAgentClient implements AgentClient {
       // utility generations through `codex exec --ephemeral` in a larger change.
     }
     const sessionConfig: AgentSessionConfig = { ...config, provider: CODEX_PROVIDER };
+    const bare = sessionConfig.bare === true;
     const goalsEnabled = await this.resolveGoalsEnabled();
     const autoReviewEnabled = await this.resolveAutoReviewEnabled();
     const environment = buildCodexAppServerEnv(this.runtimeSettings, launchContext?.env);
@@ -7840,6 +7896,7 @@ export class CodexAppServerAgentClient implements AgentClient {
       () =>
         this.spawnAppServer(launchContext?.env, {
           goalsEnabled,
+          bare,
           agentId: launchContext?.agentId,
           environment,
         }),

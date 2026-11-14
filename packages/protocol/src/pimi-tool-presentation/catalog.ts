@@ -422,6 +422,7 @@ export const PIMI_TOOL_CATALOG = {
     completedLabel: "Read Spaces card",
   },
   suggest_pimi_review: { label: "Suggest review", completedLabel: "Suggested review" },
+  get_pimi_visualization_guide: { label: "Load chart guide", completedLabel: "Loaded chart guide" },
 
   // Browser
   browser_list_tabs: browser("List browser tabs", "Listed browser tabs"),

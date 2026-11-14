@@ -232,6 +232,7 @@ export function createAgentStructuredTextGeneration(deps: {
         agentConfigOverrides: {
           title: agentTitle,
           internal: true,
+          bare: true,
         },
       });
     },
