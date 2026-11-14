@@ -1,3 +1,5 @@
+import type { UsageSpeed } from "./prices.js";
+
 export type UsageProvider = "claude" | "codex";
 
 export interface UsageEventRow {
@@ -11,9 +13,13 @@ export interface UsageEventRow {
   input: number;
   cacheRead: number;
   cacheWrite: number;
+  // The part of `cacheWrite` written with Claude's one-hour TTL.
+  cacheWrite1h: number;
   output: number;
   reasoning: number;
   total: number;
+  speed: UsageSpeed;
+  usGeo: boolean;
   costUsd: number | null;
   dedupeKey: string;
 }
@@ -37,6 +43,8 @@ export interface UsageLineParser {
   // blobs; the filter keeps them from ever reaching JSON.parse.
   readonly needles: readonly Buffer[];
   handle(line: string, sink: UsageSink): void;
+  // Called once after the last line of a read, for output the parser held back.
+  finish?(sink: UsageSink): void;
   state(): unknown;
 }
 

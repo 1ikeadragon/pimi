@@ -76,7 +76,6 @@ export function UsageInsights({
         <Button variant="outline" onPress={onAsk} testID="usage-ask-agent">
           {t("usageOverview.insights.askAgent")}
         </Button>
-        <Text style={styles.muted}>{t("usageOverview.insights.askAgentHint")}</Text>
       </View>
     </View>
   );

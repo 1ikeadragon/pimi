@@ -4,9 +4,14 @@ import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { UsageBreakdownRow, UsageGroupBy, UsageRange } from "@pimi/protocol/messages";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
-import { formatEstimatedUsd, formatPercent, formatTokens } from "./format";
+import { formatCostUsd, formatPercent, formatTokens } from "./format";
 import { providerLabel } from "./providers";
 import { useUsageBreakdownQuery } from "./queries";
+
+// Rows past this are in the other tabs' long tails; the list area keeps room for this many so a tab
+// with fewer rows (Origin has two) does not shrink the card and move what sits below it.
+const MAX_ROWS = 6;
+const ROWS_MIN_HEIGHT = 380;
 
 type Dimension = "provider" | "model" | "project" | "origin";
 
@@ -34,7 +39,7 @@ export function UsageBreakdown({
     <View style={styles.section} testID="usage-breakdown">
       <SegmentedControl options={options} value={dimension} onValueChange={setDimension} />
       <View style={styles.rows}>
-        {rows.slice(0, 12).map((row) => (
+        {rows.slice(0, MAX_ROWS).map((row) => (
           <BreakdownRow key={row.key} row={row} total={total} dimension={dimension} />
         ))}
       </View>
@@ -64,7 +69,7 @@ function BreakdownRow({
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
   const share = total === 0 ? 0 : row.usage.total / total;
-  const cost = formatEstimatedUsd(row.usage, locale);
+  const cost = formatCostUsd(row.usage, locale);
   return (
     <View style={styles.row}>
       <View style={styles.rowHead}>
@@ -101,7 +106,7 @@ function BreakdownRow({
 
 const styles = StyleSheet.create((theme) => ({
   section: { gap: theme.spacing[3] },
-  rows: { gap: theme.spacing[3] },
+  rows: { gap: theme.spacing[3], minHeight: ROWS_MIN_HEIGHT },
   row: { gap: theme.spacing[1] },
   rowHead: { flexDirection: "row", justifyContent: "space-between", gap: theme.spacing[3] },
   name: { flexShrink: 1, color: theme.colors.foreground, fontSize: theme.fontSize.base },

@@ -18,9 +18,9 @@ export function formatUsd(value: number, locale?: string): string {
   }).format(value);
 }
 
-/** "~$18.40", or null while no event in the aggregate has a priced model. */
-export function formatEstimatedUsd(usage: UsageAggregate, locale?: string): string | null {
-  return usage.costUsd === null ? null : `~${formatUsd(usage.costUsd, locale)}`;
+/** "$18.40", or null while no event in the aggregate has a priced model. */
+export function formatCostUsd(usage: UsageAggregate, locale?: string): string | null {
+  return usage.costUsd === null ? null : formatUsd(usage.costUsd, locale);
 }
 
 export function formatPercent(fraction: number, locale?: string): string {

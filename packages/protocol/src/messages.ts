@@ -7017,8 +7017,8 @@ export const UsageListReportsResponseMessageSchema = z.object({
 
 // Token counters follow one convention for every provider: `input` excludes cache reads and
 // writes, `output` includes `reasoning`, `total` = input + cacheRead + cacheWrite + output.
-// `costUsd` is an API-equivalent estimate from the daemon's bundled price table and sums only the
-// events whose model has a price; `pricedTokens` is the part of `total` that was priced.
+// `costUsd` is the API-equivalent cost from the daemon's bundled price table. It sums the events
+// whose model has a price and is null when none has one.
 export const UsageAggregateSchema = z.object({
   input: z.number(),
   cacheRead: z.number(),
@@ -7027,7 +7027,6 @@ export const UsageAggregateSchema = z.object({
   reasoning: z.number(),
   total: z.number(),
   costUsd: z.number().nullable(),
-  pricedTokens: z.number(),
   events: z.number(),
   chats: z.number(),
 });
@@ -7036,7 +7035,6 @@ export const UsageBreakdownRowSchema = z.object({
   label: z.string(),
   usage: UsageAggregateSchema,
 });
-const UsagePricesSchema = z.object({ asOf: z.string() });
 export const UsageGetSummaryResponseMessageSchema = z.object({
   type: z.literal("usage.get_summary.response"),
   payload: z.object({
@@ -7052,7 +7050,6 @@ export const UsageGetSummaryResponseMessageSchema = z.object({
           z.object({ day: z.string(), total: z.number(), costUsd: z.number().nullable() }),
         ),
         scanning: z.boolean(),
-        prices: UsagePricesSchema,
       })
       .nullable(),
   }),
@@ -7071,7 +7068,6 @@ export const UsageGetBreakdownResponseMessageSchema = z.object({
         rows: z.array(UsageBreakdownRowSchema),
         firstEventAt: z.number().nullable(),
         scanning: z.boolean(),
-        prices: UsagePricesSchema,
       })
       .nullable(),
   }),

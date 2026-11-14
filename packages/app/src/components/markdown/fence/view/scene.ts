@@ -50,8 +50,8 @@ export interface SceneTarget {
 
 export type SceneMark =
   | { type: "bar"; path: string; slot: number; target: number }
-  | { type: "line"; points: Point[]; slot: number }
-  | { type: "area"; points: Point[]; slot: number }
+  | { type: "line"; path: string; slot: number }
+  | { type: "area"; path: string; slot: number }
   | { type: "point"; x: number; y: number; slot: number; target: number; whenSelected: boolean }
   | { type: "arc"; path: string; slot: number; target: number };
 
@@ -247,6 +247,49 @@ function clamp(value: number, low: number, high: number): number {
   return Math.max(low, Math.min(high, value));
 }
 
+/**
+ * Path through the points as a monotone cubic (Fritsch-Carlson): the curve never rises above or
+ * falls below the neighbouring points, so a series of non-negative values stays on or above zero
+ * and flat runs stay flat. The points must run in one x direction.
+ */
+function smoothPath(points: readonly Point[]): string {
+  const count = points.length;
+  const start = `M${points[0].x},${points[0].y}`;
+  if (count < 2) return start;
+  const dx = points.slice(1).map((point, i) => point.x - points[i].x);
+  const slope = points.slice(1).map((point, i) => (point.y - points[i].y) / dx[i]);
+  const tangent = points.map((_, i) => {
+    if (i === 0) return slope[0];
+    if (i === count - 1) return slope[count - 2];
+    return slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2;
+  });
+  for (let i = 0; i < count - 1; i++) {
+    if (slope[i] === 0) {
+      tangent[i] = 0;
+      tangent[i + 1] = 0;
+      continue;
+    }
+    const a = tangent[i] / slope[i];
+    const b = tangent[i + 1] / slope[i];
+    const size = a * a + b * b;
+    if (size > 9) {
+      const scale = 3 / Math.sqrt(size);
+      tangent[i] = scale * a * slope[i];
+      tangent[i + 1] = scale * b * slope[i];
+    }
+  }
+  let path = start;
+  for (let i = 0; i < count - 1; i++) {
+    const from = points[i];
+    const to = points[i + 1];
+    const third = dx[i] / 3;
+    path += `C${round(from.x + third)},${round(from.y + tangent[i] * third)} ${round(
+      to.x - third,
+    )},${round(to.y - tangent[i + 1] * third)} ${to.x},${to.y}`;
+  }
+  return path;
+}
+
 function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -323,17 +366,21 @@ function barPath(box: Box, rounded: "top" | "bottom" | "none"): string {
   )},${bottom}H${round(x + radius)}Q${x},${bottom} ${x},${round(bottom - radius)}Z`;
 }
 
+// Labels are spaced by a fixed stride so the gaps between them are equal and none touch, and the
+// stride counts back from the last label so the end of the range is always named. The first label
+// is named too: it takes the place of the earliest stride label, which sits less than a stride
+// from it.
 function pickAxisLabels(labels: readonly string[], left: number, step: number): SceneAxisLabel[] {
   const longest = Math.max(...labels.map((label) => label.length));
-  const preferred = clamp(longest * 6.5 + 8, 36, 88);
+  const preferred = clamp(longest * 7 + 14, 40, 96);
   const capacity = Math.max(1, Math.floor((step * labels.length) / preferred));
-  const count = Math.min(labels.length, capacity);
-  const width = Math.max(step, (step * labels.length) / count);
-  const picked = new Set<number>();
-  for (let index = 0; index < count; index++) {
-    picked.add(count === 1 ? 0 : Math.round((index * (labels.length - 1)) / (count - 1)));
-  }
-  return [...picked].map((index) => ({
+  const last = labels.length - 1;
+  const stride = Math.max(1, Math.ceil(labels.length / capacity));
+  const picked: number[] = [];
+  for (let index = last; index >= 0; index -= stride) picked.unshift(index);
+  picked[0] = 0;
+  const width = step * stride;
+  return picked.map((index) => ({
     x: round(left + step * (index + 0.5)),
     width: round(width),
     text: labels[index],
@@ -414,9 +461,13 @@ function buildCartesianScene(
           const position = row.length - 1 - index;
           return { x: x(position), y: y(row[position].from) };
         });
-        marks.push({ type: "area", points: [...top, ...floor], slot });
+        marks.push({
+          type: "area",
+          path: `${smoothPath(top)}L${floor[0].x},${floor[0].y}${smoothPath(floor).replace(/^M[^C]*/, "")}Z`,
+          slot,
+        });
       }
-      marks.push({ type: "line", points: top, slot });
+      marks.push({ type: "line", path: smoothPath(top), slot });
       top.forEach((point, target) => {
         marks.push({ type: "point", ...point, slot, target, whenSelected: row.length > 1 });
       });

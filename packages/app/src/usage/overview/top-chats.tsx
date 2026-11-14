@@ -5,7 +5,7 @@ import { StyleSheet } from "react-native-unistyles";
 import type { UsageAgentTreeChat, UsageAggregate } from "@pimi/protocol/messages";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { openPimiUsageDetail } from "@/navigation/pimi-usage";
-import { formatEstimatedUsd, formatPercent, formatTokens } from "./format";
+import { formatCostUsd, formatPercent, formatTokens } from "./format";
 import { providerLabel } from "./providers";
 
 const MAX_CHATS = 10;
@@ -33,7 +33,7 @@ export function UsageTopChats({
 }
 
 function figures(usage: UsageAggregate, locale: string | undefined, share?: string): string {
-  return [formatTokens(usage.total, locale), formatEstimatedUsd(usage, locale), share]
+  return [formatTokens(usage.total, locale), formatCostUsd(usage, locale), share]
     .filter(Boolean)
     .join(" · ");
 }

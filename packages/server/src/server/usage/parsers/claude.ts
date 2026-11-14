@@ -1,5 +1,5 @@
 import { basename } from "node:path";
-import { estimateCostUsd } from "../prices.js";
+import { requestCostUsd, type UsageSpeed } from "../prices.js";
 import {
   isRecord,
   parseTimestamp,
@@ -42,6 +42,12 @@ function buildEvent(
   const output = toNumber(usage.output_tokens);
   const total = input + cacheRead + cacheWrite + output;
   if (total === 0) return null;
+  const cacheCreation = isRecord(usage.cache_creation) ? usage.cache_creation : null;
+  const cacheWrite1h = cacheCreation
+    ? Math.min(cacheWrite, toNumber(cacheCreation.ephemeral_1h_input_tokens))
+    : 0;
+  const speed: UsageSpeed = usage.speed === "fast" ? "fast" : "standard";
+  const usGeo = usage.inference_geo === "us";
   const details = isRecord(usage.output_tokens_details) ? usage.output_tokens_details : null;
   const subagentId = subagentIdOf(line, fileId);
   const requestId = typeof line.requestId === "string" ? line.requestId : "";
@@ -56,10 +62,23 @@ function buildEvent(
     input,
     cacheRead,
     cacheWrite,
+    cacheWrite1h,
     output,
     reasoning: details ? toNumber(details.thinking_tokens) : 0,
     total,
-    costUsd: estimateCostUsd(model, { input, cacheRead, cacheWrite, output }),
+    speed,
+    usGeo,
+    costUsd: requestCostUsd({
+      provider: "claude",
+      model,
+      input,
+      cacheRead,
+      cacheWrite,
+      cacheWrite1h,
+      output,
+      speed,
+      usGeo,
+    }),
     dedupeKey: `claude:${key}:${requestId}`,
   };
 }

@@ -11,7 +11,7 @@ import { useUsageHostSelection } from "./hosts";
 import { UsageWindowBar } from "./window-bar";
 import { useHostUsage } from "./queries";
 import { UsageBody, UsageMessage } from "./usage-section";
-import { cacheShare, formatEstimatedUsd, formatPercent, formatTokens } from "./overview/format";
+import { cacheShare, formatCostUsd, formatPercent, formatTokens } from "./overview/format";
 import { useUsageRescan, useUsageSummaryQuery, type UsageSummary } from "./overview/queries";
 import type { UsageReportEntry } from "./types";
 
@@ -151,7 +151,7 @@ function TodayBlock({
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   const share = cacheShare(summary.today);
-  const cost = formatEstimatedUsd(summary.today, locale);
+  const cost = formatCostUsd(summary.today, locale);
   const parts = [
     t("usageOverview.popover.tokens", { count: formatTokens(summary.today.total, locale) }),
     cost,

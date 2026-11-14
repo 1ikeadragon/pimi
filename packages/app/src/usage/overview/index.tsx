@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { UsageMessage } from "../usage-section";
 import { UsageBreakdown } from "./breakdown";
 import { formatPercent, formatTokens, timezoneOffsetMinutes } from "./format";
+import { UsageGrid } from "./grid";
 import { UsageHeatmap } from "./heatmap";
 import { computeInsights, type Insight } from "./insights";
 import { UsageInsights } from "./insights-card";
@@ -23,6 +24,7 @@ import { UsageStatTiles } from "./stat-tiles";
 import { UsageTopChats } from "./top-chats";
 
 const DAY_MS = 86_400_000;
+const GRID_GAP = 16;
 
 function currentStreak(dayRows: readonly UsageBreakdownRow[]): number {
   const active = new Set(dayRows.filter((row) => row.usage.total > 0).map((row) => row.key));
@@ -246,51 +248,38 @@ function OverviewSections({
         activeDays={breakdown.activeDays}
         streak={currentStreak(days.data?.rows ?? [])}
         busiestHour={busiestHourLabel(hours.data?.rows ?? [], locale)}
-        pricesAsOf={breakdown.prices.asOf}
       />
       {breakdown.totals.total === 0 ? (
         <UsageMessage text={t("usageOverview.empty.noData")} />
       ) : null}
-      <Section title={t("usageOverview.heatmap.title")}>
-        <UsageHeatmap rows={days.data?.rows ?? []} />
-      </Section>
+      <UsageHeatmap rows={days.data?.rows ?? []} />
       <UsageOverTime
         serverId={serverId}
         range={range}
         metric={metric}
         providers={seriesProviders}
       />
-      <View style={styles.columns}>
-        <View style={styles.column}>
-          <Section title={t("usageOverview.breakdown.title")}>
-            <UsageBreakdown serverId={serverId} range={range} provider={provider} />
-          </Section>
-        </View>
-        <View style={styles.column}>
-          <Section title={t("usageOverview.chats.title")}>
-            <UsageTopChats chats={chats} serverId={serverId} total={breakdown.totals.total} />
-          </Section>
-        </View>
-      </View>
-      <View style={styles.columns}>
-        <View style={styles.column}>
-          <Section title={t("usageOverview.tools.title")}>
-            <ToolRows rows={tools.data?.rows ?? []} />
-          </Section>
-        </View>
-        <View style={styles.column}>
-          <Section title={t("usageOverview.insights.title")}>
-            <UsageInsights insights={insights} ask={ask} />
-          </Section>
-        </View>
-      </View>
+      <UsageGrid minColumn={360} maxColumns={2} gap={GRID_GAP} testID="usage-details">
+        <DetailCard key="breakdown" title={t("usageOverview.breakdown.title")}>
+          <UsageBreakdown serverId={serverId} range={range} provider={provider} />
+        </DetailCard>
+        <DetailCard key="chats" title={t("usageOverview.chats.title")}>
+          <UsageTopChats chats={chats} serverId={serverId} total={breakdown.totals.total} />
+        </DetailCard>
+        <DetailCard key="tools" title={t("usageOverview.tools.title")}>
+          <ToolRows rows={tools.data?.rows ?? []} />
+        </DetailCard>
+        <DetailCard key="insights" title={t("usageOverview.insights.title")}>
+          <UsageInsights insights={insights} ask={ask} />
+        </DetailCard>
+      </UsageGrid>
     </>
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function DetailCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <View style={styles.section}>
+    <View style={styles.detailCard}>
       <Text style={styles.sectionTitle}>{title}</Text>
       {children}
     </View>
@@ -329,9 +318,17 @@ function ToolRows({ rows }: { rows: readonly UsageBreakdownRow[] }) {
 const styles = StyleSheet.create((theme) => ({
   stack: { gap: theme.spacing[6] },
   controls: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: theme.spacing[3] },
-  columns: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing[6] },
-  column: { flexGrow: 1, flexShrink: 1, flexBasis: 420, minWidth: 0, maxWidth: "100%" },
-  section: { gap: theme.spacing[3] },
+  // The same card as the Over time chart and the Activity grid.
+  detailCard: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: theme.colors.surface1,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing[4],
+    gap: theme.spacing[3],
+  },
   sectionTitle: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,

@@ -10,7 +10,7 @@ const CELL = 12;
 const GAP = 3;
 const TARGET_CELL = 18;
 const MIN_CELL = 8;
-const MAX_CELL = 28;
+const MONTH_LABEL_WIDTH = 84;
 const LABEL_COLUMN = 30;
 const MIN_WEEKS = 8;
 const MAX_WEEKS = 53;
@@ -82,7 +82,7 @@ function buildWeeks(rows: readonly UsageBreakdownRow[], weeks: number): Week[] {
 
 /**
  * Columns and cell size that fill the width: as many weeks as fit at the target size (at least the
- * history), then the cell grows to use the leftover space.
+ * history), then the cell grows or shrinks so the grid spans the whole width.
  */
 function gridSize(width: number, firstDay: string | null): { weeks: number; cell: number } {
   const available = Math.max(width - LABEL_COLUMN, 0);
@@ -96,8 +96,9 @@ function gridSize(width: number, firstDay: string | null): { weeks: number; cell
     MIN_WEEKS,
     Math.min(MAX_WEEKS, Math.max(Math.min(fit, COMFORT_WEEKS), needed)),
   );
-  const cell = Math.floor((available + GAP) / weeks) - GAP;
-  return { weeks, cell: Math.max(MIN_CELL, Math.min(MAX_CELL, cell)) };
+  // The cell takes whatever the width leaves, so the grid always spans the full card.
+  const cell = (available - (weeks - 1) * GAP) / weeks;
+  return { weeks, cell: Math.max(MIN_CELL, cell) };
 }
 
 /** Day grid coloured by tokens, built from plain views so it follows the theme in both modes. */
@@ -145,74 +146,91 @@ export function UsageHeatmap({ rows }: { rows: readonly UsageBreakdownRow[] }) {
     return WEEKDAY_LABEL_ROWS.map((row) => format.format(new Date(Date.UTC(2024, 0, 7 + row))));
   }, [locale]);
   return (
-    <View style={styles.wrap} testID="usage-heatmap" onLayout={onLayout}>
-      <View style={styles.row}>
-        <View style={styles.labelColumn} />
-        <View style={styles.grid}>
-          {columns.map((column, index) => (
-            <View key={column.cells[0].day} style={[styles.monthSlot, slotStyle]}>
-              {monthLabels[index] ? (
-                <Text style={styles.monthLabel}>{monthLabels[index]}</Text>
-              ) : null}
-            </View>
-          ))}
+    <View style={styles.card} testID="usage-heatmap">
+      <Text style={styles.title}>{t("usageOverview.heatmap.title")}</Text>
+      <View style={styles.wrap} onLayout={onLayout}>
+        <View style={styles.row}>
+          <View style={styles.labelColumn} />
+          <View style={styles.grid}>
+            {columns.map((column, index) => (
+              <View key={column.cells[0].day} style={[styles.monthSlot, slotStyle]}>
+                {monthLabels[index] ? (
+                  <Text style={styles.monthLabel}>{monthLabels[index]}</Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
-      <View style={styles.row}>
-        <View style={styles.labelColumn}>
-          {Array.from({ length: 7 }, (_, weekday) => (
-            <View key={weekday} style={[styles.weekdaySlot, rowStyle]}>
-              {WEEKDAY_LABEL_ROWS.includes(weekday) ? (
-                <Text style={styles.monthText} numberOfLines={1}>
-                  {weekdayLabels[WEEKDAY_LABEL_ROWS.indexOf(weekday)]}
-                </Text>
-              ) : null}
-            </View>
-          ))}
+        <View style={styles.row}>
+          <View style={styles.labelColumn}>
+            {Array.from({ length: 7 }, (_, weekday) => (
+              <View key={weekday} style={[styles.weekdaySlot, rowStyle]}>
+                {WEEKDAY_LABEL_ROWS.includes(weekday) ? (
+                  <Text style={styles.monthText} numberOfLines={1}>
+                    {weekdayLabels[WEEKDAY_LABEL_ROWS.indexOf(weekday)]}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
+          <View style={styles.grid}>
+            {columns.map((column) => (
+              <View key={column.cells[0].day} style={styles.column}>
+                {column.cells.map((cell) => (
+                  <View
+                    key={cell.day}
+                    style={[
+                      styles.cell,
+                      cellStyle,
+                      cell.future ? styles.future : levelStyles[cell.level],
+                    ]}
+                    accessibilityLabel={
+                      cell.future
+                        ? undefined
+                        : t("usageOverview.heatmap.dayTooltip", {
+                            day: cell.day,
+                            tokens: formatTokens(cell.total, locale),
+                          })
+                    }
+                    // Web shows this as the native tooltip.
+                    {...{
+                      title: cell.future
+                        ? undefined
+                        : `${cell.day}: ${formatTokens(cell.total, locale)}`,
+                    }}
+                  />
+                ))}
+              </View>
+            ))}
+          </View>
         </View>
-        <View style={styles.grid}>
-          {columns.map((column) => (
-            <View key={column.cells[0].day} style={styles.column}>
-              {column.cells.map((cell) => (
-                <View
-                  key={cell.day}
-                  style={[
-                    styles.cell,
-                    cellStyle,
-                    cell.future ? styles.future : levelStyles[cell.level],
-                  ]}
-                  accessibilityLabel={
-                    cell.future
-                      ? undefined
-                      : t("usageOverview.heatmap.dayTooltip", {
-                          day: cell.day,
-                          tokens: formatTokens(cell.total, locale),
-                        })
-                  }
-                  // Web shows this as the native tooltip.
-                  {...{
-                    title: cell.future
-                      ? undefined
-                      : `${cell.day}: ${formatTokens(cell.total, locale)}`,
-                  }}
-                />
-              ))}
-            </View>
+        <View style={styles.legend}>
+          <Text style={styles.legendText}>{t("usageOverview.heatmap.less")}</Text>
+          {LEGEND_LEVELS.map((level) => (
+            <View key={level} style={[styles.cell, levelStyles[level]]} />
           ))}
+          <Text style={styles.legendText}>{t("usageOverview.heatmap.more")}</Text>
         </View>
-      </View>
-      <View style={styles.legend}>
-        <Text style={styles.legendText}>{t("usageOverview.heatmap.less")}</Text>
-        {LEGEND_LEVELS.map((level) => (
-          <View key={level} style={[styles.cell, levelStyles[level]]} />
-        ))}
-        <Text style={styles.legendText}>{t("usageOverview.heatmap.more")}</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
+  // Same card as the Over time chart, so the two line up at every width.
+  card: {
+    backgroundColor: theme.colors.surface1,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing[4],
+    gap: theme.spacing[3],
+  },
+  title: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+  },
   wrap: { gap: theme.spacing[2] },
   row: { flexDirection: "row" },
   labelColumn: { width: LABEL_COLUMN, gap: GAP },
@@ -229,7 +247,7 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 10,
     position: "absolute",
     left: 0,
-    width: MAX_CELL * MONTH_LABEL_MIN_COLUMNS,
+    width: MONTH_LABEL_WIDTH,
   },
   cell: { width: CELL, height: CELL, borderRadius: 2 },
   future: { backgroundColor: "transparent" },

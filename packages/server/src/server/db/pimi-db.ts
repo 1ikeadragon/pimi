@@ -72,6 +72,16 @@ const SCHEMA_STEPS: readonly string[] = [
    CREATE TABLE usage_scan_cursors (
      path TEXT PRIMARY KEY, size INTEGER NOT NULL, mtime_ms INTEGER NOT NULL,
      offset INTEGER NOT NULL, state TEXT) STRICT;`,
+  // 5: usage pricing inputs and a rescan. Cost depends on the cache-write TTL, the fast-mode tier
+  // and the inference geography, so they are stored and a price change reprices stored rows.
+  // Codex rows are dropped because their dedupe key and attribution changed (cumulative-total
+  // deltas, first session_meta wins); cursors are cleared so every transcript still on disk is
+  // read again and refills the new columns.
+  `ALTER TABLE usage_events ADD COLUMN cache_write_1h INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE usage_events ADD COLUMN speed TEXT NOT NULL DEFAULT 'standard';
+   ALTER TABLE usage_events ADD COLUMN us_geo INTEGER NOT NULL DEFAULT 0;
+   DELETE FROM usage_events WHERE provider = 'codex';
+   DELETE FROM usage_scan_cursors;`,
 ];
 
 // pimi-timeline.db: chat timelines and their search index. Large and rebuildable from provider
