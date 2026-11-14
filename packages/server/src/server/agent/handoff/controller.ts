@@ -98,6 +98,8 @@ function joinInherited(entries: readonly HistoryEntry[], inherited: string | und
  */
 export class HandoffController {
   private readonly records = new Map<string, HandoffRecord>();
+  /** Chats with a summary job still running, including one whose prompt already went out. */
+  private readonly running = new Set<string>();
 
   constructor(private readonly deps: HandoffControllerDeps) {}
 
@@ -107,6 +109,11 @@ export class HandoffController {
 
   hasTranscript(agentId: string): boolean {
     return this.deps.transcripts.has(agentId);
+  }
+
+  /** Whether a summary job for this chat is still making model calls. */
+  hasRunningJob(agentId: string): boolean {
+    return this.running.has(agentId);
   }
 
   /** Whether a prompt for this chat has a summary job to wait for. */
@@ -204,6 +211,7 @@ export class HandoffController {
 
     const deadlineAt = record.startedAt + JOB_TIMEOUT_MS;
     record.settled = false;
+    this.running.add(agentId);
     record.job = (async () => {
       try {
         const result = await runSummaryJob({
@@ -238,6 +246,7 @@ export class HandoffController {
         this.deps.logger.warn({ err: error, agentId }, "agent.provider_switch.summary_failed");
       } finally {
         record.settled = true;
+        this.running.delete(agentId);
       }
     })();
     this.records.set(agentId, record);

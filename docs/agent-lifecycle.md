@@ -72,7 +72,11 @@ old runtime, install the new session. The differences:
   characters, those newest entries verbatim, the work state at the switch (branch, changed files,
   diff stat, to-do and open tasks), and the path of the full transcript.
 - The summary is incremental: `handoff_checkpoints` keeps the last one per chat, and a later switch
-  summarises only the rows after it (see [data-model.md](data-model.md)). It uses the `handoff` Pimi
+  summarises only the rows after it (see [data-model.md](data-model.md)). A first summary of a big
+  chat takes more than the 90 s job limit, so the checkpoint is refreshed ahead of time: 20 s after
+  a turn finishes or a chat's history loads, when the curated history exceeds 24k characters and
+  40k characters came after the last checkpoint, at most once per 10 minutes per chat and one job
+  per daemon (5 minute limit). A new turn or a switch stops it between model calls. It uses the `handoff` Pimi
   model feature, resolved against the provider being moved to. On a limit move the limited provider
   is never asked. A failed or unavailable model leaves the excerpt in place.
 - The transcript under `$PIMI_HOME/agent-transcripts/{agentId}/` is written in the background and

@@ -118,6 +118,7 @@ import {
 } from "@pimi/protocol/chat-visualization";
 import { buildAgentForkContextAttachment, MAX_FORK_CONTEXT_CHARS } from "./activity-curator.js";
 import type { HandoffController } from "./handoff/controller.js";
+import type { HandoffRefresher } from "./handoff/refresher.js";
 import type { HandoffHistorySource } from "./handoff/history.js";
 import type { HandoffModelTarget } from "./handoff/summary-model.js";
 import type { GenerateSummary } from "./handoff/summarizer.js";
@@ -343,11 +344,11 @@ function describeSwitchSource(
 function describeHandoff(handoff: AgentHandoffMarker): string {
   switch (handoff.mode) {
     case "summary":
-      return `Handoff: summary${handoff.model ? ` by ${handoff.model}` : ""}, transcript linked`;
+      return "Handoff: summary sent";
     case "excerpt":
-      return "Handoff: summary unavailable, sent recent history, transcript linked";
+      return "Handoff: recent history sent";
     case "verbatim":
-      return "Handoff: full history sent, transcript linked";
+      return "Handoff: full history sent";
   }
 }
 
@@ -613,6 +614,7 @@ interface StartedHandoff {
 /** What a provider switch needs to tell the next provider about the chat. */
 export interface AgentHandoffServices {
   controller: HandoffController;
+  refresher: HandoffRefresher;
   createSummaryModel: (where: HandoffModelTarget) => GenerateSummary;
 }
 
@@ -2388,6 +2390,7 @@ export class AgentManager {
   }): Promise<StartedHandoff> {
     const { existing, record, from, target, options } = input;
     const agentId = existing.id;
+    this.handoff.refresher.cancel(agentId);
     const inheritedContext = existing.initialChatContext ?? record?.initialChatContext;
     const source = this.handoffSource(agentId);
     if (!((source.maxSeq() ?? 0) > 0 || inheritedContext)) {
@@ -3045,6 +3048,7 @@ export class AgentManager {
 
   /** Regenerable from the stored timeline, so deleted and archived chats do not keep a second copy. */
   private async removeHandoffTranscript(agentId: string): Promise<void> {
+    this.handoff.refresher.cancel(agentId);
     await this.handoff.controller
       .removeTranscript(agentId)
       .catch((error) =>
@@ -3839,6 +3843,7 @@ export class AgentManager {
     options?: AgentRunOptions;
   }): Promise<string> {
     const { agent, agentId, pendingRun, prompt, options } = params;
+    this.handoff.refresher.cancel(agentId);
     try {
       if (agent.pendingProviderContext && this.handoff.controller.isSummarising(agentId)) {
         // The switch is done; only this prompt waits, and only until the summary's deadline.
@@ -5919,8 +5924,11 @@ export class AgentManager {
       return;
     }
 
-    if (await this.tryOpenTimelineFromArchive(agent, broadcast)) return;
-    await this.primeTimelineFromLegacyProviderHistory(agent, broadcast);
+    if (!(await this.tryOpenTimelineFromArchive(agent, broadcast))) {
+      await this.primeTimelineFromLegacyProviderHistory(agent, broadcast);
+    }
+    // An imported or reopened big chat has no turn to trigger the refresh.
+    this.scheduleHandoffRefresh(agent);
   }
 
   /**
@@ -6529,6 +6537,36 @@ export class AgentManager {
       this.emitState(agent);
     }
     void this.refreshRuntimeInfo(agent);
+    this.scheduleHandoffRefresh(agent);
+  }
+
+  /** Once the chat sits idle (turn done or history loaded), its handoff checkpoint is brought up to date in the background. */
+  private scheduleHandoffRefresh(agent: ActiveManagedAgent): void {
+    if (agent.internal || agent.background) return;
+    const agentId = agent.id;
+    this.handoff.refresher.onIdle(agentId, {
+      source: this.handoffSource(agentId),
+      probe: () => {
+        const current = this.agents.get(agentId);
+        if (
+          !current ||
+          current.internal ||
+          current.background ||
+          current.lifecycle !== "idle" ||
+          current.pendingProviderContext ||
+          this.handoff.controller.hasRunningJob(agentId) ||
+          this.hasInFlightRun(agentId)
+        ) {
+          return null;
+        }
+        return {
+          cwd: current.cwd,
+          provider: current.provider,
+          model: current.config.model ?? null,
+          inheritedContext: current.initialChatContext,
+        };
+      },
+    });
   }
 
   private async onStreamTurnFailed(params: {

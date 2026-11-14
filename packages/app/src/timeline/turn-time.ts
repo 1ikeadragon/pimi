@@ -69,7 +69,10 @@ function walkTurns(
       lastItemAt = null;
       assistantIds = [];
     }
-    lastItemAt = item.timestamp;
+    // A provider switch marker is stamped when the user switches, long after the turn ended.
+    if (!(item.kind === "notification" && (item.providerSwitch || item.handoff))) {
+      lastItemAt = item.timestamp;
+    }
     if (item.kind === "assistant_message") {
       assistantIds.push(item.id);
     }

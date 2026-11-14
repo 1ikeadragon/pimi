@@ -146,9 +146,7 @@ export const HandoffNote = memo(function HandoffNote({ marker }: { marker: Agent
   let text: string;
   switch (marker.mode) {
     case "summary":
-      text = marker.model
-        ? t("agentStream.providerSwitch.handoffSummary", { model: marker.model })
-        : t("agentStream.providerSwitch.handoffSummaryUnnamed");
+      text = t("agentStream.providerSwitch.handoffSummary");
       break;
     case "excerpt":
       text = t("agentStream.providerSwitch.handoffExcerpt");
@@ -182,11 +180,7 @@ function SummarisingNote({
   if (!summarising) return null;
   return (
     <View style={styles.note} testID="provider-switch-summarising">
-      <Text style={styles.noteText}>
-        {t("agentStream.providerSwitch.summarising", {
-          provider: marker.to.providerLabel ?? marker.to.provider,
-        })}
-      </Text>
+      <Text style={styles.noteText}>{t("agentStream.providerSwitch.summarising")}</Text>
     </View>
   );
 }

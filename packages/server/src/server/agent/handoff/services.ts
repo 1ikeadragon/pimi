@@ -5,6 +5,7 @@ import type { ProviderSnapshotManager } from "../provider-snapshot-manager.js";
 import type { SqliteTimelineStore } from "../sqlite-timeline-store.js";
 import type { StructuredGenerationDaemonConfig } from "../structured-generation-providers.js";
 import { HandoffController } from "./controller.js";
+import { HandoffRefresher } from "./refresher.js";
 import { createHandoffSummaryModel } from "./summary-model.js";
 import type { TranscriptStore } from "./transcript-file.js";
 import type { OpenTask } from "./work-state.js";
@@ -37,6 +38,16 @@ export async function listOpenTasksForAgent(
 }
 
 export function createHandoffServices(deps: HandoffServicesDeps): AgentHandoffServices {
+  const createSummaryModel: AgentHandoffServices["createSummaryModel"] = (where) =>
+    createHandoffSummaryModel(
+      {
+        manager: deps.manager(),
+        providerSnapshotManager: deps.providerSnapshotManager,
+        daemonConfig: deps.daemonConfig,
+        logger: deps.logger,
+      },
+      where,
+    );
   return {
     controller: new HandoffController({
       transcripts: deps.transcripts,
@@ -44,15 +55,11 @@ export function createHandoffServices(deps: HandoffServicesDeps): AgentHandoffSe
       readOpenTasks: deps.openTasks,
       logger: deps.logger,
     }),
-    createSummaryModel: (where) =>
-      createHandoffSummaryModel(
-        {
-          manager: deps.manager(),
-          providerSnapshotManager: deps.providerSnapshotManager,
-          daemonConfig: deps.daemonConfig,
-          logger: deps.logger,
-        },
-        where,
-      ),
+    refresher: new HandoffRefresher({
+      archive: deps.archive,
+      createSummaryModel,
+      logger: deps.logger,
+    }),
+    createSummaryModel,
   };
 }
