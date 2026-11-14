@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactElement,
@@ -28,6 +29,7 @@ import {
   menuRowContentInset,
   useMenuContext,
   useMenuDepth,
+  useMenuSurface,
   type MenuPageDefinition,
 } from "@/components/ui/menu";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
@@ -185,7 +187,11 @@ function LabelAssignRow({
 }): ReactElement {
   const { t } = useTranslation();
   const menu = useMenuContext("LabelAssignRow");
+  const { registerSubAnchor } = useMenuSurface("LabelAssignRow");
   const depth = useMenuDepth();
+  // The edit page is opened by the pencil, not by a sub-trigger, so a pointer menu has no anchor
+  // for its flyout until the pressed row claims it.
+  const anchorRef = useRef<View>(null);
   const leading = useMemo(() => <LabelDot color={row.color} />, [row.color]);
   const select = useCallback(
     () => onToggle({ id: row.id, name: row.name, color: row.color }, !row.assigned),
@@ -193,8 +199,9 @@ function LabelAssignRow({
   );
   const edit = useCallback(() => {
     useLabelEditSelection.setState({ labelId: row.id });
+    registerSubAnchor(LABEL_EDIT_PAGE_ID, anchorRef);
     menu.openSub({ id: LABEL_EDIT_PAGE_ID, depth });
-  }, [depth, menu, row.id]);
+  }, [depth, menu, registerSubAnchor, row.id]);
   const trailing = useMemo(
     () => (
       <View style={styles.trailing}>
@@ -215,18 +222,20 @@ function LabelAssignRow({
     [edit, offline, row.assigned, row.name, t],
   );
   return (
-    <MenuItem
-      leading={leading}
-      trailing={trailing}
-      selected={row.assigned}
-      disabled={offline}
-      status={pending ? "pending" : "idle"}
-      closeOnSelect={false}
-      onSelect={select}
-      testID={`label-picker-row-${row.name}`}
-    >
-      {row.name}
-    </MenuItem>
+    <View ref={anchorRef} collapsable={false}>
+      <MenuItem
+        leading={leading}
+        trailing={trailing}
+        selected={row.assigned}
+        disabled={offline}
+        status={pending ? "pending" : "idle"}
+        closeOnSelect={false}
+        onSelect={select}
+        testID={`label-picker-row-${row.name}`}
+      >
+        {row.name}
+      </MenuItem>
+    </View>
   );
 }
 
