@@ -144,6 +144,7 @@ import { LabelService } from "./labels/service.js";
 import { migrateWorkspaceLabels } from "./labels/migrate.js";
 import { TaskService } from "./task/service.js";
 import { describeTask } from "./task/describe.js";
+import { toTaskPullRequest } from "./task/pull-request.js";
 import { createGitHubService, runGitHubCli } from "../services/github-service.js";
 import { createPimiWorktree as createRegisteredPimiWorktree } from "./pimi-worktree-service.js";
 import { createWorkspaceProvisioningService } from "./session/workspace-provisioning/workspace-provisioning-service.js";
@@ -1135,7 +1136,20 @@ export async function createPimiDaemon(
     },
   });
   const workspaceRuntimeStore = createWorkspaceRuntimeStore();
-  workspaceGitService.onSnapshotUpdated((snapshot) => workspaceRuntimeStore.set(snapshot));
+  // Set once the task service exists; a linked checkout's PR change refreshes task projections.
+  let onCheckoutPullRequestChanged: () => void = () => {};
+  workspaceGitService.onSnapshotUpdated((snapshot) => {
+    const before = workspaceRuntimeStore.get(snapshot.cwd)?.forge.pullRequest;
+    workspaceRuntimeStore.set(snapshot);
+    const after = snapshot.forge.pullRequest;
+    if (
+      before?.url !== after?.url ||
+      before?.state !== after?.state ||
+      before?.isDraft !== after?.isDraft
+    ) {
+      onCheckoutPullRequestChanged();
+    }
+  });
   workspaceRegistry.subscribeToMutations(async (mutation) => {
     if (mutation.kind === "remove" && mutation.workspace) {
       const cwd = path.resolve(mutation.workspace.cwd);
@@ -1646,6 +1660,14 @@ export async function createPimiDaemon(
     labels: labelService,
     logger,
     agentExists: agentRecordExists,
+    resolvePullRequest: async (agentId) => {
+      const cwd = (agentManager.getAgent(agentId) ?? (await agentStorage.get(agentId)))?.cwd;
+      if (!cwd) return null;
+      // A warm checkout answers from the store; a cold one loads its forge status once.
+      const snapshot =
+        workspaceRuntimeStore.get(cwd) ?? (await workspaceGitService.getSnapshot(cwd));
+      return toTaskPullRequest(snapshot.forge.pullRequest);
+    },
     describe: ({ title, agentId }) =>
       describeTask({
         manager: agentManager,
@@ -1656,6 +1678,7 @@ export async function createPimiDaemon(
         agentId,
       }),
   });
+  onCheckoutPullRequestChanged = () => taskService.notifyPullRequestsChanged();
   await taskService.start();
   // A deleted chat leaves no label assignments or task links behind.
   const unsubscribeTaskCleanup = agentManager.subscribe(

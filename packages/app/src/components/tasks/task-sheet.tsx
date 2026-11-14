@@ -13,6 +13,7 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { TaskStatus } from "@pimi/protocol/task/types";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { TaskChatChip } from "@/components/tasks/task-chat-chip";
+import { TaskPullRequestRow } from "@/components/tasks/task-pull-requests";
 import { Button } from "@/components/ui/button";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import {
@@ -278,6 +279,19 @@ function TaskSheetForm({
             testID="task-sheet-status"
           />
         </Field>
+        {task?.pullRequests.length ? (
+          <Field label={t("tasks.pr.title")} testID="task-sheet-pr-field">
+            <View style={styles.chats}>
+              {task.pullRequests.map((pr) => (
+                <TaskPullRequestRow
+                  key={pr.url}
+                  pr={pr}
+                  testID={`task-sheet-pr-${pr.number ?? pr.url}`}
+                />
+              ))}
+            </View>
+          </Field>
+        ) : null}
         {task ? <LabelsField task={task} /> : null}
         <ChatsField
           mode={mode}

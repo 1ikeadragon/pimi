@@ -29,7 +29,7 @@ function NoticeToast({
   const handleSetUp = useCallback(() => {
     dismissers.get(noticeKey)?.();
     router.push(
-      `${buildSettingsHostSectionRoute(serverId, "editor")}?language=${languageId}` as Href,
+      `${buildSettingsHostSectionRoute(serverId, "terminals")}?language=${languageId}` as Href,
     );
   }, [languageId, noticeKey, serverId]);
   return (

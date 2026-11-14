@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { Logger } from "pino";
 import type { LabelTarget } from "@pimi/protocol/labels";
 import {
-  TaskSchema,
+  StoredTaskSchema,
+  type StoredTask,
   type Task,
+  type TaskPullRequest,
   type TaskCreatedBy,
   type TaskImportRecord,
   type TaskLink,
@@ -53,12 +55,14 @@ function describeSourceAgent(links: readonly TaskLink[]): string | null {
 // Tasks are `task` rows in pimi.db. Labels live in the label assignment store under
 // `{ kind: "task", taskId }`, never on the record.
 export class TaskService {
-  private readonly store: SqlRecordStore<Task>;
+  private readonly store: SqlRecordStore<StoredTask>;
   private readonly labels: LabelService;
   private readonly logger: Logger;
   private readonly agentExists: (agentId: string) => Promise<boolean>;
   // Resolves to the generated description, or null when there is no source material.
   private readonly describe: (input: { title: string; agentId: string }) => Promise<string | null>;
+  // The pull request of a linked chat's checkout, or null. Resolved per list/get, never stored.
+  private readonly resolvePullRequest: (agentId: string) => Promise<TaskPullRequest | null>;
   private readonly listeners = new Set<() => void>();
 
   constructor(options: {
@@ -67,7 +71,9 @@ export class TaskService {
     logger: Logger;
     agentExists: (agentId: string) => Promise<boolean>;
     describe: (input: { title: string; agentId: string }) => Promise<string | null>;
+    resolvePullRequest: (agentId: string) => Promise<TaskPullRequest | null>;
   }) {
+    this.resolvePullRequest = options.resolvePullRequest;
     this.labels = options.labels;
     this.logger = options.logger.child({ module: "tasks" });
     this.agentExists = options.agentExists;
@@ -75,7 +81,7 @@ export class TaskService {
     this.store = new SqlRecordStore({
       database: options.database,
       kind: "task",
-      schema: TaskSchema,
+      schema: StoredTaskSchema,
       logger: this.logger,
       label: "task",
     });
@@ -104,15 +110,49 @@ export class TaskService {
     }
   }
 
-  async list(): Promise<Task[]> {
-    const tasks = await this.store.list();
-    return tasks.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  /** Tells subscribers a linked checkout's pull request changed. */
+  notifyPullRequestsChanged(): void {
+    this.changed();
   }
 
-  async get(taskId: string): Promise<Task> {
+  // Explicit URL first; then one PR per distinct URL from the linked chats' checkouts.
+  private async project(task: StoredTask): Promise<Task> {
+    const agentIds = new Set(
+      task.links.map((link) => (link.kind === "agent" ? link.agentId : link.parentAgentId)),
+    );
+    const found = await Promise.all(
+      [...agentIds].map((agentId) => this.resolvePullRequest(agentId).catch(() => null)),
+    );
+    const byUrl = new Map<string, TaskPullRequest>();
+    for (const pr of found) if (pr && !byUrl.has(pr.url)) byUrl.set(pr.url, pr);
+    const explicitUrl = task.pullRequestUrl;
+    if (!explicitUrl) return { ...task, pullRequests: [...byUrl.values()] };
+    const known = byUrl.get(explicitUrl);
+    byUrl.delete(explicitUrl);
+    const number = Number(/\/(?:pull|pulls|-\/merge_requests)\/(\d+)/.exec(explicitUrl)?.[1]);
+    const explicit: TaskPullRequest = known ?? {
+      url: explicitUrl,
+      ...(Number.isFinite(number) ? { number } : {}),
+      title: "",
+      state: "unknown",
+    };
+    return { ...task, pullRequests: [explicit, ...byUrl.values()] };
+  }
+
+  async list(): Promise<Task[]> {
+    const tasks = await this.store.list();
+    tasks.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return Promise.all(tasks.map((task) => this.project(task)));
+  }
+
+  private async getStored(taskId: string): Promise<StoredTask> {
     const task = await this.store.get(taskId);
     if (!task) throw new TaskError("task_not_found", "Task not found");
     return task;
+  }
+
+  async get(taskId: string): Promise<Task> {
+    return this.project(await this.getStored(taskId));
   }
 
   private async assertLinks(links: readonly TaskLink[]): Promise<void> {
@@ -134,14 +174,14 @@ export class TaskService {
           titleKey(task.title) === titleKey(input.title) &&
           task.links.some((link) => link.role === "creator" && linkKey(link) === linkKey(creator)),
       );
-      if (existing) return { task: existing, created: false };
+      if (existing) return { task: await this.project(existing), created: false };
     }
     await this.assertLinks(links);
     const now = new Date().toISOString();
     const status = input.status ?? "todo";
     const description = input.description ?? "";
     const sourceAgentId = description === "" ? describeSourceAgent(links) : null;
-    const task: Task = {
+    const task: StoredTask = {
       id: randomUUID(),
       title: input.title,
       description,
@@ -164,7 +204,7 @@ export class TaskService {
     }
     this.changed();
     if (sourceAgentId) void this.generateDescription(saved.id, saved.title, sourceAgentId);
-    return { task: saved, created: true };
+    return { task: await this.project(saved), created: true };
   }
 
   // Runs after create returns. A failure leaves the description empty and clears the pending flag.
@@ -191,8 +231,11 @@ export class TaskService {
     const now = new Date().toISOString();
     const updated = await this.store.update(taskId, (current) => {
       const status = patch.status ?? current.status;
-      const next: Task = {
+      const next: StoredTask = {
         ...current,
+        ...(patch.pullRequestUrl === undefined
+          ? {}
+          : { pullRequestUrl: patch.pullRequestUrl ?? undefined }),
         title: patch.title ?? current.title,
         description: patch.description ?? current.description,
         status,
@@ -209,7 +252,7 @@ export class TaskService {
     });
     if (!updated) throw new TaskError("task_not_found", "Task not found");
     this.changed();
-    return updated;
+    return this.project(updated);
   }
 
   async delete(taskId: string): Promise<void> {
@@ -219,9 +262,9 @@ export class TaskService {
   }
 
   async setLink(taskId: string, target: TaskLinkTarget, linked: boolean): Promise<Task> {
-    const current = await this.get(taskId);
+    const current = await this.getStored(taskId);
     const has = current.links.some((link) => linkKey(link) === linkKey(target));
-    if (has === linked) return current;
+    if (has === linked) return this.project(current);
     if (linked) await this.assertLinks([{ ...target, role: "linked" }]);
     const updated = await this.store.update(taskId, (task) => ({
       ...task,
@@ -232,7 +275,7 @@ export class TaskService {
     }));
     if (!updated) throw new TaskError("task_not_found", "Task not found");
     this.changed();
-    return updated;
+    return this.project(updated);
   }
 
   // Drops a deleted chat from every task's links, including provider subagents under it.

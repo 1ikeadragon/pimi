@@ -2,7 +2,7 @@ import { supportsConfigurableComposerSendKeys } from "@/keyboard";
 import { defineSettingsPage } from "@/settings-index/define";
 
 export const sendingSettings = defineSettingsPage(
-  { kind: "section", section: "general" },
+  { kind: "section", section: "chat" },
   ({ t, hardwareKeyboardPresent }) => [
     hardwareKeyboardPresent && supportsConfigurableComposerSendKeys
       ? {

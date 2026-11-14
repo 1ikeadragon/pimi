@@ -1,7 +1,6 @@
 /** Storage keys live here so `storage` and `migrations` can share them without importing each other. */
 
 export const APP_SETTINGS_KEY = "@pimi:app-settings";
-export const LEGACY_SETTINGS_KEY = "@pimi:settings";
 
 /**
  * The applied-migration marker deliberately sits outside the settings blob:

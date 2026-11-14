@@ -26,7 +26,7 @@ import {
   getAcpProviderCatalog,
   type AcpProviderCatalogItem,
 } from "@/hooks/use-acp-provider-catalog";
-import { ProviderCatalogList } from "@/components/provider-catalog-list";
+import { ProviderCatalogSheet } from "@/components/provider-catalog-list";
 import { Button } from "@/components/ui/button";
 import { useProviderIcon } from "@/components/provider-icons";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -41,6 +41,7 @@ import {
 import { HarnessUpdatesSection } from "./harness-updates-section";
 import { LimitFallbackSection } from "./limit-fallback-section";
 import { CustomProviderSheet } from "./custom-provider-sheet";
+import { SettingsCard, SettingsRow } from "@/components/settings";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { useProviderSettingsStore } from "@/stores/provider-settings-store";
 import { confirmDialog } from "@/utils/confirm-dialog";
@@ -375,6 +376,7 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
   const [installingProviderId, setInstallingProviderId] = useState<string | null>(null);
   const [showAllProviders, setShowAllProviders] = useState(false);
   const [addingCustomProvider, setAddingCustomProvider] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const [editingCustomProvider, setEditingCustomProvider] = useState<string | null>(null);
 
   const providerDefinitions = useMemo(() => buildProviderDefinitions(entries), [entries]);
@@ -541,6 +543,8 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
       ) : undefined,
     [canExpandProviders, showAllProviders, t, toggleShowAllProviders],
   );
+  const openCatalog = useCallback(() => setCatalogOpen(true), []);
+  const closeCatalog = useCallback(() => setCatalogOpen(false), []);
   const addCustomProviderAction = useMemo(
     () => (
       <Button
@@ -620,7 +624,19 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
           style={styles.addProviderSection}
           trailing={addCustomProviderAction}
         >
-          <ProviderCatalogList
+          <SettingsCard>
+            <SettingsRow
+              label={t("settings.providers.catalog.title")}
+              hint={t("settings.providers.catalog.hint")}
+            >
+              <Button variant="outline" onPress={openCatalog} testID="provider-catalog-open">
+                {t("settings.providers.catalog.action")}
+              </Button>
+            </SettingsRow>
+          </SettingsCard>
+          <ProviderCatalogSheet
+            visible={catalogOpen}
+            onClose={closeCatalog}
             serverId={serverId}
             installingProviderId={installingProviderId}
             onInstall={handleInstall}
