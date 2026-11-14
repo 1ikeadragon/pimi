@@ -2,6 +2,17 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.47 - 2026-11-14
+
+- Five new themes: Day, Dusk, Night and Dawn painted skies, and Tide with live moving waves. On these themes one backdrop runs behind the whole window, with no bars or dividers. Tide pauses when the window is in the background and shows a still frame with reduced motion.
+- Big chats use far less memory: the app keeps only the part of a chat you are looking at and loads older or newer messages as you scroll.
+- Switching provider mid-chat hands the new agent a summary of the conversation plus a link to the full transcript. Long chats prepare that summary in the background, so the switch is instant.
+- Settings: Resources replaces Network. It shows CPU, memory and network connections for every Pimi process, flags new destinations, and can resolve IPs to host names.
+- Memory and Spaces open and close without flicker.
+- Fixed a "two children with the same key" error when reopening a chat mid-reply.
+- Settings: the Usage row opens the main Usage screen.
+- Pimi is now licensed under PolyForm Noncommercial 1.0.0.
+
 ## 0.17.46 - 2026-11-14
 
 - Usage: Codex totals are now complete (Pimi skipped compressed Codex logs and counted forked or compacted sessions twice). Costs use official list prices including cache writes, tiers and fast mode, and the screen drops the "~" signs and estimate notes.
