@@ -5,6 +5,10 @@
 ## 0.17.49 - 2026-11-14
 
 - Tide plays in the installed app. Before, the packaged app could not load the video and showed the still image.
+- Settings: Usage opens inside Settings instead of leaving it.
+- The desktop window enforces a content security policy: no inline or remote scripts. Diagrams and agent HTML visuals run in sealed frames with their own policy.
+- Every speech model download is checked against a pinned SHA-256, including the Whisper and Dolphin models that had none.
+- ACP agents started through npx or uvx resolve only package versions published before a fixed date, and npm install scripts don't run.
 
 ## 0.17.48 - 2026-11-14
 
