@@ -39,6 +39,7 @@ import { startDesktopDaemon, stopDesktopDaemon } from "@/desktop/daemon/desktop-
 import { LocalDaemonSection } from "@/desktop/components/desktop-updates-section";
 import { useDaemonStatus } from "@/desktop/hooks/use-daemon-status";
 import { useDesktopSettings } from "@/desktop/settings/desktop-settings";
+import { LanguageServersSection } from "@/screens/settings/language-servers-section";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
@@ -263,29 +264,13 @@ function HostConnectionError({ serverId }: { serverId: string }) {
   );
 }
 
-export function HostConnectionsPage({ serverId }: { serverId: string }) {
-  const host = useHostProfile(serverId);
-
-  if (!host) {
-    return <HostNotFound />;
-  }
-
-  return (
-    <View>
-      <HostConnectionError serverId={serverId} />
-      <RemoteDevMachineSection />
-      <ConnectionsSection host={host} />
-    </View>
-  );
-}
-
 /** The SSH dev-machine flow, first on the page: Pimi installs and starts its daemon over ssh. */
 function RemoteDevMachineSection() {
   const { t } = useTranslation();
   const { theme } = useUnistyles();
   const router = useRouter();
   const handleAdded = useCallback(
-    (serverId: string) => router.push(buildSettingsHostSectionRoute(serverId, "connections")),
+    (serverId: string) => router.push(buildSettingsHostSectionRoute(serverId, "host")),
     [router],
   );
   const openRemoteSsh = useAddHost({ method: "ssh", onAdded: handleAdded });
@@ -312,21 +297,6 @@ function RemoteDevMachineSection() {
   );
 }
 
-export function HostPairDevicePage({ serverId }: { serverId: string }) {
-  const { t } = useTranslation();
-  const host = useHostProfile(serverId);
-
-  if (!host) {
-    return <HostNotFound />;
-  }
-
-  return (
-    <SettingsSection title={t("settings.host.pairDevices.title")}>
-      <PairDeviceRow serverId={serverId} />
-    </SettingsSection>
-  );
-}
-
 export function HostAgentsPage({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const host = useHostProfile(serverId);
@@ -345,6 +315,8 @@ export function HostAgentsPage({ serverId }: { serverId: string }) {
           <AppendSystemPromptCard serverId={serverId} />
           <RestartRecoveryCard serverId={serverId} />
           <IdleRuntimeCleanupCard serverId={serverId} />
+          <AutoArchiveMergedWorkspacesCard serverId={serverId} />
+          <EnableTerminalAgentHooksCard serverId={serverId} />
         </SettingsSection>
       ) : (
         <View style={[settingsStyles.card, styles.emptyCard]}>
@@ -372,30 +344,6 @@ function AgentProfilesLinkSection() {
         </Button>
       </View>
     </SettingsSection>
-  );
-}
-
-export function HostWorkspacesPage({ serverId }: { serverId: string }) {
-  const { t } = useTranslation();
-  const host = useHostProfile(serverId);
-  const isConnected = useHostRuntimeIsConnected(serverId);
-
-  if (!host) {
-    return <HostNotFound />;
-  }
-
-  return (
-    <View>
-      {isConnected ? (
-        <SettingsSection title={t("settings.hostSections.workspaces")}>
-          <AutoArchiveMergedWorkspacesCard serverId={serverId} />
-        </SettingsSection>
-      ) : (
-        <View style={[settingsStyles.card, styles.emptyCard]}>
-          <Text style={styles.emptyText}>{t("settings.host.workspaces.unavailable")}</Text>
-        </View>
-      )}
-    </View>
   );
 }
 
@@ -434,6 +382,7 @@ export function HostSettingsPage({
   serverId: string;
   onHostRemoved?: () => void;
 }) {
+  const { t } = useTranslation();
   const host = useHostProfile(serverId);
   const isLocalDaemon = useIsLocalDaemon(serverId);
 
@@ -447,6 +396,14 @@ export function HostSettingsPage({
       <HostConnectionError serverId={serverId} />
 
       <HostAppearanceSection host={host} />
+
+      <ConnectionsSection host={host} />
+
+      <RemoteDevMachineSection />
+
+      <SettingsSection title={t("settings.host.pairDevices.title")}>
+        <PairDeviceRow serverId={serverId} />
+      </SettingsSection>
 
       {isLocalDaemon ? <LocalDaemonSection /> : null}
 
@@ -1758,10 +1715,8 @@ export function HostTerminalsPage({ serverId }: { serverId: string }) {
 
   return (
     <View>
-      <SettingsSection title="Terminal agents">
-        <EnableTerminalAgentHooksCard serverId={serverId} />
-      </SettingsSection>
       <TerminalProfilesSection serverId={serverId} />
+      <LanguageServersSection serverId={serverId} />
     </View>
   );
 }

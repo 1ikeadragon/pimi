@@ -2,7 +2,7 @@ import { hasDesktopTargetBridge } from "@/attack/use-desktop-target";
 import { defineSettingsPage } from "@/settings-index/define";
 
 export const notificationsSettings = defineSettingsPage(
-  { kind: "section", section: "notifications" },
+  { kind: "section", section: "desktop" },
   ({ t }) => [
     {
       id: "notifications.permission",
@@ -23,7 +23,7 @@ export const notificationsSettings = defineSettingsPage(
 );
 
 export const permissionsSettings = defineSettingsPage(
-  { kind: "section", section: "permissions" },
+  { kind: "section", section: "desktop" },
   ({ t }) => [
     {
       id: "permissions.microphone",
@@ -48,12 +48,14 @@ export const permissionsSettings = defineSettingsPage(
 );
 
 export const integrationsSettings = defineSettingsPage(
-  { kind: "section", section: "integrations" },
-  ({ t }) => [
-    {
-      id: "integrations.cli",
-      title: t("settings.integrations.commandLine.title"),
-      keywords: ["cli", "terminal", "install", "pimi command", "shell", "path"],
-    },
+  { kind: "section", section: "general" },
+  ({ t, isDesktopApp }) => [
+    isDesktopApp
+      ? {
+          id: "integrations.cli",
+          title: t("settings.integrations.commandLine.title"),
+          keywords: ["cli", "terminal", "install", "pimi command", "shell", "path"],
+        }
+      : null,
   ],
 );

@@ -26,7 +26,7 @@ import {
   type ThemePreference,
 } from "@/styles/theme";
 import { z } from "zod";
-import { APP_SETTINGS_KEY, LEGACY_SETTINGS_KEY } from "./keys";
+import { APP_SETTINGS_KEY } from "./keys";
 import { migrateAppSettings } from "./migrations";
 
 export { APP_SETTINGS_KEY } from "./keys";
@@ -329,7 +329,7 @@ export async function loadAppSettingsFromStorage(deps: SettingsDeps): Promise<Ap
 }
 
 /**
- * Reads whichever of the settings blobs exists, without migrating. `needsWrite` covers the reads
+ * Reads the stored settings blob, without migrating. `needsWrite` covers the reads
  * that produce settings the stored blob does not already spell out.
  */
 async function readAppSettings(
@@ -341,18 +341,6 @@ async function readAppSettings(
       settings: normalizeAppSettings(stored),
       needsWrite: stored.needsWrite,
       stored,
-    };
-  }
-
-  const legacyStored = await readSettingsObject(deps.storage, LEGACY_SETTINGS_KEY);
-  if (legacyStored) {
-    return {
-      settings: {
-        ...DEFAULT_CLIENT_SETTINGS,
-        ...pickAppSettingsFromLegacy(legacyStored),
-      } satisfies AppSettings,
-      needsWrite: true,
-      stored: legacyStored,
     };
   }
 
@@ -382,16 +370,6 @@ export async function loadSettingsFromStorage(deps: SettingsDeps): Promise<Setti
 export function normalizeAppSettings(value: unknown): AppSettings {
   const { needsWrite: _needsWrite, ...settings } = StoredAppSettingsSchema.parse(value);
   return settings;
-}
-
-function pickAppSettingsFromLegacy(legacy: StoredAppSettings): AppSettings {
-  const settings = normalizeAppSettings(legacy);
-  return {
-    ...settings,
-    // The legacy key rendered content on the interface ramp. Freeze that
-    // rendered value into the new independent preference during migration.
-    contentFontSize: legacy.uiBaseFontSize,
-  };
 }
 
 export function parseTerminalScrollbackLines(value: unknown): number | null {

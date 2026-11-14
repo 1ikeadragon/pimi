@@ -826,7 +826,7 @@ screen with other params shows the new params.
 `addSidebarHeaderItem` adds a row to the list at the top of the sidebar. `addSidebarFooterItem`
 adds a row to the footer, between **Add project** and the footer's icon row. The icon row is fixed;
 plugins can't add to it. Both take `{ id, title, Component }`. `title` labels the item in
-Settings > Sidebar, where users reorder and hide items, and is the default label and accessibility
+Settings > Appearance, where users reorder and hide items, and is the default label and accessibility
 label of `SidebarRow`. Settings shows a generic plugin icon for these items.
 
 With the plugin on several hosts, an item renders from the host of the screen the app shows. Off a
@@ -2958,16 +2958,16 @@ The switch is the root `pluginsEnabled` field in `config.json`. After changing i
 
 Use `pimi plugin ls` to read the current status and error.
 
-| Symptom                                                               | Check                                                                                                                                              |
-| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `This plugin was made for an older version of Pimi`                   | The directory has only an `index.ts` entry. Follow the [migration guide](/docs/plugins/migration).                                                 |
-| `Plugin entry points are missing`                                     | Neither `index.client.tsx` nor `index.server.ts` exists with that exact name.                                                                      |
-| `server-only module cannot be imported into the plugin client bundle` | Client code imports `server/`. Move the work behind an RPC and import its contract from `shared/`.                                                 |
-| `client-only module cannot be imported into the plugin server bundle` | Server code imports `client/`. Register that contribution from `index.client.tsx` instead.                                                         |
-| `Node module cannot be imported into the plugin client bundle`        | Client code imports `node:*`. Move the operation to `server/` and call it through an RPC.                                                          |
-| Sidebar item is missing                                               | The plugin is `running`, the item is not hidden in Settings > Sidebar, its component does not throw, and the client is on the installation's host. |
-| Client module is unavailable                                          | Import only the host-provided client modules listed above.                                                                                         |
-| RPC rejects                                                           | Check both Zod schemas and the daemon-side handler error.                                                                                          |
-| Edited code does not appear                                           | Run `npm run typecheck`, then `pimi plugin reload <id>`.                                                                                           |
-| Reload fails                                                          | Read `pimi plugin ls` and `pimi plugin logs <id>`, fix the source error, then reload; Pimi does not restore the previous bundle.                   |
-| Plugin exits unexpectedly                                             | Read `pimi plugin logs <id>` for retained initialization, cleanup, stderr, and final crash output.                                                 |
+| Symptom                                                               | Check                                                                                                                                                 |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `This plugin was made for an older version of Pimi`                   | The directory has only an `index.ts` entry. Follow the [migration guide](/docs/plugins/migration).                                                    |
+| `Plugin entry points are missing`                                     | Neither `index.client.tsx` nor `index.server.ts` exists with that exact name.                                                                         |
+| `server-only module cannot be imported into the plugin client bundle` | Client code imports `server/`. Move the work behind an RPC and import its contract from `shared/`.                                                    |
+| `client-only module cannot be imported into the plugin server bundle` | Server code imports `client/`. Register that contribution from `index.client.tsx` instead.                                                            |
+| `Node module cannot be imported into the plugin client bundle`        | Client code imports `node:*`. Move the operation to `server/` and call it through an RPC.                                                             |
+| Sidebar item is missing                                               | The plugin is `running`, the item is not hidden in Settings > Appearance, its component does not throw, and the client is on the installation's host. |
+| Client module is unavailable                                          | Import only the host-provided client modules listed above.                                                                                            |
+| RPC rejects                                                           | Check both Zod schemas and the daemon-side handler error.                                                                                             |
+| Edited code does not appear                                           | Run `npm run typecheck`, then `pimi plugin reload <id>`.                                                                                              |
+| Reload fails                                                          | Read `pimi plugin ls` and `pimi plugin logs <id>`, fix the source error, then reload; Pimi does not restore the previous bundle.                      |
+| Plugin exits unexpectedly                                             | Read `pimi plugin logs <id>` for retained initialization, cleanup, stderr, and final crash output.                                                    |

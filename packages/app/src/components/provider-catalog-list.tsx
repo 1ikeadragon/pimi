@@ -4,6 +4,7 @@ import { Text, View, type LayoutChangeEvent } from "react-native";
 import { SvgXml } from "react-native-svg";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { PackagePlus } from "lucide-react-native";
+import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "@/components/ui/external-link";
 import { SearchField } from "@/components/ui/search-field";
@@ -175,6 +176,26 @@ export function ProviderCatalogList({
         </View>
       )}
     </View>
+  );
+}
+
+/** The ACP catalog in a sheet, so the Providers page carries one row instead of a list. */
+export function ProviderCatalogSheet({
+  visible,
+  onClose,
+  ...listProps
+}: ProviderCatalogListProps & { visible: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
+  const header = useMemo<SheetHeader>(() => ({ title: t("settings.providers.addProvider") }), [t]);
+  return (
+    <AdaptiveModalSheet
+      visible={visible}
+      onClose={onClose}
+      header={header}
+      testID="provider-catalog-sheet"
+    >
+      <ProviderCatalogList {...listProps} />
+    </AdaptiveModalSheet>
   );
 }
 

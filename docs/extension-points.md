@@ -35,6 +35,7 @@ Drop `<Slot id context/>` where plugin UI belongs and add the id and its context
 - One replacement per point, resolved by `(order, plugin id)`; every wrapper applies. Conflicts are listed, never prompted.
 - Safe mode makes every snapshot empty. A new point gets it for free; do not read the registry some other way.
 - Overrides are app-wide. The loader applies a plugin id once, from its remembered host or the first host by id. A point must not assume the plugin's host is the host of the data it renders.
+- `settings.section` passes the page slug from `APP_SETTINGS_PAGES` (`packages/app/src/settings-index/sections.ts`). Pages get merged and removed; an override keyed to a slug that no longer exists (`sidebar`, `terminal`, `browser`, `files`, `integrations`, `notifications`, `permissions`, `diagnostics`) stops matching without an error.
 
 ## What is not a point yet
 

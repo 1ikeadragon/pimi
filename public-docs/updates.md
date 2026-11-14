@@ -52,13 +52,7 @@ Betas are the best way to get fixes and features early. If you hit a bug, report
 
 ### How to join the beta channel
 
-In the desktop app:
-
-1. Open **Settings**
-2. Go to **About**
-3. Under **Release channel**, select **Beta**
-
-The app will check for beta updates from then on.
+The app has no channel switch. Install a beta build from the [GitHub releases page](https://github.com/1ikeadragon/pimi/releases), or set `releaseChannel` to `beta` in `desktop-settings.json` in the app's user data folder. The app checks for beta updates from then on.
 
 ## App stores
 
@@ -68,6 +62,6 @@ There is no beta channel in the app stores right now — only stable builds are 
 
 ## What to do if something breaks
 
-Beta builds are expected to have rough edges. If a beta causes problems, you can switch back to the stable channel in **Settings → About → Release channel**. The next stable update will install normally.
+Beta builds are expected to have rough edges. If a beta causes problems, you can switch back by setting `releaseChannel` to `stable` in `desktop-settings.json`. The next stable update will install normally.
 
 If you need a fix that hasn't shipped to stable yet, stay on beta and report the issue. Most problems found in beta are fixed before the stable release.

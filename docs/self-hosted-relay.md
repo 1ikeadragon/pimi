@@ -192,7 +192,7 @@ Or use `PIMI_RELAY_ENDPOINT`, `PIMI_RELAY_USE_TLS`, `PIMI_RELAY_PUBLIC_ENDPOINT`
 
 ## Pair a device
 
-1. On the desktop, open **Settings → Pair a device** and show the QR code, or run `pimi daemon pair` for a link.
+1. On the desktop, open **Settings → Host → Pair a device** and show the QR code, or run `pimi daemon pair` for a link.
 2. In the Android app, scan the code or open the `pimi://pair/#offer=…` link.
 3. Keep the code private. It carries the daemon's public key and the session id.
 

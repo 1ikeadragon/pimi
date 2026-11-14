@@ -32,7 +32,7 @@ interface TestState {
 }
 
 /** Per-host language servers behind Go to Definition, Find References and Rename in the editor. */
-export function HostEditorPage({ serverId }: { serverId: string }) {
+export function LanguageServersSection({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const client = useHostRuntimeClient(serverId);
   const isConnected = useHostRuntimeIsConnected(serverId);
@@ -168,7 +168,7 @@ export function HostEditorPage({ serverId }: { serverId: string }) {
   }
 
   return (
-    <View testID="editor-settings-page">
+    <View testID="language-servers-section">
       <SettingsSection
         title={t("settings.languageServers.title")}
         info={t("settings.languageServers.description")}
