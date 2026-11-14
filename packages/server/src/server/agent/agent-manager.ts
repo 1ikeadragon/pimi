@@ -7,6 +7,7 @@ import type { PluginLifecycle } from "../plugins/lifecycle/index.js";
 import { describeHookAgent, publishAgentStream } from "../plugins/lifecycle/index.js";
 import type { PluginSessionOpenRequest } from "@pimi/plugin/server";
 import { randomUUID } from "node:crypto";
+import { withLaunchAgent } from "../../utils/process-launch.js";
 import { basename, resolve } from "node:path";
 import { stat } from "node:fs/promises";
 import {
@@ -1921,7 +1922,9 @@ export class AgentManager {
         );
     const providerLaunchConfig = this.resolveProviderLaunchConfig(launchConfig, launchContext);
     const createOptions = this.buildCreateSessionOptions(options);
-    const session = await client.createSession(providerLaunchConfig, launchContext, createOptions);
+    const session = await withLaunchAgent(resolvedAgentId, () =>
+      client.createSession(providerLaunchConfig, launchContext, createOptions),
+    );
     await this.requireExternalMcpSupport(session, providerLaunchConfig, launchContext);
     const agent = await this.registerSession(session, storedConfig, resolvedAgentId, {
       labels: options.labels,
@@ -2061,11 +2064,8 @@ export class AgentManager {
     );
     markPhase("buildLaunchContextMs");
     const providerLaunchConfig = this.resolveProviderLaunchConfig(launchConfig, launchContext);
-    const session = await client.resumeSession(
-      handle,
-      providerLaunchConfig,
-      launchContext,
-      currentResumeOptions,
+    const session = await withLaunchAgent(resolvedAgentId, () =>
+      client.resumeSession(handle, providerLaunchConfig, launchContext, currentResumeOptions),
     );
     markPhase("resumeSessionMs");
     if (purpose === "history") this.historySessions.add(session);
@@ -2596,9 +2596,11 @@ export class AgentManager {
       this.assertAcceptingAgentRegistrations();
 
       this.recordPimiToolPolicy(agentId, storedConfig.provider, pimiToolPolicy);
-      session = plan.handle
-        ? await client.resumeSession(plan.handle, providerLaunchConfig, launchContext)
-        : await client.createSession(providerLaunchConfig, launchContext);
+      session = await withLaunchAgent(agentId, () =>
+        plan.handle
+          ? client.resumeSession(plan.handle!, providerLaunchConfig, launchContext)
+          : client.createSession(providerLaunchConfig, launchContext),
+      );
       await this.requireExternalMcpSupport(session, providerLaunchConfig, launchContext);
       this.assertAcceptingAgentRegistrations();
 
@@ -3670,9 +3672,11 @@ export class AgentManager {
     const { agent, agentId, pendingRun, prompt, options } = params;
     try {
       const carriedContext = agent.pendingProviderContext;
-      const result = await agent.session.startTurn(
-        carriedContext ? withCarriedContext(prompt, carriedContext) : prompt,
-        options,
+      const result = await withLaunchAgent(agentId, () =>
+        agent.session.startTurn(
+          carriedContext ? withCarriedContext(prompt, carriedContext) : prompt,
+          options,
+        ),
       );
       if (pendingRun.settled) {
         throw new Error(`Agent ${agentId} run was canceled before its turn started`);

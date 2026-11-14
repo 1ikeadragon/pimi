@@ -63,6 +63,14 @@ const HOST_RULES: ReadonlyArray<readonly [suffix: string, purpose: string]> = [
   ["stateless.computer", NETWORK_PURPOSE.relay],
 ];
 
+/**
+ * Names worth resolving ahead of time so a sampled IP can be matched to a known host: every
+ * rule's suffix, plus the API subdomain that code-host tooling uses.
+ */
+export function knownResolveHosts(): string[] {
+  return [...HOST_RULES.map(([suffix]) => suffix), "api.github.com"];
+}
+
 export interface NetworkHostClassification {
   purpose: string;
   known: boolean;
@@ -183,6 +191,8 @@ export interface NetworkActivityRecorderOptions {
   now?: () => number;
   /** Called once per record when it leaves "pending", with the record's final state. */
   onFinish?: (record: NetworkActivityRequest) => void;
+  /** True when the owner trusted this host in the Resources tab. */
+  isTrustedHost?: (host: string) => boolean;
 }
 
 function isFailure(record: NetworkActivityRequest): boolean {
@@ -200,6 +210,7 @@ export class NetworkActivityRecorder {
   private readonly idPrefix: string;
   private readonly now: () => number;
   private readonly onFinish: ((record: NetworkActivityRequest) => void) | undefined;
+  private readonly isTrustedHost: ((host: string) => boolean) | undefined;
   private readonly ring: NetworkActivityRequest[] = [];
   private next = 0;
   private sequence = 0;
@@ -215,6 +226,7 @@ export class NetworkActivityRecorder {
     this.maxHosts = Math.max(1, options.maxHosts ?? 500);
     this.now = options.now ?? Date.now;
     this.onFinish = options.onFinish;
+    this.isTrustedHost = options.isTrustedHost;
     this.capturedSinceMs = this.now();
   }
 
@@ -228,6 +240,10 @@ export class NetworkActivityRecorder {
     const host = normalizeNetworkHost(input.host);
     const classification = classifyNetworkHost(host, this.extraRules);
     const attributed = !classification.local && input.purpose ? input.purpose : null;
+    // A call-site label says why a request was made, not where it went. Only a launched
+    // program (whose host is its own name) is known by its label; every destination needs a
+    // host rule or a trust the owner gave.
+    const trusted = input.protocol !== "process" && this.isTrustedHost?.(host) === true;
     const record: NetworkActivityRequest = {
       id: `${this.idPrefix}-${++this.sequence}`,
       source: input.source,
@@ -243,7 +259,10 @@ export class NetworkActivityRecorder {
       responseBytes: null,
       ...(input.destination ? { destination: input.destination } : {}),
       purpose: attributed ?? classification.purpose,
-      known: attributed !== null || classification.known,
+      known:
+        input.protocol === "process"
+          ? attributed !== null || classification.known
+          : classification.known || trusted,
       local: classification.local,
       state: "pending",
     };

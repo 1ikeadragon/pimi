@@ -12,6 +12,8 @@ import type {
   TextToSpeechProvider,
 } from "../../speech-provider.js";
 import type { TurnDetectionProvider, TurnDetectionSession } from "../../turn-detection-provider.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+import { ingestChildNetworkBatch, isChildNetworkBatch } from "../../../network/activity.js";
 import { applySherpaLoaderEnv } from "./sherpa/sherpa-runtime-env.js";
 import type {
   LocalSpeechCreateSessionResult,
@@ -396,6 +398,10 @@ export class LocalSpeechWorkerClient {
   }
 
   private handleWorkerMessage(message: LocalSpeechWorkerToParentMessage): void {
+    if (isChildNetworkBatch(message)) {
+      ingestChildNetworkBatch(message, NETWORK_PURPOSE.speech);
+      return;
+    }
     if (isResponse(message)) {
       const pending = this.pendingRequests.get(message.requestId);
       if (!pending) {

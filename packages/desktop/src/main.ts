@@ -11,6 +11,7 @@ import { deferIpcHandlersUntil, inheritLoginShellEnv } from "./login-shell-env.j
 import {
   flushDesktopNetworkLog,
   getDesktopNetworkActivity,
+  getDesktopProcessLabels,
   getDesktopNetworkLogDirectory,
   installDesktopNodeNetworkMonitor,
   observeSessionNetwork,
@@ -851,6 +852,10 @@ function registerPimiWorkspaceNavigation(): void {
           ? Math.min(input.limit, 1000)
           : 300,
     });
+  });
+  ipcMain.handle("pimi:network-activity:processes", (event) => {
+    if (!isConsoleFrame(event)) throw new Error("Open Pimi Settings to view resources.");
+    return getDesktopProcessLabels();
   });
   ipcMain.handle("pimi:network-activity:open-logs-folder", async (event) => {
     if (!isConsoleFrame(event)) throw new Error("Open Pimi Settings to open the logs folder.");

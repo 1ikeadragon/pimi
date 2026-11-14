@@ -261,6 +261,8 @@ export type PimiGitAuthStatus = "connected" | "cli-missing" | "unverified";
 
 export interface DesktopNetworkActivityBridge {
   list: (input: { includeLocal?: boolean; limit?: number }) => Promise<NetworkActivitySnapshot>;
+  /** The app's own processes and the names Electron gives them. */
+  processes: () => Promise<{ rootPid: number; processes: { pid: number; label: string }[] }>;
   /** Opens the folder holding the saved network logs in the system file manager. */
   openLogsFolder: () => Promise<void>;
 }

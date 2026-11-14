@@ -136,7 +136,7 @@ import type {
   DaemonGetPairingOfferResponse,
   DaemonConfigReloadResponse,
   DiagnosticsResponse,
-  NetworkActivitySnapshot,
+  ResourcesSnapshot,
   AgentRewindResponseMessage,
   ListTerminalsResponse,
   CreateTerminalResponse,
@@ -5872,20 +5872,37 @@ export class DaemonClient {
     });
   }
 
-  /** Recent outbound requests the daemon process made. Requires `features.networkActivity`. */
-  async listNetworkActivity(options?: {
+  /** Process tree, sampled connections and recent requests of this host. */
+  async getResourcesSnapshot(options?: {
     includeLocal?: boolean;
     limit?: number;
-  }): Promise<NetworkActivitySnapshot> {
+    appRootPid?: number;
+  }): Promise<ResourcesSnapshot> {
     const payload =
-      await this.sendNamespacedCorrelatedSessionRequest<"diagnostics.network.list.response">({
+      await this.sendNamespacedCorrelatedSessionRequest<"diagnostics.resources.snapshot.response">({
         message: {
-          type: "diagnostics.network.list.request",
+          type: "diagnostics.resources.snapshot.request",
           includeLocal: options?.includeLocal,
           limit: options?.limit,
+          appRootPid: options?.appRootPid,
         },
       });
     return payload.snapshot;
+  }
+
+  async updateResourcesBaseline(input: {
+    action: "trust" | "untrust" | "reset";
+    key?: string;
+  }): Promise<void> {
+    await this.sendNamespacedCorrelatedSessionRequest<"diagnostics.resources.baseline.update.response">(
+      {
+        message: {
+          type: "diagnostics.resources.baseline.update.request",
+          action: input.action,
+          key: input.key,
+        },
+      },
+    );
   }
 
   async collectDiagnostics(requestId?: string): Promise<DiagnosticsPayload> {

@@ -479,14 +479,24 @@ are treated as unset, with one warning naming the variable in `daemon.log`.
 Agent and terminal environments are unchanged. System proxy settings and SOCKS-only
 `ALL_PROXY` configurations are not supported.
 
-Settings > Network lists the daemon's and the desktop app's own outbound requests
-(`diagnostics.network.list`). The daemon records them from
-Node's diagnostics channels, so every fetch, `node:http(s)` request, and `ws` handshake in the
-daemon process appears without call-site changes. Child processes do not: agent providers,
-plugin processes, and terminals. A request is labelled by the host it went to; when you add a
-call site that reaches arbitrary hosts, wrap it in `withNetworkInitiator`
-(`packages/server/src/server/network/activity.ts`) or its hosts show as unknown. Only method,
-host, port, and path are recorded, never query strings, headers, or bodies.
+Settings > Resources shows two sources (`diagnostics.resources.snapshot`). The first is the
+daemon's own outbound requests, recorded from Node's diagnostics channels, so every fetch,
+`node:http(s)` request, `ws` handshake, TCP socket, `dgram` send and `dns.Resolver` call in the
+daemon process appears without call-site changes. Plugin processes, the speech worker and the
+plugin compiler thread run the same hooks and report to the daemon. A request is labelled by the
+host it went to; when you add a call site that reaches arbitrary hosts, wrap it in
+`withNetworkInitiator` (`packages/server/src/server/network/activity.ts`). A purpose label never
+makes a destination known; only a host rule or the owner's Trust does. Only method, host, port, and
+path are recorded, never query strings, headers, or bodies.
+
+The second is an OS sampler (`packages/server/src/server/resources/`) rooted at the supervisor and
+daemon, the terminal workers, and the desktop app when it sends its pid. It reads `ps`/`lsof` on
+macOS, `/proc` on Linux and one persistent PowerShell child on Windows, always through
+`execFileUnobserved` so it never logs itself. It sees any program by pid but only connections open
+when a sample runs, and names an address only from the daemon's own lookups and sockets plus a
+forward lookup of known hosts. A watchdog subscribes with `ResourceMonitor.subscribe`. The owner-facing
+limits are in `public-docs/resources.md`. Launches carry their agent through `withLaunchAgent`
+(`utils/process-launch.ts`); wrap any new place that starts an agent's provider process in it.
 
 ## Deployment models
 

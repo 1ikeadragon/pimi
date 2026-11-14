@@ -196,3 +196,22 @@ export function observeSessionNetwork(
     options.onErrorOccurred?.(details);
   });
 }
+
+export interface DesktopProcessLabel {
+  pid: number;
+  label: string;
+}
+
+/** The app's own processes with the names Electron gives them, for the Resources tab. */
+export function getDesktopProcessLabels(): { rootPid: number; processes: DesktopProcessLabel[] } {
+  const processes = app.getAppMetrics().map((metric): DesktopProcessLabel => {
+    let label: string;
+    if (metric.type === "Browser") label = "Main";
+    else if (metric.type === "Tab") label = "Renderer";
+    else if (metric.type === "GPU") label = "GPU";
+    else if (metric.serviceName?.toLowerCase().includes("network")) label = "Network";
+    else label = metric.name ?? metric.serviceName ?? metric.type;
+    return { pid: metric.pid, label };
+  });
+  return { rootPid: process.pid, processes };
+}

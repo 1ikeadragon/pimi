@@ -6,6 +6,8 @@ import { ZodError } from "zod";
 import type * as build from "./compiler-build.js";
 import type { PluginManifest } from "./manifest.js";
 import type { CompilerReply } from "./compiler-worker.js";
+import { isChildNetworkBatch, observeWorkerThreadNetwork } from "../network/activity.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 
 export {
   SERVER_HOST_MODULES,
@@ -76,6 +78,7 @@ class PluginCompiler {
   private startWorker(): Worker {
     const worker = new Worker(workerEntrypoint, { eval: source, execArgv: [] });
     this.worker = worker;
+    observeWorkerThreadNetwork(worker, NETWORK_PURPOSE.plugins);
     // Keep error/exit ownership while idle too. The next caller gets a fresh
     // isolate after a crash; author build commands are never retried.
     worker.on("error", () => this.stopWorker(worker));
@@ -106,6 +109,8 @@ class PluginCompiler {
         onError = reject;
         onExit = (code) => reject(new Error(`Plugin compiler worker exited (code ${code})`));
         onMessage = (reply) => {
+          // Network reports share the port; observeWorkerThreadNetwork consumes them.
+          if (isChildNetworkBatch(reply)) return;
           if (reply.kind === "log") {
             onLog?.(reply.data, reply.message);
           } else if (reply.kind === "result") {

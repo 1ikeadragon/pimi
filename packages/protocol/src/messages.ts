@@ -1740,13 +1740,23 @@ export const DiagnosticsRequestSchema = z.object({
   requestId: z.string(),
 });
 
-export const DiagnosticsNetworkListRequestSchema = z.object({
-  type: z.literal("diagnostics.network.list.request"),
+export const DiagnosticsResourcesSnapshotRequestSchema = z.object({
+  type: z.literal("diagnostics.resources.snapshot.request"),
   requestId: z.string(),
   /** Include loopback and Unix-socket requests in the recent-request list. Hosts always count them. */
   includeLocal: z.boolean().optional(),
   /** Most recent requests to return, newest first. The daemon caps it at its buffer size. */
   limit: z.number().int().positive().optional(),
+  /** Root pid of the desktop app on this machine, when the caller is it. Adds an App tree. */
+  appRootPid: z.number().int().positive().optional(),
+});
+
+export const DiagnosticsResourcesBaselineUpdateRequestSchema = z.object({
+  type: z.literal("diagnostics.resources.baseline.update.request"),
+  requestId: z.string(),
+  action: z.enum(["trust", "untrust", "reset"]),
+  /** The destination key from the snapshot. Required for trust and untrust. */
+  key: z.string().optional(),
 });
 
 export const PluginCatalogGetRequestSchema = z.object({
@@ -3775,7 +3785,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   DaemonGetPairingOfferRequestSchema,
   DaemonConfigReloadRequestSchema,
   DiagnosticsRequestSchema,
-  DiagnosticsNetworkListRequestSchema,
+  DiagnosticsResourcesSnapshotRequestSchema,
+  DiagnosticsResourcesBaselineUpdateRequestSchema,
   PluginCatalogGetRequestSchema,
   PluginListRequestSchema,
   PluginLogsGetRequestSchema,
@@ -5477,6 +5488,16 @@ export const NetworkActivityRequestSchema = z.object({
   state: z.string(),
   /** Named totals, such as WebSocket message counts. */
   counters: z.record(z.string(), z.number()).optional(),
+  /** The OS process that made the request or held the connection, when known. */
+  pid: z.number().int().optional(),
+  /** That process's program name. */
+  program: z.string().optional(),
+  /** The process tree it belongs to: "daemon", "terminals", or "app". */
+  root: z.string().optional(),
+  /** The agent whose launch led to the process, when there is one. */
+  agentId: z.string().optional(),
+  /** The remote IP of a sampled connection, when the host column holds a name. */
+  address: z.string().optional(),
 });
 export type NetworkActivityRequest = z.infer<typeof NetworkActivityRequestSchema>;
 
@@ -5511,11 +5532,77 @@ export const NetworkActivitySnapshotSchema = z.object({
 });
 export type NetworkActivitySnapshot = z.infer<typeof NetworkActivitySnapshotSchema>;
 
-export const DiagnosticsNetworkListResponseSchema = z.object({
-  type: z.literal("diagnostics.network.list.response"),
+export const ResourceProcessSchema = z.object({
+  pid: z.number().int(),
+  ppid: z.number().int(),
+  /** Program name from the process table. */
+  name: z.string(),
+  /** Which tree the process sits in. */
+  section: z.enum(["daemon", "terminals", "app"]),
+  /** What Pimi knows the process to be. "process" is any other descendant. */
+  role: z.enum(["daemon", "supervisor", "terminal-worker", "terminal", "process", "app"]),
+  /** Why Pimi launched it, such as "Agent provider" or "Git". Descendants inherit it. */
+  purpose: z.string().nullable(),
+  agentId: z.string().nullable(),
+  terminalId: z.string().nullable(),
+  /** Null until two samples exist. 100 is one full core. */
+  cpuPercent: z.number().nullable(),
+  rssBytes: z.number(),
+  /** Open connections to non-loopback addresses. */
+  connections: z.number().int(),
+  /** Destinations this process reached that nothing recognizes yet. */
+  newDestinations: z.number().int(),
+});
+export type ResourceProcess = z.infer<typeof ResourceProcessSchema>;
+
+export const ResourceDestinationSchema = z.object({
+  /** Stable id for trust and untrust. */
+  key: z.string(),
+  program: z.string(),
+  /** The name when one is known, otherwise the IP. */
+  host: z.string(),
+  address: z.string().nullable(),
+  port: z.number().int(),
+  protocol: z.enum(["tcp", "udp"]),
+  firstSeenMs: z.number(),
+  lastSeenMs: z.number(),
+  count: z.number().int(),
+  trusted: z.boolean(),
+  /** A host rule recognizes the name, or the owner trusted it. */
+  known: z.boolean(),
+  /** No name could be matched to the address. */
+  ipOnly: z.boolean(),
+  /** Open now. */
+  live: z.boolean(),
+  /** Processes holding it now. */
+  pids: z.array(z.number().int()),
+  agentId: z.string().nullable(),
+  root: z.string(),
+});
+export type ResourceDestination = z.infer<typeof ResourceDestinationSchema>;
+
+export const ResourcesSnapshotSchema = z.object({
+  capturedAtMs: z.number(),
+  platform: z.string(),
+  processes: z.array(ResourceProcessSchema),
+  destinations: z.array(ResourceDestinationSchema),
+  /** The recent request list and where its log is saved. */
+  requests: NetworkActivitySnapshotSchema,
+});
+export type ResourcesSnapshot = z.infer<typeof ResourcesSnapshotSchema>;
+
+export const DiagnosticsResourcesSnapshotResponseSchema = z.object({
+  type: z.literal("diagnostics.resources.snapshot.response"),
   payload: z.object({
     requestId: z.string(),
-    snapshot: NetworkActivitySnapshotSchema,
+    snapshot: ResourcesSnapshotSchema,
+  }),
+});
+
+export const DiagnosticsResourcesBaselineUpdateResponseSchema = z.object({
+  type: z.literal("diagnostics.resources.baseline.update.response"),
+  payload: z.object({
+    requestId: z.string(),
   }),
 });
 
@@ -7640,7 +7727,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   DaemonGetPairingOfferResponseSchema,
   DaemonConfigReloadResponseSchema,
   DiagnosticsResponseSchema,
-  DiagnosticsNetworkListResponseSchema,
+  DiagnosticsResourcesSnapshotResponseSchema,
+  DiagnosticsResourcesBaselineUpdateResponseSchema,
   GetDaemonConfigResponseMessageSchema,
   SetDaemonConfigResponseMessageSchema,
   ReadProjectConfigResponseMessageSchema,
@@ -7954,7 +8042,9 @@ export type DaemonGetStatusResponse = z.infer<typeof DaemonGetStatusResponseSche
 export type DaemonGetPairingOfferResponse = z.infer<typeof DaemonGetPairingOfferResponseSchema>;
 export type DaemonConfigReloadResponse = z.infer<typeof DaemonConfigReloadResponseSchema>;
 export type DiagnosticsResponse = z.infer<typeof DiagnosticsResponseSchema>;
-export type DiagnosticsNetworkListResponse = z.infer<typeof DiagnosticsNetworkListResponseSchema>;
+export type DiagnosticsResourcesSnapshotResponse = z.infer<
+  typeof DiagnosticsResourcesSnapshotResponseSchema
+>;
 export type GetProvidersSnapshotResponseMessage = z.infer<
   typeof GetProvidersSnapshotResponseMessageSchema
 >;

@@ -1,9 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import diagnosticsChannel from "node:diagnostics_channel";
+import dgram from "node:dgram";
 import dns from "node:dns";
 import type { ClientRequest, IncomingMessage } from "node:http";
 import { syncBuiltinESMExports } from "node:module";
 import type { Socket } from "node:net";
+import { parentPort, type Worker } from "node:worker_threads";
 import {
   NETWORK_PURPOSE,
   NetworkActivityRecorder,
@@ -14,7 +16,8 @@ import type { NetworkActivityRequest, NetworkActivitySnapshot } from "@pimi/prot
 import { setProcessLaunchObserver } from "../../utils/process-launch.js";
 import { maskPathSegments } from "./redact.js";
 import { NetworkLogStore, type NetworkLogSettings, type NetworkLogStats } from "./log-store.js";
-import { createProcessLaunchObserver } from "./process-launch-recorder.js";
+import { createProcessLaunchObserver, type SpawnedProgram } from "./process-launch-recorder.js";
+import { ResourceMonitor } from "../resources/resource-monitor.js";
 
 // Outbound observation through Node's built-in diagnostics channels plus two wrapped modules.
 // Channels see global fetch (undici, including the proxy dispatcher), node:http/https (which
@@ -23,9 +26,29 @@ import { createProcessLaunchObserver } from "./process-launch-recorder.js";
 // driver. DNS has no channel, so the explicit resolver calls of node:dns are wrapped. Neither
 // sees inside child processes (agent providers, git, gh, language servers, terminals): their
 // launches are recorded through the process launch observer, their own traffic is not visible.
-// Plugin processes report their records to the daemon over IPC, see ingestPluginNetworkBatch.
+// Plugin processes report their records to the daemon over IPC, see ingestChildNetworkBatch.
 
 const initiator = new AsyncLocalStorage<string>();
+
+// The Resources tab's sampler. Until it starts, launches wait here.
+let resourceMonitor: ResourceMonitor | null = null;
+const pendingSpawns: SpawnedProgram[] = [];
+const MAX_PENDING_SPAWNS = 200;
+
+function noteResolved(name: string | null | undefined, addresses: readonly string[]): void {
+  if (!name || addresses.length === 0) return;
+  resourceMonitor?.noteResolved(name, addresses);
+}
+
+function addressesOf(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(addressesOf);
+  if (value && typeof value === "object") {
+    const address = (value as { address?: unknown }).address;
+    if (typeof address === "string") return [address];
+  }
+  return [];
+}
 
 /**
  * Attributes every outbound request started inside `run` (including awaited continuations)
@@ -169,6 +192,10 @@ function observeSocket(
     // Pipes and IPC have no host: they never leave the machine.
     if (!host) return;
     const port = socket.remotePort;
+    if (failure === null && socket.remoteAddress && port !== undefined) {
+      noteResolved(socket._host, [socket.remoteAddress]);
+      resourceMonitor?.noteHookConnection(socket.remoteAddress, port);
+    }
     if (
       recentHttp.has(socket._host ?? undefined, port) ||
       recentHttp.has(socket.remoteAddress, port)
@@ -259,6 +286,7 @@ function installDnsMonitor(recorder: NetworkActivityRecorder, source: string): (
         const result = original.apply(this, args) as Promise<unknown>;
         return result.then(
           (value) => {
+            if (typeof args[0] === "string") noteResolved(args[0], addressesOf(value));
             recorder.finish(record, {});
             return value;
           },
@@ -272,6 +300,7 @@ function installDnsMonitor(recorder: NetworkActivityRecorder, source: string): (
       const callback = args[last];
       if (typeof callback === "function") {
         args[last] = (error: unknown, ...rest: unknown[]) => {
+          if (!error && typeof args[0] === "string") noteResolved(args[0], addressesOf(rest[0]));
           recorder.finish(record, error ? { errorCode: errorCode(error) } : {});
           return (callback as DnsFunction)(error, ...rest);
         };
@@ -302,10 +331,95 @@ function installDnsMonitor(recorder: NetworkActivityRecorder, source: string): (
     wrap(callbackApi, name, false);
     wrap(promiseApi, name, true);
   }
+  // Resolver instances (custom servers, per-request resolvers) bypass the module-level
+  // functions above, so wrap their prototype methods as well.
+  const callbackResolver = dns.Resolver.prototype as unknown as Record<string, unknown>;
+  const promiseResolver = dns.promises.Resolver.prototype as unknown as Record<string, unknown>;
+  for (const name of DNS_RESOLVE_CALLBACK_FUNCTIONS) {
+    wrap(callbackResolver, name, false);
+    wrap(promiseResolver, name, true);
+  }
   syncBuiltinESMExports();
   return () => {
     for (const restore of restores) restore();
     syncBuiltinESMExports();
+  };
+}
+
+// UDP has no diagnostics channel. A datagram socket's send and connect are wrapped, and a
+// destination is recorded once per window so a stream of packets is one row, not thousands.
+const UDP_REPEAT_WINDOW_MS = 30_000;
+const MAX_UDP_DESTINATIONS = 256;
+
+function udpDestination(
+  socket: dgram.Socket,
+  method: "send" | "connect",
+  args: unknown[],
+): { host: string; port: number } | null {
+  const rest = args.slice(method === "send" ? 1 : 0);
+  // send(msg, offset, length, port, address) | send(msg, port, address) | connect(port, address)
+  const portAt =
+    method === "send" && typeof rest[1] === "number" && typeof rest[2] === "number" ? 2 : 0;
+  const port = rest[portAt];
+  const address = rest[portAt + 1];
+  if (typeof port === "number") {
+    return { host: typeof address === "string" ? address : "127.0.0.1", port };
+  }
+  try {
+    const peer = socket.remoteAddress();
+    return { host: peer.address, port: peer.port };
+  } catch {
+    return null;
+  }
+}
+
+/** True the first time a destination is seen in a window; remembers at most a few hundred. */
+function firstInWindow(seen: Map<string, number>, key: string): boolean {
+  const now = Date.now();
+  const last = seen.get(key);
+  if (last !== undefined && now - last <= UDP_REPEAT_WINDOW_MS) return false;
+  seen.delete(key);
+  seen.set(key, now);
+  const oldest = seen.size > MAX_UDP_DESTINATIONS ? seen.keys().next().value : undefined;
+  if (oldest !== undefined) seen.delete(oldest);
+  return true;
+}
+
+function installDgramMonitor(recorder: NetworkActivityRecorder, source: string): () => void {
+  const prototype = dgram.Socket.prototype as unknown as Record<string, DnsFunction>;
+  const seen = new Map<string, number>();
+  const restores: Array<() => void> = [];
+  const note = (socket: dgram.Socket, method: "send" | "connect", args: unknown[]): void => {
+    const destination = udpDestination(socket, method, args);
+    if (!destination || !firstInWindow(seen, `${destination.host}:${destination.port}`)) return;
+    const record = recorder.start({
+      source,
+      method: "SEND",
+      protocol: "udp",
+      host: destination.host,
+      port: destination.port,
+      path: "/",
+      purpose: initiator.getStore() ?? NETWORK_PURPOSE.socket,
+    });
+    recorder.finish(record, {});
+  };
+  for (const method of ["send", "connect"] as const) {
+    const original = prototype[method];
+    if (typeof original !== "function") continue;
+    prototype[method] = function (this: dgram.Socket, ...args: unknown[]): unknown {
+      try {
+        note(this, method, args);
+      } catch {
+        // Observation must never affect the datagram.
+      }
+      return original.apply(this, args);
+    };
+    restores.push(() => {
+      prototype[method] = original;
+    });
+  }
+  return () => {
+    for (const restore of restores) restore();
   };
 }
 
@@ -406,9 +520,11 @@ export function installNodeNetworkMonitor(input: {
 
   for (const [name, handler] of handlers) diagnosticsChannel.subscribe(name, handler);
   const restoreDns = installDnsMonitor(recorder, source);
+  const restoreDgram = installDgramMonitor(recorder, source);
   return () => {
     for (const [name, handler] of handlers) diagnosticsChannel.unsubscribe(name, handler);
     restoreDns();
+    restoreDgram();
   };
 }
 
@@ -439,6 +555,7 @@ export function getDaemonNetworkActivity(): NetworkActivityRecorder {
       idPrefix: "d",
       capacity: 1000,
       onFinish: saveRecord,
+      isTrustedHost: (host) => resourceMonitor?.baseline.hasTrustedHost(host) ?? false,
     });
     installNodeNetworkMonitor({ recorder: daemonRecorder, source: "daemon" });
     processRecorder = new NetworkActivityRecorder({
@@ -446,12 +563,17 @@ export function getDaemonNetworkActivity(): NetworkActivityRecorder {
       capacity: 1000,
       onFinish: saveRecord,
     });
-    setProcessLaunchObserver(createProcessLaunchObserver(processRecorder, "daemon"));
+    setProcessLaunchObserver(
+      createProcessLaunchObserver(processRecorder, "daemon", (spawned) => {
+        if (resourceMonitor) noteSpawn(resourceMonitor, spawned);
+        else if (pendingSpawns.length < MAX_PENDING_SPAWNS) pendingSpawns.push(spawned);
+      }),
+    );
   }
   return daemonRecorder;
 }
 
-/** Requests and launched programs together, newest first, as the Network tab shows them. */
+/** Requests and launched programs together, newest first, as the Resources tab shows them. */
 export function snapshotDaemonNetworkActivity(
   options: NetworkActivitySnapshotOptions,
 ): NetworkActivitySnapshot {
@@ -483,13 +605,41 @@ export function startDaemonNetworkLog(input: {
   return store;
 }
 
+function noteSpawn(monitor: ResourceMonitor, spawned: SpawnedProgram): void {
+  monitor.noteLaunch(spawned.pid, spawned);
+  if (spawned.expectedHost) monitor.baseline.expectHost(spawned.expectedHost);
+}
+
+/**
+ * Starts the Resources sampler for this daemon. Launches made before it started are replayed.
+ * Records of new connections go to the same log as every other record.
+ */
+export function startDaemonResources(input: {
+  home: string;
+  onError: (error: unknown, message: string) => void;
+}): ResourceMonitor {
+  const monitor = new ResourceMonitor({
+    home: input.home,
+    onRecord: saveRecord,
+    onError: input.onError,
+  });
+  resourceMonitor = monitor;
+  for (const spawned of pendingSpawns.splice(0)) noteSpawn(monitor, spawned);
+  monitor.start();
+  return monitor;
+}
+
+export function getResourceMonitor(): ResourceMonitor | null {
+  return resourceMonitor;
+}
+
 /** Folder, size, and file count of the daemon's saved records, or null when none are saved. */
 export function getDaemonNetworkLogStats(): NetworkLogStats | null {
   return daemonLog?.stats() ?? null;
 }
 
 /** What a plugin process sends the daemon: the records it finished since its last batch. */
-export interface PluginNetworkBatch {
+export interface ChildNetworkBatch {
   type: "pimi_network_batch";
   records: NetworkActivityRequest[];
   /** Records the plugin process had to drop because it produced more than it could send. */
@@ -498,9 +648,19 @@ export interface PluginNetworkBatch {
 
 const PLUGIN_BATCH_MS = 500;
 const PLUGIN_BATCH_MAX = 200;
-const PLUGIN_PROTOCOLS = new Set(["http", "https", "ws", "wss", "unix", "tcp", "dns", "process"]);
+const PLUGIN_PROTOCOLS = new Set([
+  "http",
+  "https",
+  "ws",
+  "wss",
+  "unix",
+  "tcp",
+  "udp",
+  "dns",
+  "process",
+]);
 
-export function isPluginNetworkBatch(value: unknown): value is PluginNetworkBatch {
+export function isChildNetworkBatch(value: unknown): value is ChildNetworkBatch {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -514,7 +674,7 @@ export function isPluginNetworkBatch(value: unknown): value is PluginNetworkBatc
  * the process does through the same hooks as the daemon is batched to the daemon over IPC.
  * Returns a function that sends what is queued.
  */
-export function startPluginNetworkReporter(send: (batch: PluginNetworkBatch) => void): () => void {
+export function startChildNetworkReporter(send: (batch: ChildNetworkBatch) => void): () => void {
   let queue: NetworkActivityRequest[] = [];
   let dropped = 0;
   const recorder = new NetworkActivityRecorder({
@@ -529,7 +689,7 @@ export function startPluginNetworkReporter(send: (batch: PluginNetworkBatch) => 
   setProcessLaunchObserver(createProcessLaunchObserver(recorder, "daemon"));
   const flush = (): void => {
     if (queue.length === 0 && dropped === 0) return;
-    const batch: PluginNetworkBatch = { type: "pimi_network_batch", records: queue, dropped };
+    const batch: ChildNetworkBatch = { type: "pimi_network_batch", records: queue, dropped };
     queue = [];
     dropped = 0;
     try {
@@ -544,10 +704,13 @@ export function startPluginNetworkReporter(send: (batch: PluginNetworkBatch) => 
 }
 
 /**
- * Adds records a plugin process reported. The daemon re-derives the host classification and
- * attributes the traffic to Plugins; the sender's own labels are not trusted.
+ * Adds records a child process or worker thread reported. The daemon re-derives the host
+ * classification and attributes the traffic to `purpose`; the sender's own labels are not trusted.
  */
-export function ingestPluginNetworkBatch(batch: PluginNetworkBatch): void {
+export function ingestChildNetworkBatch(
+  batch: ChildNetworkBatch,
+  purpose: string = NETWORK_PURPOSE.plugins,
+): void {
   const recorder = getDaemonNetworkActivity();
   const launches = processRecorder ?? recorder;
   for (const record of batch.records.slice(0, PLUGIN_BATCH_MAX)) {
@@ -565,7 +728,7 @@ export function ingestPluginNetworkBatch(batch: PluginNetworkBatch): void {
       host: record.host,
       port: typeof record.port === "number" ? record.port : null,
       path: maskPathSegments(String(record.path)),
-      purpose: NETWORK_PURPOSE.plugins,
+      purpose,
       destination: typeof record.destination === "string" ? record.destination : null,
       status: typeof record.status === "number" ? record.status : null,
       errorCode: typeof record.errorCode === "string" ? record.errorCode : null,
@@ -581,8 +744,25 @@ export function ingestPluginNetworkBatch(batch: PluginNetworkBatch): void {
       host: "plugin-process",
       port: null,
       path: `/${batch.dropped}-records-not-reported`,
-      purpose: NETWORK_PURPOSE.plugins,
+      purpose,
       errorCode: "DROPPED",
     });
   }
+}
+
+/**
+ * Runs inside a worker thread. Diagnostics channels are per thread, so the thread installs its
+ * own hooks and posts what they see to the thread that started it.
+ */
+export function startWorkerThreadNetworkReporter(): void {
+  const port = parentPort;
+  if (!port) return;
+  startChildNetworkReporter((batch) => port.postMessage(batch));
+}
+
+/** Runs in the thread that started `worker`: folds the worker's reports into the daemon's records. */
+export function observeWorkerThreadNetwork(worker: Worker, purpose: string): void {
+  worker.on("message", (message: unknown) => {
+    if (isChildNetworkBatch(message)) ingestChildNetworkBatch(message, purpose);
+  });
 }

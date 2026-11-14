@@ -1,4 +1,5 @@
 import childProcess, { type ChildProcess } from "node:child_process";
+import type { ExecFileOptions } from "node:child_process";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { syncBuiltinESMExports } from "node:module";
 import { promisify } from "node:util";
@@ -8,7 +9,8 @@ import { promisify } from "node:util";
 // SDK is seen without each call site opting in. A call site may still say why it launches
 // something (withLaunchPurpose); everything else is classified by the program's name. The
 // wrapper never changes arguments, environment, or results. Nothing here sees what the program
-// does on the network.
+// does on the network. The Resources tab's sampler reads that from the OS, and uses the pid and
+// agent attribution reported here to say whose process it is.
 
 export interface ProcessLaunch {
   command: string;
@@ -17,6 +19,8 @@ export interface ProcessLaunch {
   env: NodeJS.ProcessEnv | undefined;
   /** Display purpose set by the call site (a NETWORK_PURPOSE), or null to classify by name. */
   purpose: string | null;
+  /** The agent whose work started this launch (withLaunchAgent), or null. */
+  agentId: string | null;
 }
 
 export interface ProcessLaunchOutcome {
@@ -26,11 +30,57 @@ export interface ProcessLaunchOutcome {
   errorCode?: string;
 }
 
-export type ProcessLaunchObserver = (
-  launch: ProcessLaunch,
-) => (outcome: ProcessLaunchOutcome) => void;
+export interface ProcessLaunchTracker {
+  exited(outcome: ProcessLaunchOutcome): void;
+  /** The program started and has this pid. Not called for sync launches or failed starts. */
+  spawned?(pid: number): void;
+}
+
+export type ProcessLaunchObserver = (launch: ProcessLaunch) => ProcessLaunchTracker;
 
 const purposeStore = new AsyncLocalStorage<string>();
+const agentStore = new AsyncLocalStorage<string>();
+
+// The unwrapped function, taken before any observer installs wrappers. The resource sampler
+// reads the process table through it, so its own `ps` and `lsof` never log themselves.
+const unobservedExecFile = childProcess.execFile;
+const unobservedSpawn = childProcess.spawn;
+
+/** `spawn` that the launch observer never sees. Only for the sampler's own helper process. */
+export function spawnUnobserved(
+  ...args: Parameters<typeof childProcess.spawn>
+): ReturnType<typeof childProcess.spawn> {
+  return unobservedSpawn(...args);
+}
+
+export interface UnobservedExecResult {
+  stdout: string;
+  stderr: string;
+}
+
+/** Runs a program without telling the launch observer. Only for the sampler's own reads. */
+export function execFileUnobserved(
+  command: string,
+  args: readonly string[],
+  options: ExecFileOptions & { timeout: number; maxBuffer: number },
+): Promise<UnobservedExecResult> {
+  return new Promise((resolve, reject) => {
+    unobservedExecFile(
+      command,
+      [...args],
+      { ...options, encoding: "utf8" },
+      (error, stdout, stderr) => {
+        if (error) reject(Object.assign(error, { stdout, stderr }));
+        else resolve({ stdout: String(stdout), stderr: String(stderr) });
+      },
+    );
+  });
+}
+
+/** Attributes every program launched inside `run` to the agent, for the Resources tab. */
+export function withLaunchAgent<T>(agentId: string, run: () => T): T {
+  return agentStore.run(agentId, run);
+}
 
 /** Attributes every launch started inside `run` to `purpose`. */
 export function withLaunchPurpose<T>(purpose: string, run: () => T): T {
@@ -50,30 +100,51 @@ function begin(
   command: string,
   args: readonly string[],
   env: NodeJS.ProcessEnv | undefined,
-): ((outcome: ProcessLaunchOutcome) => void) | null {
+): LaunchHandle | null {
   if (!observer) return null;
   try {
-    const end = observer({ command, args, env, purpose: purposeStore.getStore() ?? null });
+    const tracker = observer({
+      command,
+      args,
+      env,
+      purpose: purposeStore.getStore() ?? null,
+      agentId: agentStore.getStore() ?? null,
+    });
     let ended = false;
-    return (outcome) => {
-      if (ended) return;
-      ended = true;
-      try {
-        end(outcome);
-      } catch {
-        // Observation must never affect the launched program.
-      }
+    return {
+      end: (outcome) => {
+        if (ended) return;
+        ended = true;
+        try {
+          tracker.exited(outcome);
+        } catch {
+          // Observation must never affect the launched program.
+        }
+      },
+      spawned: (pid) => {
+        try {
+          tracker.spawned?.(pid);
+        } catch {
+          // Observation must never affect the launched program.
+        }
+      },
     };
   } catch {
     return null;
   }
 }
 
-function watchChild(child: ChildProcess, end: (outcome: ProcessLaunchOutcome) => void): void {
+interface LaunchHandle {
+  end(outcome: ProcessLaunchOutcome): void;
+  spawned(pid: number): void;
+}
+
+function watchChild(child: ChildProcess, launch: LaunchHandle): void {
+  if (typeof child.pid === "number") launch.spawned(child.pid);
   child.once("error", (error: NodeJS.ErrnoException) => {
-    end({ errorCode: typeof error.code === "string" ? error.code : "ERROR" });
+    launch.end({ errorCode: typeof error.code === "string" ? error.code : "ERROR" });
   });
-  child.once("close", (exitCode, signal) => end({ exitCode, signal }));
+  child.once("close", (exitCode, signal) => launch.end({ exitCode, signal }));
 }
 
 interface LaunchOptions {
@@ -143,9 +214,9 @@ function wrapAsync(
   const original = childProcess[name] as unknown as AnyFunction;
   const wrapper = function (this: unknown, ...args: unknown[]) {
     const launch = observer ? describe(args) : null;
-    const end = launch ? begin(launch.command, launch.args, launch.env) : null;
+    const handle = launch ? begin(launch.command, launch.args, launch.env) : null;
     const child = original.apply(this, args) as ChildProcess;
-    if (end && child && typeof child.once === "function") watchChild(child, end);
+    if (handle && child && typeof child.once === "function") watchChild(child, handle);
     return child;
   };
   copyStatics(wrapper, original);
@@ -175,7 +246,7 @@ function wrapSync(
   const original = childProcess[name] as unknown as AnyFunction;
   const wrapper = function (this: unknown, ...args: unknown[]) {
     const launch = observer ? describe(args) : null;
-    const end = launch ? begin(launch.command, launch.args, launch.env) : null;
+    const end = launch ? (begin(launch.command, launch.args, launch.env)?.end ?? null) : null;
     if (!end) return original.apply(this, args);
     try {
       const result = original.apply(this, args);

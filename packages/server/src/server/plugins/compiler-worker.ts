@@ -3,6 +3,7 @@ import type { ZodIssue } from "zod";
 import { compilePlugin, compileDirectoryPlugin } from "./compiler-build.js";
 import { runPluginBuild } from "./preparation-build.js";
 import type { CompilerTask } from "./compiler.js";
+import { startWorkerThreadNetworkReporter } from "../network/activity.js";
 
 export type CompilerReply =
   | { kind: "log"; data: Record<string, unknown>; message: string }
@@ -16,6 +17,7 @@ export type CompilerReply =
       warnings?: unknown[];
     };
 
+startWorkerThreadNetworkReporter();
 const port = parentPort!;
 // The compiler owner serializes requests; the port queues the first request
 // until this entrypoint has loaded, including in source/tsx development.

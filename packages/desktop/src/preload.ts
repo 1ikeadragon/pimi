@@ -197,6 +197,8 @@ contextBridge.exposeInMainWorld("pimiDesktop", {
   networkActivity: {
     list: (input: { includeLocal?: boolean; limit?: number }): Promise<NetworkActivitySnapshot> =>
       ipcRenderer.invoke("pimi:network-activity:list", input),
+    processes: (): Promise<{ rootPid: number; processes: { pid: number; label: string }[] }> =>
+      ipcRenderer.invoke("pimi:network-activity:processes"),
     openLogsFolder: (): Promise<void> =>
       ipcRenderer.invoke("pimi:network-activity:open-logs-folder"),
   },

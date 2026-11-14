@@ -69,10 +69,10 @@ export const APP_SETTINGS_PAGES = [
     desktopOnly: true,
   },
   {
-    id: "network",
-    titleKey: "settings.sections.network",
+    id: "resources",
+    titleKey: "settings.sections.resources",
     group: "system",
-    keywords: ["requests", "traffic", "http", "connections log"],
+    keywords: ["network", "requests", "traffic", "cpu", "memory", "processes", "connections"],
   },
   {
     id: "about",

@@ -8,7 +8,11 @@ import {
   collectDaemonDiagnostics,
   type DaemonWebSocketRuntimeDiagnosticSnapshot,
 } from "./diagnostics.js";
-import { getDaemonNetworkLogStats, snapshotDaemonNetworkActivity } from "../../network/activity.js";
+import {
+  getDaemonNetworkLogStats,
+  getResourceMonitor,
+  snapshotDaemonNetworkActivity,
+} from "../../network/activity.js";
 import { DaemonSelfUpdateSessionController } from "./daemon-self-update-session-controller.js";
 import type { ManagedAgent } from "../../agent/agent-manager.js";
 import type { PersistedProjectRecord, PersistedWorkspaceRecord } from "../../workspace-registry.js";
@@ -228,20 +232,40 @@ export class DaemonSession {
     }
   }
 
-  handleNetworkActivityListRequest(
-    msg: Extract<SessionInboundMessage, { type: "diagnostics.network.list.request" }>,
+  handleResourcesSnapshotRequest(
+    msg: Extract<SessionInboundMessage, { type: "diagnostics.resources.snapshot.request" }>,
   ): void {
-    const snapshot = snapshotDaemonNetworkActivity({
+    const requests = snapshotDaemonNetworkActivity({
       includeLocal: msg.includeLocal,
       limit: Math.min(msg.limit ?? NETWORK_ACTIVITY_DEFAULT_LIMIT, NETWORK_ACTIVITY_MAX_LIMIT),
     });
+    const monitor = getResourceMonitor();
+    monitor?.touchLease(msg.appRootPid ?? null);
     // Emitted synchronously: the session routes a reply by the request being handled.
     this.host.emit({
-      type: "diagnostics.network.list.response",
+      type: "diagnostics.resources.snapshot.response",
       payload: {
         requestId: msg.requestId,
-        snapshot: { ...snapshot, log: getDaemonNetworkLogStats() },
+        snapshot: {
+          capturedAtMs: Date.now(),
+          platform: process.platform,
+          processes: monitor?.processes() ?? [],
+          destinations: monitor?.destinations() ?? [],
+          requests: { ...requests, log: getDaemonNetworkLogStats() },
+        },
       },
+    });
+  }
+
+  handleResourcesBaselineUpdateRequest(
+    msg: Extract<SessionInboundMessage, { type: "diagnostics.resources.baseline.update.request" }>,
+  ): void {
+    const baseline = getResourceMonitor()?.baseline;
+    if (msg.action === "reset") baseline?.reset();
+    else if (msg.key !== undefined) baseline?.setTrusted(msg.key, msg.action === "trust");
+    this.host.emit({
+      type: "diagnostics.resources.baseline.update.response",
+      payload: { requestId: msg.requestId },
     });
   }
 

@@ -2940,8 +2940,11 @@ export class Session {
         return this.daemonSession.handleConfigReloadRequest(msg);
       case "diagnostics.request":
         return this.daemonSession.handleDiagnosticsRequest(msg);
-      case "diagnostics.network.list.request":
-        this.daemonSession.handleNetworkActivityListRequest(msg);
+      case "diagnostics.resources.snapshot.request":
+        this.daemonSession.handleResourcesSnapshotRequest(msg);
+        return undefined;
+      case "diagnostics.resources.baseline.update.request":
+        this.daemonSession.handleResourcesBaselineUpdateRequest(msg);
         return undefined;
       case "daemon.update.request":
         return this.daemonSession.handleUpdateRequest(msg);

@@ -1,4 +1,5 @@
 import pino from "pino";
+import { startChildNetworkReporter } from "../../../network/activity.js";
 
 import type { StreamingTranscriptionSession } from "../../speech-provider.js";
 import type { TurnDetectionSession } from "../../turn-detection-provider.js";
@@ -20,6 +21,8 @@ import type {
 import { bufferToWorkerBytes, workerBytesToBuffer } from "./worker-bytes.js";
 
 process.title = "Pimi Voice";
+// The worker downloads models and may open its own connections; report them to the daemon.
+startChildNetworkReporter((batch) => process.send?.(batch));
 
 type LocalSttEngine = SherpaOfflineRecognizerEngine;
 

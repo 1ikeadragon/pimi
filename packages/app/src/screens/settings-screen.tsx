@@ -109,7 +109,7 @@ import { PluginSettingsContent } from "@/plugins/settings";
 import { usePluginDisplayName } from "@/plugins/plugin-list";
 import { HostPluginsPage } from "@/screens/settings/plugins-page";
 import { MetadataGenerationPage } from "@/screens/settings/metadata-generation-page";
-import { NetworkSection } from "@/screens/settings/network/network-section";
+import { ResourcesSection } from "@/screens/settings/resources/resources-section";
 import { HostVoicePage } from "@/screens/settings/voice/voice-page";
 import ProjectsScreen from "@/screens/projects-screen";
 import ProjectSettingsScreen from "@/screens/project-settings-screen";
@@ -158,7 +158,7 @@ const SECTION_ICONS: Record<SettingsSectionSlug, SettingsIcon> = {
   editor: Code2,
   shortcuts: Keyboard,
   desktop: Monitor,
-  network: Activity,
+  resources: Activity,
   about: Info,
 };
 
@@ -1284,8 +1284,8 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
       if (!item || !isAppSettingsPageAvailable(item, { isDesktopApp, hardwareKeyboardPresent }))
         return null;
       switch (view.section) {
-        case "network":
-          return <NetworkSection serverId={activeHostServerId} />;
+        case "resources":
+          return <ResourcesSection serverId={activeHostServerId} />;
         case "about":
           return (
             <AboutSection

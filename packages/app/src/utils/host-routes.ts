@@ -513,7 +513,7 @@ export const SETTINGS_SECTION_SLUGS = [
   "editor",
   "shortcuts",
   "desktop",
-  "network",
+  "resources",
   "about",
 ] as const;
 

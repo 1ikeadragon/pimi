@@ -117,9 +117,19 @@ function launchDestination(
  * traffic is not visible, only that it ran and, where its arguments or environment name one,
  * the destination it is expected to use.
  */
+export interface SpawnedProgram {
+  pid: number;
+  program: string;
+  purpose: string;
+  agentId: string | null;
+  /** A hostname the launch's own arguments or environment point at, such as a provider base URL. */
+  expectedHost?: string;
+}
+
 export function createProcessLaunchObserver(
   recorder: NetworkActivityRecorder,
   source: string,
+  onSpawn?: (spawned: SpawnedProgram) => void,
 ): ProcessLaunchObserver {
   return (launch) => {
     const program = commandBasename(launch.command);
@@ -136,12 +146,31 @@ export function createProcessLaunchObserver(
       purpose,
       destination: launchDestination(program, purpose, launch.args, launch.env),
     });
-    return (outcome) => {
-      recorder.finish(record, {
-        status: outcome.exitCode ?? null,
-        errorCode:
-          outcome.errorCode ?? (outcome.exitCode == null ? (outcome.signal ?? null) : null),
-      });
+    if (launch.agentId) record.agentId = launch.agentId;
+    record.program = program;
+    return {
+      spawned: (pid) => {
+        record.pid = pid;
+        const destination = record.destination;
+        onSpawn?.({
+          pid,
+          program,
+          purpose,
+          agentId: launch.agentId,
+          ...(destination &&
+          purpose === NETWORK_PURPOSE.agentProvider &&
+          /^[a-z0-9.-]+$/i.test(destination)
+            ? { expectedHost: destination }
+            : {}),
+        });
+      },
+      exited: (outcome) => {
+        recorder.finish(record, {
+          status: outcome.exitCode ?? null,
+          errorCode:
+            outcome.errorCode ?? (outcome.exitCode == null ? (outcome.signal ?? null) : null),
+        });
+      },
     };
   };
 }

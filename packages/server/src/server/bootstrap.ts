@@ -276,7 +276,11 @@ import {
   writeLocalCredential,
 } from "./local-credential.js";
 import { createLocalNetworkPairing } from "./local-network-pairing.js";
-import { getDaemonNetworkActivity, startDaemonNetworkLog } from "./network/activity.js";
+import {
+  getDaemonNetworkActivity,
+  startDaemonNetworkLog,
+  startDaemonResources,
+} from "./network/activity.js";
 import { createInboundHttpActivityMiddleware } from "./network/inbound.js";
 import { PIMI_LOCAL_PAIRING_ROUTE, PimiLocalPairingRequest } from "@pimi/protocol/connection-offer";
 import { WorkspaceAutoName } from "./workspace-auto-name.js";
@@ -730,6 +734,10 @@ export async function createPimiDaemon(
     onError: (error, message) => logger.warn({ err: error }, message),
   });
   daemonConfigStore.onFieldChange("log.network", () => void networkLog.sweep());
+  const resourceMonitor = startDaemonResources({
+    home: config.pimiHome,
+    onError: (error, message) => logger.warn({ err: error }, message),
+  });
   const orchestrationSkills = createOrchestrationSkills(daemonConfigStore);
   void orchestrationSkills.autoUpdate().catch((error) => {
     logger.error({ err: error }, "Failed to maintain orchestration skills at startup");
@@ -2334,6 +2342,7 @@ export async function createPimiDaemon(
       await wsServer.close();
     }
     await serviceProxy.stopStandalone();
+    await resourceMonitor.stop();
     await networkLog.close();
     pimiDatabase.close();
     timelineDatabase.close();

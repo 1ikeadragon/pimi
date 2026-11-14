@@ -124,6 +124,11 @@ function recordLine(
     known: record.known,
     local: record.local,
     ...(record.destination ? { destination: record.destination } : {}),
+    ...(record.pid !== undefined ? { pid: record.pid } : {}),
+    ...(record.program ? { program: record.program } : {}),
+    ...(record.root ? { root: record.root } : {}),
+    ...(record.agentId ? { agentId: record.agentId } : {}),
+    ...(record.address ? { address: record.address } : {}),
     ...(record.counters ? { counters: record.counters } : {}),
     ...(repeat && repeat.count > 1
       ? {
