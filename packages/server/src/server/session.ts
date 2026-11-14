@@ -334,7 +334,7 @@ import {
 } from "./project-directory-service.js";
 import { runGitCommand } from "../utils/run-git-command.js";
 import { CreateAgentLifecycleDispatch } from "./agent/create-agent-lifecycle-dispatch.js";
-import { resolveWorktreeSourceCwd } from "./workspace-source.js";
+import { resolveWorkspaceSourceCwd } from "./workspace-source.js";
 
 type ProviderSubagentManagerEvent = Extract<
   AgentManagerEvent,
@@ -4355,10 +4355,12 @@ export class Session {
             ? async (id, workspace, onReady) => {
                 if (!workspace?.workspaceDirectory)
                   throw new Error("Created workspace has no directory");
-                const sourceCwd =
+                const sourceCwd = await resolveWorkspaceSourceCwd(
                   request.source.kind === "directory"
-                    ? request.source.path
-                    : await resolveWorktreeSourceCwd(request.source, this.projectRegistry);
+                    ? { cwd: request.source.path, projectId: request.source.projectId }
+                    : request.source,
+                  this.projectRegistry,
+                );
                 const relativeCwd = relative(resolve(sourceCwd), resolve(agentInput.config.cwd));
                 if (
                   relativeCwd === ".." ||
@@ -6883,7 +6885,10 @@ export class Session {
       throw new Error("Unexpected workspace source");
     }
 
-    const cwd = expandTilde(request.source.path);
+    const cwd = await resolveWorkspaceSourceCwd(
+      { cwd: request.source.path, projectId: request.source.projectId },
+      this.projectRegistry,
+    );
     const directoryExists = await this.filesystem.isDirectory(cwd).catch(() => false);
     if (!directoryExists) {
       throw new SessionRequestError("directory_not_found", `Directory not found: ${cwd}`);
@@ -6947,7 +6952,7 @@ export class Session {
       );
     }
 
-    const sourceCwd = await resolveWorktreeSourceCwd(source, this.projectRegistry);
+    const sourceCwd = await resolveWorkspaceSourceCwd(source, this.projectRegistry);
 
     const result = await this.createPimiWorktreeWorkflow(
       {

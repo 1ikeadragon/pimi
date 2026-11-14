@@ -22,7 +22,10 @@ export function createChatCommand(): Command {
       .command("create")
       .description("Create a chat")
       .requiredOption("--isolation <local|worktree>", "Chat isolation")
-      .option("--path <path>", "Local directory or source checkout (default: current)")
+      .option(
+        "--path <path>",
+        "Local directory or source checkout (default: the project's folder, or current)",
+      )
       .option("--project <id>", "Existing project id")
       .option("--title <title>", "Chat title")
       .option(

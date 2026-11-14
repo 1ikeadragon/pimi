@@ -32,7 +32,7 @@ function assertOptionsAbsent(values: unknown[], message: string): void {
   }
 }
 
-function buildLocalChatSource(options: ChatCreateOptions, path: string) {
+function buildLocalChatSource(options: ChatCreateOptions, path: string | undefined) {
   assertOptionsAbsent(
     [
       options.mode,
@@ -47,7 +47,7 @@ function buildLocalChatSource(options: ChatCreateOptions, path: string) {
   );
   return {
     kind: "directory" as const,
-    path,
+    ...(path ? { path } : {}),
     ...(options.project ? { projectId: options.project } : {}),
   };
 }
@@ -120,7 +120,10 @@ function buildWorktreeChatSource(options: ChatCreateOptions, path: string | unde
 
 export function buildChatSource(options: ChatCreateOptions) {
   if (options.isolation === "local") {
-    return buildLocalChatSource(options, options.path ?? process.cwd());
+    return buildLocalChatSource(
+      options,
+      options.path ?? (options.project ? undefined : process.cwd()),
+    );
   }
   if (options.isolation === "worktree") {
     const sourcePath = options.path ?? (options.project ? undefined : process.cwd());

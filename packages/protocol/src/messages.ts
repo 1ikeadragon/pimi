@@ -3278,8 +3278,8 @@ export const WorkspaceCreateRequestSchema = z.object({
   source: z.discriminatedUnion("kind", [
     z.object({
       kind: z.literal("directory"),
-      // Path of the existing checkout/directory to back the workspace.
-      path: z.string(),
+      // Existing checkout/directory to back the workspace; defaults to the project's folder.
+      path: z.string().optional(),
       projectId: z.string().optional(),
     }),
     z.object({

@@ -129,7 +129,7 @@ import type {
   WorkspaceRegistry,
 } from "../../workspace-registry.js";
 import { resolveProjectDisplayName } from "../../workspace-registry.js";
-import { resolveWorktreeSourceCwd } from "../../workspace-source.js";
+import { resolveWorkspaceSourceCwd } from "../../workspace-source.js";
 import { resolveProjectReference } from "../../resolve-project-reference.js";
 import type { WorkspaceScriptsService } from "../../session/workspace-scripts/workspace-scripts-service.js";
 import {
@@ -1635,7 +1635,7 @@ function createToolCatalog(
       if (!options.projectRegistry) {
         throw new Error("Project registry is not configured");
       }
-      cwd = await resolveWorktreeSourceCwd({ projectId }, options.projectRegistry);
+      cwd = await resolveWorkspaceSourceCwd({ projectId }, options.projectRegistry);
     }
     const worktreeTarget = resolveWorkspaceWorktreeTarget({
       mode: args.mode,
