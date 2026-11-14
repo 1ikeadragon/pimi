@@ -115,6 +115,12 @@ export class UsageSourceRegistry {
     );
   }
 
+  /** The account labels each source can identify for a launch environment; fetches no usage. */
+  async accountLabels(scope: Extract<UsageScope, { kind: "session" }>): Promise<string[]> {
+    const accounts = await this.discover(scope);
+    return [...accounts.values()].flatMap((report) => (report.label ? [report.label] : []));
+  }
+
   private pruneAgents(): void {
     for (const id of this.byAgent.keys()) {
       if (!this.agents.hasAgent(id)) this.byAgent.delete(id);

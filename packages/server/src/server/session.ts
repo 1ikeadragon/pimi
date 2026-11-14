@@ -564,6 +564,9 @@ export interface SessionOptions {
       forceRefresh?: boolean;
       reportIds?: string[];
     }): Promise<UsageReportEntry[]>;
+    listProviderAccountLabels(
+      scope: Extract<import("@pimi/plugin/server/usage").UsageScope, { kind: "session" }>,
+    ): Promise<string[]>;
   };
   orchestrationSkills?: import("./orchestration-skills/index.js").OrchestrationSkills;
   mcpBaseUrl?: string | null;
@@ -1041,6 +1044,7 @@ export class Session {
       isEnabled: () => daemonConfigStore.get().usage?.enabled === true,
       emit: (msg) => this.emit(msg),
       runtime: pluginRuntime,
+      providerAccountScopes: () => providerSnapshotManager.listProviderAccountScopes(),
       ledger: usageLedger,
       logger: this.sessionLogger,
     });
@@ -3195,6 +3199,10 @@ export class Session {
         return this.providerCatalogSession.handleProviderDiagnosticRequest(msg);
       case "usage.list_reports.request":
         return this.usageSession.handleListReports(msg);
+      case "provider.config_dirs.detect.request":
+        return this.usageSession.handleDetectConfigDirs(msg);
+      case "usage.provider_accounts.list.request":
+        return this.usageSession.handleListProviderAccounts(msg);
       case "usage.get_summary.request":
         return this.usageSession.handleGetSummary(msg);
       case "usage.get_breakdown.request":
@@ -8397,13 +8405,21 @@ export class Session {
   ): Promise<void> {
     let error: string | null = null;
     try {
-      const prompt = this.agentManager.buildProviderSubagentMessagePrompt(
+      const route = this.agentManager.routeProviderSubagentMessage(
         msg.parentAgentId,
         msg.subagentId,
         msg.text,
       );
-      const result = await this.handleSendAgentMessage(msg.parentAgentId, prompt, msg.messageId);
-      if (!result.ok) error = result.error;
+      if (route.via === "direct") {
+        await route.send();
+      } else {
+        const result = await this.handleSendAgentMessage(
+          msg.parentAgentId,
+          route.prompt,
+          msg.messageId,
+        );
+        if (!result.ok) error = result.error;
+      }
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     }

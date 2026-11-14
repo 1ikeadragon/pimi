@@ -421,6 +421,19 @@ export class OpenCodeV2Session implements AgentSession {
   steerActiveTurn(prompt: AgentPromptInput, options: SteerActiveTurnOptions): Promise<SteerResult> {
     return this.turns.steerActiveTurn(prompt, options);
   }
+  /** A child session is an ordinary OpenCode session; a running one takes the text as a steer. */
+  async sendProviderSubagentMessage(subagentId: string, text: string) {
+    if (!this.children.has(subagentId)) throw new Error("This subagent can no longer be messaged");
+    await this.reconnectIfExited();
+    const active = await this.client.session.active();
+    await this.client.session.prompt({
+      sessionID: subagentId,
+      text,
+      files: [],
+      ...(active[subagentId] ? { delivery: "steer" as const } : {}),
+    });
+    await this.children.reconcile(this.id);
+  }
   stopBackgroundWork(id: string) {
     return this.background.stopItem(id);
   }
