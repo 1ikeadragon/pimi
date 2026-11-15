@@ -1,6 +1,6 @@
 {
   "name": "@pimi/relay",
-  "version": "0.17.52",
+  "version": "0.17.53",
   "private": true,
   "description": "Pimi relay for bridging daemon and client connections",
   "license": "PolyForm-Noncommercial-1.0.0",
