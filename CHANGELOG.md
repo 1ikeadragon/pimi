@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.60 - 2026-11-15
+
+- Sidebar: each chat has its own Lineage line that folds only its subagents; other chats always stay visible. The section is called Projects.
+
 ## 0.17.59 - 2026-11-15
 
 - Sidebar: a chat's subagents stay listed under it after they finish, marked Done. Hide nested folds them.
