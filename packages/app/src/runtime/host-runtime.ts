@@ -795,12 +795,32 @@ export class HostRuntimeController {
 
   async updateHost(host: HostProfile): Promise<void> {
     const passwordChanged = this.host.password !== host.password;
-    if (passwordChanged) {
+    const previousConnections = new Map(
+      this.host.connections.map((connection) => [connection.id, connection]),
+    );
+    const nextConnections = new Map(
+      host.connections.map((connection) => [connection.id, connection]),
+    );
+    const changedConnectionIds = new Set(
+      [...new Set([...previousConnections.keys(), ...nextConnections.keys()])].filter(
+        (id) => !equal(previousConnections.get(id), nextConnections.get(id)),
+      ),
+    );
+    const connectionSettingsChanged = passwordChanged || changedConnectionIds.size > 0;
+    const activeConnectionId = this.snapshot.activeConnectionId;
+    if (connectionSettingsChanged) {
+      // Pairing reset keeps the connection id but rotates its pinned daemon key.
+      // Probe and authentication verdicts belong to the old connection definition.
       this.probeRequestVersion += 1;
-      this.authRejectedConnectionIds.clear();
+      if (!activeConnectionId) this.switchRequestVersion += 1;
+      if (passwordChanged) this.authRejectedConnectionIds.clear();
+      for (const id of changedConnectionIds) {
+        this.authRejectedConnectionIds.delete(id);
+        this.connectionLastProbedAt.delete(id);
+        this.connectionFirstSeenAt.delete(id);
+      }
       this.updateSnapshot({ authFailureReason: null });
     }
-    const activeConnectionId = this.snapshot.activeConnectionId;
     const previousActiveConnection = findConnectionById(this.host, activeConnectionId);
     this.host = host;
     this.trackConnectionFirstSeen();
@@ -815,7 +835,7 @@ export class HostRuntimeController {
       await this.switchToConnection({ connectionId: activeConnectionId });
     }
     if (passwordChanged) this.connectionLastProbedAt.clear();
-    if (passwordChanged) await this.probeCycleInFlight;
+    if (connectionSettingsChanged) await this.probeCycleInFlight;
     await this.runProbeCycleNow();
   }
 
@@ -1665,7 +1685,7 @@ export class HostRuntimeStore {
   private hostListVersion = 0;
   private hostRegistryLoaded = false;
   private hosts: HostProfile[] = [];
-  private hostAppearanceMutationTail: Promise<void> = Promise.resolve();
+  private hostRegistryMutationTail: Promise<void> = Promise.resolve();
   private hostRegistryStatus: HostRegistryStatus = "loading";
   private deps: HostRuntimeControllerDeps;
   private lastConnectionStatusByServer = new Map<string, HostRuntimeConnectionStatus>();
@@ -2138,14 +2158,8 @@ export class HostRuntimeStore {
 
   async importConnectionLink(
     url: string,
-    target: PairingNavigationTarget,
+    _target: PairingNavigationTarget,
   ): Promise<ConnectionLinkImport> {
-    if (target === "openProject") {
-      const { offer, password } = parseOfferConnectionUrl(url);
-      if (!(await this.confirmLink(offer))) return { status: "cancelled" };
-      const profile = await this.upsertConnectionFromOffer(offer, undefined, password);
-      return { status: "connected", serverId: profile.serverId };
-    }
     const pairing = this.beginLinkPairing();
     try {
       const result = await pairing.submit(url);
@@ -2161,6 +2175,7 @@ export class HostRuntimeStore {
     offer: ConnectionOffer,
     label?: string,
     password?: string,
+    existingClient?: DaemonClient,
   ): Promise<HostProfile> {
     const connection = relayConnectionFromOffer(offer);
     if (!connection.daemonPublicKeyB64) {
@@ -2169,12 +2184,10 @@ export class HostRuntimeStore {
     const profile = await this.upsertHostConnection({
       serverId: offer.serverId,
       label,
+      password,
       connection,
+      existingClient,
     });
-    if (password) {
-      await this.setHostPassword(profile.serverId, password);
-      return this.hosts.find((host) => host.serverId === profile.serverId) ?? profile;
-    }
     return profile;
   }
 
@@ -2195,8 +2208,12 @@ export class HostRuntimeStore {
       updatedAt: new Date(0).toISOString(),
     };
     const { client, hostname } = await this.deps.connectToDaemon({ host: probeHost, connection });
-    await client.close().catch(() => undefined);
-    const profile = await this.upsertConnectionFromOffer(offer, hostname ?? undefined, password);
+    const profile = await this.upsertConnectionFromOffer(
+      offer,
+      hostname ?? undefined,
+      password,
+      client,
+    );
     return { profile, serverId: offer.serverId, hostname };
   }
 
@@ -2269,10 +2286,10 @@ export class HostRuntimeStore {
     serverId: string,
     apply: (host: HostProfile) => HostProfile,
   ): Promise<void> {
-    const update = this.hostAppearanceMutationTail.then(() =>
+    const update = this.hostRegistryMutationTail.then(() =>
       this.applyHostAppearance(serverId, apply),
     );
-    this.hostAppearanceMutationTail = update.catch(() => undefined);
+    this.hostRegistryMutationTail = update.catch(() => undefined);
     return update;
   }
 
@@ -2342,36 +2359,46 @@ export class HostRuntimeStore {
     connection: HostConnection;
     existingClient?: DaemonClient;
   }): Promise<HostProfile> {
-    const now = new Date().toISOString();
-    const next = upsertHostConnectionInProfiles({
-      profiles: this.hosts,
-      serverId: input.serverId,
-      label: input.label,
-      connection: input.connection,
-      password: input.password,
-      now,
+    const update = this.hostRegistryMutationTail.then(async () => {
+      const now = new Date().toISOString();
+      const nextProfiles = upsertHostConnectionInProfiles({
+        profiles: this.hosts,
+        serverId: input.serverId,
+        label: input.label,
+        connection: input.connection,
+        password: input.password,
+        now,
+      });
+      const profile = nextProfiles.find((daemon) => daemon.serverId === input.serverId);
+      if (!profile) {
+        throw new Error(`Host ${input.serverId} was not inserted`);
+      }
+      await this.persistHosts(nextProfiles);
+      this.setHostsAndSync(nextProfiles, {
+        initialConnectionByServerId: input.existingClient
+          ? new Map([
+              [
+                input.serverId,
+                {
+                  connectionId: input.connection.id,
+                  existingClient: input.existingClient,
+                },
+              ],
+            ])
+          : undefined,
+      });
+      return profile;
     });
-    this.setHostsAndSync(next, {
-      initialConnectionByServerId: input.existingClient
-        ? new Map([
-            [
-              input.serverId,
-              {
-                connectionId: input.connection.id,
-                existingClient: input.existingClient,
-              },
-            ],
-          ])
-        : undefined,
+    // A failed save must not leave an unowned, verified probe socket open.
+    const saved = update.catch(async (error) => {
+      await input.existingClient?.close().catch(() => undefined);
+      throw error;
     });
-    void this.persistHosts().catch((error) =>
-      console.error("[HostRuntime] Failed to persist host registry", error),
+    this.hostRegistryMutationTail = saved.then(
+      () => undefined,
+      () => undefined,
     );
-    const profile = next.find((daemon) => daemon.serverId === input.serverId);
-    if (!profile) {
-      throw new Error(`Host ${input.serverId} was not inserted`);
-    }
-    return profile;
+    return saved;
   }
 
   private setHostsAndSync(
