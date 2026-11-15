@@ -238,7 +238,6 @@ interface ResolveRelayInput {
 interface ResolvedRelay {
   enabled: boolean;
   enabledMutable: boolean;
-  requireProtectedSecurity: boolean;
   endpoint: string | undefined;
   publicEndpoint: string | undefined;
   useTls: boolean;
@@ -334,7 +333,6 @@ function resolveRelayConfig(input: ResolveRelayInput): ResolvedRelay {
   return {
     enabled,
     enabledMutable: input.cliRelayEnabled === undefined && environmentEnabled === undefined,
-    requireProtectedSecurity: input.persisted.daemon?.relay?.requireProtectedSecurity ?? true,
     endpoint,
     publicEndpoint,
     useTls,
@@ -592,7 +590,6 @@ export type ResolvedDaemonSettings = Pick<
   | "pluginsEnabled"
   | "plugins"
   | "relayEnabled"
-  | "relayRequireProtectedSecurity"
   | "appBaseUrl"
   | "idleRuntimeCleanup"
   | "resumeOnStartup"
@@ -676,7 +673,6 @@ export function resolveReloadableConfig(
     pluginsEnabled: persisted.pluginsEnabled ?? false,
     plugins: persisted.plugins,
     relayEnabled: relay.enabled,
-    relayRequireProtectedSecurity: relay.requireProtectedSecurity,
     idleRuntimeCleanup: persisted.agents?.idleRuntimeCleanup ?? true,
     ...resolveRestartRecoveryConfig(persisted.agents),
     providerCatalogRefreshTimeoutMs: persisted.agents?.catalogRefreshTimeoutMs,

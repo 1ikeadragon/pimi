@@ -13,6 +13,8 @@ export interface RelayTransportOptions {
   relayEndpoint: string; // "host:port"
   relayUseTls: boolean;
   serverId: string;
+  /** Sent as a bearer token on every role=server socket so the relay knows the real daemon. */
+  serverToken: string;
   createWebSocket?: RelayWebSocketFactory;
 }
 
@@ -39,7 +41,11 @@ interface RelayWebSocketLike extends RelaySocketLike {
 }
 
 /** "control" is the daemon's standing registration; "data" carries one client's session. */
-type RelayWebSocketFactory = (url: string, channel: "control" | "data") => RelayWebSocketLike;
+type RelayWebSocketFactory = (
+  url: string,
+  channel: "control" | "data",
+  headers: Record<string, string>,
+) => RelayWebSocketLike;
 
 type ControlMessage =
   | { type: "sync"; connectionIds: string[] }
@@ -59,10 +65,15 @@ const RELAY_WEBSOCKET_OPTIONS = {
   autoSelectFamilyAttemptTimeout: 5_000,
 } as const;
 
-function createDefaultRelayWebSocket(url: string, channel: "control" | "data"): RelayWebSocketLike {
+function createDefaultRelayWebSocket(
+  url: string,
+  channel: "control" | "data",
+  headers: Record<string, string>,
+): RelayWebSocketLike {
   return withNetworkInitiator(
     channel === "data" ? NETWORK_PURPOSE.relayData : NETWORK_PURPOSE.relay,
-    () => new WebSocket(url, { ...RELAY_WEBSOCKET_OPTIONS, agent: webSocketProxyAgent(url) }),
+    () =>
+      new WebSocket(url, { ...RELAY_WEBSOCKET_OPTIONS, headers, agent: webSocketProxyAgent(url) }),
   );
 }
 
@@ -116,8 +127,10 @@ export function startRelayTransport({
   relayEndpoint,
   relayUseTls,
   serverId,
+  serverToken,
   createWebSocket = createDefaultRelayWebSocket,
 }: RelayTransportOptions): RelayTransportController {
+  const authHeaders = { Authorization: `Bearer ${serverToken}` };
   const relayLogger = logger.child({ module: "relay-transport" });
 
   let stopped = false;
@@ -152,9 +165,12 @@ export function startRelayTransport({
       }
       controlWs = null;
     }
+    // Terminate, not close: a peer that withholds the close handshake must not keep an
+    // attached session alive after relay access is turned off. terminate() emits "close"
+    // at once, which detaches the session.
     for (const ws of dataSockets.values()) {
       try {
-        ws.close();
+        ws.terminate();
       } catch {
         // ignore
       }
@@ -172,7 +188,7 @@ export function startRelayTransport({
       serverId,
       role: "server",
     });
-    const socket = createWebSocket(url, "control");
+    const socket = createWebSocket(url, "control", authHeaders);
     controlWs = socket;
     let controlConnected = false;
 
@@ -357,7 +373,7 @@ export function startRelayTransport({
       role: "server",
       connectionId,
     });
-    const socket = createWebSocket(url, "data");
+    const socket = createWebSocket(url, "data", authHeaders);
     dataSockets.set(connectionId, socket);
 
     let attached = false;
@@ -374,6 +390,10 @@ export function startRelayTransport({
 
     socket.on("open", () => {
       clearTimeout(openTimeout);
+      if (stopped) {
+        socket.terminate();
+        return;
+      }
       relayLogger.info({ connectionId }, "relay_data_connected");
       if (attached) return;
       attached = true;

@@ -3,40 +3,20 @@
  * Endpoint security for relay-carried daemon sessions.
  *
  * This is the one entrypoint both endpoints use to secure a transport. It owns
- * the handshake, record protection, counters, retries, termination, and the
- * negotiated security mode. Relay adapters own routing and physical I/O;
- * daemon admission owns credentials and authorization.
+ * the handshake, record protection, counters, retries and termination. Relay
+ * adapters own routing and physical I/O; daemon admission owns credentials and
+ * authorization.
  *
- * Two modes exist during migration:
- *
- * - "protected": conforming Noise_NK_25519_ChaChaPoly_SHA256 bound to the
- *   daemon's static key, with authenticated record framing. Handshake
- *   messages travel byte-exact (base64) inside the existing `e2ee_hello` /
- *   `e2ee_ready` JSON envelopes under `protected`.
- * - "legacy": the pre-existing ephemeral-static box construction in
- *   `encrypted-channel.ts`. It has no replay protection. Chosen only when the
- *   peer omits `protected` (an older peer) and policy allows it.
- *
- * A present but invalid `protected` field never falls back to legacy.
+ * The channel is Noise_NK_25519_ChaChaPoly_SHA256 bound to the daemon's static
+ * key, with authenticated record framing (protected-records.ts). Handshake
+ * messages travel byte-exact (base64) inside `e2ee_hello` / `e2ee_ready` JSON
+ * envelopes under `protected`. A hello or ready without a valid `protected`
+ * field fails the handshake; there is no other mode.
  *
  * See docs/relay-endpoint-security.md for the byte-level mapping.
  */
 
-import {
-  EncryptedChannel,
-  base64EncryptedWireByteLength,
-  maxBase64EncryptedPlaintextByteLength,
-  type EncryptedChannelEvents,
-  type Transport,
-  type TransportMessage,
-} from "./encrypted-channel.js";
-import {
-  deriveSharedKey,
-  exportPublicKey,
-  generateKeyPair,
-  importPublicKey,
-  type KeyPair,
-} from "./crypto.js";
+import { importPublicKey, type KeyPair } from "./crypto.js";
 import { arrayBufferToBase64, base64ToArrayBuffer } from "./base64.js";
 import {
   createNoiseInitiator,
@@ -51,16 +31,31 @@ import {
   protectedRecordByteLength,
 } from "./protected-records.js";
 
-export type SecurityMode = "legacy" | "protected";
+export interface Transport {
+  send(data: string | ArrayBuffer): void | Promise<void>;
+  close(code?: number, reason?: string): void;
+  onmessage: ((message: TransportMessage) => void) | null;
+  onclose: ((code: number, reason: string) => void) | null;
+  onerror: ((error: Error) => void) | null;
+}
 
-export type SecureChannelEvents = EncryptedChannelEvents;
+export interface TransportMessage {
+  data: string | ArrayBuffer;
+  isBinary: boolean;
+}
+
+export interface SecureChannelEvents {
+  onopen?: () => void;
+  onmessage?: (data: string | ArrayBuffer) => void;
+  onclose?: (code: number, reason: string) => void;
+  onerror?: (error: Error) => void;
+}
 
 export interface SecureChannel {
   send(data: string | ArrayBuffer): Promise<void>;
   close(code?: number, reason?: string): void;
   isOpen(): boolean;
-  securityMode(): SecurityMode;
-  /** Bytes the transport will carry for `data`, including protection overhead. */
+  /** Wire bytes `data` occupies once protected and framed for the transport. */
   outboundWireByteLength(data: string | ArrayBuffer): number;
   onTransitionToOpen(cb: () => void): void;
   onClose(cb: () => void): void;
@@ -68,36 +63,14 @@ export interface SecureChannel {
 
 export interface ClientSecureChannelOptions {
   daemonPublicKeyB64: string;
-  /** Lowest mode this client accepts. "protected" refuses a daemon that only offers legacy. */
-  minimumMode?: SecurityMode;
   events?: SecureChannelEvents;
 }
 
 export interface DaemonSecureChannelOptions {
   daemonKeyPair: KeyPair;
-  /**
-   * Lowest mode this daemon admits. "protected" refuses a client that only
-   * offers legacy. A function is evaluated when the hello arrives so a policy
-   * change applies to every admission from that moment on.
-   */
-  minimumMode?: SecurityMode | (() => SecurityMode);
   events?: SecureChannelEvents;
 }
 
-/** Thrown by {@link openDaemonSecureChannel} when the handshake is refused; carries the close to send. */
-export class SecureChannelRejectedError extends Error {
-  constructor(
-    message: string,
-    readonly closeCode: number,
-    readonly closeReason: string,
-  ) {
-    super(message);
-    this.name = "SecureChannelRejectedError";
-  }
-}
-
-export const PROTECTED_MODE_REQUIRED_CLOSE_CODE = 1008;
-export const PROTECTED_MODE_REQUIRED_CLOSE_REASON = "protected endpoint security required";
 /** Client-side close when a protected handshake fails. Browser-safe (4000-4999). */
 export const PROTECTED_HANDSHAKE_FAILED_CLOSE_CODE = 4002;
 /**
@@ -126,59 +99,40 @@ interface ProtectedEnvelope {
 
 interface HelloEnvelope {
   type: "e2ee_hello";
-  key: string;
-  capabilities?: { binaryCiphertext?: boolean };
-  protected?: ProtectedEnvelope;
+  protected: ProtectedEnvelope;
 }
 
 interface ReadyEnvelope {
   type: "e2ee_ready";
-  capabilities?: { binaryCiphertext?: boolean };
-  protected?: ProtectedEnvelope;
+  protected: ProtectedEnvelope;
 }
 
 interface NegotiatedParams {
   binaryCiphertext: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Client
-// ---------------------------------------------------------------------------
-
 /**
  * Secures a transport as the initiator. Resolves once the hello has been sent;
  * `events.onopen` fires when the channel is usable. Sends queued before open
  * are flushed in order after the handshake, capped at {@link MAX_PENDING_SENDS}.
+ * The hello is resent every {@link HANDSHAKE_RETRY_MS} until the daemon's
+ * ready arrives; the daemon answers byte-identical retries with its first ready.
  */
 export async function openClientSecureChannel(
   transport: Transport,
   options: ClientSecureChannelOptions,
 ): Promise<SecureChannel> {
   const events = options.events ?? {};
-  const minimumMode = options.minimumMode ?? "legacy";
   const daemonPublicKey = importPublicKey(options.daemonPublicKeyB64);
-
-  // Separate ephemeral keys per protocol: the legacy box key is routing and
-  // compatibility input only; the Noise ephemeral lives inside the handshake.
-  const legacyKeyPair = generateKeyPair();
-  const legacySharedKey = deriveSharedKey(legacyKeyPair.secretKey, daemonPublicKey);
   const noise = createNoiseInitiator({ remoteStatic: daemonPublicKey, prologue: NOISE_PROLOGUE });
   const offered: NegotiatedParams = { binaryCiphertext: true };
   const msg1 = noise.writeMessage(encodeParams(offered));
   const hello: HelloEnvelope = {
     type: "e2ee_hello",
-    key: exportPublicKey(legacyKeyPair.publicKey),
-    capabilities: { binaryCiphertext: true },
     protected: { v: PROTECTED_ENVELOPE_VERSION, message: arrayBufferToBase64(toArrayBuffer(msg1)) },
   };
   const helloText = JSON.stringify(hello);
-
-  const channel = new ClientSecureChannel(transport, events, {
-    minimumMode,
-    noise,
-    offered,
-    legacySharedKey,
-  });
+  const channel = new ClientSecureChannel(transport, events, { noise, offered });
 
   let retry: ReturnType<typeof setInterval> | null = null;
   const emitSendError = (error: unknown) => {
@@ -189,7 +143,6 @@ export async function openClientSecureChannel(
       const result = transport.send(helloText);
       if (result) void result.catch(emitSendError);
     } catch (error) {
-      // Daemon restarts move the socket through CLOSING/CLOSED; report, never throw from timers.
       emitSendError(error);
     }
   };
@@ -201,7 +154,6 @@ export async function openClientSecureChannel(
   };
   channel.onTransitionToOpen(clearRetry);
   channel.onClose(clearRetry);
-
   sendHello();
   retry = setInterval(() => {
     if (channel.isOpen()) {
@@ -211,25 +163,19 @@ export async function openClientSecureChannel(
     sendHello();
   }, HANDSHAKE_RETRY_MS);
   unref(retry);
-
   return channel;
 }
 
 interface ClientHandshakeState {
-  minimumMode: SecurityMode;
   noise: NoiseHandshake;
   offered: NegotiatedParams;
-  legacySharedKey: Uint8Array;
 }
 
-/**
- * Client channel: waits for the daemon's ready, selects the mode, then
- * delegates records to the mode's implementation.
- */
+/** Client channel: waits for the daemon's ready, then delegates records to a ProtectedChannel. */
 class ClientSecureChannel implements SecureChannel {
   private state: "handshaking" | "open" | "closed" = "handshaking";
   private closeNotified = false;
-  private inner: InnerChannel | null = null;
+  private inner: ProtectedChannel | null = null;
   private pendingSends: Array<string | ArrayBuffer> = [];
   private readonly onOpenCallbacks: Array<() => void> = [];
   private readonly onCloseCallbacks: Array<() => void> = [];
@@ -258,17 +204,11 @@ class ClientSecureChannel implements SecureChannel {
       return; // not handshake traffic; ignore while handshaking
     }
     if (!isRecord(parsed) || parsed.type !== "e2ee_ready") return;
-
     try {
-      // A ready the daemon recognizably sent but that fails validation is a
-      // broken or tampered handshake, never unrelated traffic to wait past.
-      if (!isReadyEnvelope(parsed)) throw new NoiseProtocolError("malformed ready envelope");
-      const ready: ReadyEnvelope = parsed;
-      if (ready.protected !== undefined) {
-        this.openProtected(ready.protected);
-      } else {
-        this.openLegacy();
+      if (!isReadyEnvelope(parsed)) {
+        throw new NoiseProtocolError("daemon did not answer with a protected handshake");
       }
+      this.openProtected(parsed.protected);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       this.events.onerror?.(err);
@@ -295,21 +235,10 @@ class ClientSecureChannel implements SecureChannel {
     );
   }
 
-  private openLegacy(): void {
-    const handshake = this.handshake!;
-    if (handshake.minimumMode === "protected") {
-      throw new Error("daemon offered only legacy endpoint security");
-    }
-    const legacy = new EncryptedChannel(this.transport, handshake.legacySharedKey, this.events);
-    legacy.setState("open");
-    this.becomeOpen(new LegacyInner(legacy));
-  }
-
-  private becomeOpen(inner: InnerChannel): void {
+  private becomeOpen(inner: ProtectedChannel): void {
     this.handshake = null;
     this.inner = inner;
     this.state = "open";
-    // The mode implementation now owns the transport callbacks; mirror its close.
     inner.onClose(() => this.notifyClosed());
     this.events.onopen?.();
     for (const cb of this.onOpenCallbacks) cb();
@@ -326,7 +255,6 @@ class ClientSecureChannel implements SecureChannel {
     })();
   }
 
-  /** Transport closed while this wrapper still owned its callbacks (handshaking). */
   private handleTransportClose(code: number, reason: string): void {
     this.events.onclose?.(code, reason);
     this.notifyClosed();
@@ -375,19 +303,11 @@ class ClientSecureChannel implements SecureChannel {
     return this.state === "open" && this.inner?.isOpen() === true;
   }
 
-  securityMode(): SecurityMode {
-    if (!this.inner) throw new Error("security mode is unknown until the channel opens");
-    return this.inner.mode;
-  }
-
   outboundWireByteLength(data: string | ArrayBuffer): number {
     if (this.inner) return this.inner.outboundWireByteLength(data);
-    // Mode unknown while handshaking: report the larger of the two so callers stay within limits.
+    // Before open the binary-ciphertext choice is unknown; assume the larger base64 text frame.
     const plaintextBytes = typeof data === "string" ? utf8ByteLength(data) : data.byteLength;
-    return Math.max(
-      base64EncryptedWireByteLength(plaintextBytes),
-      4 * Math.ceil(protectedRecordByteLength(plaintextBytes) / 3),
-    );
+    return 4 * Math.ceil(protectedRecordByteLength(plaintextBytes) / 3);
   }
 
   onTransitionToOpen(cb: () => void): void {
@@ -399,28 +319,18 @@ class ClientSecureChannel implements SecureChannel {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Daemon
-// ---------------------------------------------------------------------------
-
 /**
  * Secures a transport as the responder. Resolves once the peer's hello has
- * been accepted and the ready sent. Rejects with
- * {@link SecureChannelRejectedError} when policy refuses the peer, and with a
- * plain error for malformed or failed handshakes; the caller closes the socket.
+ * been accepted and the ready sent. Rejects on a malformed or failed
+ * handshake; the caller closes the socket.
  */
 export async function openDaemonSecureChannel(
   transport: Transport,
   options: DaemonSecureChannelOptions,
 ): Promise<SecureChannel> {
   const events = options.events ?? {};
-  const minimumMode = (): SecurityMode =>
-    typeof options.minimumMode === "function"
-      ? options.minimumMode()
-      : (options.minimumMode ?? "legacy");
   return new Promise((resolve, reject) => {
     const buffered: TransportMessage[] = [];
-
     const handleHello = async (message: TransportMessage): Promise<void> => {
       try {
         if (message.isBinary) throw new Error("Invalid hello message (binary frame)");
@@ -431,40 +341,25 @@ export async function openDaemonSecureChannel(
         } catch {
           throw new Error(`Invalid hello message: ${preview(helloText)}`);
         }
-        if (!isHelloEnvelope(parsed))
+        if (!isHelloEnvelope(parsed)) {
           throw new Error(`Invalid hello message: ${preview(helloText)}`);
-
-        // Buffer traffic that arrives while the ready is in flight so an early
-        // record is not mistaken for a second hello.
+        }
+        // Hold traffic that arrives while the ready is being sent.
         Object.assign(transport, { onmessage: (next: TransportMessage) => buffered.push(next) });
-
-        const channel =
-          parsed.protected !== undefined
-            ? await acceptProtectedHello(
-                transport,
-                events,
-                options.daemonKeyPair,
-                parsed,
-                helloText,
-              )
-            : await acceptLegacyHello(
-                transport,
-                events,
-                options.daemonKeyPair,
-                parsed,
-                minimumMode(),
-              );
-
+        const channel = await acceptHello(
+          transport,
+          events,
+          options.daemonKeyPair,
+          parsed,
+          helloText,
+        );
         events.onopen?.();
-        // The channel now owns the transport: buffered records are decoded and a
-        // buffered hello retry gets the same exact-transcript answer as a live one.
         for (const next of buffered) transport.onmessage?.(next);
         resolve(channel);
       } catch (error) {
         reject(error);
       }
     };
-
     Object.assign(transport, {
       onmessage: handleHello,
       onerror: (error: Error) => reject(error),
@@ -474,14 +369,14 @@ export async function openDaemonSecureChannel(
   });
 }
 
-async function acceptProtectedHello(
+async function acceptHello(
   transport: Transport,
   events: SecureChannelEvents,
   daemonKeyPair: KeyPair,
   hello: HelloEnvelope,
   helloText: string,
 ): Promise<SecureChannel> {
-  const envelope = hello.protected!;
+  const envelope = hello.protected;
   if (envelope.v !== PROTECTED_ENVELOPE_VERSION) {
     throw new NoiseProtocolError("unsupported protected envelope version");
   }
@@ -503,62 +398,6 @@ async function acceptProtectedHello(
   });
 }
 
-async function acceptLegacyHello(
-  transport: Transport,
-  events: SecureChannelEvents,
-  daemonKeyPair: KeyPair,
-  hello: HelloEnvelope,
-  minimumMode: SecurityMode,
-): Promise<SecureChannel> {
-  if (minimumMode === "protected") {
-    throw new SecureChannelRejectedError(
-      "client offered only legacy endpoint security",
-      PROTECTED_MODE_REQUIRED_CLOSE_CODE,
-      PROTECTED_MODE_REQUIRED_CLOSE_REASON,
-    );
-  }
-  const clientPublicKey = importPublicKey(hello.key);
-  const sharedKey = deriveSharedKey(daemonKeyPair.secretKey, clientPublicKey);
-  await transport.send(JSON.stringify({ type: "e2ee_ready" } satisfies ReadyEnvelope));
-  const legacy = new EncryptedChannel(transport, sharedKey, events, { daemonKeyPair });
-  legacy.setState("open");
-  return new LegacyInner(legacy);
-}
-
-// ---------------------------------------------------------------------------
-// Mode implementations
-// ---------------------------------------------------------------------------
-
-interface InnerChannel extends SecureChannel {
-  readonly mode: SecurityMode;
-}
-
-class LegacyInner implements InnerChannel {
-  readonly mode = "legacy" as const;
-  constructor(readonly legacy: EncryptedChannel) {}
-  send(data: string | ArrayBuffer): Promise<void> {
-    return this.legacy.send(data);
-  }
-  close(code?: number, reason?: string): void {
-    this.legacy.close(code, reason);
-  }
-  isOpen(): boolean {
-    return this.legacy.isOpen();
-  }
-  securityMode(): SecurityMode {
-    return this.mode;
-  }
-  outboundWireByteLength(data: string | ArrayBuffer): number {
-    return this.legacy.outboundWireByteLength(data);
-  }
-  onTransitionToOpen(cb: () => void): void {
-    this.legacy.onTransitionToOpen(cb);
-  }
-  onClose(cb: () => void): void {
-    this.legacy.onClose(cb);
-  }
-}
-
 interface DaemonRetryTranscript {
   helloText: string;
   readyText: string;
@@ -569,8 +408,7 @@ interface DaemonRetryTranscript {
  * authenticated and framing-checked before delivery; any failure closes the
  * channel and clears the keys.
  */
-class ProtectedChannel implements InnerChannel {
-  readonly mode = "protected" as const;
+class ProtectedChannel implements SecureChannel {
   private state: "open" | "closed" = "open";
   private readonly onCloseCallbacks: Array<() => void> = [];
 
@@ -685,10 +523,6 @@ class ProtectedChannel implements InnerChannel {
     return this.state === "open";
   }
 
-  securityMode(): SecurityMode {
-    return this.mode;
-  }
-
   onTransitionToOpen(cb: () => void): void {
     cb();
   }
@@ -698,18 +532,14 @@ class ProtectedChannel implements InnerChannel {
   }
 }
 
-/**
- * Largest plaintext that fits in `wireBytes` as a base64 text frame in either
- * mode. Callers size payloads before the mode is known, so take the tighter bound.
- */
+/** Largest plaintext that fits in `wireBytes` as a base64 text frame. */
 export function maxSecuredPlaintextByteLength(wireBytes: number): number {
-  const legacy = maxBase64EncryptedPlaintextByteLength(wireBytes);
   const base64Capacity = Math.floor(wireBytes / 4) * 3;
-  let protectedBound = base64Capacity;
-  while (protectedBound > 0 && protectedRecordByteLength(protectedBound) > base64Capacity) {
-    protectedBound = base64Capacity - (protectedRecordByteLength(protectedBound) - protectedBound);
+  let bound = base64Capacity;
+  while (bound > 0 && protectedRecordByteLength(bound) > base64Capacity) {
+    bound = base64Capacity - (protectedRecordByteLength(bound) - bound);
   }
-  return Math.max(0, Math.min(legacy, protectedBound));
+  return Math.max(0, bound);
 }
 
 // ---------------------------------------------------------------------------
@@ -718,14 +548,6 @@ export function maxSecuredPlaintextByteLength(wireBytes: number): number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isCapabilities(value: unknown): value is { binaryCiphertext?: boolean } {
-  return (
-    value === undefined ||
-    (isRecord(value) &&
-      (value.binaryCiphertext === undefined || typeof value.binaryCiphertext === "boolean"))
-  );
 }
 
 function isProtectedEnvelope(value: unknown): value is ProtectedEnvelope {
@@ -738,23 +560,11 @@ function isProtectedEnvelope(value: unknown): value is ProtectedEnvelope {
 }
 
 function isHelloEnvelope(value: unknown): value is HelloEnvelope {
-  return (
-    isRecord(value) &&
-    value.type === "e2ee_hello" &&
-    typeof value.key === "string" &&
-    value.key.trim().length > 0 &&
-    isCapabilities(value.capabilities) &&
-    (value.protected === undefined || isProtectedEnvelope(value.protected))
-  );
+  return isRecord(value) && value.type === "e2ee_hello" && isProtectedEnvelope(value.protected);
 }
 
 function isReadyEnvelope(value: unknown): value is ReadyEnvelope {
-  return (
-    isRecord(value) &&
-    value.type === "e2ee_ready" &&
-    isCapabilities(value.capabilities) &&
-    (value.protected === undefined || isProtectedEnvelope(value.protected))
-  );
+  return isRecord(value) && value.type === "e2ee_ready" && isProtectedEnvelope(value.protected);
 }
 
 /** Classifies plaintext handshake traffic seen on an open channel; null for anything else. */

@@ -207,7 +207,6 @@ export async function buildClientConfig(
     e2ee: {
       enabled: true,
       daemonPublicKeyB64: connection.daemonPublicKeyB64,
-      ...(connection.minimumSecurityMode ? { minimumMode: connection.minimumSecurityMode } : {}),
     },
   };
 }

@@ -4,6 +4,8 @@
  * Implements relay wire protocol v2: `GET /ws?serverId=...&role=server|client&v=2[&connectionId=...]`.
  *
  * - role=server, no connectionId: daemon control socket (one per serverId)
+ *   Every role=server socket carries `Authorization: Bearer <daemon token>`; the first token a
+ *   serverId presents is bound to it (server-registry.ts).
  * - role=server, connectionId:    daemon per-connection data socket (one per connectionId)
  * - role=client:                  app socket (many per connectionId; the relay assigns an id if absent)
  *
@@ -18,6 +20,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
+import { createServerRegistry, type ServerRegistry } from "./server-registry.js";
 
 type Role = "server" | "client";
 
@@ -47,6 +50,12 @@ export interface NodeRelayOptions {
   idleTimeoutMs: number;
   /** Honor X-Forwarded-For only when the TCP peer is loopback (the local reverse proxy). */
   trustProxy: boolean;
+  /** Where serverId -> daemon token bindings persist; null keeps them in memory (dev only). */
+  registryFile: string | null;
+  /** Max serverIds the registry binds. */
+  maxRegisteredServers: number;
+  /** Max new serverId bindings per IP per hour. */
+  maxRegistrationsPerIpPerHour: number;
   log: (event: string, fields?: Record<string, string | number | boolean>) => void;
 }
 
@@ -101,8 +110,19 @@ export function resolveNodeRelayOptionsFromEnv(): NodeRelayOptions {
     pingIntervalMs: parseIntEnv("PIMI_RELAY_PING_INTERVAL_MS", 30_000),
     idleTimeoutMs: parseIntEnv("PIMI_RELAY_IDLE_TIMEOUT_MS", 30 * 60_000),
     trustProxy: process.env.PIMI_RELAY_TRUST_PROXY !== "0",
+    registryFile: resolveRegistryFile(),
+    maxRegisteredServers: parseIntEnv("PIMI_RELAY_MAX_REGISTERED_SERVERS", 100_000),
+    maxRegistrationsPerIpPerHour: parseIntEnv("PIMI_RELAY_MAX_REGISTRATIONS_PER_IP_PER_HOUR", 10),
     log: defaultLog,
   };
+}
+
+/** systemd's StateDirectory= sets STATE_DIRECTORY; PIMI_RELAY_REGISTRY_FILE overrides it. */
+function resolveRegistryFile(): string | null {
+  const explicit = process.env.PIMI_RELAY_REGISTRY_FILE?.trim();
+  if (explicit) return explicit;
+  const stateDir = process.env.STATE_DIRECTORY?.split(":")[0]?.trim();
+  return stateDir ? `${stateDir}/servers.json` : null;
 }
 
 function defaultLog(event: string, fields?: Record<string, string | number | boolean>): void {
@@ -133,6 +153,11 @@ export interface NodeRelay {
 
 export function createNodeRelay(options: NodeRelayOptions): NodeRelay {
   const { log } = options;
+  const registry: ServerRegistry = createServerRegistry({
+    filePath: options.registryFile,
+    maxEntries: options.maxRegisteredServers,
+    log,
+  });
   const sessions = new Map<string, Session>();
   const socketsPerIp = new Map<string, number>();
   const upgradeWindows = new Map<string, { windowStart: number; count: number }>();
@@ -188,6 +213,19 @@ export function createNodeRelay(options: NodeRelayOptions): NodeRelay {
     }
     entry.count += 1;
     return entry.count <= options.maxUpgradesPerIpPerMinute;
+  }
+
+  // New serverId bindings per IP per hour; caps registry flooding. A daemon registers once.
+  const registrationWindows = new Map<string, { windowStart: number; count: number }>();
+  function allowRegistration(ip: string): boolean {
+    const now = Date.now();
+    const entry = registrationWindows.get(ip);
+    if (!entry || now - entry.windowStart >= 3_600_000) {
+      registrationWindows.set(ip, { windowStart: now, count: 1 });
+      return true;
+    }
+    entry.count += 1;
+    return entry.count <= options.maxRegistrationsPerIpPerHour;
   }
 
   function validId(value: string): boolean {
@@ -264,6 +302,20 @@ export function createNodeRelay(options: NodeRelayOptions): NodeRelay {
     if ("status" in parsed) {
       rejectUpgrade(socket, parsed.status, parsed.message);
       return;
+    }
+    if (parsed.role === "server") {
+      if (!registry.isRegistered(parsed.serverId) && !allowRegistration(ip)) {
+        log("reject_registration_rate", { ip });
+        rejectUpgrade(socket, 429, "Too many registrations");
+        return;
+      }
+      const auth = registry.authorize(parsed.serverId, req.headers.authorization);
+      if (auth !== "ok") {
+        log("reject_server_auth", { ip, session: tag(parsed.serverId), reason: auth });
+        if (auth === "registry_full") rejectUpgrade(socket, 503, "Relay at capacity");
+        else rejectUpgrade(socket, 401, "Unauthorized");
+        return;
+      }
     }
     const refused = capacityError(ip, parsed);
     if (refused && "status" in refused) {
@@ -494,6 +546,9 @@ export function createNodeRelay(options: NodeRelayOptions): NodeRelay {
     for (const [ip, entry] of upgradeWindows) {
       if (now - entry.windowStart >= 60_000) upgradeWindows.delete(ip);
     }
+    for (const [ip, entry] of registrationWindows) {
+      if (now - entry.windowStart >= 3_600_000) registrationWindows.delete(ip);
+    }
     for (const peer of peers) {
       if (!peer.alive) {
         peer.ws.terminate();
@@ -535,6 +590,7 @@ export function createNodeRelay(options: NodeRelayOptions): NodeRelay {
     },
     close() {
       clearInterval(sweep);
+      registry.flush();
       for (const peer of peers) peer.ws.terminate();
       wss.close();
       return new Promise((resolve) => {

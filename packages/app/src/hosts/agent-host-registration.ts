@@ -70,7 +70,6 @@ export function agentHostTarget(profile: HostProfile): AgentHostTarget | null {
           serverId: profile.serverId,
           daemonPublicKeyB64: relay.daemonPublicKeyB64,
           relay: { endpoint: relay.relayEndpoint, useTls: relay.useTls ?? false },
-          ...(relay.minimumSecurityMode ? { minimumSecurityMode: relay.minimumSecurityMode } : {}),
         },
         ...(profile.password ? { password: profile.password } : {}),
       }),

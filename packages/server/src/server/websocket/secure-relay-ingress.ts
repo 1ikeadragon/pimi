@@ -4,16 +4,14 @@
  *
  * A relay data socket arrives here as plaintext bytes. This module runs the
  * shared secure channel over it and hands the secured socket to session
- * admission, together with the negotiated security mode. Relay routing lives in
+ * admission. Relay routing lives in
  * `relay-transport.ts`; credentials and authorization live in admission.
  */
 import { EventEmitter } from "node:events";
 import type pino from "pino";
 import {
   openDaemonSecureChannel,
-  SecureChannelRejectedError,
   type KeyPair,
-  type SecurityMode,
   type Transport as RelayTransport,
 } from "@pimi/relay/e2ee";
 import { createEncryptedRelaySocket, type EncryptedRelaySocket } from "./encrypted-relay-socket.js";
@@ -31,17 +29,12 @@ export interface RelayIngressSocket {
 
 export interface SecuredRelaySocket {
   socket: EncryptedRelaySocket;
-  securityMode: SecurityMode;
 }
 
 export interface SecureRelayIngressOptions {
-  daemonKeyPair: KeyPair;
+  /** Read per connection so a pairing reset applies to every handshake after it. */
+  daemonKeyPair: () => KeyPair;
   logger: pino.Logger;
-  /**
-   * Current policy, read when the peer's hello arrives so a flag flipped at
-   * runtime applies to every admission from that moment on.
-   */
-  requireProtectedMode: () => boolean;
 }
 
 /**
@@ -74,8 +67,7 @@ export async function admitSecuredRelaySocket(
       pendingMessages.push(data);
     };
     const channel = await openDaemonSecureChannel(relayTransport, {
-      daemonKeyPair: options.daemonKeyPair,
-      minimumMode: () => (options.requireProtectedMode() ? "protected" : "legacy"),
+      daemonKeyPair: options.daemonKeyPair(),
       events: {
         onmessage: emitMessage,
         onclose: (code, reason) => emitter.emit("close", code, reason),
@@ -92,22 +84,13 @@ export async function admitSecuredRelaySocket(
       getTransportBufferedAmount: () => socket.bufferedAmount,
       terminateTransport: () => socket.terminate(),
     });
-    await attach({ socket: encryptedSocket, securityMode: channel.securityMode() });
+    await attach({ socket: encryptedSocket });
     attached = true;
     for (const message of pendingMessages) {
       emitter.emit("message", message);
     }
     pendingMessages.length = 0;
   } catch (error) {
-    if (error instanceof SecureChannelRejectedError) {
-      logger.warn({ reason: error.message }, "relay_e2ee_handshake_rejected");
-      try {
-        socket.close(error.closeCode, error.closeReason);
-      } catch {
-        // ignore
-      }
-      return;
-    }
     logger.warn({ err: error }, "relay_e2ee_handshake_failed");
     try {
       socket.close(1011, "E2EE handshake failed");

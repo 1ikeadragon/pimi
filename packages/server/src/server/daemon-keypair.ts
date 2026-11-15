@@ -28,6 +28,26 @@ export interface DaemonKeyPairBundle {
   publicKeyB64: string;
 }
 
+/**
+ * Replaces the daemon's relay key. Every pairing link and QR code made with the old
+ * key stops working: its Noise handshake can no longer complete.
+ */
+export function rotateDaemonKeyPair(pimiHome: string, logger?: pino.Logger): DaemonKeyPairBundle {
+  const keyPair = generateKeyPair();
+  const publicKeyB64 = exportPublicKey(keyPair.publicKey);
+  const payload: StoredKeyPair = {
+    v: 2,
+    publicKeyB64,
+    secretKeyB64: exportSecretKey(keyPair.secretKey),
+  };
+  writePrivateFileAtomicSync(
+    path.join(pimiHome, KEYPAIR_FILENAME),
+    JSON.stringify(payload, null, 2) + "\n",
+  );
+  logger?.child({ module: "daemon-keypair" }).info("Rotated daemon keypair (pairing reset)");
+  return { keyPair, publicKeyB64 };
+}
+
 export async function loadOrCreateDaemonKeyPair(
   pimiHome: string,
   logger?: pino.Logger,

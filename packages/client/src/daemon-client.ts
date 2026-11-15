@@ -431,9 +431,6 @@ export interface PluginClientBundleStore {
   load(): Promise<PluginClientBundle[]>;
   replace(bundles: PluginClientBundle[]): Promise<void>;
 }
-/** Endpoint security negotiated on a relay connection. See docs/relay-endpoint-security.md. */
-export type RelaySecurityMode = "legacy" | "protected";
-
 export interface DaemonClientConfig {
   /** Deliver compact bodies/hash references to a caller-owned snapshot cache.
    * The default keeps public SDK snapshot entries expanded. */
@@ -456,10 +453,6 @@ export interface DaemonClientConfig {
   e2ee?: {
     enabled?: boolean;
     daemonPublicKeyB64?: string;
-    /** Refuse connections whose negotiated endpoint security is below this mode. */
-    minimumMode?: RelaySecurityMode;
-    /** Called with the negotiated mode after each authenticated relay handshake. */
-    onSecurityMode?: (mode: RelaySecurityMode) => void;
   };
   reconnect?: {
     enabled?: boolean;
@@ -1508,12 +1501,6 @@ export class DaemonClient {
   // that mount together each ask for the same snapshot, config or list; over a tunnel every copy
   // costs a round trip and the response bytes.
   private readonly inflightReads = new Map<string, Promise<unknown>>();
-  /**
-   * Lowest relay endpoint security this client accepts on its next attempt.
-   * Starts at the configured minimum and rises to "protected" once a daemon
-   * negotiates it, so a later reconnect cannot be downgraded to legacy.
-   */
-  private relaySecurityFloorValue: RelaySecurityMode | undefined;
   private readonly logConnectionPath: "direct" | "relay";
   private readonly logServerId: string | null;
   private readonly logClientIdHash: string;
@@ -1528,7 +1515,6 @@ export class DaemonClient {
 
   constructor(private config: DaemonClientConfig) {
     this.logger = config.logger ?? consoleLogger;
-    this.relaySecurityFloorValue = config.e2ee?.minimumMode;
     this.logConnectionPath = isRelayClientWebSocketUrl(this.config.url) ? "relay" : "direct";
     let parsedUrlForLog: URL | null = null;
     try {
@@ -1646,11 +1632,6 @@ export class DaemonClient {
           baseFactory: transportFactory,
           daemonPublicKeyB64,
           logger: this.logger,
-          ...(this.relaySecurityFloorValue ? { minimumMode: this.relaySecurityFloorValue } : {}),
-          onSecurityMode: (mode) => {
-            if (mode === "protected") this.relaySecurityFloorValue = "protected";
-            this.config.e2ee?.onSecurityMode?.(mode);
-          },
         });
       }
       const transportUrl = this.resolveTransportUrlForAttempt();
@@ -2009,11 +1990,6 @@ export class DaemonClient {
 
   get isConnecting(): boolean {
     return this.connectionState.status === "connecting";
-  }
-
-  /** The relay endpoint security this client requires on its next attempt. */
-  get relaySecurityFloor(): RelaySecurityMode | undefined {
-    return this.relaySecurityFloorValue;
   }
 
   get lastError(): string | null {
@@ -5941,6 +5917,15 @@ export class DaemonClient {
         type: "daemon.get_pairing_offer.request",
       },
       responseType: "daemon.get_pairing_offer.response",
+      timeout: options?.timeout,
+    });
+  }
+
+  /** Rotates the host's relay key: every existing pairing link stops working. */
+  async resetDaemonPairing(options?: { timeout?: number }): Promise<void> {
+    await this.sendCorrelatedSessionRequest({
+      message: { type: "daemon.pairing.reset.request" },
+      responseType: "daemon.pairing.reset.response",
       timeout: options?.timeout,
     });
   }

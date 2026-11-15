@@ -34,8 +34,9 @@ export interface DaemonRuntimeConfig {
     publicEndpoint: string;
     useTls: boolean;
     publicUseTls: boolean;
-    requireProtectedSecurity?: boolean;
   } | null;
+  /** New relay key, LAN pairing off, every relay/LAN connection dropped. */
+  resetPairing(): Promise<void>;
 }
 
 export interface DaemonSessionHost {
@@ -184,7 +185,6 @@ export class DaemonSession {
         relayPublicEndpoint: relay?.publicEndpoint,
         relayUseTls: relay?.useTls,
         relayPublicUseTls: relay?.publicUseTls,
-        relayRequireProtectedSecurity: relay?.requireProtectedSecurity ?? false,
         appBaseUrl: this.daemonRuntimeConfig?.appBaseUrl,
         includeQr: true,
         logger: this.logger,
@@ -207,6 +207,30 @@ export class DaemonSession {
           requestId: msg.requestId,
           requestType: "daemon.get_pairing_offer.request",
           error: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  }
+
+  async handlePairingResetRequest(
+    msg: Extract<SessionInboundMessage, { type: "daemon.pairing.reset.request" }>,
+  ): Promise<void> {
+    try {
+      if (!this.daemonRuntimeConfig) throw new Error("Pairing reset is unavailable on this host.");
+      await this.daemonRuntimeConfig.resetPairing();
+      this.host.emit({
+        type: "daemon.pairing.reset.response",
+        payload: { requestId: msg.requestId },
+      });
+    } catch (error) {
+      this.logger.error({ err: error }, "Failed to reset pairing");
+      this.host.emit({
+        type: "rpc_error",
+        payload: {
+          requestId: msg.requestId,
+          requestType: msg.type,
+          error: error instanceof Error ? error.message : String(error),
+          code: "handler_error",
         },
       });
     }

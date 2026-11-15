@@ -232,10 +232,11 @@ import { wrapSessionMessage, type SessionOutboundMessage } from "./messages.js";
 import type { TerminalManager } from "../terminal/terminal-manager.js";
 import { startWorkerTerminalManager } from "../terminal/worker-terminal-manager.js";
 import { applyTerminalAgentHookSetting } from "../terminal/agent-hooks/terminal-agent-hook-setting.js";
-import { loadOrCreateDaemonKeyPair } from "./daemon-keypair.js";
+import { loadOrCreateDaemonKeyPair, rotateDaemonKeyPair } from "./daemon-keypair.js";
 import { createRelayRuntime, type RelayRuntime } from "./relay-runtime.js";
 import { admitSecuredRelaySocket } from "./websocket/secure-relay-ingress.js";
 import { getOrCreateServerId } from "./server-id.js";
+import { loadOrCreateRelayServerToken } from "./relay-server-token.js";
 import { resolveDaemonVersion } from "./daemon-version.js";
 import type { AgentClient, AgentProvider } from "./agent/agent-sdk-types.js";
 import type {
@@ -498,7 +499,6 @@ export interface PimiDaemonConfig {
   agentStoragePath: string;
   relayEnabled?: boolean;
   relayEnabledMutable?: boolean;
-  relayRequireProtectedSecurity?: boolean;
   relayEndpoint?: string;
   relayPublicEndpoint?: string;
   relayUseTls?: boolean;
@@ -593,7 +593,6 @@ function resolveExpressTrustProxySetting(config: PimiDaemonConfig): true | strin
 function createInitialRelayConfig(config: ResolvedDaemonSettings): MutableDaemonConfig["relay"] {
   return {
     enabled: config.relayEnabled ?? false,
-    requireProtectedSecurity: config.relayRequireProtectedSecurity ?? true,
   };
 }
 
@@ -766,7 +765,8 @@ export async function createPimiDaemon(
   });
 
   const serverId = getOrCreateServerId(config.pimiHome, { logger });
-  const daemonKeyPair = await loadOrCreateDaemonKeyPair(config.pimiHome, logger);
+  let daemonKeyPair = await loadOrCreateDaemonKeyPair(config.pimiHome, logger);
+  const relayServerToken = await loadOrCreateRelayServerToken(config.pimiHome);
   const managedProcesses = createBootstrapManagedProcessRegistry(config, logger);
   // Reconcile the helper-process ledger in the background so it never blocks the
   // daemon from coming up; terminating a live leftover can take a few seconds.
@@ -940,8 +940,7 @@ export async function createPimiDaemon(
     };
   const localNetworkPairing = createLocalNetworkPairing({
     serverId,
-    daemonPublicKeyB64: daemonKeyPair.publicKeyB64,
-    daemonKeyPair: daemonKeyPair.keyPair,
+    daemonKeys: () => daemonKeyPair,
     hasPassword: Boolean(daemonAuth.password),
     logger: logger.child({ module: "local-pairing" }),
     attach: (...args) => {
@@ -2265,15 +2264,16 @@ export async function createPimiDaemon(
                 },
                 desktopManaged: config.desktopManaged === true,
                 pushEndpoint: config.pushEndpoint ?? null,
-                getRelayConfig: () => {
-                  const current = relayRuntime?.getConfig() ?? relayConfig;
-                  return (
-                    current && {
-                      ...current,
-                      requireProtectedSecurity:
-                        daemonConfigStore.get().relay?.requireProtectedSecurity === true,
-                    }
-                  );
+                getRelayConfig: () => relayRuntime?.getConfig() ?? relayConfig,
+                resetPairing: async () => {
+                  daemonKeyPair = rotateDaemonKeyPair(config.pimiHome, logger);
+                  // The LAN offer embeds the old key and its access code.
+                  await localNetworkPairing.request({ action: "disable" });
+                  // After the response is queued: the requester may itself be remote.
+                  setTimeout(() => {
+                    const dropped = wsServer?.terminateRemoteSockets() ?? 0;
+                    logger.info({ dropped }, "Pairing reset: dropped remote connections");
+                  }, 250);
                 },
               },
               serviceProxyPublicBaseUrl,
@@ -2301,21 +2301,19 @@ export async function createPimiDaemon(
                   admitSecuredRelaySocket(
                     ws,
                     {
-                      daemonKeyPair: daemonKeyPair.keyPair,
+                      daemonKeyPair: () => daemonKeyPair.keyPair,
                       logger: relaySecurityLogger,
-                      requireProtectedMode: () =>
-                        daemonConfigStore.get().relay?.requireProtectedSecurity === true,
                     },
                     async (secured) => {
                       if (!wsServer) throw new Error("WebSocket server is not ready");
                       await wsServer.attachExternalSocket(secured.socket, {
                         ...metadata,
                         transport: "relay",
-                        securityMode: secured.securityMode,
                       });
                     },
                   ),
                 serverId,
+                serverToken: relayServerToken,
               });
             daemonConfigStore.onFieldChange("relay.enabled", (value) => {
               relayRuntime?.setEnabled(value === true);

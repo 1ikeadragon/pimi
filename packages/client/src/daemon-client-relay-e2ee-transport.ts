@@ -4,7 +4,6 @@ import {
   openClientSecureChannel,
   PROTECTED_HANDSHAKE_FAILED_CLOSE_CODE,
   type SecureChannel,
-  type SecurityMode,
   type Transport as RelayTransport,
 } from "@pimi/relay/e2ee";
 import type {
@@ -27,10 +26,6 @@ export interface RelayE2eeTransportOptions {
   daemonPublicKeyB64: string;
   logger: TransportLogger;
   assertOutboundCapacity?: (wireBytes: number) => void;
-  /** Refuse to open unless the daemon negotiates at least this endpoint security mode. */
-  minimumMode?: SecurityMode;
-  /** Reports the negotiated mode once the daemon has authenticated the handshake. */
-  onSecurityMode?: (mode: SecurityMode) => void;
 }
 
 export function createRelayE2eeTransportFactory(
@@ -39,8 +34,6 @@ export function createRelayE2eeTransportFactory(
   const { baseFactory, ...options } = args;
   return ({ url }) => createEncryptedTransport(baseFactory({ url }), options);
 }
-
-const DOWNGRADE_REJECTED_REASON = "daemon requires protected endpoint security";
 
 /**
  * Returns a user-facing message when this client closed the session itself
@@ -54,7 +47,7 @@ export function describeEndpointSecurityClose(event: unknown): string | null {
   const code = "code" in event ? event.code : undefined;
   const reason = "reason" in event && typeof event.reason === "string" ? event.reason : "";
   if (code === PROTECTED_HANDSHAKE_FAILED_CLOSE_CODE) {
-    return `Endpoint security handshake failed: ${reason || "protected mode unavailable"}`;
+    return `Endpoint security handshake failed: ${reason || "handshake rejected"}`;
   }
   return null;
 }
@@ -73,7 +66,7 @@ export function createEncryptedTransport(
   base: DaemonTransport,
   options: RelayE2eeTransportOptions,
 ): DaemonTransport {
-  const { daemonPublicKeyB64, logger, minimumMode, onSecurityMode } = options;
+  const { daemonPublicKeyB64, logger } = options;
   const assertOutboundCapacity = options.assertOutboundCapacity ?? (() => {});
   let channel: SecureChannel | null = null;
   let opened = false;
@@ -143,19 +136,8 @@ export function createEncryptedTransport(
     try {
       channel = await openClientSecureChannel(relayTransport, {
         daemonPublicKeyB64,
-        ...(minimumMode ? { minimumMode } : {}),
         events: {
-          onopen: () => {
-            // Every daemon negotiates protected security. A legacy session means the
-            // handshake was downgraded in transit: close before credentials are sent.
-            if (channel?.securityMode() !== "protected") {
-              logger.warn({ reason: DOWNGRADE_REJECTED_REASON }, "relay_e2ee_downgrade_rejected");
-              channel?.close(PROTECTED_HANDSHAKE_FAILED_CLOSE_CODE, DOWNGRADE_REJECTED_REASON);
-              return;
-            }
-            onSecurityMode?.("protected");
-            emitOpen();
-          },
+          onopen: () => emitOpen(),
           onmessage: (data) => emitMessage(data),
           onclose: (code, reason) => emitClose({ code, reason }),
           // Every fatal channel error is followed by a close that carries the

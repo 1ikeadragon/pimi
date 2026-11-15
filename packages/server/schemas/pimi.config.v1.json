@@ -124,6 +124,33 @@
         "enableTerminalAgentHooks": {
           "type": "boolean"
         },
+        "limitFallback": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "chain": {
+              "maxItems": 5,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "model": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": ["provider"]
+              }
+            }
+          },
+          "required": ["enabled", "chain"]
+        },
         "appendSystemPrompt": {
           "type": "string"
         },
@@ -153,6 +180,33 @@
             },
             "required": ["id", "name", "command"],
             "additionalProperties": {}
+          }
+        },
+        "editorLanguageServers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "command": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "args": {
+                "maxItems": 32,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 4096
+                }
+              }
+            },
+            "required": ["language", "command", "args"]
           }
         },
         "agentProfiles": {
@@ -191,12 +245,38 @@
                 },
                 "additionalProperties": {}
               },
+              "instructions": {
+                "type": "string"
+              },
               "notes": {
                 "type": "string"
+              },
+              "builtin": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "edited": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["key", "version"]
               }
             },
-            "required": ["id", "name", "provider"],
+            "required": ["id", "name"],
             "additionalProperties": {}
+          }
+        },
+        "agentProfilesRemovedBuiltins": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
         "cors": {
@@ -215,10 +295,6 @@
           "type": "object",
           "properties": {
             "enabled": {
-              "type": "boolean"
-            },
-            "requireProtectedSecurity": {
-              "description": "Admit only relay clients that negotiate protected endpoint security (replay protection). Defaults to false; older clients still connect while it is off.",
               "type": "boolean"
             },
             "endpoint": {
@@ -571,6 +647,148 @@
                 "required": ["provider"],
                 "additionalProperties": false
               }
+            },
+            "features": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "thinkingOptionId": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["provider"],
+                  "additionalProperties": false
+                },
+                "branchName": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "thinkingOptionId": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["provider"],
+                  "additionalProperties": false
+                },
+                "commitMessage": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "thinkingOptionId": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["provider"],
+                  "additionalProperties": false
+                },
+                "pullRequest": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "thinkingOptionId": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["provider"],
+                  "additionalProperties": false
+                },
+                "automation": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "thinkingOptionId": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["provider"],
+                  "additionalProperties": false
+                },
+                "askPimi": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "thinkingOptionId": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["provider"],
+                  "additionalProperties": false
+                },
+                "handoff": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "thinkingOptionId": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["provider"],
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "autoNaming": {
+              "type": "boolean"
             }
           },
           "additionalProperties": false
@@ -843,6 +1061,20 @@
             "format": {
               "type": "string",
               "enum": ["pretty", "json"]
+            }
+          },
+          "additionalProperties": false
+        },
+        "network": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "retentionDays": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90
             }
           },
           "additionalProperties": false

@@ -2,26 +2,17 @@
 
 The relay carries daemon sessions between a client and a daemon that cannot reach each other directly. The relay is untrusted, so the two endpoints secure the session themselves. This doc owns the protected construction, its mapping onto Pimi's handshake and record flow, the negotiation rules, and the enforcement flag. The threat model lives in [SECURITY.md](../SECURITY.md); the code is `packages/relay/src/secure-channel.ts`.
 
-Fixes [#359](https://github.com/1ikeadragon/pimi/issues/359): the legacy construction has no replay protection. A recorded legacy hello plus records replays onto a fresh daemon channel, and duplicated records are delivered twice.
+There is one construction: `Noise_NK_25519_ChaChaPoly_SHA256` (revision 34) with authenticated records. The NaCl `box` construction it replaced had no replay protection ([#359](https://github.com/1ikeadragon/pimi/issues/359)) and was removed in 0.17.64; a peer that does not send a valid `protected` envelope fails the handshake.
 
-## Two modes
-
-| Mode        | Construction                                     | Replay protection                |
-| ----------- | ------------------------------------------------ | -------------------------------- |
-| `legacy`    | X25519 + NaCl `box`, random nonces               | none                             |
-| `protected` | `Noise_NK_25519_ChaChaPoly_SHA256` (revision 34) | counters, fresh daemon ephemeral |
-
-Pimi's daemon and clients always negotiate `protected`, and the client refuses `legacy`. The relay library keeps `legacy` in the handshake for wire compatibility; everything in `packages/relay/src/encrypted-channel.ts` is that construction.
-
-The shared entry points are `openClientSecureChannel` and `openDaemonSecureChannel`. Callers get a `SecureChannel` and ask it `securityMode()`; nothing outside the module branches on the construction.
+The shared entry points are `openClientSecureChannel` and `openDaemonSecureChannel`, which return a `SecureChannel`.
 
 ## Noise mapping
 
 - **Pattern:** NK. The daemon's static key is the existing `$PIMI_HOME/daemon-keypair.json` X25519 key that pairing already distributes. There is no second daemon identity.
 - **Prologue:** the ASCII bytes `pimi-relay-e2ee/1`.
 - **Primitives:** `@noble/curves` x25519, `@noble/ciphers` ChaCha20-Poly1305, `@noble/hashes` SHA-256 and HMAC. The state machine in `packages/relay/src/noise/` is our own implementation of the spec and is checked against vendored third-party vectors in `noise/fixtures/`.
-- **Message 1** (`-> e, es`) travels inside the legacy hello: `{ type: "e2ee_hello", key, capabilities, protected: { v: 1, message: <base64> } }`. `key` is a separate legacy ephemeral that the library's `legacy` mode uses. The Noise payload is the offered parameters.
-- **Message 2** (`<- e, ee`) travels inside the ready: `{ type: "e2ee_ready", protected: { v: 1, message: <base64> } }`. Its payload is the selected parameters. The outer `capabilities` field is ignored in protected mode because it is not authenticated.
+- **Message 1** (`-> e, es`) travels inside the hello: `{ type: "e2ee_hello", protected: { v: 1, message: <base64> } }`. The Noise payload is the offered parameters.
+- **Message 2** (`<- e, ee`) travels inside the ready: `{ type: "e2ee_ready", protected: { v: 1, message: <base64> } }`. Its payload is the selected parameters.
 - **Parameters payload:** two bytes, `[0x01 version][flags]`. Flag bit 0 is `binaryCiphertext`. Unknown versions, reserved flag bits, and a selection the client did not offer fail the handshake.
 - **Split:** the initiator sends with the first cipher state and receives with the second. The daemon is the mirror. Nonces are 64-bit little-endian in a 12-byte nonce, reserved synchronously before any await, never wrapped. A receiver advances its counter only after the tag verifies.
 
@@ -40,39 +31,26 @@ wire record     = (u16 BE ciphertextLength || ciphertext)+
 
 The receiver rejects a record whose metadata disagrees between chunks, whose non-final chunks are not full, whose byte total differs from `totalLength`, or that has zero chunks, trailing bytes, reserved flags, or an invalid kind. Partial plaintext never reaches the application. Transport AD is empty, as the Noise spec writes it; framing authenticity comes from the metadata being inside the ciphertext. `packages/relay/src/protected-records.ts` owns this.
 
-Frame kind is preserved on the wire the same way as legacy: text records are base64 WebSocket text, binary records are WebSocket binary when `binaryCiphertext` was negotiated.
+Frame kind is preserved on the wire: text records are base64 WebSocket text, binary records are WebSocket binary when `binaryCiphertext` was negotiated.
 
 ## Retries and failures
 
 - The client resends its hello every second until a ready arrives. The daemon caches the exact hello text and ready text for the channel. An identical hello gets the identical ready and counters keep running. A different hello closes the channel (`1008`, transcript mismatch). A ready after the channel is open is ignored.
 - A fresh daemon channel always generates a fresh `e`, so a recorded hello and its records fail authentication when replayed later, including after a daemon restart.
-- A present but invalid `protected` field fails the handshake. There is no fallback to legacy once protected was attempted.
+- A missing or invalid `protected` field fails the handshake.
 - Any record failure (bad tag, duplicate, reordered, reflected, malformed) closes the channel and nothing from that record is delivered. The daemon closes with `1011`; the client closes with `4003`, because a browser `WebSocket.close` accepts only `1000` and `3000`-`4999`.
 - A record header is checked against the bytes actually received before any buffer is allocated for it, so a header claiming gigabytes costs nothing.
 - Keys are cleared on close as a best effort.
 
-## Negotiation and admission
+## Who can connect
 
-Every daemon negotiates protected security, so a relay client that ends up in `legacy` was downgraded in transit. The client closes with `4002` when the channel opens, before it sends credentials, marks itself connected, restores subscriptions, or flushes queued commands. The check lives in the relay E2EE transport, so it also covers the Node connector; direct connections never see it.
+NK authenticates the daemon to the client, not the client. Possession of the daemon public key (in every pairing link and QR code) lets a client finish the handshake; admission then asks for the daemon password if one is set. On a host without a password, the pairing link is the only credential.
 
-The app pins `minimumSecurityMode: "protected"` on every relay connection to a daemon public key after the first protected handshake with that key, or when the pairing offer carries `minimumSecurityMode`. A pinned client passes `minimumMode: "protected"` to the handshake and refuses a legacy ready before sending credentials. The pin belongs to the daemon identity, not to a relay address: re-importing the same key through any relay keeps it, a different key is a different connection, and connection failures never clear it.
+- **Pairing reset** (Pair device → Reset pairing, RPC `daemon.pairing.reset.request`) rotates `daemon-keypair.json`, turns LAN pairing off, and drops every relay and LAN connection. Old links stop working because their handshake can no longer complete. The serverId stays the same, so hosts keep their identity in every app.
+- **Password guessing** over relay or LAN is serialized and backed off exponentially after each failure, up to 30 seconds (`throttledPasswordCheck` in `websocket-server.ts`).
 
-The handshake result is read in one place, `HostRuntimeController` when the host's active client reports connected. Every client reaches that point, whether the controller created it or adopted it from a pairing or startup probe, so no client constructor carries a persistence callback. A probe that negotiated protected but was never adopted pins nothing; the pin lands when the host first goes online.
+## Relay registration
 
-Within one client process the floor also rises on its own. `DaemonClient` and the Node host connector remember a protected result and require it on every later attempt, so a reconnect after a relay drop cannot be answered in legacy mode even before the pin is persisted.
+The relay never sees a key. To stop anyone who knows a serverId from registering as that daemon and evicting it, every `role=server` socket carries `Authorization: Bearer <token>`. The token is 256 random bits in `$PIMI_HOME/relay-server-token`, separate from the E2EE key so a pairing reset leaves the binding intact. The relay binds SHA-256(token) to the serverId the first time it sees it and rejects any other token with `401`. See [self-hosted-relay.md](self-hosted-relay.md) for persistence and limits.
 
-The daemon refuses a legacy client with close `1008` and reason `protected endpoint security required`, and logs `relay_e2ee_handshake_rejected`. That close code stops at the relay: both relays replace a daemon-side close with their own (the wrangler relay sends `1012 Server disconnected`), so a legacy client sees an ordinary disconnect and keeps retrying. The only client-detectable failure is the client's own `4002`, which stops reconnecting.
-
-The client learns its own `4002` and `4003` from the relay E2EE transport, which reports the close the moment the channel decides it. A socket close event arrives later and the channel's error callback earlier; neither is what `DaemonClient` acts on, because acting on the error would start a reconnect before the code is known.
-
-## Enforcement flag
-
-`daemon.relay.requireProtectedSecurity` in `config.json` (also `relay.requireProtectedSecurity` through the config RPC) makes the daemon refuse legacy relay clients. Pimi defaults to `true`. It is a local daemon setting with no relay-server counterpart.
-
-- It is read when each hello arrives, so toggling it affects the next admission without a restart. Sessions already admitted in legacy mode stay up until they disconnect; turning the flag on does not close them. To finish enforcement, restart the daemon or disconnect its relay sessions after enabling the flag: every reconnect is then a new admission and legacy clients are refused.
-- While it is on, pairing offers carry `minimumSecurityMode: "protected"` and `relay://` URIs carry `security=protected`, so new clients pin before their first handshake.
-- Direct and local connections are outside the flag.
-
-## Known limitation
-
-While a daemon accepts legacy clients, a transcript recorded from any legacy session (hello, credentials, commands) can still be replayed to it. Pinning on the client does not change that, because the attacker replays the old client's transcript, not the pinned client's. The only remedy is enabling the flag on that daemon.
+Turning the relay off terminates every relay data socket rather than sending a close frame, so a peer that withholds the close handshake cannot keep its session.

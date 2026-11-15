@@ -7,7 +7,9 @@
 - Protocol version 2 only. A missing or `v=1` request gets HTTP 400.
 - A plain `GET /ws` without an upgrade returns 426 before the query is validated.
 - A daemon data socket that was replaced no longer closes the client sockets when the old one finishes closing.
-- Nothing is persisted. Sessions, buffered frames, and counters live in memory and vanish on restart; daemons and clients reconnect on their own.
+- Every daemon socket (`role=server`) must carry `Authorization: Bearer <token>`. The first token a serverId presents is bound to it; a missing or different token gets HTTP 401. See [relay-endpoint-security.md](relay-endpoint-security.md#relay-registration).
+- Only the serverId-to-token-hash bindings persist, in `$STATE_DIRECTORY/servers.json` (systemd `StateDirectory=`) or `PIMI_RELAY_REGISTRY_FILE`. With neither set they live in memory, and after a restart any daemon can claim any serverId first: run that way only for development. Bindings unused for 180 days are dropped on start; a daemon locked out after that can reset its pairing. An unreadable or malformed file stops the relay rather than reopening every serverId.
+- Sessions, buffered frames, and counters live in memory and vanish on restart; daemons and clients reconnect on their own.
 
 ## Build and run
 
@@ -36,6 +38,8 @@ Set through environment variables. Defaults in parentheses.
 | `PIMI_RELAY_PING_INTERVAL_MS`                  | Ping every interval; a socket that misses a pong is terminated (30000)                           |
 | `PIMI_RELAY_IDLE_TIMEOUT_MS`                   | Close data sockets with no frame for this long, control sockets exempt (1800000; 0 disables)     |
 | `PIMI_RELAY_TRUST_PROXY`                       | Read `X-Forwarded-For` when the TCP peer is loopback (`1`; set `0` with no proxy)                |
+| `PIMI_RELAY_MAX_REGISTERED_SERVERS`            | serverId bindings kept (100000), then HTTP 503 for new daemons                                   |
+| `PIMI_RELAY_MAX_REGISTRATIONS_PER_IP_PER_HOUR` | New serverId bindings per IP per hour (10), then HTTP 429                                        |
 
 Logs are JSON lines of events only. They carry no frame contents and no full session ids (a short hash tags a session); client IPs appear only on rate-limit rejections.
 
@@ -64,6 +68,8 @@ Group=pimi-relay
 ExecStart=/usr/bin/node /opt/pimi-relay/node-relay.mjs
 Environment=PIMI_RELAY_HOST=127.0.0.1
 Environment=PIMI_RELAY_PORT=8787
+StateDirectory=pimi-relay
+StateDirectoryMode=0700
 Restart=always
 RestartSec=2
 

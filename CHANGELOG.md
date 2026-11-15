@@ -2,6 +2,14 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.64 - 2026-11-15
+
+- Relay security: the old NaCl box mode is gone; every relay session uses Noise NK with replay protection. Older apps must update to connect over the relay.
+- Settings > Pair device has Reset pairing: it rotates the host's relay key, so every pairing link and QR code stops working and connected relay devices are disconnected.
+- The relay only lets the daemon that first registered a host take that host's connection, so nobody else can knock it offline. Update the daemon before the relay updates.
+- Wrong relay or LAN passwords slow down with each failure.
+- Turning the relay off now disconnects devices already connected through it.
+
 ## 0.17.63 - 2026-11-15
 
 - Crew opens a popover: turn Crew on or off and pick the model for the thinker, worker and chore. "Same as lead" runs that member on the chat's own model, so Crew works without Claude.

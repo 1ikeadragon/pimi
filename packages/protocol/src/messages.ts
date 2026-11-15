@@ -349,8 +349,6 @@ const MutableBrowserToolsConfigSchema = z
 const MutableRelayConfigSchema = z
   .object({
     enabled: z.boolean(),
-    // When true the daemon admits only relay sessions that negotiated protected endpoint security.
-    requireProtectedSecurity: z.boolean(),
   })
   .passthrough();
 
@@ -1772,6 +1770,11 @@ export const DaemonGetStatusRequestSchema = z.object({
 
 export const DaemonGetPairingOfferRequestSchema = z.object({
   type: z.literal("daemon.get_pairing_offer.request"),
+  requestId: z.string(),
+});
+
+export const DaemonPairingResetRequestSchema = z.object({
+  type: z.literal("daemon.pairing.reset.request"),
   requestId: z.string(),
 });
 
@@ -3845,6 +3848,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   WaitForFinishRequestSchema,
   DaemonGetStatusRequestSchema,
   DaemonGetPairingOfferRequestSchema,
+  DaemonPairingResetRequestSchema,
   DaemonConfigReloadRequestSchema,
   DiagnosticsRequestSchema,
   DiagnosticsResourcesSnapshotRequestSchema,
@@ -5529,6 +5533,11 @@ export const DaemonGetPairingOfferResponseSchema = z.object({
       relayConfigured: z.boolean().optional(),
     })
     .passthrough(),
+});
+
+export const DaemonPairingResetResponseSchema = z.object({
+  type: z.literal("daemon.pairing.reset.response"),
+  payload: z.object({ requestId: z.string() }).passthrough(),
 });
 
 export const DaemonConfigReloadResponseSchema = z.object({
@@ -7864,6 +7873,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   SetVoiceModeResponseMessageSchema,
   DaemonGetStatusResponseSchema,
   DaemonGetPairingOfferResponseSchema,
+  DaemonPairingResetResponseSchema,
   DaemonConfigReloadResponseSchema,
   DiagnosticsResponseSchema,
   DiagnosticsResourcesSnapshotResponseSchema,

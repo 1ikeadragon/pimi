@@ -17,7 +17,6 @@ import {
   connectionFromListen,
   createRemoteSshHostConnection,
   normalizeStoredHostProfile,
-  pinRelayProtectedSecurityInProfiles,
   upsertHostConnectionInProfiles,
   registryHasConnection,
   relayConnectionFromOffer,
@@ -190,12 +189,6 @@ function hashForLog(value: string): string {
     hash = (hash * 31 + value.charCodeAt(index)) | 0;
   }
   return `h_${Math.abs(hash).toString(16)}`;
-}
-
-/** A daemon identity that negotiated protected relay security. */
-export interface RelaySecurityPin {
-  serverId: string;
-  daemonPublicKeyB64: string;
 }
 
 export interface HostRuntimeControllerDeps {
@@ -513,29 +506,6 @@ function buildConnectionCandidates(host: HostProfile): ConnectionCandidate[] {
   }));
 }
 
-/**
- * A pin learned from the active client is already enforced by that client, so
- * it keeps running. A pin that arrived from elsewhere (a strict offer) while
- * the active client is still legacy needs a client that enforces it.
- */
-function connectionNeedsNewClient(
-  previous: HostConnection,
-  next: HostConnection,
-  activeClient: DaemonClient | null,
-): boolean {
-  if (previous.type === "relay" && next.type === "relay") {
-    const { minimumSecurityMode: previousPin, ...previousRest } = previous;
-    const { minimumSecurityMode: nextPin, ...nextRest } = next;
-    if (!equal(previousRest, nextRest)) return true;
-    return (
-      nextPin === "protected" &&
-      previousPin !== "protected" &&
-      activeClient?.relaySecurityFloor !== "protected"
-    );
-  }
-  return !equal(previous, next);
-}
-
 function findConnectionById(host: HostProfile, connectionId: string | null): HostConnection | null {
   if (!connectionId) {
     return null;
@@ -640,9 +610,6 @@ function createDefaultDeps(
         e2ee: {
           enabled: true,
           daemonPublicKeyB64: connection.daemonPublicKeyB64,
-          ...(connection.minimumSecurityMode
-            ? { minimumMode: connection.minimumSecurityMode }
-            : {}),
         },
       });
     },
@@ -713,7 +680,6 @@ export class HostRuntimeController {
   private host: HostProfile;
   private deps: HostRuntimeControllerDeps;
   private onReconcileServerId: ((oldId: string, newId: string) => void) | null;
-  private onRelayProtectedSecurityNegotiated: ((input: RelaySecurityPin) => void) | null;
   private connectionMachineState: HostRuntimeConnectionMachineState;
   private connectionEpoch = 0;
   private snapshot: HostRuntimeSnapshot;
@@ -738,12 +704,10 @@ export class HostRuntimeController {
     host: HostProfile;
     deps?: HostRuntimeControllerDeps;
     onReconcileServerId?: (oldId: string, newId: string) => void;
-    onRelayProtectedSecurityNegotiated?: (input: RelaySecurityPin) => void;
   }) {
     this.host = input.host;
     this.deps = input.deps ?? createDefaultDeps();
     this.onReconcileServerId = input.onReconcileServerId ?? null;
-    this.onRelayProtectedSecurityNegotiated = input.onRelayProtectedSecurityNegotiated ?? null;
     this.connectionMachineState = {
       tag: "booting",
     };
@@ -845,12 +809,7 @@ export class HostRuntimeController {
       activeConnectionId &&
       previousActiveConnection &&
       nextActiveConnection &&
-      (connectionNeedsNewClient(
-        previousActiveConnection,
-        nextActiveConnection,
-        this.activeClient,
-      ) ||
-        passwordChanged)
+      (!equal(previousActiveConnection, nextActiveConnection) || passwordChanged)
     ) {
       this.connectionLastProbedAt.delete(activeConnectionId);
       await this.switchToConnection({ connectionId: activeConnectionId });
@@ -1564,7 +1523,6 @@ export class HostRuntimeController {
           void failConnection(new DaemonAuthenticationError(client.authFailureReason));
           return;
         }
-        if (state.status === "connected") this.learnRelaySecurity(client, connection.id);
         this.applyConnectionEvent({ type: "client_state", state, lastError: client.lastError });
         this.updateSnapshot({
           ...toSnapshotConnectionPatch(this.connectionMachineState, this.connectionEpoch),
@@ -1576,25 +1534,6 @@ export class HostRuntimeController {
     } catch (error) {
       await failConnection(error);
     }
-  }
-
-  // The active client is the one place every connection path meets: clients
-  // created here and probe clients adopted from `connectToDaemon` both land in
-  // `switchToConnection`. A protected handshake observed here becomes the
-  // persisted pin for that daemon identity.
-  private learnRelaySecurity(client: DaemonClient, connectionId: string): void {
-    const connection = findConnectionById(this.host, connectionId);
-    if (
-      connection?.type !== "relay" ||
-      connection.minimumSecurityMode === "protected" ||
-      client.relaySecurityFloor !== "protected"
-    ) {
-      return;
-    }
-    this.onRelayProtectedSecurityNegotiated?.({
-      serverId: this.host.serverId,
-      daemonPublicKeyB64: connection.daemonPublicKeyB64,
-    });
   }
 
   adoptReconciledServerId(newServerId: string): void {
@@ -2282,13 +2221,6 @@ export class HostRuntimeStore {
     });
   }
 
-  private async pinRelayProtectedSecurity(input: RelaySecurityPin): Promise<void> {
-    const next = pinRelayProtectedSecurityInProfiles({ profiles: this.hosts, ...input });
-    if (next === this.hosts) return;
-    this.setHostsAndSync(next);
-    await this.persistHosts();
-  }
-
   private async updateHost(
     serverId: string,
     apply: (host: HostProfile) => HostProfile,
@@ -2516,7 +2448,6 @@ export class HostRuntimeStore {
         host,
         deps: this.deps,
         onReconcileServerId: (oldId, newId) => this.reconcileServerId(oldId, newId),
-        onRelayProtectedSecurityNegotiated: (pin) => void this.pinRelayProtectedSecurity(pin),
       });
       this.controllers.set(host.serverId, controller);
       useSessionStore.getState().initializeSession(host.serverId, null);

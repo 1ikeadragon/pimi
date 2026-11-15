@@ -108,7 +108,7 @@ import {
   isBearerTokenValidAsync,
   type DaemonAuthConfig,
 } from "./auth.js";
-import { resolveSessionAdmission } from "./session-admission-auth.js";
+import { resolveSessionAdmission, type AdmissionFailure } from "./session-admission-auth.js";
 import {
   WebSocketRuntimeMetricsWindow,
   timelineFlushMetrics,
@@ -122,7 +122,6 @@ import {
 } from "./lifecycle-reasons.js";
 import { CLIENT_CAPS } from "@pimi/protocol/client-capabilities";
 
-import type { SecurityMode } from "@pimi/relay/e2ee";
 import type { BrowserToolsBroker } from "./browser-tools/broker.js";
 import type { DaemonRuntimeConfig } from "./session/daemon/daemon-session.js";
 import { DirectorySyncService } from "./directory-sync/index.js";
@@ -141,14 +140,13 @@ import {
 } from "./websocket/physical-socket.js";
 
 const WS_CLOSE_DAEMON_AUTH_FAILED = 4401;
+const MAX_PASSWORD_BACKOFF_MS = 30_000;
 
 export interface ExternalSocketMetadata {
   transport: "relay" | "lan";
   lanAccessCode?: string;
   externalSessionKey?: string;
   relayConnectionId?: string;
-  /** Negotiated endpoint security for relay-carried sockets. */
-  securityMode?: SecurityMode;
 }
 
 interface PendingConnection {
@@ -171,7 +169,6 @@ interface WebSocketConnectionIdentity {
   userAgent?: string;
   remoteAddress?: string;
   relayConnectionId?: string;
-  securityMode?: SecurityMode;
   clientId?: string;
   sessionId?: string;
   appVersion?: string;
@@ -551,6 +548,14 @@ export class VoiceAssistantWebSocketServer {
   private readonly sessions: Map<WebSocketLike, SessionConnection> = new Map();
   private readonly socketIdentities: Map<WebSocketLike, WebSocketConnectionIdentity> = new Map();
   private readonly pimiProtectedPasswordSockets = new WeakSet<WebSocketLike>();
+  /**
+   * Remote password checks run one at a time, spaced by an exponential backoff after
+   * failures (max {@link MAX_PASSWORD_BACKOFF_MS}). Guessing slows to a crawl; a correct
+   * password still gets through after the current wait.
+   */
+  private passwordCheckQueue: Promise<void> = Promise.resolve();
+  private passwordFailures = 0;
+  private nextPasswordCheckAt = 0;
   private readonly externalSessionsByKey: Map<string, ReconnectableSessionConnection> = new Map();
   private readonly pluginSocketIds = new WeakMap<WebSocketLike, string>();
   private readonly pluginSocketCleanup = new WeakMap<WebSocketLike, () => void>();
@@ -1099,6 +1104,21 @@ export class VoiceAssistantWebSocketServer {
 
   public prepareForShutdown(): void {
     this.connectionLifecycle = "stopping";
+  }
+
+  /**
+   * Drops every relay and LAN connection at once. Used by a pairing reset: sessions
+   * admitted under the old key or offer must reconnect with the new one.
+   */
+  public terminateRemoteSockets(): number {
+    let count = 0;
+    for (const [ws, identity] of this.socketIdentities) {
+      if (identity.transport !== "relay" && identity.transport !== "lan") continue;
+      count += 1;
+      if (ws.terminate) ws.terminate();
+      else ws.close(WS_CLOSE_DAEMON_AUTH_FAILED, "Pairing reset");
+    }
+    return count;
   }
 
   public beginAcceptingConnections(): void {
@@ -1823,15 +1843,20 @@ export class VoiceAssistantWebSocketServer {
   ): Promise<boolean> {
     if (pending.admitted) return true;
     try {
-      const rejection = await resolveSessionAdmission({
-        credential: message.auth,
-        passwordHash: this.passwordHash,
-        localCredential:
-          pending.identity.transport === "lan"
-            ? null
-            : (this.credentialSource?.localCredential?.() ?? null),
-        lanAccessCode: pending.lanAccessCode,
-      });
+      const admit = () =>
+        resolveSessionAdmission({
+          credential: message.auth,
+          passwordHash: this.passwordHash,
+          localCredential:
+            pending.identity.transport === "lan"
+              ? null
+              : (this.credentialSource?.localCredential?.() ?? null),
+          lanAccessCode: pending.lanAccessCode,
+        });
+      const remotePassword =
+        message.auth?.kind === "password" &&
+        (pending.identity.transport === "relay" || pending.identity.transport === "lan");
+      const rejection = remotePassword ? await this.throttledPasswordCheck(admit) : await admit();
       if (this.pendingConnections.get(ws) !== pending) return false;
       if (rejection) {
         this.clearPendingConnection(ws);
@@ -1839,14 +1864,13 @@ export class VoiceAssistantWebSocketServer {
         return false;
       }
       pending.admitted = true;
-      // No-password owners, local credentials, routed peers, and legacy relay sessions do not
+      // No-password owners, local credentials, and routed peers do not
       // authenticate a remote Pimi user. The proof belongs to this socket, including on reconnect.
       if (
         (this.passwordHash || pending.lanAccessCode) &&
         message.auth?.kind === "password" &&
         !message.routed &&
-        (pending.identity.transport === "relay" || pending.identity.transport === "lan") &&
-        pending.identity.securityMode === "protected"
+        (pending.identity.transport === "relay" || pending.identity.transport === "lan")
       ) {
         this.pimiProtectedPasswordSockets.add(ws);
       }
@@ -1859,6 +1883,31 @@ export class VoiceAssistantWebSocketServer {
       }
       return false;
     }
+  }
+
+  private throttledPasswordCheck(
+    check: () => Promise<AdmissionFailure | null>,
+  ): Promise<AdmissionFailure | null> {
+    const run = this.passwordCheckQueue.then(async () => {
+      const wait = this.nextPasswordCheckAt - Date.now();
+      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+      const result = await check();
+      if (result === "incorrect_password") {
+        this.passwordFailures += 1;
+        this.nextPasswordCheckAt =
+          Date.now() + Math.min(MAX_PASSWORD_BACKOFF_MS, 500 * 2 ** (this.passwordFailures - 1));
+        this.logger.warn({ failures: this.passwordFailures }, "Remote password check failed");
+      } else if (result === null) {
+        this.passwordFailures = 0;
+        this.nextPasswordCheckAt = 0;
+      }
+      return result;
+    });
+    this.passwordCheckQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   private async rejectHello(
@@ -2809,7 +2858,6 @@ function createWebSocketConnectionIdentity(
     ...(requestMetadata.userAgent ? { userAgent: requestMetadata.userAgent } : {}),
     ...(requestMetadata.remoteAddress ? { remoteAddress: requestMetadata.remoteAddress } : {}),
     ...(metadata?.relayConnectionId ? { relayConnectionId: metadata.relayConnectionId } : {}),
-    ...(metadata?.securityMode ? { securityMode: metadata.securityMode } : {}),
   };
 }
 
@@ -2823,7 +2871,6 @@ function toConnectionLogFields(identity: WebSocketConnectionIdentity): Record<st
     ...(identity.userAgent ? { userAgent: identity.userAgent } : {}),
     ...(identity.remoteAddress ? { remoteAddress: identity.remoteAddress } : {}),
     ...(identity.relayConnectionId ? { relayConnectionId: identity.relayConnectionId } : {}),
-    ...(identity.securityMode ? { securityMode: identity.securityMode } : {}),
     ...(identity.clientId ? { clientId: identity.clientId } : {}),
     ...(identity.sessionId ? { sessionId: identity.sessionId } : {}),
     ...(identity.appVersion ? { appVersion: identity.appVersion } : {}),

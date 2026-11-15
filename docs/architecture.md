@@ -187,7 +187,7 @@ Communicates with the daemon via the same WebSocket protocol as the app.
 
 Enables remote access when the daemon is behind a firewall.
 
-- Peers negotiate a Noise `NK` session with per-record counters. The client refuses the library's legacy NaCl `box` mode. [docs/relay-endpoint-security.md](relay-endpoint-security.md) owns the mapping, negotiation, and the `daemon.relay.requireProtectedSecurity` flag
+- Peers negotiate a Noise `NK` session with per-record counters. There is no other mode. [docs/relay-endpoint-security.md](relay-endpoint-security.md) owns the mapping, admission, pairing reset, and relay registration
 - The relay is zero-knowledge — it routes encrypted bytes and cannot read content
 - Client and daemon channels with identical API (`openClientSecureChannel`, `openDaemonSecureChannel`)
 - Pairing via QR code transfers the daemon's public key to the client

@@ -20,7 +20,7 @@ The relay is designed to be untrusted. All traffic between your phone and daemon
 1. The daemon generates a persistent Curve25519 keypair on first run and stores it at `$PIMI_HOME/daemon-keypair.json` with mode `0600`
 2. The pairing URL carries the daemon's public key in its `#offer=` fragment. Pimi uses `pimi://pair/#offer=...` by default. You can scan it in the app or paste it into Add Host without visiting a website.
 3. When the phone connects via the relay, it generates fresh ephemeral keys and sends an `e2ee_hello` message. The daemon will not process any application messages until this handshake completes.
-4. Updated peers run a Noise `NK` handshake (`Noise_NK_25519_ChaChaPoly_SHA256`) keyed to the daemon's static key: the `e2ee_hello` carries the first Noise message and the daemon's `e2ee_ready` carries the second. Every later frame is a counter-nonced ChaCha20-Poly1305 record. When either side predates this, the session falls back to the legacy construction: a Curve25519 ECDH shared key with XSalsa20-Poly1305 (NaCl `box`) and a random `[24-byte nonce][ciphertext]` bundle. Both modes negotiate `binaryCiphertext`: negotiated application text is carried as a base64 WebSocket text frame, while application binary is carried as a raw WebSocket binary frame. A peer that does not negotiate the capability uses base64 text frames for both kinds. [docs/relay-endpoint-security.md](docs/relay-endpoint-security.md) has the exact mapping.
+4. Peers run a Noise `NK` handshake (`Noise_NK_25519_ChaChaPoly_SHA256`) keyed to the daemon's static key: the `e2ee_hello` carries the first Noise message and the daemon's `e2ee_ready` carries the second. Every later frame is a counter-nonced ChaCha20-Poly1305 record. A peer that cannot run it fails the handshake; there is no fallback. Peers negotiate `binaryCiphertext`: negotiated application text is carried as a base64 WebSocket text frame, while application binary is carried as a raw WebSocket binary frame. A peer that does not negotiate the capability uses base64 text frames for both kinds. [docs/relay-endpoint-security.md](docs/relay-endpoint-security.md) has the exact mapping.
 
 The WebSocket opcode is preserved end to end after negotiation; the receiver never guesses whether authenticated plaintext is text or binary from its byte contents. The plaintext handshake remains WebSocket text and contains only public keys and capability declarations.
 
@@ -32,9 +32,9 @@ The daemon requires a valid cryptographic handshake before processing any comman
 
 - **Impersonate the daemon to your phone** — Without the daemon's secret key, it cannot derive the shared key, so any traffic it injects fails authenticated decryption on the phone
 - **Inject commands into an authenticated connection** — The daemon only accepts traffic that decrypts and authenticates under that connection's keys. Someone with the pairing link can open their own connection, so configure a daemon password to authenticate remote users.
-- **Read your traffic** — After the handshake every message is encrypted: ChaCha20-Poly1305 in protected mode, XSalsa20-Poly1305 (NaCl box) in legacy mode
+- **Read your traffic** — After the handshake every message is encrypted: ChaCha20-Poly1305
 - **Forge messages** — Both constructions are authenticated encryption; a tampered message is rejected in either mode
-- **Replay old messages** — In protected mode the daemon contributes a fresh ephemeral key to every session and every record carries a strictly increasing counter, so a recorded session cannot be replayed into a new one and a duplicated, reordered, or reflected record closes the session. Pimi requires protected mode by default. Setting `daemon.relay.requireProtectedSecurity: false` admits legacy clients, whose recorded sessions can be replayed.
+- **Replay old messages** — The daemon contributes a fresh ephemeral key to every session and every record carries a strictly increasing counter, so a recorded session cannot be replayed into a new one and a duplicated, reordered, or reflected record closes the session.
 
 ### Trust model
 

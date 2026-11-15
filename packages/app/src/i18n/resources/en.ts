@@ -2578,6 +2578,12 @@ export const en = {
       hint: "Scan this QR code with Pimi on your phone, or copy the link below.",
       securityWarning:
         "Treat this pairing link like a password. Anyone with it can access this daemon.",
+      resetPairing: "Reset pairing",
+      resettingPairing: "Resetting...",
+      resetPairingTitle: "Reset pairing?",
+      resetPairingMessage:
+        "Every existing pairing link and QR code stops working, and paired devices disconnect. Pair them again with the new link.",
+      resetPairingConfirm: "Reset",
       qrUnavailable: "QR code unavailable.",
       qrAccessibility: "Pairing QR code",
       retry: "Retry",

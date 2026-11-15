@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink } from "@/components/ui/external-link";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useAddHost } from "@/hosts/add-host";
+import { confirmDialog } from "@/utils/confirm-dialog";
 import { useFetchQuery } from "@/data/query";
 import { daemonPairingOfferQueryKey } from "@/data/daemon-pairing";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
@@ -90,6 +91,24 @@ export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps)
     },
   });
 
+  const resetPairing = useMutation({
+    mutationFn: async () => {
+      const confirmed = await confirmDialog({
+        title: t("pairing.device.resetPairingTitle"),
+        message: t("pairing.device.resetPairingMessage"),
+        confirmLabel: t("pairing.device.resetPairingConfirm"),
+        destructive: true,
+      });
+      if (!confirmed) return null;
+      if (!client) throw new Error(t("workspace.terminal.hostDisconnected"));
+      await client.resetDaemonPairing({ timeout: OFFER_REQUEST_TIMEOUT_MS });
+      return pairingQuery.refetch();
+    },
+  });
+  const handleResetPairing = useCallback(() => {
+    resetPairing.mutate();
+  }, [resetPairing]);
+
   const qrQuery = useFetchQuery({
     queryKey: ["daemon-pairing-offer-qr", pairingQuery.data?.url],
     queryFn: () =>
@@ -146,6 +165,9 @@ export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps)
         disablePending={disableRelay.isPending}
         disableError={disableRelay.error}
         onDisableRelay={handleDisableRelay}
+        resetPending={resetPairing.isPending}
+        resetError={resetPairing.error}
+        onResetPairing={handleResetPairing}
         qrSvg={qrSvg}
         qrError={qrQuery.isError}
         copied={copied}
@@ -171,6 +193,9 @@ interface PairDeviceBodyProps {
   disablePending: boolean;
   disableError: Error | null;
   onDisableRelay: () => void;
+  resetPending: boolean;
+  resetError: Error | null;
+  onResetPairing: () => void;
   qrSvg: string | null;
   qrError: boolean;
   copied: boolean;
@@ -243,6 +268,20 @@ function PairDeviceBody(props: PairDeviceBodyProps) {
         <Alert size="sm" variant="error" description={props.disableError.message} />
       ) : null}
       <PairingOffer {...props} url={props.offer.url} />
+      {props.resetError ? (
+        <Alert size="sm" variant="error" description={props.resetError.message} />
+      ) : null}
+      <Button
+        variant="outline"
+        size="sm"
+        leftIcon={RotateCw}
+        loading={props.resetPending}
+        onPress={props.onResetPairing}
+      >
+        {props.resetPending
+          ? t("pairing.device.resettingPairing")
+          : t("pairing.device.resetPairing")}
+      </Button>
     </View>
   );
 }

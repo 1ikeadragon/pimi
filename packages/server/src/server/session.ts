@@ -2382,6 +2382,7 @@ export class Session {
       this.dispatchCreationMessage(msg, source) ??
       this.dispatchAgentLifecycleMessage(msg) ??
       this.dispatchAgentConfigMessage(msg) ??
+      this.dispatchDaemonMessage(msg) ??
       this.dispatchCheckoutMessage(msg) ??
       this.dispatchWorkspaceLifecycleMessage(msg) ??
       this.dispatchWorkspaceFileMessage(msg, source) ??
@@ -2994,6 +2995,33 @@ export class Session {
     }
   }
 
+  private dispatchDaemonMessage(msg: SessionInboundMessage): Promise<void> | undefined {
+    switch (msg.type) {
+      case "daemon.get_status.request":
+        return this.daemonSession.handleGetStatusRequest(msg);
+      case "daemon.get_pairing_offer.request":
+        return this.daemonSession.handleGetPairingOfferRequest(msg);
+      case "daemon.pairing.reset.request":
+        return this.daemonSession.handlePairingResetRequest(msg);
+      case "daemon.config.reload.request":
+        return this.daemonSession.handleConfigReloadRequest(msg);
+      case "diagnostics.request":
+        return this.daemonSession.handleDiagnosticsRequest(msg);
+      case "diagnostics.resources.snapshot.request":
+        this.daemonSession.handleResourcesSnapshotRequest(msg);
+        return undefined;
+      case "diagnostics.package_runs.request":
+        return this.handlePackageRunsRequest(msg);
+      case "diagnostics.resources.baseline.update.request":
+        this.daemonSession.handleResourcesBaselineUpdateRequest(msg);
+        return undefined;
+      case "daemon.update.request":
+        return this.daemonSession.handleUpdateRequest(msg);
+      default:
+        return undefined;
+    }
+  }
+
   private dispatchAgentConfigMessage(msg: SessionInboundMessage): Promise<void> | undefined {
     switch (msg.type) {
       case "set_agent_mode_request":
@@ -3020,24 +3048,6 @@ export class Session {
         });
         return undefined;
       }
-      case "daemon.get_status.request":
-        return this.daemonSession.handleGetStatusRequest(msg);
-      case "daemon.get_pairing_offer.request":
-        return this.daemonSession.handleGetPairingOfferRequest(msg);
-      case "daemon.config.reload.request":
-        return this.daemonSession.handleConfigReloadRequest(msg);
-      case "diagnostics.request":
-        return this.daemonSession.handleDiagnosticsRequest(msg);
-      case "diagnostics.resources.snapshot.request":
-        this.daemonSession.handleResourcesSnapshotRequest(msg);
-        return undefined;
-      case "diagnostics.package_runs.request":
-        return this.handlePackageRunsRequest(msg);
-      case "diagnostics.resources.baseline.update.request":
-        this.daemonSession.handleResourcesBaselineUpdateRequest(msg);
-        return undefined;
-      case "daemon.update.request":
-        return this.daemonSession.handleUpdateRequest(msg);
       case "set_daemon_config_request":
         return this.assertPimiModelFeaturesSelectable(msg.config).then(async () => {
           await validateLanguageServerOverrides(msg.config.editorLanguageServers);

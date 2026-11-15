@@ -31,8 +31,8 @@ function localAddresses() {
 
 export function createLocalNetworkPairing(options: {
   serverId: string;
-  daemonPublicKeyB64: string;
-  daemonKeyPair: KeyPair;
+  /** Read per use so a pairing reset applies to the next offer and handshake. */
+  daemonKeys: () => { keyPair: KeyPair; publicKeyB64: string };
   hasPassword: boolean;
   logger: Logger;
   attach: VoiceAssistantWebSocketServer["attachExternalSocket"];
@@ -95,12 +95,11 @@ export function createLocalNetworkPairing(options: {
         void admitSecuredRelaySocket(
           ws,
           {
-            daemonKeyPair: options.daemonKeyPair,
+            daemonKeyPair: () => options.daemonKeys().keyPair,
             logger: options.logger,
-            requireProtectedMode: () => true,
           },
-          ({ socket: secured, securityMode }) =>
-            options.attach(secured, { transport: "lan", securityMode, lanAccessCode: accessCode }),
+          ({ socket: secured }) =>
+            options.attach(secured, { transport: "lan", lanAccessCode: accessCode }),
         );
       });
     });
@@ -108,9 +107,8 @@ export function createLocalNetworkPairing(options: {
       offer: {
         v: 2,
         serverId: options.serverId,
-        daemonPublicKeyB64: options.daemonPublicKeyB64,
+        daemonPublicKeyB64: options.daemonKeys().publicKeyB64,
         relay: { endpoint, useTls: false },
-        minimumSecurityMode: "protected",
       },
       password: accessCode,
     });

@@ -19,6 +19,8 @@ interface RelayRuntimeOptions {
   logger: pino.Logger;
   attachSocket(ws: RelaySocketLike, metadata?: ExternalSocketMetadata): Promise<void>;
   serverId: string;
+  /** Registration token the relay binds to serverId; see relay-server-token.ts. */
+  serverToken: string;
   startTransport?: typeof startRelayTransport;
 }
 
@@ -41,6 +43,7 @@ export function createRelayRuntime(options: RelayRuntimeOptions): RelayRuntime {
       relayEndpoint: config.endpoint,
       relayUseTls: config.useTls,
       serverId: options.serverId,
+      serverToken: options.serverToken,
     });
   }
 
