@@ -50,6 +50,7 @@ import type { MutableDaemonConfig } from "../daemon-config-store.js";
 import type { ProviderRegistration } from "@pimi/plugin/server/provider";
 import { PluginAgentClientRegistry } from "./plugin-provider.js";
 import type { ProviderHarnessUpdate } from "@pimi/protocol/provider-harness-updates";
+import type { PackagePolicy } from "@pimi/protocol/package-runner-policy";
 import { HarnessUpdateCatalog } from "./harness-updates.js";
 import { buildDetectedProviderOverrides, type DetectedInstall } from "../provider-config-dirs.js";
 
@@ -123,6 +124,7 @@ export interface ProviderSnapshotManagerOptions {
   refreshTimeoutMs?: number;
   diagnosticTimeoutMs?: number;
   openCodeBridge?: OpenCodeBridge;
+  getPackagePolicy?: () => PackagePolicy;
 }
 
 interface ProviderSnapshotRefreshOptions {
@@ -265,6 +267,7 @@ export class ProviderSnapshotManager {
   private readonly workspaceGitService?: Pick<WorkspaceGitService, "resolveRepoRoot">;
   private readonly managedProcesses?: ManagedProcessRegistry;
   private readonly openCodeBridge?: OpenCodeBridge;
+  private readonly getPackagePolicy?: () => PackagePolicy;
   private readonly isDev: boolean;
   private readonly extraClients: Partial<Record<AgentProvider, AgentClient>>;
   private runtimeSettings: AgentProviderRuntimeSettingsMap | undefined;
@@ -288,6 +291,7 @@ export class ProviderSnapshotManager {
     this.workspaceGitService = options.workspaceGitService;
     this.managedProcesses = options.managedProcesses;
     this.openCodeBridge = options.openCodeBridge;
+    this.getPackagePolicy = options.getPackagePolicy;
     this.isDev = options.isDev === true;
     this.extraClients = options.extraClients ?? {};
     this.runtimeSettings = options.runtimeSettings;
@@ -808,6 +812,7 @@ export class ProviderSnapshotManager {
       workspaceGitService: this.workspaceGitService,
       managedProcesses: this.managedProcesses,
       openCodeBridge: this.openCodeBridge,
+      getPackagePolicy: this.getPackagePolicy,
       isDev: this.isDev,
     });
 

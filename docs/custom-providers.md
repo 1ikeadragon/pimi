@@ -545,6 +545,8 @@ Required fields for ACP providers:
 - `label`
 - `command` — the command to spawn the agent process (must support ACP over stdio)
 
+Pimi rewrites `npx` and `uvx` commands at launch according to Settings > Providers > Supply chain (`daemon.supplyChain`). It edits only the version spec and one age flag (`--min-release-age=<days>` for npx, `--exclude-newer=<date>` for uvx), which npm and uv resolve to the newest version published before that point. npx gets the relative flag because npm rejects `--before` when any `min-release-age` is configured, including in a project `.npmrc`; an existing `--before=` in a command with an exact version is left as written. The same rewrite applies to stdio MCP servers Pimi attaches to an agent. Commands with other runners (`bunx`, `pnpm dlx`) or flags outside a short allowlist are left alone, and so are MCP servers in an agent's own config. The policy runs on the stored command at launch, so the config file keeps what you wrote. The rules live in `packages/protocol/src/package-runner-policy.ts`.
+
 Pimi tools such as subagent creation come from the shared internal tool catalog. ACP providers receive those tools through the MCP fallback by default because ACP exposes `mcpServers`, not Pimi's native tool catalog. Some ACP adapters cannot create sessions when `mcpServers` is non-empty. Disable injected MCP for those providers with `options.supportsMcpServers: false`:
 
 ```json

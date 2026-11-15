@@ -26,6 +26,7 @@ import { mergeHostnames, parseHostnamesEnv, type HostnamesConfig } from "./hostn
 import { resolveGitProcessPolicy } from "../utils/git-process-scheduler.js";
 import { DEFAULT_PAIRING_APP_BASE_URL } from "./connection-offer.js";
 import { NETWORK_LOG_RETENTION_DAYS_DEFAULT } from "@pimi/protocol/messages";
+import { DEFAULT_PACKAGE_POLICY } from "@pimi/protocol/package-runner-policy";
 
 export {
   loadPersistedConfig,
@@ -546,6 +547,7 @@ function resolveStaticLoadConfigSettings(
     browserToolsEnabled: resolveBrowserToolsEnabled(persisted),
     autoArchiveAfterMerge: persisted.daemon?.autoArchiveAfterMerge ?? false,
     limitFallback: persisted.daemon?.limitFallback ?? { enabled: false, chain: [] },
+    supplyChain: persisted.daemon?.supplyChain ?? DEFAULT_PACKAGE_POLICY,
     ...resolveNetworkLogConfig(persisted),
     appendSystemPrompt: resolveAppendSystemPrompt(persisted),
     ...resolveProfileLists(persisted),
@@ -577,6 +579,7 @@ export type ResolvedDaemonSettings = Pick<
   | "git"
   | "autoArchiveAfterMerge"
   | "limitFallback"
+  | "supplyChain"
   | "logNetworkEnabled"
   | "logNetworkRetentionDays"
   | "enableTerminalAgentHooks"

@@ -24,6 +24,7 @@ import {
   NETWORK_LOG_RETENTION_DAYS_MAX,
   NETWORK_LOG_RETENTION_DAYS_MIN,
 } from "@pimi/protocol/messages";
+import { PackagePolicySchema } from "@pimi/protocol/package-runner-policy";
 import { TerminalProfileSchema } from "@pimi/protocol/terminal-profile";
 import { PimiServicePortAllocationSchema } from "@pimi/protocol/pimi-config-schema";
 import { DEFAULT_PAIRING_APP_BASE_URL } from "./connection-offer.js";
@@ -300,6 +301,7 @@ export const PersistedConfigSchema = z
           .strict()
           .optional(),
         autoArchiveAfterMerge: z.boolean().optional(),
+        supplyChain: PackagePolicySchema.optional(),
         enableTerminalAgentHooks: z.boolean().optional(),
         limitFallback: LimitFallbackConfigSchema.optional(),
         appendSystemPrompt: z.string().optional(),

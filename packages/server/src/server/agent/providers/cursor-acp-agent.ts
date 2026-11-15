@@ -1,5 +1,6 @@
 import { zSessionConfigOption } from "@agentclientprotocol/sdk/dist/schema/zod.gen.js";
 import type { Logger } from "pino";
+import type { PackagePolicy } from "@pimi/protocol/package-runner-policy";
 import { z } from "zod";
 
 import type { AgentModelDefinition } from "../agent-sdk-types.js";
@@ -16,6 +17,7 @@ interface CursorACPAgentClientOptions {
   env?: Record<string, string>;
   providerId?: string;
   label?: string;
+  getPackagePolicy?: () => PackagePolicy;
 }
 
 const CURSOR_INITIAL_COMMANDS_WAIT_TIMEOUT_MS = 10_000;
@@ -92,6 +94,7 @@ export class CursorACPAgentClient extends GenericACPAgentClient {
       env: options.env,
       providerId: options.providerId,
       label: options.label,
+      getPackagePolicy: options.getPackagePolicy,
       usageProvider: "cursor",
       // cursor-agent publishes slash commands asynchronously via available_commands_update.
       waitForInitialCommands: true,

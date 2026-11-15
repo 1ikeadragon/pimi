@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import type { PackagePolicy } from "@pimi/protocol/package-runner-policy";
 
 import type { AgentModelDefinition } from "../agent-sdk-types.js";
 import {
@@ -15,6 +16,7 @@ interface KimiACPAgentClientOptions {
   env?: Record<string, string>;
   providerId?: string;
   label?: string;
+  getPackagePolicy?: () => PackagePolicy;
 }
 
 // Kimi exposes thinking options only for the selected model. Keep its model-switching
@@ -87,6 +89,7 @@ export class KimiACPAgentClient extends GenericACPAgentClient {
       env: options.env,
       providerId: options.providerId,
       label: options.label,
+      getPackagePolicy: options.getPackagePolicy,
       catalogModelResolver: resolveKimiCatalogModels,
     });
   }

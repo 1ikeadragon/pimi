@@ -30,6 +30,11 @@ import type {
   ToolPolicy,
 } from "@pimi/protocol/agent-types";
 import type { ProviderPimiToolsPolicy } from "@pimi/protocol/provider-config";
+import {
+  applyPackagePolicy,
+  DEFAULT_PACKAGE_POLICY,
+  type PackagePolicy,
+} from "@pimi/protocol/package-runner-policy";
 import { z } from "zod";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
 
@@ -56,6 +61,7 @@ import {
   type AgentRunResult,
   type AgentSession,
   type AgentSessionConfig,
+  type McpServerConfig,
   type SteerResult,
   type AgentStreamEvent,
   type AgentTimelineItem,
@@ -658,6 +664,8 @@ export interface AgentManagerOptions {
   resolvePimiToolPolicy?: (provider: AgentProvider) => ProviderPimiToolsPolicy | undefined;
   /** Whether a bundled skill is selected and installed, so agents that read skills can load it. */
   isSkillAvailable?: (name: string) => Promise<boolean>;
+  /** Live supply-chain policy applied to stdio MCP servers launched for agents. */
+  getPackagePolicy?: () => PackagePolicy;
   appendSystemPrompt?: string;
   agentStreamCoalesceWindowMs?: number;
   rescueTimeouts?: AgentManagerRescueTimeouts;
@@ -1177,6 +1185,7 @@ export class AgentManager {
   /** Agents whose provider gets Pimi's tools through the lazy loader; set before the session exists so a resume-time tools/list sees it. */
   private readonly pimiLoaderAgents = new Set<string>();
   private isSkillAvailable: (name: string) => Promise<boolean> = async () => false;
+  private getPackagePolicy: () => PackagePolicy = () => DEFAULT_PACKAGE_POLICY;
   private readonly resolvePimiToolPolicy: (
     provider: AgentProvider,
   ) => ProviderPimiToolsPolicy | undefined;
@@ -1239,6 +1248,7 @@ export class AgentManager {
     this.pimiToolsEnabled = options.pimiToolsEnabled ?? true;
     this.pimiToolCatalogFactory = options.pimiToolCatalogFactory ?? null;
     if (options.isSkillAvailable) this.isSkillAvailable = options.isSkillAvailable;
+    if (options.getPackagePolicy) this.getPackagePolicy = options.getPackagePolicy;
   }
 
   registerClient(provider: AgentProvider, client: AgentClient): void {
@@ -7560,7 +7570,9 @@ export class AgentManager {
             mcpServers: { ...launchConfig.mcpServers, ...launchContext.mcpServers },
           }
         : launchConfig;
-    const withMcp = launchContext.pimiTools ? stripInternalPimiMcpServer(merged) : merged;
+    const withMcp = this.applyPackagePolicyToMcpServers(
+      launchContext.pimiTools ? stripInternalPimiMcpServer(merged) : merged,
+    );
     // A chat that switched providers has a transcript the new provider may need to read.
     const configured =
       launchContext.agentId && this.handoff.controller.hasTranscript(launchContext.agentId)
@@ -7576,6 +7588,28 @@ export class AgentManager {
     const preapproved = grants.filter((grant) => grant.server !== PIMI_MCP_SERVER_NAME);
     if (preapproved.length === grants.length) return configured;
     return { ...configured, toolPolicy: preapproved.length ? { preapproved } : undefined };
+  }
+
+  private applyPackagePolicyToMcpServers(config: AgentSessionConfig): AgentSessionConfig {
+    const servers = config.mcpServers;
+    if (!servers) return config;
+    const policy = this.getPackagePolicy();
+    const now = Date.now();
+    const rewritten: Record<string, McpServerConfig> = {};
+    for (const [name, server] of Object.entries(servers)) {
+      if (server.type !== "stdio") {
+        rewritten[name] = server;
+        continue;
+      }
+      const result = applyPackagePolicy([server.command, ...(server.args ?? [])], policy, now);
+      if (!result.managed) {
+        rewritten[name] = server;
+        continue;
+      }
+      const [command, ...args] = result.argv;
+      rewritten[name] = { ...server, command, args };
+    }
+    return { ...config, mcpServers: rewritten };
   }
 
   private async requireAvailableClient(options: { provider: AgentProvider }): Promise<AgentClient> {

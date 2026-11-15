@@ -478,6 +478,7 @@ export interface PimiDaemonConfig {
   };
   autoArchiveAfterMerge?: boolean;
   limitFallback?: MutableDaemonConfig["limitFallback"];
+  supplyChain: MutableDaemonConfig["supplyChain"];
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
   terminalProfiles?: TerminalProfile[];
@@ -645,6 +646,7 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
     metadataGeneration: resolveMetadataGeneration(config.metadataGeneration),
     autoArchiveAfterMerge: config.autoArchiveAfterMerge ?? false,
     limitFallback: resolveLimitFallback(config.limitFallback),
+    supplyChain: config.supplyChain,
     enableTerminalAgentHooks: config.enableTerminalAgentHooks ?? false,
     log: createInitialLogConfig(config),
     idleRuntimeCleanup: config.idleRuntimeCleanup !== false,
@@ -1205,6 +1207,7 @@ export async function createPimiDaemon(
       managedProcesses,
       isDev: config.isDev === true,
       extraClients: config.agentClients,
+      getPackagePolicy: () => daemonConfigStore.get().supplyChain,
     },
   });
   const providerSnapshotManager = agentProviderRuntime.snapshotManager;
@@ -1262,6 +1265,7 @@ export async function createPimiDaemon(
     resolvePimiToolPolicy: (provider) =>
       resolvePimiToolPolicy(provider, daemonConfigStore.get().providers),
     isSkillAvailable: (name) => orchestrationSkills.isSkillAvailable(name),
+    getPackagePolicy: () => daemonConfigStore.get().supplyChain,
     logger,
   });
   {

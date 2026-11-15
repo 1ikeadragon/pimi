@@ -58,6 +58,7 @@ export {
   type PluginRequirements,
   type PluginSource,
 } from "./plugin-config.js";
+import { DEFAULT_PACKAGE_POLICY, PackagePolicySchema } from "./package-runner-policy.js";
 import { TerminalProfileSchema } from "./terminal-profile.js";
 export { TerminalProfileSchema, type TerminalProfile } from "./terminal-profile.js";
 import { z } from "zod";
@@ -412,6 +413,7 @@ export const MutableDaemonConfigSchema = z
       autoNaming: true,
     }),
     autoArchiveAfterMerge: z.boolean().default(false),
+    supplyChain: PackagePolicySchema.default(DEFAULT_PACKAGE_POLICY),
     enableTerminalAgentHooks: z.boolean().default(false),
     limitFallback: LimitFallbackConfigSchema.default({ enabled: false, chain: [] }),
     // Persisted host-wide value, applied live by the daemon.
@@ -469,6 +471,7 @@ export const MutableDaemonConfigPatchSchema = z
       .passthrough()
       .optional(),
     autoArchiveAfterMerge: z.boolean().optional(),
+    supplyChain: PackagePolicySchema.optional(),
     enableTerminalAgentHooks: z.boolean().optional(),
     limitFallback: LimitFallbackConfigSchema.optional(),
     idleRuntimeCleanup: z.boolean().optional(),

@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Settings > Providers has a Supply chain section: keep package versions pinned, require a minimum age in days, or follow latest, for ACP providers and MCP servers.
 - Crew: a lead model delegates design and review to a thinker, implementation to a worker and chores to a small model; edit the four Crew profiles in Library > Profiles.
 
 ## 0.17.56 - 2026-11-15

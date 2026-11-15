@@ -106,6 +106,21 @@
         "autoArchiveAfterMerge": {
           "type": "boolean"
         },
+        "supplyChain": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["pinned", "minAge", "latest"]
+            },
+            "minAgeDays": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90
+            }
+          },
+          "required": ["mode", "minAgeDays"]
+        },
         "enableTerminalAgentHooks": {
           "type": "boolean"
         },

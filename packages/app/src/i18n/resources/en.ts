@@ -3369,6 +3369,29 @@ export const en = {
     },
   },
   settings: {
+    supplyChain: {
+      title: "Supply chain",
+      updates: "Package updates",
+      days: "Days",
+      fewerDays: "Fewer days",
+      moreDays: "More days",
+      packages: "Packages",
+      footnote:
+        "Applies to npx and uvx commands for ACP providers and MCP servers Pimi starts. MCP servers in an agent's own config are not covered.",
+      modes: { pinned: "Pinned", minAge: "Minimum age", latest: "Latest" },
+      hints: {
+        pinned:
+          "Runs the exact versions in your config. Packages with no version use the minimum age.",
+        minAge: "Runs the newest version published at least {{count}} days ago.",
+        latest: "Runs the newest version on every launch. Not recommended.",
+      },
+      package: {
+        pinned: "{{version}} pinned",
+        newestBefore: "Newest before {{date}}",
+        latest: "Latest",
+        notManaged: "Not managed",
+      },
+    },
     title: "Settings",
     search: {
       placeholder: "Search settings",

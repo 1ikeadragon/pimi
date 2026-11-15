@@ -58,6 +58,7 @@ import {
 } from "@/runtime/host-runtime";
 import type { ConnectionProbeState } from "@/utils/connection-selection";
 import { ProvidersSection } from "@/screens/settings/providers-section";
+import { SupplyChainSection } from "@/screens/settings/supply-chain-section";
 import { HostAppearanceSection } from "@/screens/settings/host-appearance-section";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { useSessionStore } from "@/stores/session-store";
@@ -337,6 +338,7 @@ export function HostProvidersPage({ serverId }: { serverId: string }) {
   return (
     <View>
       <ProvidersSection serverId={serverId} />
+      <SupplyChainSection serverId={serverId} />
     </View>
   );
 }
