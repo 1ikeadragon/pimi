@@ -31,12 +31,12 @@ export const PIMI_TOOL_NAMES = Object.keys(PIMI_TOOL_CATALOG) as readonly PimiTo
 export function buildPimiToolDisplay(input: PimiToolDisplayInput): PimiToolDisplay | null {
   // Canonical details own internal lifecycle rows such as worktree setup.
   if (input.detail.type !== "unknown") return null;
-  const leafName = pimiLeafName(input.toolName);
-  if (!leafName) return null;
+  const call = resolvePimiCall(input.toolName, input.detail);
+  if (!call) return null;
+  const { leafName, toolInput } = call;
   const entry = getPimiToolEntry(leafName);
   if (!entry) return { displayName: humanizeLeafName(leafName) };
 
-  const toolInput = readToolInput(input.detail);
   const targetAgent = input.targetAgentTitle ?? readString(toolInput.agentId);
   const summary = formatContext(
     entry.context?.(toolInput, targetAgent, readToolOutput(input.detail)),
@@ -56,8 +56,28 @@ export function getPimiToolTargetAgentId(
   toolName: string,
   detail: ToolCallDetail | undefined,
 ): string | null {
-  if (!detail || !pimiLeafName(toolName)) return null;
-  return readString(readToolInput(detail).agentId) ?? null;
+  if (!detail) return null;
+  return readString(resolvePimiCall(toolName, detail)?.toolInput.agentId) ?? null;
+}
+
+/** The Pimi tool a call runs and its input. A call made through the loader names both in its input. */
+function resolvePimiCall(
+  toolName: string,
+  detail: ToolCallDetail,
+): { leafName: string; toolInput: Readonly<Record<string, unknown>> } | null {
+  const leafName = pimiLeafName(toolName);
+  if (!leafName) return null;
+  const toolInput = readToolInput(detail);
+  const loaded = leafName === "call_pimi_tool" ? readString(toolInput.name) : undefined;
+  if (!loaded) return { leafName, toolInput };
+  const args = toolInput.arguments;
+  return {
+    leafName: loaded,
+    toolInput:
+      typeof args === "object" && args !== null && !Array.isArray(args)
+        ? (args as Record<string, unknown>)
+        : {},
+  };
 }
 
 function pimiLeafName(toolName: string): string | null {

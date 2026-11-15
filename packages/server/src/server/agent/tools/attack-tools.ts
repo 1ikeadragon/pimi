@@ -118,6 +118,8 @@ export interface RegisterAttackToolsOptions {
   ) => void;
   scope: "agent" | "top-level";
   service?: AttackService | null;
+  /** The caller carries an Attack run's label. */
+  attackRun: boolean | undefined;
   callerAgentId?: string;
   browserToolsEnabled?: boolean;
   broker?: Pick<BrowserToolsBroker, "execute"> | null;
@@ -263,10 +265,10 @@ async function captureDesktop(
   return fail(reason);
 }
 
-// Only agents can use these tools, and only where the daemon runs Attack mode.
+// Only the agents of an Attack run get these tools, and only where the daemon runs Attack mode.
 export function registerAttackTools(base: RegisterAttackToolsOptions): void {
   const { service } = base;
-  if (!service || base.scope !== "agent") return;
+  if (!service || !base.attackRun || base.scope !== "agent") return;
   const options: ActiveOptions = {
     ...base,
     service,

@@ -1,8 +1,13 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { writeFileAtomic } from "../../../../atomic-file.js";
+
+// COMPAT(~/.config/opencode/plugins/paseo-managed-bridge): the bridge Pimi installed under its old
+// name. OpenCode still loads it, and its context hook removes every pimi_ tool from every session
+// because nothing binds sessions to it any more.
+const RENAMED_FROM = "paseo-managed-bridge";
 
 const PACKAGE = JSON.stringify({
   name: "pimi-managed-bridge",
@@ -33,6 +38,14 @@ export async function provisionLocalBridge(input: {
 }): Promise<void> {
   const directory = path.join(input.configDirectory, "plugins", "pimi-managed-bridge");
   await mkdir(path.dirname(directory), { recursive: true });
+  const renamedFrom = path.join(input.configDirectory, "plugins", RENAMED_FROM);
+  if (
+    isManagedPackage(
+      await readFile(path.join(renamedFrom, "package.json"), "utf8").catch(() => ""),
+      RENAMED_FROM,
+    )
+  )
+    await rm(renamedFrom, { recursive: true, force: true });
   let created = false;
   try {
     await mkdir(directory);
@@ -56,7 +69,7 @@ export async function provisionLocalBridge(input: {
   if (!existing?.equals(artifact)) await writeFileAtomic(target, artifact);
 }
 
-function isManagedPackage(content: string): boolean {
+function isManagedPackage(content: string, name = "pimi-managed-bridge"): boolean {
   let value: unknown;
   try {
     value = JSON.parse(content);
@@ -69,7 +82,7 @@ function isManagedPackage(content: string): boolean {
     return false;
   const exports = manifest.exports as Record<string, unknown>;
   return (
-    manifest.name === "pimi-managed-bridge" &&
+    manifest.name === name &&
     manifest.private === true &&
     manifest.type === "module" &&
     exports["./server"] === "./server.js"
