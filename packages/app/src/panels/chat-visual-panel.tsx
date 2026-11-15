@@ -8,6 +8,7 @@ import { readChatVisual, type ChatVisual } from "@/chat-visuals/store";
 import { MermaidTabView } from "@/components/markdown/fence/mermaid/tab-view";
 import { VegaPlot } from "@/components/markdown/fence/vega";
 import { ViewNodeView } from "@/components/markdown/fence/view/registry";
+import { FlowRunGraphView } from "@/flows/flow-run-card";
 import { FileHtmlPreview } from "@/file-panels/html-preview";
 import { htmlPreviewTheme } from "@/file-panels/html-preview-theme";
 import { ChatVisualViewport } from "@/panels/chat-visual-viewport";
@@ -28,15 +29,29 @@ const mapColorScheme = (theme: Theme) => ({ colorScheme: theme.colorScheme });
  * document scrolls inside its frame.
  */
 function ChatVisualPanel() {
-  const { target } = usePaneContext();
+  const { target, serverId } = usePaneContext();
   invariant(target.kind === "chat_visual", "ChatVisualPanel requires chat_visual target");
   const visual = readChatVisual(target.visualId);
   if (!visual) return <Missing message="Open this visual again from its chat." />;
-  return <ChatVisualBody visual={visual} title={target.title} />;
+  return <ChatVisualBody visual={visual} title={target.title} serverId={serverId} />;
 }
 
-function ChatVisualBody({ visual, title }: { visual: ChatVisual; title: string }) {
+function ChatVisualBody({
+  visual,
+  title,
+  serverId,
+}: {
+  visual: ChatVisual;
+  title: string;
+  serverId: string;
+}) {
   switch (visual.kind) {
+    case "flow_run":
+      return (
+        <View style={styles.fill} testID="chat-visual-panel">
+          <FlowRunGraphView runId={visual.runId} serverId={serverId} />
+        </View>
+      );
     case "html":
       return (
         <View style={styles.fill} testID="chat-visual-panel">

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { Text, View, type LayoutChangeEvent } from "react-native";
-import { Play, RotateCcw, Square, Workflow } from "lucide-react-native";
+import { ChevronDown, ChevronUp, Play, RotateCcw, Square, Workflow } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { z } from "zod";
 import type { AutomationRunStepStatus } from "@pimi/protocol/automation/types";
@@ -12,6 +12,7 @@ import {
 } from "@/components/automations/automation-editor-canvas";
 import { readPimiToolOutput } from "@/components/pimi-task-proposal-card";
 import { MarkdownRenderer } from "@/components/markdown/renderer";
+import { OpenInTabButton, useOpenChatVisualInTab } from "@/components/markdown/fence/open-in-tab";
 import { Button } from "@/components/ui/button";
 import { FormTextInput } from "@/components/ui/form-field";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -37,8 +38,8 @@ const CANVAS_MAX_HEIGHT = 440;
 const CANVAS_PADDING = 64;
 // Keeps the graph clear of the zoom toolbar in the corner.
 const CANVAS_TOOLBAR_INSET = 48;
-// The card fits below the editor's readable floor: a glance at the whole graph beats legible
-// titles, and a tap opens the step.
+// The card and its tab fit below the editor's readable floor: a glance at the whole graph beats
+// legible titles, and a tap opens the step.
 const CARD_MIN_SCALE = 0.3;
 // A longer result starts collapsed behind Show more.
 const RESULT_COLLAPSE_CHARS = 600;
@@ -88,6 +89,8 @@ export function FlowRunCard({ runId, serverId }: { runId: string; serverId: stri
   const flowQuery = useFlow(serverId, run?.flowId);
   const flow = flowQuery.data ?? null;
   const mutations = useFlowMutations(serverId);
+  const [collapsed, setCollapsed] = useState(false);
+  const toggleCollapsed = useCallback(() => setCollapsed((value) => !value), []);
   const [pending, setPending] = useState<"run" | "cancel" | "retry" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const act = useCallback(
@@ -142,17 +145,10 @@ export function FlowRunCard({ runId, serverId }: { runId: string; serverId: stri
     run.status === "failed" || run.status === "cancelled" || run.status === "not_met";
   return (
     <View style={styles.card} testID="flow-run-card">
-      <View style={styles.header}>
-        <Workflow size={16} color={styles.icon.color} />
-        <Text accessibilityRole="header" style={styles.title} numberOfLines={1}>
-          {t("flowRun.title", { name: run.flowName })}
-        </Text>
-        <StatusBadge
-          label={t(`flowRun.status.${run.status}`)}
-          variant={STATUS_VARIANT[run.status]}
-        />
-      </View>
-      {flow ? <RunGraph flow={flow} run={run} serverId={serverId} compact={compact} /> : null}
+      <RunHeader run={run} collapsed={collapsed} onToggle={toggleCollapsed} />
+      {flow && !collapsed ? (
+        <RunGraph flow={flow} run={run} serverId={serverId} compact={compact} />
+      ) : null}
       {waiting ? (
         <RunInput
           input={run.input}
@@ -211,11 +207,14 @@ function RunGraph({
   run,
   serverId,
   compact,
+  fill = false,
 }: {
   flow: Flow;
   run: FlowRun;
   serverId: string;
   compact: boolean;
+  /** Takes the room the parent gives it (a tab) instead of sizing to the graph (the card). */
+  fill?: boolean;
 }) {
   const { t } = useTranslation();
   const direction = compact ? "down" : "right";
@@ -287,8 +286,9 @@ function RunGraph({
     ),
   );
   const frameStyle = useMemo(
-    () => [styles.canvas, inlineUnistylesStyle({ height: frameHeight })],
-    [frameHeight],
+    () =>
+      fill ? styles.canvasFill : [styles.canvas, inlineUnistylesStyle({ height: frameHeight })],
+    [fill, frameHeight],
   );
   return (
     <View style={frameStyle} onLayout={handleFrameLayout} testID="flow-run-canvas">
@@ -319,7 +319,52 @@ function RunGraph({
   );
 }
 
+/** A run's graph on its own tab or screen: the same live run as the card, with the whole pane. */
+export function FlowRunGraphView({ runId, serverId }: { runId: string; serverId: string }) {
+  const compact = useIsCompactFormFactor();
+  const run = useFlowRun(serverId, runId).data ?? null;
+  const flow = useFlow(serverId, run?.flowId).data ?? null;
+  if (!run || !flow) return null;
+  return <RunGraph flow={flow} run={run} serverId={serverId} compact={compact} fill />;
+}
+
 function noop() {}
+
+function RunHeader({
+  run,
+  collapsed,
+  onToggle,
+}: {
+  run: FlowRun;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useTranslation();
+  const title = t("flowRun.title", { name: run.flowName });
+  const visual = useMemo(
+    () => ({ kind: "flow_run" as const, runId: run.id, flowName: run.flowName }),
+    [run.flowName, run.id],
+  );
+  const openInTab = useOpenChatVisualInTab(visual, title);
+  return (
+    <View style={styles.header}>
+      <Workflow size={16} color={styles.icon.color} />
+      <Text accessibilityRole="header" style={styles.title} numberOfLines={1}>
+        {title}
+      </Text>
+      <StatusBadge label={t(`flowRun.status.${run.status}`)} variant={STATUS_VARIANT[run.status]} />
+      <OpenInTabButton onPress={openInTab} />
+      <Button
+        variant="ghost"
+        size="sm"
+        leftIcon={collapsed ? ChevronDown : ChevronUp}
+        accessibilityLabel={collapsed ? t("flowRun.showGraph") : t("flowRun.hideGraph")}
+        onPress={onToggle}
+        testID="flow-run-collapse"
+      />
+    </View>
+  );
+}
 
 // What a run's status adds under its graph: a hint, the result, or why it failed.
 function RunNotes({ run, error }: { run: FlowRun; error: string | null }) {
@@ -456,6 +501,7 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface0,
   },
+  canvasFill: { flex: 1, minHeight: 0, backgroundColor: theme.colors.surface0 },
   feedback: { gap: theme.spacing[2] },
   feedbackRow: { gap: 2 },
   feedbackTitle: {

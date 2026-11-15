@@ -7,7 +7,8 @@ export type ChatVisual =
   | { kind: "html"; html: ChatHtml }
   | { kind: "vega"; vega: ChatVega }
   | { kind: "view"; view: ChatView }
-  | { kind: "mermaid"; source: string };
+  | { kind: "mermaid"; source: string }
+  | { kind: "flow_run"; runId: string; flowName: string };
 
 /**
  * Visuals the reader opened in a tab. A reply owns its visuals; the tab only needs one while the
@@ -42,6 +43,8 @@ function visualText(visual: ChatVisual): string {
       return JSON.stringify(visual.vega);
     case "view":
       return JSON.stringify(visual.view);
+    case "flow_run":
+      return visual.runId;
   }
 }
 

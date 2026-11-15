@@ -4711,6 +4711,8 @@ export const en = {
   },
   flowRun: {
     title: "Flow {{name}}",
+    hideGraph: "Hide graph",
+    showGraph: "Show graph",
     attempt: "Attempt {{attempt}} of {{max}}",
     feedback: "Judge: {{feedback}}",
     status: {
