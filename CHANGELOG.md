@@ -8,7 +8,8 @@
 - Flows: a gate can send work back to Start, which reruns every step before it, parallel branches included.
 - Automations: the editor has layout direction and inspector toggles, and Describe takes voice input.
 - Tasks: the list shows all three statuses.
-- Settings > Providers has a Supply chain section: keep package versions pinned, require a minimum age in days, or follow latest, for ACP providers and MCP servers.
+- Settings > Providers has a Supply chain section: keep package versions pinned, require a minimum age in days, or follow latest, for ACP providers and MCP servers. Each package expands to show the policy that applies, the requested spec, the version last installed and what uses it.
+- Flows: the run card's graph can be collapsed, or opened in its own tab (full screen on phone) that keeps updating while the run goes.
 - Crew: a lead model delegates design and review to a thinker, implementation to a worker and chores to a small model; edit the four Crew profiles in Library > Profiles.
 
 ## 0.17.56 - 2026-11-15
