@@ -2,6 +2,11 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.54 - 2026-11-15
+
+- Android: notifications arrive when the app is closed, when an agent finishes or needs your permission. They carry no chat content.
+- A second Claude or Codex login, and other custom providers, show their base provider's icon.
+
 ## 0.17.53 - 2026-11-15
 
 - Android: the app no longer crashes at launch.
