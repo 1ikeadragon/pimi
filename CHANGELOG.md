@@ -5,6 +5,7 @@
 ## 0.17.57 - 2026-11-15
 
 - Flows: build reusable agent graphs in Library > Flows, now also in every sidebar. Type /name in a chat to drop a flow card there; press Start to run it, and the result shows in the chat.
+- Flows: ask the chat agent to turn what you just did into a flow, or to build one from a description; it saves the steps and gates, and /name then Start runs it.
 - Flows: a gate can send work back to Start, which reruns every step before it, parallel branches included.
 - Automations: the editor has layout direction and inspector toggles, and Describe takes voice input.
 - Tasks: the list shows all three statuses.
