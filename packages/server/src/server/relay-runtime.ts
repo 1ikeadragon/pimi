@@ -27,6 +27,7 @@ interface RelayRuntimeOptions {
 export interface RelayRuntime {
   getConfig(): RelayRuntimeConfig;
   setEnabled(enabled: boolean): void;
+  terminateDataSockets(): number;
   stop(): Promise<void>;
 }
 
@@ -73,6 +74,7 @@ export function createRelayRuntime(options: RelayRuntimeOptions): RelayRuntime {
   return {
     getConfig: () => config,
     setEnabled,
+    terminateDataSockets: () => transport?.terminateDataSockets() ?? 0,
     stop,
   };
 }

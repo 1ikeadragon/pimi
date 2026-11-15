@@ -2271,8 +2271,14 @@ export async function createPimiDaemon(
                   await localNetworkPairing.request({ action: "disable" });
                   // After the response is queued: the requester may itself be remote.
                   setTimeout(() => {
+                    // Pending Noise handshakes are not in wsServer's identities yet.
+                    // Drop their raw sockets too so none can finish with the old key.
+                    const relayDataSockets = relayRuntime?.terminateDataSockets() ?? 0;
                     const dropped = wsServer?.terminateRemoteSockets() ?? 0;
-                    logger.info({ dropped }, "Pairing reset: dropped remote connections");
+                    logger.info(
+                      { dropped, relayDataSockets },
+                      "Pairing reset: dropped remote connections",
+                    );
                   }, 250);
                 },
               },

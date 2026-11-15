@@ -20,6 +20,8 @@ export interface RelayTransportOptions {
 
 export interface RelayTransportController {
   stop: () => Promise<void>;
+  /** Drop raw data channels, including peers that have not finished endpoint security. */
+  terminateDataSockets: () => number;
 }
 
 export interface RelaySocketLike {
@@ -143,6 +145,19 @@ export function startRelayTransport({
   let controlLastSeenAt = 0;
   let controlConnectionSeq = 0;
 
+  const terminateDataSockets = (): number => {
+    const sockets = [...dataSockets.values()];
+    dataSockets.clear();
+    for (const ws of sockets) {
+      try {
+        ws.terminate();
+      } catch {
+        // Ignore sockets already closing.
+      }
+    }
+    return sockets.length;
+  };
+
   const stop = async (): Promise<void> => {
     stopped = true;
     if (reconnectTimeout) {
@@ -168,14 +183,7 @@ export function startRelayTransport({
     // Terminate, not close: a peer that withholds the close handshake must not keep an
     // attached session alive after relay access is turned off. terminate() emits "close"
     // at once, which detaches the session.
-    for (const ws of dataSockets.values()) {
-      try {
-        ws.terminate();
-      } catch {
-        // ignore
-      }
-    }
-    dataSockets.clear();
+    terminateDataSockets();
   };
 
   const connectControl = (): void => {
@@ -423,5 +431,5 @@ export function startRelayTransport({
 
   connectControl();
 
-  return { stop };
+  return { stop, terminateDataSockets };
 }
