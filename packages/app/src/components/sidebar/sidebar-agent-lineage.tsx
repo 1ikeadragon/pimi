@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { ThemedChevron, chevronColorMapping } from "@/git/themed-chevron";
 import equal from "fast-deep-equal";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { ModelProviderGlyph } from "@/components/model-browser";
@@ -21,6 +22,7 @@ import { useArchiveAgent, usePendingArchiveAgentKeys } from "@/hooks/use-archive
 import { SidebarWorkspaceArchiveButton } from "@/components/sidebar/sidebar-workspace-menu";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { usePanelStore } from "@/stores/panel-store";
+import { useSidebarCollapsedSectionsStore } from "@/stores/sidebar-collapsed-sections-store";
 import { useSessionStore } from "@/stores/session-store";
 import { density, densityIconBox } from "@/styles/density";
 import { useProviderSubagentStore } from "@/subagents/provider-store";
@@ -80,6 +82,8 @@ function workerKey(worker: SidebarLineageWorker): string {
 }
 
 const EMPTY_WORKERS: SidebarLineageWorker[] = [];
+const COLLAPSED_STATE = { expanded: false };
+const EXPANDED_STATE = { expanded: true };
 
 /**
  * What hangs under a workspace's chat row: the live subagents of its primary chat, then every
@@ -166,8 +170,33 @@ function SidebarChatTree({
   const primary = roots[0];
   const shown = useWorkspaceShownChat(serverId, workspaceId);
   const primaryWorkers = (primary && workersByChat.get(primary.agentId)) || EMPTY_WORKERS;
+  const collapsed = useSidebarCollapsedSectionsStore((state) =>
+    state.collapsedLineageKeys.has(workspaceKey),
+  );
+  const toggleLineageCollapsed = useSidebarCollapsedSectionsStore(
+    (state) => state.toggleLineageCollapsed,
+  );
+  const toggleCollapsed = useCallback(
+    () => toggleLineageCollapsed(workspaceKey),
+    [toggleLineageCollapsed, workspaceKey],
+  );
+  let nestedCount = siblings.length;
+  for (const workers of workersByChat.values()) nestedCount += workers.length;
+  // Archiving the last nested row while expanded leaves nothing to fold.
+  if (nestedCount === 0) return null;
+  const toggle = (
+    <SidebarLineageToggle
+      collapsed={collapsed}
+      count={nestedCount}
+      onToggle={toggleCollapsed}
+      indentStyle={indentStyle}
+      testID={`sidebar-agent-lineage-toggle-${workspaceKey}`}
+    />
+  );
+  if (collapsed) return <View testID={`sidebar-agent-lineage-${workspaceKey}`}>{toggle}</View>;
   return (
     <View testID={`sidebar-agent-lineage-${workspaceKey}`}>
+      {toggle}
       <SidebarWorkerList workers={primaryWorkers} indentStyle={indentStyle} />
       {siblings.map((chat) => (
         <View key={`${chat.serverId}:${chat.agentId}`}>
@@ -182,6 +211,51 @@ function SidebarChatTree({
           />
         </View>
       ))}
+    </View>
+  );
+}
+
+/** Folds everything nested under the workspace row into this one muted line, per workspace. */
+function SidebarLineageToggle({
+  collapsed,
+  count,
+  onToggle,
+  indentStyle,
+  testID,
+}: {
+  collapsed: boolean;
+  count: number;
+  onToggle: () => void;
+  indentStyle: StyleProp<ViewStyle>;
+  testID: string;
+}) {
+  const { t } = useTranslation();
+  const label = collapsed
+    ? t("sidebar.lineage.showNested", { count })
+    : t("sidebar.lineage.hideNested");
+  return (
+    <View style={[styles.lineage, indentStyle]}>
+      <View style={styles.workspaceStatusSpacer} />
+      <View style={styles.workers}>
+        <PressHighlight
+          accessibilityRole={isWeb ? undefined : "button"}
+          accessibilityLabel={label}
+          accessibilityState={collapsed ? COLLAPSED_STATE : EXPANDED_STATE}
+          onPress={onToggle}
+          style={toggleRowStyle}
+          highlightStyle={styles.rowPressed}
+          testID={testID}
+        >
+          <View style={styles.glyphSlot}>
+            <View style={collapsed ? undefined : styles.chevronOpen}>
+              <ThemedChevron size={12} uniProps={chevronColorMapping} />
+            </View>
+          </View>
+          <Text style={styles.toggleText} numberOfLines={1}>
+            {label}
+          </Text>
+        </PressHighlight>
+      </View>
     </View>
   );
 }
@@ -341,6 +415,10 @@ function siblingSelectedRowStyle({
   return [styles.siblingRow, styles.rowSelected, hovered && !pressed && styles.rowHovered];
 }
 
+function toggleRowStyle({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) {
+  return [styles.toggleRow, hovered && !pressed && styles.rowHovered];
+}
+
 function rowStyle({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) {
   return [styles.row, hovered && !pressed && styles.rowHovered];
 }
@@ -400,6 +478,27 @@ const styles = StyleSheet.create((theme) => ({
     paddingRight: theme.spacing[3],
     borderRadius: theme.borderRadius.md,
     userSelect: "none",
+  },
+  // Same rail as the subagent rows, shorter and quieter so it reads as a control, not an item.
+  toggleRow: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    paddingRight: theme.spacing[3],
+    paddingVertical: theme.spacing[0.5],
+    borderRadius: theme.borderRadius.md,
+    userSelect: "none",
+  },
+  chevronOpen: {
+    transform: [{ rotate: "90deg" }],
+  },
+  toggleText: {
+    flex: 1,
+    minWidth: 0,
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: theme.fontSize.sm,
   },
   rowSelected: {
     backgroundColor: theme.colors.surfaceSidebarSelected,

@@ -1740,6 +1740,10 @@ export const en = {
   },
   sidebar: {
     statusGroupAccessibility: "{{label}} group",
+    lineage: {
+      showNested: "{{count}} nested",
+      hideNested: "Hide nested",
+    },
     statusBucket: {
       needsInput: "Needs input",
       failed: "Failed",

@@ -5,6 +5,7 @@
 ## 0.17.55 - 2026-11-15
 
 - Android: notifications show the Pimi paw icon in Pimi pink.
+- Sidebar: fold a workspace's nested subagents and chats into one line with the "Hide nested" toggle; it stays folded per workspace.
 - Android: push notifications are titled with the chat or terminal name. The name passes through Google; messages never do.
 
 ## 0.17.54 - 2026-11-15
