@@ -3414,7 +3414,7 @@ function createToolCatalog(
     {
       title: "Save flow",
       description:
-        "Save a reusable flow: a graph of agent steps, with judge gates that must pass before later steps run. Flows are run from chat with run_flow and never on a schedule. Step prompts may use {{input}} (what the chat passes when it runs the flow) and {{steps.<id>.output}} of an earlier step. Each step's agent knows nothing of this conversation, so write each prompt as a complete brief. The flow waits for the user's approval, and you cannot approve it: tell the user it is in Library > Flows and that pressing Run on its card approves and starts it. Saving again under the same name replaces your flow and returns it to waiting.",
+        "Save a reusable flow: a graph of agent steps, with judge gates that must pass before later steps run. Flows are run from chat with run_flow and never on a schedule. Step prompts may use {{input}} (what the chat passes when it runs the flow) and {{steps.<id>.output}} of an earlier step. Each step's agent knows nothing of this conversation, so write each prompt as a complete brief. The flow waits for the user's approval, and you cannot approve it: tell the user it is in Library > Flows, where Approve approves it, and that run_flow then posts a card in this chat whose Run button approves and starts it. Saving again under the same name replaces your flow and returns it to waiting.",
       inputSchema: z.object({
         name: z
           .string()

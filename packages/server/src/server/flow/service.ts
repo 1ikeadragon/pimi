@@ -68,7 +68,7 @@ function failUnfinishedStep(step: FlowRun["steps"][number]): FlowRun["steps"][nu
 function describeFinishedRun(run: FlowRun): string {
   const head = `Flow "${run.flowName}" (run ${run.id})`;
   if (run.status === "succeeded") {
-    return `${head} finished. Final output:\n${run.output ?? "(the last step wrote nothing)"}`;
+    return `${head} finished. Final output:\n${run.output ?? "(the last step wrote nothing)"}\nThe user sees this on the run card in the chat: do not repeat it back unless they ask.`;
   }
   if (run.status === "not_met") {
     return `${head} ended Not met: a check failed on every attempt, so the outcome did not run. Last feedback:\n${run.output ?? ""}`;
@@ -233,41 +233,86 @@ export class FlowService {
     return run;
   }
 
-  // Creates a run for the chat `agentId`. A flow the owner has not approved gets a run that waits
-  // for the card's Run button; every other flow starts at once. Returns before any step finishes.
+  // Creates a run for the chat `agentId` on behalf of its agent (`run_flow`). A flow the owner has
+  // not approved gets a run that waits for the card's Run button; every other flow starts at
+  // once. Returns before any step finishes.
   async startRun(input: { name: string; input: string; agentId: string }): Promise<FlowRun> {
+    const { flow, run } = await this.createRun({
+      ...input,
+      source: "agent",
+      status: (approved) => (approved ? "running" : "awaiting_approval"),
+    });
+    if (run.status === "running") this.launch(flow, run);
+    return run;
+  }
+
+  // A `/name input` typed in the chat: the run waits for the card's Start button, and the card
+  // goes into the chat's timeline as a finished `run_flow` call, the shape the chat already draws
+  // as the run card. No agent turn happens.
+  async prepareRun(input: { name: string; input: string; agentId: string }): Promise<FlowRun> {
+    const { run } = await this.createRun({
+      ...input,
+      source: "card",
+      status: (approved) => (approved ? "ready" : "awaiting_approval"),
+    });
+    const agent = await ensureAgentLoaded(run.agentId, {
+      agentManager: this.agentManager,
+      agentStorage: this.agentStorage,
+      logger: this.logger,
+    });
+    await this.agentManager.appendTimelineItem(agent.id, {
+      type: "tool_call",
+      callId: `flow-run-${run.id}`,
+      name: "run_flow",
+      status: "completed",
+      error: null,
+      detail: {
+        type: "unknown",
+        input: { name: run.flowName, input: run.input },
+        output: { runId: run.id, status: run.status },
+      },
+    });
+    return run;
+  }
+
+  private async createRun(input: {
+    name: string;
+    input: string;
+    agentId: string;
+    source: FlowRun["source"];
+    status: (approved: boolean) => FlowRun["status"];
+  }): Promise<{ flow: Flow; run: FlowRun }> {
     const flow = await this.getByName(input.name);
     const chat =
       this.agentManager.getAgent(input.agentId) ?? (await this.agentStorage.get(input.agentId));
     if (!chat?.workspaceId) {
       throw new FlowStateError("Flows run from a chat that belongs to a workspace");
     }
-    const order = topologicalOrder(flow.flow) ?? [];
     const run: FlowRun = {
       id: randomBytes(4).toString("hex"),
       flowId: flow.id,
       flowName: flow.name,
       revision: flow.revision,
       agentId: input.agentId,
+      source: input.source,
       workspaceId: chat.workspaceId,
       cwd: chat.cwd,
       input: input.input,
-      status: flow.approved ? "running" : "awaiting_approval",
+      status: input.status(flow.approved),
       startedAt: now(),
       endedAt: null,
-      steps: order.map(pendingStep),
+      steps: (topologicalOrder(flow.flow) ?? []).map(pendingStep),
       output: null,
       error: null,
     };
-    if (flow.approved) this.assertCapacity();
+    if (run.status === "running") this.assertCapacity();
     await this.store.runs.put(run);
     await this.store.pruneRuns(flow.id);
-    if (flow.approved) this.launch(flow, run);
-    return run;
+    return { flow, run };
   }
 
   // Starts the same run record again from its first step on the flow as it is now.
-  async retryRun(runId: string): Promise<FlowRun> {
+  async retryRun(runId: string, input?: string): Promise<FlowRun> {
     const previous = await this.getRun(runId);
     if (previous.status === "running" || this.active.has(runId)) {
       throw new FlowStateError("The run is still running");
@@ -281,6 +326,7 @@ export class FlowService {
       ...previous,
       flowName: flow.name,
       revision: flow.revision,
+      ...(input === undefined ? {} : { input }),
       status: "running",
       startedAt: now(),
       endedAt: null,
@@ -295,7 +341,7 @@ export class FlowService {
 
   async cancelRun(runId: string): Promise<FlowRun> {
     const run = await this.getRun(runId);
-    if (run.status === "awaiting_approval") {
+    if (run.status === "awaiting_approval" || run.status === "ready") {
       return this.store.runs.put({ ...run, status: "cancelled", endedAt: now() });
     }
     this.stopRun(runId);
@@ -401,7 +447,8 @@ export class FlowService {
 
   // Tells the chat how the run ended. A cancelled run says nothing: whoever cancelled it knows.
   private async deliver(run: FlowRun): Promise<void> {
-    if (run.status === "cancelled") return;
+    // The owner's own run shows its result on the card, so the agent has nothing to add.
+    if (run.status === "cancelled" || run.source === "card") return;
     const text = describeFinishedRun(run);
     try {
       const agent = await ensureAgentLoaded(run.agentId, {

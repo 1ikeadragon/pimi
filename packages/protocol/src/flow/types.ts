@@ -37,9 +37,11 @@ export const FlowSchema = z.object({
 });
 export type Flow = z.infer<typeof FlowSchema>;
 
+// `ready`: a run the chat made from a `/name` command; it waits for the card's Start button.
 // `awaiting_approval`: an agent asked to run a flow the owner has not approved yet.
 // `not_met`: a gate ran out of attempts, so the outcome never ran.
 export const FlowRunStatusSchema = z.enum([
+  "ready",
   "awaiting_approval",
   "running",
   "succeeded",
@@ -56,6 +58,9 @@ export const FlowRunSchema = z.object({
   revision: z.number().int().positive(),
   // The chat that invoked the run; it receives the result.
   agentId: z.string(),
+  // Who made the run: the owner from the chat card, or the chat's agent through `run_flow`. Only
+  // an agent's run reports back to the chat as a message; the card already shows the owner's.
+  source: z.enum(["card", "agent"]),
   workspaceId: z.string(),
   cwd: z.string(),
   input: z.string(),

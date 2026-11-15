@@ -88,8 +88,24 @@ export const FlowRunCancelResponseSchema = z.object({
 export const FlowRunRetryRequestSchema = z.object({
   type: z.literal("flow.run.retry.request"),
   ...FlowRunIdRequestShape,
+  // Replaces the run's input, for a card whose person edited it before pressing Start.
+  input: z.string().optional(),
 });
 export const FlowRunRetryResponseSchema = z.object({
   type: z.literal("flow.run.retry.response"),
+  payload: FlowRunPayloadSchema,
+});
+
+// A `/name input` typed in a chat: makes a run that waits for the card's Start button and puts the
+// card in the chat's timeline. No agent turn happens.
+export const FlowRunPrepareRequestSchema = z.object({
+  type: z.literal("flow.run.prepare.request"),
+  requestId: z.string(),
+  name: z.string(),
+  input: z.string(),
+  agentId: z.string(),
+});
+export const FlowRunPrepareResponseSchema = z.object({
+  type: z.literal("flow.run.prepare.response"),
   payload: FlowRunPayloadSchema,
 });

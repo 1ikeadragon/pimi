@@ -4691,6 +4691,7 @@ export const en = {
     attempt: "Attempt {{attempt}} of {{max}}",
     feedback: "Judge: {{feedback}}",
     status: {
+      ready: "Ready",
       awaiting_approval: "Waiting for approval",
       running: "Running",
       succeeded: "Succeeded",
@@ -4699,6 +4700,10 @@ export const en = {
       cancelled: "Cancelled",
     },
     run: "Run",
+    start: "Start",
+    inputLabel: "Input",
+    showMore: "Show more",
+    showLess: "Show less",
     cancel: "Cancel",
     retry: "Retry",
     openStep: "Open step agent",

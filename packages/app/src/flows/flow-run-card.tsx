@@ -11,7 +11,9 @@ import {
   type CanvasNodeText,
 } from "@/components/automations/automation-editor-canvas";
 import { readPimiToolOutput } from "@/components/pimi-task-proposal-card";
+import { MarkdownRenderer } from "@/components/markdown/renderer";
 import { Button } from "@/components/ui/button";
+import { FormTextInput } from "@/components/ui/form-field";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useFetchQuery } from "@/data/query";
@@ -38,6 +40,9 @@ const CANVAS_TOOLBAR_INSET = 48;
 // The card fits below the editor's readable floor: a glance at the whole graph beats legible
 // titles, and a tap opens the step.
 const CARD_MIN_SCALE = 0.3;
+// A longer result starts collapsed behind Show more.
+const RESULT_COLLAPSE_CHARS = 600;
+const RESULT_COLLAPSED_HEIGHT = 220;
 const NO_PROBLEMS = new Map();
 const NO_SELECTION: EditorSelection = { kind: "none" };
 
@@ -49,6 +54,7 @@ export function readFlowRunStart(output: unknown): z.infer<typeof RunStart> | nu
 }
 
 const STATUS_VARIANT = {
+  ready: "muted",
   awaiting_approval: "warning",
   running: "warning",
   succeeded: "success",
@@ -64,7 +70,8 @@ function useFlowRun(serverId: string, runId: string) {
     enabled: connected,
     dataShape: "value",
     // A finished run does not change until someone retries it, and a retry writes the new run.
-    immutableWhen: (run: FlowRun) => run.status !== "running" && run.status !== "awaiting_approval",
+    immutableWhen: (run: FlowRun) =>
+      run.status !== "running" && run.status !== "awaiting_approval" && run.status !== "ready",
     queryFn: async (): Promise<FlowRun> =>
       (await requireFlowClient(serverId).flowRunGet({ runId })).run,
     // Polls only while the run is running.
@@ -97,12 +104,20 @@ export function FlowRunCard({ runId, serverId }: { runId: string; serverId: stri
     },
     [],
   );
+  // What the person typed into the input field; null until they edit it.
+  const [editedInput, setEditedInput] = useState<string | null>(null);
   const handleRun = useCallback(
     () =>
       run
-        ? void act("run", () => mutations.runApproveAndStart({ flowId: run.flowId, runId: run.id }))
+        ? void act("run", () =>
+            mutations.runApproveAndStart({
+              flowId: run.flowId,
+              runId: run.id,
+              ...(editedInput === null ? {} : { input: editedInput }),
+            }),
+          )
         : undefined,
-    [act, mutations, run],
+    [act, editedInput, mutations, run],
   );
   const handleCancel = useCallback(
     () => void act("cancel", () => mutations.cancelRun(runId)),
@@ -122,6 +137,7 @@ export function FlowRunCard({ runId, serverId }: { runId: string; serverId: stri
       </View>
     );
   }
+  const waiting = run.status === "ready" || run.status === "awaiting_approval";
   const canRetry =
     run.status === "failed" || run.status === "cancelled" || run.status === "not_met";
   return (
@@ -137,26 +153,18 @@ export function FlowRunCard({ runId, serverId }: { runId: string; serverId: stri
         />
       </View>
       {flow ? <RunGraph flow={flow} run={run} serverId={serverId} compact={compact} /> : null}
+      {waiting ? (
+        <RunInput
+          input={run.input}
+          editable={Boolean(flow?.argumentHint)}
+          hint={flow?.argumentHint}
+          onChange={setEditedInput}
+        />
+      ) : null}
       <GateFeedback flow={flow} run={run} />
-      {run.status === "awaiting_approval" ? (
-        <Text style={styles.muted}>{t("flowRun.unapproved")}</Text>
-      ) : null}
-      {run.status === "not_met" ? (
-        <Text style={styles.muted}>{t("flowRun.notMetHint")}</Text>
-      ) : null}
-      {run.status === "succeeded" && run.output ? (
-        <Text style={styles.output} numberOfLines={8} selectable testID="flow-run-output">
-          {run.output}
-        </Text>
-      ) : null}
-      {run.error ? (
-        <Text style={styles.error} selectable>
-          {run.error}
-        </Text>
-      ) : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <RunNotes run={run} error={error} />
       <View style={styles.actions}>
-        {run.status === "awaiting_approval" ? (
+        {waiting ? (
           <Button
             size="sm"
             leftIcon={Play}
@@ -164,7 +172,7 @@ export function FlowRunCard({ runId, serverId }: { runId: string; serverId: stri
             loading={pending === "run"}
             testID="flow-run-start"
           >
-            {t("flowRun.run")}
+            {run.status === "ready" ? t("flowRun.start") : t("flowRun.run")}
           </Button>
         ) : null}
         {run.status === "running" ? (
@@ -313,6 +321,77 @@ function RunGraph({
 
 function noop() {}
 
+// What a run's status adds under its graph: a hint, the result, or why it failed.
+function RunNotes({ run, error }: { run: FlowRun; error: string | null }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {run.status === "awaiting_approval" ? (
+        <Text style={styles.muted}>{t("flowRun.unapproved")}</Text>
+      ) : null}
+      {run.status === "not_met" ? (
+        <Text style={styles.muted}>{t("flowRun.notMetHint")}</Text>
+      ) : null}
+      {run.status === "succeeded" && run.output ? <RunResult output={run.output} /> : null}
+      {run.error ? (
+        <Text style={styles.error} selectable>
+          {run.error}
+        </Text>
+      ) : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </>
+  );
+}
+
+// What the flow will work on: editable when the flow takes input, plain text otherwise.
+function RunInput({
+  input,
+  editable,
+  hint,
+  onChange,
+}: {
+  input: string;
+  editable: boolean;
+  hint: string | undefined;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+  if (!editable) {
+    return input ? <Text style={styles.muted}>{input}</Text> : null;
+  }
+  return (
+    <FormTextInput
+      size="sm"
+      testID="flow-run-input"
+      accessibilityLabel={t("flowRun.inputLabel")}
+      initialValue={input}
+      onChangeText={onChange}
+      placeholder={hint}
+      autoCorrect={false}
+    />
+  );
+}
+
+// The final step's output, as the markdown it is. Long results start collapsed.
+function RunResult({ output }: { output: string }) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const long = output.length > RESULT_COLLAPSE_CHARS;
+  const toggle = useCallback(() => setExpanded((value) => !value), []);
+  return (
+    <View style={styles.result} testID="flow-run-output">
+      <View style={long && !expanded ? styles.resultCollapsed : undefined}>
+        <MarkdownRenderer text={output} />
+      </View>
+      {long ? (
+        <Button size="sm" variant="ghost" onPress={toggle} testID="flow-run-output-toggle">
+          {expanded ? t("flowRun.showLess") : t("flowRun.showMore")}
+        </Button>
+      ) : null}
+    </View>
+  );
+}
+
 // Each gate's latest verdict: what the judge said, so a Not met run shows why without a tap.
 function GateFeedback({ flow, run }: { flow: Flow | null; run: FlowRun }) {
   const { t } = useTranslation();
@@ -362,7 +441,13 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: "600",
   },
   muted: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
-  output: { color: theme.colors.foreground, fontSize: theme.fontSize.sm, lineHeight: 20 },
+  result: {
+    padding: theme.spacing[3],
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surface0,
+    gap: theme.spacing[1],
+  },
+  resultCollapsed: { maxHeight: RESULT_COLLAPSED_HEIGHT, overflow: "hidden" },
   error: { color: theme.colors.statusDanger, fontSize: theme.fontSize.sm },
   canvas: {
     overflow: "hidden",

@@ -713,6 +713,10 @@ export type FlowRunRetryPayload = Extract<
   SessionOutboundMessage,
   { type: "flow.run.retry.response" }
 >["payload"];
+export type FlowRunPreparePayload = Extract<
+  SessionOutboundMessage,
+  { type: "flow.run.prepare.response" }
+>["payload"];
 export type AutomationCreatePayload = Extract<
   SessionOutboundMessage,
   { type: "automation.create.response" }
@@ -7367,10 +7371,35 @@ export class DaemonClient {
     });
   }
 
-  async flowRunRetry(options: { requestId?: string; runId: string }): Promise<FlowRunRetryPayload> {
+  async flowRunRetry(options: {
+    requestId?: string;
+    runId: string;
+    input?: string;
+  }): Promise<FlowRunRetryPayload> {
     return this.sendNamespacedCorrelatedSessionRequest({
       requestId: options.requestId,
-      message: { type: "flow.run.retry.request", runId: options.runId },
+      message: {
+        type: "flow.run.retry.request",
+        runId: options.runId,
+        ...(options.input === undefined ? {} : { input: options.input }),
+      },
+    });
+  }
+
+  async flowRunPrepare(options: {
+    requestId?: string;
+    name: string;
+    input: string;
+    agentId: string;
+  }): Promise<FlowRunPreparePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "flow.run.prepare.request",
+        name: options.name,
+        input: options.input,
+        agentId: options.agentId,
+      },
     });
   }
 

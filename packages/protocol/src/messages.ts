@@ -151,6 +151,7 @@ import {
   FlowRunGetRequestSchema,
   FlowRunCancelRequestSchema,
   FlowRunRetryRequestSchema,
+  FlowRunPrepareRequestSchema,
   FlowListResponseSchema,
   FlowGetResponseSchema,
   FlowCreateResponseSchema,
@@ -160,6 +161,7 @@ import {
   FlowRunGetResponseSchema,
   FlowRunCancelResponseSchema,
   FlowRunRetryResponseSchema,
+  FlowRunPrepareResponseSchema,
 } from "./flow/rpc-schemas.js";
 import {
   AttackRunStartRequestSchema,
@@ -4020,6 +4022,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   FlowRunGetRequestSchema,
   FlowRunCancelRequestSchema,
   FlowRunRetryRequestSchema,
+  FlowRunPrepareRequestSchema,
   TaskListRequestSchema,
   TaskGetRequestSchema,
   TaskCreateRequestSchema,
@@ -7944,6 +7947,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   FlowRunGetResponseSchema,
   FlowRunCancelResponseSchema,
   FlowRunRetryResponseSchema,
+  FlowRunPrepareResponseSchema,
   TaskListResponseSchema,
   TaskGetResponseSchema,
   TaskCreateResponseSchema,

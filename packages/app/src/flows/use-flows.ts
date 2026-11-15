@@ -51,7 +51,11 @@ export interface FlowMutations {
   updateFlow: (input: { flowId: string; definition: FlowDefinition }) => Promise<Flow>;
   deleteFlow: (flowId: string) => Promise<void>;
   approveFlow: (flowId: string) => Promise<Flow>;
-  runApproveAndStart: (input: { flowId: string; runId: string }) => Promise<FlowRun>;
+  runApproveAndStart: (input: {
+    flowId: string;
+    runId: string;
+    input?: string;
+  }) => Promise<FlowRun>;
   cancelRun: (runId: string) => Promise<FlowRun>;
   retryRun: (runId: string) => Promise<FlowRun>;
 }
@@ -93,10 +97,10 @@ export function useFlowMutations(serverId: string): FlowMutations {
     onSuccess: refresh,
   });
   const approveAndStart = useMutation({
-    mutationFn: async (input: { flowId: string; runId: string }) => {
+    mutationFn: async (input: { flowId: string; runId: string; input?: string }) => {
       const client = requireFlowClient(serverId);
       await client.flowApprove({ flowId: input.flowId });
-      return (await client.flowRunRetry({ runId: input.runId })).run;
+      return (await client.flowRunRetry({ runId: input.runId, input: input.input })).run;
     },
     onSuccess: async (run) => {
       setRun(run);

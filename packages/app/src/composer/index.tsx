@@ -121,7 +121,12 @@ import { AutocompletePopover } from "@/components/ui/autocomplete-popover";
 import type { AutocompleteOption } from "@/components/ui/autocomplete";
 import { useAgentAutocomplete } from "@/hooks/use-agent-autocomplete";
 import { useQueryClient } from "@tanstack/react-query";
-import { readCachedFlowSlashCommands, resolveFlowSlashPrompt } from "@/flows/flow-slash-commands";
+import {
+  parseFlowSlashCommand,
+  readCachedFlowSlashCommands,
+  resolveFlowSlashPrompt,
+} from "@/flows/flow-slash-commands";
+import { requireFlowClient } from "@/flows/use-flows";
 import { usePluginClientSlashCommands } from "@/plugins/client-slash-commands";
 import {
   executePluginClientSlashCommand,
@@ -1819,6 +1824,34 @@ function ComposerContentImpl({
     [blurOnSubmit, clearDraft, replaceUserInput, resetSuppression, setSelectedAttachments],
   );
 
+  // `/name input` for a saved flow in an existing chat puts the flow's run card in the timeline,
+  // ready to start. No message is sent and no agent turn happens.
+  const runFlowSlashCommand = useCallback(
+    (resolved: { name: string; input: string }) => {
+      if (blurOnSubmit) messageInputRef.current?.blur();
+      clearDraft("sent");
+      replaceUserInput("");
+      setSelectedAttachments([]);
+      resetSuppression();
+      setSendError(null);
+      requireFlowClient(serverId)
+        .flowRunPrepare({ name: resolved.name, input: resolved.input, agentId })
+        .catch((error: unknown) => {
+          console.error("[Composer] Failed to prepare flow run:", error);
+          toastErrorRef.current(error instanceof Error ? error.message : String(error));
+        });
+    },
+    [
+      agentId,
+      blurOnSubmit,
+      clearDraft,
+      replaceUserInput,
+      resetSuppression,
+      serverId,
+      setSelectedAttachments,
+    ],
+  );
+
   const { pickImages } = useImageAttachmentPicker();
   const { pickFiles } = useFilePicker();
   const agentIdRef = useRef(agentId);
@@ -2077,10 +2110,22 @@ function ComposerContentImpl({
         commands: pluginClientSlashCommands,
       });
       if (pluginSlashCommand && runPluginClientSlashCommand(pluginSlashCommand)) return;
+      const flowCommands = readCachedFlowSlashCommands(queryClient, serverId);
+      const flowCommand = hasAgent
+        ? parseFlowSlashCommand({
+            text: payload.text,
+            hasAttachments: outgoingAttachments.length > 0,
+            commands: flowCommands,
+          })
+        : null;
+      if (flowCommand) {
+        runFlowSlashCommand(flowCommand);
+        return;
+      }
       const flowPrompt = resolveFlowSlashPrompt({
         text: payload.text,
         hasAttachments: outgoingAttachments.length > 0,
-        commands: readCachedFlowSlashCommands(queryClient, serverId),
+        commands: flowCommands,
         t,
       });
 
@@ -2098,7 +2143,9 @@ function ComposerContentImpl({
       attachments,
       blurOnSubmit,
       buildOutgoingAttachments,
+      hasAgent,
       queryClient,
+      runFlowSlashCommand,
       runClientSlashCommand,
       pluginClientSlashCommands,
       runPluginClientSlashCommand,
@@ -2482,10 +2529,22 @@ function ComposerContentImpl({
         commands: pluginClientSlashCommands,
       });
       if (pluginSlashCommand && runPluginClientSlashCommand(pluginSlashCommand)) return;
+      const flowCommands = readCachedFlowSlashCommands(queryClient, serverId);
+      const flowCommand = hasAgent
+        ? parseFlowSlashCommand({
+            text: payload.text,
+            hasAttachments: outgoingAttachments.length > 0,
+            commands: flowCommands,
+          })
+        : null;
+      if (flowCommand) {
+        runFlowSlashCommand(flowCommand);
+        return;
+      }
       const flowPrompt = resolveFlowSlashPrompt({
         text: payload.text,
         hasAttachments: outgoingAttachments.length > 0,
-        commands: readCachedFlowSlashCommands(queryClient, serverId),
+        commands: flowCommands,
         t,
       });
       queueMessage(flowPrompt ?? payload.text, outgoingAttachments);
@@ -2493,9 +2552,11 @@ function ComposerContentImpl({
     [
       attachments,
       buildOutgoingAttachments,
+      hasAgent,
       pluginClientSlashCommands,
       queryClient,
       queueMessage,
+      runFlowSlashCommand,
       runClientSlashCommand,
       runPluginClientSlashCommand,
       serverId,

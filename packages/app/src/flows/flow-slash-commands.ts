@@ -42,9 +42,23 @@ export function readCachedFlowSlashCommands(
   return flows ? flows.map(flowToSlashCommand) : NO_COMMANDS;
 }
 
+/** `/name args` for a saved flow: its name and the text after it. Null when it is not one. */
+export function parseFlowSlashCommand(input: {
+  text: string;
+  hasAttachments: boolean;
+  commands: readonly FlowSlashCommand[];
+}): { name: string; input: string } | null {
+  if (input.hasAttachments || input.commands.length === 0) return null;
+  const match = /^\/([^\s]+)(?:\s+([\s\S]*))?$/.exec(input.text.trim());
+  if (!match) return null;
+  const name = match[1];
+  if (!input.commands.some((command) => command.name === name)) return null;
+  return { name, input: (match[2] ?? "").trim() };
+}
+
 /**
- * `/name args` for a saved flow becomes the prompt that makes the agent call `run_flow`. Returns
- * null when the text is not a flow command, so the caller sends it as typed.
+ * The prompt that makes an agent call `run_flow`, for a chat that does not exist yet and so has
+ * nowhere to put a run card. Returns null when the text is not a flow command.
  */
 export function resolveFlowSlashPrompt(input: {
   text: string;
@@ -52,13 +66,9 @@ export function resolveFlowSlashPrompt(input: {
   commands: readonly FlowSlashCommand[];
   t: TFunction;
 }): string | null {
-  if (input.hasAttachments || input.commands.length === 0) return null;
-  const match = /^\/([^\s]+)(?:\s+([\s\S]*))?$/.exec(input.text.trim());
-  if (!match) return null;
-  const name = match[1];
-  if (!input.commands.some((command) => command.name === name)) return null;
-  const args = (match[2] ?? "").trim();
-  return args
-    ? input.t("flows.runPrompt", { name, input: args })
-    : input.t("flows.runPromptNoInput", { name });
+  const parsed = parseFlowSlashCommand(input);
+  if (!parsed) return null;
+  return parsed.input
+    ? input.t("flows.runPrompt", { name: parsed.name, input: parsed.input })
+    : input.t("flows.runPromptNoInput", { name: parsed.name });
 }

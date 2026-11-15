@@ -82,7 +82,22 @@ export class FlowSession {
       case "flow.run.retry.request":
         return this.handle(msg, async () => ({
           type: "flow.run.retry.response",
-          payload: { requestId: msg.requestId, run: await this.flows.retryRun(msg.runId) },
+          payload: {
+            requestId: msg.requestId,
+            run: await this.flows.retryRun(msg.runId, msg.input),
+          },
+        }));
+      case "flow.run.prepare.request":
+        return this.handle(msg, async () => ({
+          type: "flow.run.prepare.response",
+          payload: {
+            requestId: msg.requestId,
+            run: await this.flows.prepareRun({
+              name: msg.name,
+              input: msg.input,
+              agentId: msg.agentId,
+            }),
+          },
         }));
       default:
         return undefined;
