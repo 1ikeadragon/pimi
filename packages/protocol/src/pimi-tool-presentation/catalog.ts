@@ -389,6 +389,29 @@ export const PIMI_TOOL_CATALOG = {
     context: field("id"),
     detail: { inputOrder: ["id"] },
   },
+  list_flows: { label: "List flows", completedLabel: "Listed flows" },
+  run_flow: {
+    label: "Run flow",
+    completedLabel: "Started flow run",
+    context: field("name"),
+    detail: { inputOrder: ["name", "input"], outputFields: ["runId", "status"] },
+  },
+  save_flow: {
+    label: "Save flow",
+    completedLabel: "Saved flow",
+    context: field("name"),
+    detail: {
+      promptField: "prompt",
+      inputOrder: ["name", "description", "argumentHint", "provider", "profile"],
+      outputFields: ["id", "approved", "revision"],
+    },
+  },
+  submit_verdict: {
+    label: "Submit verdict",
+    completedLabel: "Submitted verdict",
+    context: field("pass"),
+    detail: { inputOrder: ["pass", "feedback"] },
+  },
   pause_automation: {
     label: "Pause automation",
     completedLabel: "Paused automation",

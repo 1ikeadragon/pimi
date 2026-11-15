@@ -380,14 +380,21 @@ async function runCompile(
   );
 }
 
+function describeNode(node: AutomationFlow["nodes"][number]): string {
+  if (node.kind === "agent") {
+    return `agent ${node.provider}${node.model ? `/${node.model}` : ""} in ${node.workspace}: ${node.prompt}`;
+  }
+  if (node.kind === "gate") {
+    return `gate (retry from ${node.retryFrom}, ${node.maxAttempts} attempts): ${node.criteria}`;
+  }
+  return `condition ${node.input} ${node.operator}${node.value ? ` ${node.value}` : ""}`;
+}
+
 function describeFlow(flow: AutomationFlow): InspectRow[] {
   return [
     ...flow.nodes.map((node) => ({
       key: `Step ${node.id}`,
-      value:
-        node.kind === "agent"
-          ? `agent ${node.provider}${node.model ? `/${node.model}` : ""} in ${node.workspace}: ${node.prompt}`
-          : `condition ${node.input} ${node.operator}${node.value ? ` ${node.value}` : ""}`,
+      value: describeNode(node),
     })),
     ...flow.edges.map((edge) => ({
       key: `Edge ${edge.from} -> ${edge.to}`,

@@ -23,7 +23,7 @@ export interface PluginComponentPoints {
   "screen.automations": {};
   "screen.usage": {};
   "screen.tasks": { serverId: string | null; taskId: string | null };
-  "screen.library": { section: "skills" | "hooks" };
+  "screen.library": { section: "skills" | "hooks" | "flows" };
 
   "screen.workspace": { serverId: string; workspaceId: string };
   /** The desktop title bar of a workspace: project, name, branch, and its menu. */

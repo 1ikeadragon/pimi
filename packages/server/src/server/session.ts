@@ -276,6 +276,8 @@ import type { Resolvable } from "./speech/provider-resolver.js";
 import type { SpeechReadinessSnapshot } from "./speech/speech-runtime.js";
 import type pino from "pino";
 import type { AutomationService } from "./automation/service.js";
+import type { FlowService } from "./flow/service.js";
+import { FlowSession } from "./session/flow/flow-session.js";
 import type { HeartbeatService } from "./heartbeat/service.js";
 import {
   createGitHubService,
@@ -501,6 +503,7 @@ export interface SessionOptions {
   labelService?: LabelService;
   filesystem?: SessionFileSystem;
   automationService: AutomationService;
+  flowService: FlowService;
   heartbeatService: HeartbeatService;
   attackService: AttackService;
   attackScheduler: AttackScheduler;
@@ -809,6 +812,7 @@ export class Session {
   private readonly checkoutSession: CheckoutSession;
   private readonly changeRequestSession: ChangeRequestSession;
   private readonly automationSession: AutomationSession;
+  private readonly flowSession: FlowSession;
   private readonly attackSession: AttackSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
   private readonly usageSession: UsageSession;
@@ -846,6 +850,7 @@ export class Session {
       directorySync,
       filesystem,
       automationService,
+      flowService,
       heartbeatService,
       attackService,
       attackScheduler,
@@ -1012,6 +1017,11 @@ export class Session {
       host: { emit: (msg) => this.emit(msg) },
       automationService,
       heartbeatService,
+      logger: this.sessionLogger,
+    });
+    this.flowSession = new FlowSession({
+      host: { emit: (msg) => this.emit(msg) },
+      flowService,
       logger: this.sessionLogger,
     });
     this.taskService = options.taskService ?? null;
@@ -2424,6 +2434,7 @@ export class Session {
       this.dispatchTerminalMessage(msg) ??
       this.dispatchChatSearchMessage(msg) ??
       this.automationSession.dispatch(msg) ??
+      this.flowSession.dispatch(msg) ??
       this.taskSession?.dispatch(msg) ??
       this.attackSession.dispatch(msg) ??
       this.speechModelsSession.dispatch(msg)

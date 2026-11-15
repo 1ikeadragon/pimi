@@ -4,7 +4,7 @@ import { getDesktopHost } from "@/desktop/host";
 import { buildOpenProjectRoute } from "@/utils/host-routes";
 
 export const PIMI_LIBRARY_ROUTE = "/pimi-library";
-export type PimiLibrarySection = "skills" | "hooks";
+export type PimiLibrarySection = "skills" | "hooks" | "flows";
 
 export function openPimiLibrary(section: PimiLibrarySection, alreadyOpen: boolean): void {
   getDesktopHost()?.dismissPimiWorkspace?.();

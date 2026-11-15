@@ -6,23 +6,28 @@ export interface SlashCommandDescriptor {
 export type AvailableSlashCommand<
   BuiltIn extends SlashCommandDescriptor,
   Plugin extends SlashCommandDescriptor,
+  Flow extends SlashCommandDescriptor,
   Provider extends SlashCommandDescriptor,
 > =
   | { source: "built-in"; command: BuiltIn }
   | { source: "plugin"; command: Plugin }
+  | { source: "flow"; command: Flow }
   | { source: "provider"; command: Provider };
 
+// Precedence on a name clash: built-in, plugin, flow, provider.
 export function mergeSlashCommandSources<
   BuiltIn extends SlashCommandDescriptor,
   Plugin extends SlashCommandDescriptor,
+  Flow extends SlashCommandDescriptor,
   Provider extends SlashCommandDescriptor,
 >(input: {
   builtIn: readonly BuiltIn[];
   plugins: readonly Plugin[];
+  flows: readonly Flow[];
   provider: readonly Provider[];
   onPluginCollision(command: Plugin, winner: "built-in" | "plugin"): void;
-}): Array<AvailableSlashCommand<BuiltIn, Plugin, Provider>> {
-  const commands: Array<AvailableSlashCommand<BuiltIn, Plugin, Provider>> = input.builtIn.map(
+}): Array<AvailableSlashCommand<BuiltIn, Plugin, Flow, Provider>> {
+  const commands: Array<AvailableSlashCommand<BuiltIn, Plugin, Flow, Provider>> = input.builtIn.map(
     (command) => ({ source: "built-in", command }),
   );
   const claimed = new Map<string, "built-in" | "plugin">();
@@ -38,6 +43,11 @@ export function mergeSlashCommandSources<
     }
     claimed.set(command.name, "plugin");
     commands.push({ source: "plugin", command });
+  }
+  for (const command of input.flows) {
+    if (claimed.has(command.name)) continue;
+    claimed.set(command.name, "plugin");
+    commands.push({ source: "flow", command });
   }
   for (const command of input.provider) {
     if (!claimed.has(command.name)) commands.push({ source: "provider", command });

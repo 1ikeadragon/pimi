@@ -120,6 +120,8 @@ import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import { AutocompletePopover } from "@/components/ui/autocomplete-popover";
 import type { AutocompleteOption } from "@/components/ui/autocomplete";
 import { useAgentAutocomplete } from "@/hooks/use-agent-autocomplete";
+import { useQueryClient } from "@tanstack/react-query";
+import { readCachedFlowSlashCommands, resolveFlowSlashPrompt } from "@/flows/flow-slash-commands";
 import { usePluginClientSlashCommands } from "@/plugins/client-slash-commands";
 import {
   executePluginClientSlashCommand,
@@ -1681,6 +1683,7 @@ function ComposerContentImpl({
     onChangeAttachments: setSelectedAttachments,
     anchorRef: attachButtonRef,
   });
+  const queryClient = useQueryClient();
   const pluginClientSlashCommands = usePluginClientSlashCommands({
     serverId,
     workspaceId,
@@ -2074,12 +2077,18 @@ function ComposerContentImpl({
         commands: pluginClientSlashCommands,
       });
       if (pluginSlashCommand && runPluginClientSlashCommand(pluginSlashCommand)) return;
+      const flowPrompt = resolveFlowSlashPrompt({
+        text: payload.text,
+        hasAttachments: outgoingAttachments.length > 0,
+        commands: readCachedFlowSlashCommands(queryClient, serverId),
+        t,
+      });
 
       if (blurOnSubmit) {
         messageInputRef.current?.blur();
       }
       void sendMessageWithContent(
-        payload.text,
+        flowPrompt ?? payload.text,
         outgoingAttachments,
         payload.forceSend,
         payload.activeTurnBehavior,
@@ -2089,10 +2098,13 @@ function ComposerContentImpl({
       attachments,
       blurOnSubmit,
       buildOutgoingAttachments,
+      queryClient,
       runClientSlashCommand,
       pluginClientSlashCommands,
       runPluginClientSlashCommand,
       sendMessageWithContent,
+      serverId,
+      t,
     ],
   );
 
@@ -2470,15 +2482,24 @@ function ComposerContentImpl({
         commands: pluginClientSlashCommands,
       });
       if (pluginSlashCommand && runPluginClientSlashCommand(pluginSlashCommand)) return;
-      queueMessage(payload.text, outgoingAttachments);
+      const flowPrompt = resolveFlowSlashPrompt({
+        text: payload.text,
+        hasAttachments: outgoingAttachments.length > 0,
+        commands: readCachedFlowSlashCommands(queryClient, serverId),
+        t,
+      });
+      queueMessage(flowPrompt ?? payload.text, outgoingAttachments);
     },
     [
       attachments,
       buildOutgoingAttachments,
       pluginClientSlashCommands,
+      queryClient,
       queueMessage,
       runClientSlashCommand,
       runPluginClientSlashCommand,
+      serverId,
+      t,
     ],
   );
 

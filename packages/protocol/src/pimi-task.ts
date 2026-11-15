@@ -346,6 +346,11 @@ export function isPimiTaskCreateTool(name: string): boolean {
   return matchesToolName(name, "create_pimi_task");
 }
 
+/** `run_flow` starts a flow run; its result carries the run id the chat card follows. */
+export function isPimiFlowRunTool(name: string): boolean {
+  return matchesToolName(name, "run_flow");
+}
+
 export function isPimiDelegationTool(name: string): boolean {
   return matchesToolName(name, "create_agent");
 }
@@ -356,6 +361,9 @@ export function isPimiPermissionResponseTool(name: string): boolean {
 
 export function isPimiActionTool(name: string): boolean {
   return (
-    isPimiReviewSuggestionTool(name) || isPimiTaskCreateTool(name) || isPimiDelegationTool(name)
+    isPimiReviewSuggestionTool(name) ||
+    isPimiTaskCreateTool(name) ||
+    isPimiFlowRunTool(name) ||
+    isPimiDelegationTool(name)
   );
 }

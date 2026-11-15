@@ -3,7 +3,9 @@ import type {
   AutomationConditionOperator,
   AutomationDefinition,
   AutomationFlow,
+  AutomationGateNode,
   AutomationPullRequestEvent,
+  AutomationTrigger,
 } from "./types.js";
 
 export type AutomationIssueCode =
@@ -28,7 +30,10 @@ export type AutomationIssueCode =
   | "check_needs_after"
   | "check_needs_input"
   | "check_needs_value"
-  | "invalid_pattern";
+  | "invalid_pattern"
+  | "gate_needs_criteria"
+  | "gate_retry_from"
+  | "bad_name";
 
 // `code` and `nodeId` let an editor place and word the issue itself; `message` is the English
 // text the daemon, CLI and agent tools show.
@@ -73,6 +78,8 @@ export interface AutomationTemplateContext {
   /** Output of each finished upstream step; null when the step was skipped or wrote nothing. */
   steps: ReadonlyMap<string, string | null>;
   pullRequest: AutomationPullRequestEvent | null;
+  /** What a chat passed to a saved flow, read as `{{input}}`; null outside a flow run. */
+  input?: string | null;
 }
 
 // An unknown reference stays as written, so a typo shows up in the agent's prompt instead of
@@ -80,6 +87,9 @@ export interface AutomationTemplateContext {
 export function renderAutomationTemplate(text: string, context: AutomationTemplateContext): string {
   return text.replace(TEMPLATE_PATTERN, (whole, rawRef: string) => {
     const ref = rawRef.trim();
+    if (ref === "input") {
+      return context.input ?? whole;
+    }
     const step = STEP_REF_PATTERN.exec(ref);
     if (step) {
       return context.steps.has(step[1]) ? (context.steps.get(step[1]) ?? "") : whole;
@@ -185,16 +195,26 @@ export function downstreamNodeIds(flow: AutomationFlow, nodeId: string): Set<str
   return found;
 }
 
+/** What a graph is valid for: an automation reads its trigger, a saved flow reads `{{input}}`. */
+export interface AutomationGraphContext {
+  triggerKind: AutomationTrigger["kind"] | null;
+  allowInput: boolean;
+}
+
 function validateReferences(input: {
-  definition: AutomationDefinition;
+  flow: AutomationFlow;
+  context: AutomationGraphContext;
   nodeId: string;
   path: string;
   text: string;
   issues: AutomationIssue[];
 }): void {
-  const { definition, nodeId, path, text, issues } = input;
-  const upstream = upstreamNodeIds(definition.flow, nodeId);
+  const { flow, context, nodeId, path, text, issues } = input;
+  const upstream = upstreamNodeIds(flow, nodeId);
   for (const ref of readTemplateReferences(text)) {
+    if (ref === "input" && context.allowInput) {
+      continue;
+    }
     const step = STEP_REF_PATTERN.exec(ref);
     if (step) {
       if (!upstream.has(step[1])) {
@@ -210,7 +230,7 @@ function validateReferences(input: {
     }
     if (ref.startsWith("trigger.")) {
       const field = ref.slice("trigger.".length);
-      if (definition.trigger.kind !== "pull_request") {
+      if (context.triggerKind !== "pull_request") {
         issues.push({
           path,
           message: `{{${ref}}} needs a pull request trigger`,
@@ -231,7 +251,9 @@ function validateReferences(input: {
     }
     issues.push({
       path,
-      message: `{{${ref}}} in step ${nodeId} is not a reference; use {{steps.<id>.output}} or {{trigger.<field>}}`,
+      message: context.allowInput
+        ? `{{${ref}}} in step ${nodeId} is not a reference; use {{input}} or {{steps.<id>.output}}`
+        : `{{${ref}}} in step ${nodeId} is not a reference; use {{steps.<id>.output}} or {{trigger.<field>}}`,
       code: "bad_reference",
       nodeId,
       ref,
@@ -239,8 +261,7 @@ function validateReferences(input: {
   }
 }
 
-function validateFlowShape(definition: AutomationDefinition, issues: AutomationIssue[]): boolean {
-  const { flow } = definition;
+function validateFlowShape(flow: AutomationFlow, issues: AutomationIssue[]): boolean {
   if (flow.nodes.length === 0) {
     issues.push({ path: "flow.nodes", message: "Add at least one step", code: "no_steps" });
     return false;
@@ -362,19 +383,16 @@ function isValidPattern(source: string): boolean {
   }
 }
 
-export function validateAutomationDefinition(definition: AutomationDefinition): AutomationIssue[] {
+/** Checks a graph's shape and every node in it. Returns issues; empty means valid. */
+export function validateAutomationGraph(
+  flow: AutomationFlow,
+  context: AutomationGraphContext,
+): AutomationIssue[] {
   const issues: AutomationIssue[] = [];
-  if (!definition.name.trim()) {
-    issues.push({ path: "name", message: "Name is required", code: "name_required" });
-  }
-  if (!definition.project.cwd.trim()) {
-    issues.push({ path: "project.cwd", message: "Project is required", code: "project_required" });
-  }
-  validateTrigger(definition, issues);
-  if (!validateFlowShape(definition, issues)) {
+  if (!validateFlowShape(flow, issues)) {
     return issues;
   }
-  for (const node of definition.flow.nodes) {
+  for (const node of flow.nodes) {
     const path = `flow.nodes.${node.id}`;
     if (node.kind === "agent") {
       if (!node.prompt.trim()) {
@@ -394,7 +412,8 @@ export function validateAutomationDefinition(definition: AutomationDefinition): 
         });
       }
       validateReferences({
-        definition,
+        flow,
+        context,
         nodeId: node.id,
         path: `${path}.prompt`,
         text: node.prompt,
@@ -402,7 +421,19 @@ export function validateAutomationDefinition(definition: AutomationDefinition): 
       });
       continue;
     }
-    if (!definition.flow.edges.some((edge) => edge.to === node.id)) {
+    if (node.kind === "gate") {
+      validateGate(flow, node, issues);
+      validateReferences({
+        flow,
+        context,
+        nodeId: node.id,
+        path: `${path}.criteria`,
+        text: node.criteria,
+        issues,
+      });
+      continue;
+    }
+    if (!flow.edges.some((edge) => edge.to === node.id)) {
       issues.push({
         path,
         message: `Condition ${node.id} needs a step before it to test`,
@@ -410,7 +441,7 @@ export function validateAutomationDefinition(definition: AutomationDefinition): 
         nodeId: node.id,
       });
     }
-    if (!definition.flow.edges.some((edge) => edge.from === node.id)) {
+    if (!flow.edges.some((edge) => edge.from === node.id)) {
       issues.push({
         path,
         message: `Condition ${node.id} needs a step after it`,
@@ -443,12 +474,59 @@ export function validateAutomationDefinition(definition: AutomationDefinition): 
       });
     }
     validateReferences({
-      definition,
+      flow,
+      context,
       nodeId: node.id,
       path: `${path}.input`,
       text: node.input,
       issues,
     });
   }
+  return issues;
+}
+
+function validateGate(flow: AutomationFlow, node: AutomationGateNode, issues: AutomationIssue[]) {
+  const path = `flow.nodes.${node.id}`;
+  if (!flow.edges.some((edge) => edge.to === node.id)) {
+    issues.push({
+      path,
+      message: `Gate ${node.id} needs a step before it to check`,
+      code: "check_needs_before",
+      nodeId: node.id,
+    });
+  }
+  if (!node.criteria.trim()) {
+    issues.push({
+      path: `${path}.criteria`,
+      message: `Gate ${node.id} needs criteria to judge the work by`,
+      code: "gate_needs_criteria",
+      nodeId: node.id,
+    });
+  }
+  if (!upstreamNodeIds(flow, node.id).has(node.retryFrom)) {
+    issues.push({
+      path: `${path}.retryFrom`,
+      message: `Gate ${node.id} must retry from a step that runs before it`,
+      code: "gate_retry_from",
+      nodeId: node.id,
+    });
+  }
+}
+
+export function validateAutomationDefinition(definition: AutomationDefinition): AutomationIssue[] {
+  const issues: AutomationIssue[] = [];
+  if (!definition.name.trim()) {
+    issues.push({ path: "name", message: "Name is required", code: "name_required" });
+  }
+  if (!definition.project.cwd.trim()) {
+    issues.push({ path: "project.cwd", message: "Project is required", code: "project_required" });
+  }
+  validateTrigger(definition, issues);
+  issues.push(
+    ...validateAutomationGraph(definition.flow, {
+      triggerKind: definition.trigger.kind,
+      allowInput: false,
+    }),
+  );
   return issues;
 }

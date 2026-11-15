@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { PimiSkillsLibrary } from "@/agent-skills/pimi-skills-library";
+import { FlowsLibrary } from "@/flows/flows-library";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { SettingsCard, SettingsSelect } from "@/components/settings";
 import { DensityIcon } from "@/components/ui/density-icon";
@@ -17,6 +18,11 @@ import { TerminalHooksSection } from "@/terminal-hooks";
 import { orderHostsLocalFirst } from "@/types/host-connection";
 
 const BACKGROUND = { "pimi-background": "" };
+const LIBRARY_TITLES: Record<PimiLibrarySection, string> = {
+  skills: "Skills",
+  hooks: "Hooks",
+  flows: "Flows",
+};
 
 export function PimiLibraryScreen({ section }: { section: PimiLibrarySection }) {
   const focused = useIsFocused();
@@ -26,7 +32,7 @@ export function PimiLibraryScreen({ section }: { section: PimiLibrarySection }) 
   const [selectedServerId, setSelectedServerId] = useState<string>();
   const orderedHosts = orderHostsLocalFirst(hosts, localServerId);
   const host = hosts.find(({ serverId }) => serverId === selectedServerId) ?? orderedHosts[0];
-  const title = section === "skills" ? "Skills" : "Hooks";
+  const title = LIBRARY_TITLES[section];
   const close = useMemo(
     () => (
       <ToolbarButton label={`Close ${title}`} onPress={closePimiLibrary}>
@@ -54,9 +60,13 @@ export function PimiLibraryScreen({ section }: { section: PimiLibrarySection }) 
             </SettingsCard>
             {section === "skills" ? (
               <PimiSkillsLibrary key={host.serverId} serverId={host.serverId} />
-            ) : (
+            ) : null}
+            {section === "flows" ? (
+              <FlowsLibrary key={host.serverId} serverId={host.serverId} />
+            ) : null}
+            {section === "hooks" ? (
               <TerminalHooksSection key={host.serverId} serverId={host.serverId} />
-            )}
+            ) : null}
           </>
         ) : (
           <Text style={styles.empty}>Connect a host to manage {title.toLowerCase()}.</Text>

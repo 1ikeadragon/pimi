@@ -11,6 +11,7 @@ import {
   type AutomationAuditEntry,
   type AutomationDefinition,
   type AutomationDraft,
+  type AutomationNode,
   type AutomationOrigin,
   type AutomationPullRequestEvent,
   type AutomationRun,
@@ -26,7 +27,13 @@ import {
 import type { PimiDatabase } from "../db/pimi-db.js";
 import { AutomationAuditLog } from "./audit.js";
 import { computeNextRunAt, validateCadence, withHostTimeZone } from "./cron.js";
-import { type AutomationEngineDeps, type RunHandle, type RunWorkspace } from "./engine.js";
+import {
+  type AutomationEngineDeps,
+  type RunHandle,
+  type RunWorkspace,
+  openRunWorkspace,
+  runTitle,
+} from "./engine.js";
 import { runFlow, type StepPatch } from "./flow-runner.js";
 import {
   type GhRunner,
@@ -129,7 +136,7 @@ function scheduledNextRunAt(
 }
 
 // An agent step's profile is stored by id; callers may name it.
-function normalizeFlowProfiles(
+export function normalizeFlowProfiles(
   flow: AutomationDefinition["flow"],
   profiles: readonly AgentProfile[],
 ): AutomationDefinition["flow"] {
@@ -162,6 +169,11 @@ function normalizeTrigger(trigger: AutomationDefinition["trigger"]): Automation[
   return trigger;
 }
 
+function nodeText(node: AutomationNode): string {
+  if (node.kind === "agent") return node.prompt;
+  return node.kind === "gate" ? node.criteria : node.input;
+}
+
 function normalizeDefinition(
   definition: AutomationDefinition,
   profiles: readonly AgentProfile[],
@@ -174,7 +186,7 @@ function normalizeDefinition(
     throw new Error(`Name is longer than ${MAX_NAME_LENGTH} characters`);
   }
   for (const node of definition.flow.nodes) {
-    const text = node.kind === "agent" ? node.prompt : node.input;
+    const text = nodeText(node);
     if (text.length > MAX_PROMPT_LENGTH) {
       throw new Error(`Step ${node.id} is longer than ${MAX_PROMPT_LENGTH} characters`);
     }
@@ -205,7 +217,7 @@ function requireFound<T>(value: T | null, id: string): T {
   return value;
 }
 
-function pendingStep(nodeId: string): AutomationRunStep {
+export function pendingStep(nodeId: string): AutomationRunStep {
   return {
     nodeId,
     status: "pending",
@@ -306,6 +318,7 @@ export class AutomationService {
       createDirectoryWorkspace: options.createDirectoryWorkspace,
       createWorktreeWorkspace: options.createWorktreeWorkspace,
       archiveWorkspace: options.archiveWorkspace,
+      verdicts: options.verdicts,
     };
   }
 
@@ -915,9 +928,26 @@ export class AutomationService {
     let result: Awaited<ReturnType<typeof runFlow>>;
     try {
       result = await runFlow(this.engine, {
-        automation,
+        subject: {
+          id: automation.id,
+          name: automation.name,
+          cwd: automation.project.cwd,
+          flow: automation.flow,
+        },
         run,
         handle,
+        runTitle: runTitle(automation, run),
+        agentLabels: {
+          "pimi.automation-id": automation.id,
+          "pimi.automation-run": run.id,
+        },
+        openWorkspace: (node, prompt) =>
+          openRunWorkspace(this.engine, {
+            subject: { cwd: automation.project.cwd },
+            title: runTitle(automation, run),
+            kind: node.workspace,
+            prompt,
+          }),
         pullRequest:
           run.cause.kind === "trigger" && run.cause.event.kind === "pull_request"
             ? run.cause.event
@@ -936,6 +966,8 @@ export class AutomationService {
         status: "failed",
         error: cause instanceof Error ? cause.message : String(cause),
         reportAgentId: null,
+        notMet: false,
+        output: null,
       };
     } finally {
       clearTimeout(timer);

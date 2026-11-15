@@ -427,6 +427,11 @@ export function buildAutomationEditorRoute(serverId: string, automationId: strin
   return `/automations/${encodeURIComponent(serverId)}/${encodeURIComponent(automationId)}` as const;
 }
 
+/** `flowId` "new" opens the create form. */
+export function buildFlowEditorRoute(serverId: string, flowId: string) {
+  return `/flows/${encodeURIComponent(serverId)}/${encodeURIComponent(flowId)}` as const;
+}
+
 export function buildProfilesRoute() {
   return "/profiles" as const;
 }
