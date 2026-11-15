@@ -2,6 +2,11 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.63 - 2026-11-15
+
+- Crew opens a popover: turn Crew on or off and pick the model for the thinker, worker and chore. "Same as lead" runs that member on the chat's own model, so Crew works without Claude.
+- Five new themes: Cirrus, Mist, Golden hour, Aurora and Storm. Step through themes with Cmd+Alt+Left/Right.
+
 ## 0.17.62 - 2026-11-15
 
 - Crew is now a switch in the chat composer, next to the mode. Turn it on in any chat and that chat's own model leads the crew; the Crew lead profile is gone.
