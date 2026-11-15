@@ -2636,6 +2636,7 @@ export class VoiceAssistantWebSocketServer {
     kind: PushKind,
     id: string,
     title: string | null,
+    workspaceId?: string,
   ): void {
     if (!plan.shouldPush) return;
     let handles: string[] | null = null;
@@ -2645,7 +2646,7 @@ export class VoiceAssistantWebSocketServer {
       if (!handle) return;
       handles = [handle];
     }
-    this.pushNotifier.notify({ handles, kind, id, title });
+    this.pushNotifier.notify({ handles, kind, id, title, workspaceId });
   }
 
   private async broadcastAgentAttention(params: {
@@ -2676,7 +2677,9 @@ export class VoiceAssistantWebSocketServer {
     const allStates = notificationEntries.map((e) => e.state);
     const nowMs = Date.now();
     const assistantMessage = await this.agentManager.getLastAssistantMessage(params.agentId);
+    const chatTitle = await this.agentManager.getAgentTitle(params.agentId);
     const notification = buildAgentAttentionNotificationPayload({
+      chatTitle,
       reason: params.reason,
       serverId: this.serverId,
       workspaceId: agent.workspaceId,
@@ -2696,7 +2699,7 @@ export class VoiceAssistantWebSocketServer {
         notificationEntries,
         params.reason === "permission" ? "agent_permission" : "agent_finished",
         params.agentId,
-        await this.agentManager.getAgentTitle(params.agentId),
+        chatTitle,
       );
     }
 
@@ -2755,6 +2758,7 @@ export class VoiceAssistantWebSocketServer {
       "terminal",
       params.terminalId,
       params.terminalName,
+      params.workspaceId,
     );
 
     const title = terminalAttentionTitle(params.reason);

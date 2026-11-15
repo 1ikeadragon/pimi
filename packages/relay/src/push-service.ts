@@ -8,7 +8,7 @@
  * optional title (a chat or terminal name, cleaned and capped); bodies are fixed per kind.
  *
  * - POST /push/register   {token, serverId, handle?} -> {handle}   (handle present rotates the token)
- * - POST /push/send       {handle, kind, id, title?} -> {ok}       (410 = handle gone, prune it)
+ * - POST /push/send       {handle, kind, id, title?, workspaceId?} -> {ok}       (410 = handle gone, prune it)
  * - POST /push/unregister {handle}                   -> {ok}
  *
  * Google hosts are hardcoded; token_uri from the key file is ignored; redirects are refused.
@@ -610,7 +610,7 @@ export function createPushService(options: PushServiceOptions): PushService {
 
   async function handleSend(req: IncomingMessage, ip: string): Promise<Record<string, unknown>> {
     if (!sendIpLimiter.allow(ip, Date.now())) throw new HttpError(429, "rate_limited");
-    const body = await readJsonBody(req, ["handle", "kind", "id", "title"]);
+    const body = await readJsonBody(req, ["handle", "kind", "id", "title", "workspaceId"]);
     const handle = requireString(body, "handle", HANDLE_PATTERN);
     const kind = body.kind;
     if (typeof kind !== "string" || !Object.prototype.hasOwnProperty.call(KIND_BODIES, kind)) {
@@ -618,6 +618,9 @@ export function createPushService(options: PushServiceOptions): PushService {
     }
     const id = requireString(body, "id", ID_PATTERN);
     const title = optionalTitle(body);
+    // Lets a terminal tap open its workspace; agent taps resolve the workspace from the agent.
+    const workspaceId =
+      body.workspaceId === undefined ? null : requireString(body, "workspaceId", ID_PATTERN);
     const hash = sha256Hex(handle);
     const entry = entries.get(hash);
     const now = Date.now();
@@ -633,7 +636,10 @@ export function createPushService(options: PushServiceOptions): PushService {
 
     const spec = KIND_BODIES[kind as PushKind];
     const notificationTag = `${spec.tagPrefix}:${id}`;
-    const target = spec.tagPrefix === "agent" ? { agentId: id } : { terminalId: id };
+    const target =
+      spec.tagPrefix === "agent"
+        ? { agentId: id }
+        : { terminalId: id, ...(workspaceId ? { workspaceId } : {}) };
     const result = await callFcm(
       {
         token: entry.token,

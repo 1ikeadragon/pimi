@@ -10,6 +10,7 @@ const HANDLE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 // One handle per paired phone; bounds the store and the fan-out when nobody is present.
 const MAX_HANDLES = 32;
 const SEND_TIMEOUT_MS = 5_000;
+const WORKSPACE_ID_PATTERN = /^[\w-]{1,128}$/;
 
 interface PushNotifierOptions {
   pimiHome: string;
@@ -80,12 +81,20 @@ export class PushNotifier {
     kind: PushKind;
     id: string;
     title: string | null;
+    workspaceId?: string | null;
   }): void {
     const endpoint = this.getEndpoint();
     if (!endpoint) return;
     const targets = input.handles ?? this.handles;
     for (const handle of targets) {
-      void this.send(endpoint, handle, input.kind, input.id, input.title);
+      void this.send(
+        endpoint,
+        handle,
+        input.kind,
+        input.id,
+        input.title,
+        input.workspaceId ?? null,
+      );
     }
   }
 
@@ -95,6 +104,7 @@ export class PushNotifier {
     kind: PushKind,
     id: string,
     title: string | null,
+    workspaceId: string | null,
   ): Promise<void> {
     try {
       const response = await fetch(`${endpoint}/send`, {
@@ -106,6 +116,8 @@ export class PushNotifier {
           kind,
           id,
           ...(title ? { title: title.slice(0, 200) } : {}),
+          // The push service rejects ids outside this shape; drop it rather than lose the push.
+          ...(workspaceId && WORKSPACE_ID_PATTERN.test(workspaceId) ? { workspaceId } : {}),
         }),
         redirect: "error",
         signal: AbortSignal.timeout(SEND_TIMEOUT_MS),

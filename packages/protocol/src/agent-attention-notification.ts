@@ -23,6 +23,8 @@ interface BuildAgentAttentionNotificationPayloadInput {
   agentId: string;
   assistantMessage?: string | null;
   permissionRequest?: NotificationPermissionRequest | null;
+  /** The chat's name. When present it is the title, so stacked notifications say which chat. */
+  chatTitle?: string | null;
 }
 
 export interface NotificationPermissionRequest {
@@ -193,12 +195,30 @@ function resolveAgentAttentionFallbackBody(reason: AgentAttentionReason): string
   return "Finished working.";
 }
 
+const MAX_CHAT_TITLE_CHARS = 80;
+
+function resolveChatTitle(chatTitle: string | null | undefined): string | null {
+  const clean = chatTitle?.replace(/\s+/g, " ").trim();
+  if (!clean) return null;
+  const chars = Array.from(clean);
+  return chars.length > MAX_CHAT_TITLE_CHARS
+    ? `${chars.slice(0, MAX_CHAT_TITLE_CHARS - 1).join("")}…`
+    : clean;
+}
+
 export function buildAgentAttentionNotificationPayload(
   input: BuildAgentAttentionNotificationPayloadInput,
 ): AgentAttentionNotificationPayload {
-  const title = resolveAgentAttentionTitle(input.reason);
+  const reasonTitle = resolveAgentAttentionTitle(input.reason);
+  const chatTitle = resolveChatTitle(input.chatTitle);
   const preview = resolveAgentAttentionPreview(input);
-  const body = preview ?? resolveAgentAttentionFallbackBody(input.reason);
+  const fallback = resolveAgentAttentionFallbackBody(input.reason);
+  const title = chatTitle ?? reasonTitle;
+  let body = preview ?? fallback;
+  // With the chat name as the title, a permission or error keeps its reason in the body.
+  if (chatTitle && input.reason !== "finished") {
+    body = preview ? `${reasonTitle}: ${preview}` : reasonTitle;
+  }
 
   return {
     title,
