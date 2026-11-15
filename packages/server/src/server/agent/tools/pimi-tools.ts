@@ -146,6 +146,7 @@ import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
 import { registerDesktopToolsWhenWired } from "../../desktop-tools/tools.js";
 import type { AttackService } from "../../attack/service.js";
 import { registerAttackTools } from "./attack-tools.js";
+import { registerDelegateTool } from "./crew-delegate.js";
 import {
   PimiToolInputError,
   type PimiToolCatalog,
@@ -2007,6 +2008,28 @@ function createToolCatalog(
         : { content: [], structuredContent: payload };
     },
   );
+
+  registerDelegateTool({
+    registerTool,
+    callerAgentId,
+    getCallerAgent: () => (callerAgentId ? agentManager.getAgent(callerAgentId) : null),
+    listAgents: () => agentManager.listAgents(),
+    findProfile: (id) => daemonConfigStore?.get().agentProfiles?.find((p) => p.id === id),
+    listProviderModels: async (provider) => {
+      const parsed = AgentProviderEnum.safeParse(provider);
+      if (!parsed.success) return null;
+      try {
+        const models = await providerSnapshotManager.listModels({
+          provider: parsed.data,
+          wait: true,
+        });
+        return models.map((model) => model.id);
+      } catch {
+        return null;
+      }
+    },
+    callTool: (name, input, context) => toCatalog().executeTool(name, input, context),
+  });
 
   async function delegationContext(args: ResolvedCreateAgentToolArgs) {
     if (!callerAgentId || args.kind !== "agent-scoped" || !args.parsedArgs.inheritContext) return;

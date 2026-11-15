@@ -2624,6 +2624,11 @@ export const en = {
     backdrop: "Menu backdrop",
   },
   subagents: {
+    crewRole: {
+      thinker: "Thinker",
+      worker: "Worker",
+      chore: "Chore",
+    },
     parent: {
       backToParent: "Back to parent",
       backTo: "Back to {{label}}",

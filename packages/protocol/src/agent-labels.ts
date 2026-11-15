@@ -3,6 +3,18 @@ export const PARENT_SERVER_ID_LABEL = "pimi.parent-server-id";
 export const PARENT_AGENT_ID_LABEL = "pimi.parent-agent-id";
 /** On an Attack run's lead and every agent it creates: the run id. */
 export const ATTACK_RUN_LABEL = "pimi.attack-run";
+/** On a subagent a Crew lead delegated to: its tier. */
+export const CREW_ROLE_LABEL = "pimi.crew-role";
+export const CREW_ROLES = ["thinker", "worker", "chore"] as const;
+export type CrewRole = (typeof CREW_ROLES)[number];
+
+export function getCrewRoleFromLabels(
+  labels: Record<string, unknown> | null | undefined,
+): CrewRole | null {
+  const role = labels?.[CREW_ROLE_LABEL];
+  return CREW_ROLES.find((candidate) => candidate === role) ?? null;
+}
+
 const OPEN_AGENT_TAB_LABEL_PREFIX = "pimi.open-agent-tab.";
 /** On a subagent stopped with an ancestor: the ID of the agent whose Stop reached it. */
 export const STOPPED_BY_AGENT_ID_LABEL = "pimi.stopped-by-agent-id";

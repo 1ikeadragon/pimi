@@ -5,6 +5,7 @@ import { Text, View } from "react-native";
 import { useTranslation } from "@/i18n/use-translation";
 import { Archive, GitFork, Unlink } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { useProviderIcon } from "@/components/provider-icons";
 import { ComposerTrackActions, ComposerTrackPill, ComposerTrackRow } from "@/composer/tracks";
 import { mutedIconColorMapping } from "@/components/ui/icon-button-chrome";
@@ -266,6 +267,9 @@ function SubagentsTrackRow({
             <Text style={styles.rowTitle} numberOfLines={1}>
               {displayLabel}
             </Text>
+            {row.kind === "pimi" && row.crewRole ? (
+              <StatusBadge size="xs" label={t(`subagents.crewRole.${row.crewRole}`)} />
+            ) : null}
             {row.statusBucket !== "done" ? (
               <SubagentStatusDot
                 bucket={row.statusBucket}
@@ -295,6 +299,7 @@ function SubagentsTrackRow({
       </>
     ),
     [
+      t,
       actionsAlwaysVisible,
       displayLabel,
       handleArchivePress,
@@ -303,9 +308,7 @@ function SubagentsTrackRow({
       onDetachSubagent,
       iconPresentation,
       presentation,
-      row.kind,
-      row.statusBucket,
-      row.id,
+      row,
       serverId,
       rowServerId,
       hostLabel,
