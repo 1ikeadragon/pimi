@@ -2,8 +2,12 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
-## Unreleased
+## 0.17.57 - 2026-11-15
 
+- Flows: build reusable agent graphs in Library > Flows, now also in every sidebar. Type /name in a chat to drop a flow card there; press Start to run it, and the result shows in the chat.
+- Flows: a gate can send work back to Start, which reruns every step before it, parallel branches included.
+- Automations: the editor has layout direction and inspector toggles, and Describe takes voice input.
+- Tasks: the list shows all three statuses.
 - Settings > Providers has a Supply chain section: keep package versions pinned, require a minimum age in days, or follow latest, for ACP providers and MCP servers.
 - Crew: a lead model delegates design and review to a thinker, implementation to a worker and chores to a small model; edit the four Crew profiles in Library > Profiles.
 
