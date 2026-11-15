@@ -3,7 +3,7 @@ import { z } from "zod";
 export interface CollapsedProjectsState {
   collapsedProjectKeys: Set<string>;
   collapsedWorkspaceGroupKeys: Set<string>;
-  /** Workspaces whose nested chats and subagents are folded into one line. */
+  /** Chats (`serverId:agentId`) whose subagents are folded into one Lineage line. */
   collapsedLineageKeys: Set<string>;
   collapsedPinned: boolean;
 }

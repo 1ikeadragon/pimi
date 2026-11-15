@@ -148,7 +148,7 @@ const SHORTCUT_HELP_SECTION_ORDER: readonly ShortcutSectionId[] = [
 
 const SHORTCUT_HELP_SECTION_TITLES: Record<ShortcutSectionId, string> = {
   general: "General",
-  workspaces: "Projects & Workspaces",
+  workspaces: "Projects & Chats",
   "tabs-panes": "Tabs & Panes",
   layout: "Layout",
   editor: "Editor",

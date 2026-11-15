@@ -1104,7 +1104,7 @@ function WorkspacesSectionHeader({
   onNewWorkspace?: () => void;
 }) {
   const { t } = useTranslation();
-  const workspaceLabel = getDesktopHost()?.showPimiWorkspace ? "Sessions" : "Workspaces";
+  const workspaceLabel = getDesktopHost()?.showPimiWorkspace ? "Sessions" : "Projects";
   const title = onAddProject ? "Projects" : workspaceLabel;
   return (
     <SidebarSectionHeader title={title}>

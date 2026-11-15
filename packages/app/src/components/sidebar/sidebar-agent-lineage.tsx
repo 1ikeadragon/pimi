@@ -170,34 +170,16 @@ function SidebarChatTree({
   const primary = roots[0];
   const shown = useWorkspaceShownChat(serverId, workspaceId);
   const primaryWorkers = (primary && workersByChat.get(primary.agentId)) || EMPTY_WORKERS;
-  const collapsed = useSidebarCollapsedSectionsStore((state) =>
-    state.collapsedLineageKeys.has(workspaceKey),
-  );
-  const toggleLineageCollapsed = useSidebarCollapsedSectionsStore(
-    (state) => state.toggleLineageCollapsed,
-  );
-  const toggleCollapsed = useCallback(
-    () => toggleLineageCollapsed(workspaceKey),
-    [toggleLineageCollapsed, workspaceKey],
-  );
-  let nestedCount = siblings.length;
-  for (const workers of workersByChat.values()) nestedCount += workers.length;
-  // Archiving the last nested row while expanded leaves nothing to fold.
-  if (nestedCount === 0) return null;
-  const toggle = (
-    <SidebarLineageToggle
-      collapsed={collapsed}
-      count={nestedCount}
-      onToggle={toggleCollapsed}
-      indentStyle={indentStyle}
-      testID={`sidebar-agent-lineage-toggle-${workspaceKey}`}
-    />
-  );
-  if (collapsed) return <View testID={`sidebar-agent-lineage-${workspaceKey}`}>{toggle}</View>;
+  if (primaryWorkers.length === 0 && siblings.length === 0) return null;
   return (
     <View testID={`sidebar-agent-lineage-${workspaceKey}`}>
-      {toggle}
-      <SidebarWorkerList workers={primaryWorkers} indentStyle={indentStyle} />
+      {primary ? (
+        <SidebarWorkerList
+          chatKey={`${primary.serverId}:${primary.agentId}`}
+          workers={primaryWorkers}
+          indentStyle={indentStyle}
+        />
+      ) : null}
       {siblings.map((chat) => (
         <View key={`${chat.serverId}:${chat.agentId}`}>
           <SidebarSiblingChatRow
@@ -206,6 +188,7 @@ function SidebarChatTree({
             indentStyle={indentStyle}
           />
           <SidebarWorkerList
+            chatKey={`${chat.serverId}:${chat.agentId}`}
             workers={workersByChat.get(chat.agentId) ?? EMPTY_WORKERS}
             indentStyle={indentStyle}
           />
@@ -215,7 +198,7 @@ function SidebarChatTree({
   );
 }
 
-/** Folds everything nested under the workspace row into this one muted line, per workspace. */
+/** Folds one chat's subagents into this one muted line. Other chats stay as they are. */
 function SidebarLineageToggle({
   collapsed,
   count,
@@ -230,9 +213,7 @@ function SidebarLineageToggle({
   testID: string;
 }) {
   const { t } = useTranslation();
-  const label = collapsed
-    ? t("sidebar.lineage.showNested", { count })
-    : t("sidebar.lineage.hideNested");
+  const label = t("sidebar.lineage.label", { count });
   return (
     <View style={[styles.lineage, indentStyle]}>
       <View style={styles.workspaceStatusSpacer} />
@@ -261,23 +242,48 @@ function SidebarLineageToggle({
 }
 
 function SidebarWorkerList({
+  chatKey,
   workers,
   indentStyle,
 }: {
+  chatKey: string;
   workers: SidebarLineageWorker[];
   indentStyle: StyleProp<ViewStyle>;
 }) {
+  const collapsed = useSidebarCollapsedSectionsStore((state) =>
+    state.collapsedLineageKeys.has(chatKey),
+  );
+  const toggleLineageCollapsed = useSidebarCollapsedSectionsStore(
+    (state) => state.toggleLineageCollapsed,
+  );
+  const toggleCollapsed = useCallback(
+    () => toggleLineageCollapsed(chatKey),
+    [toggleLineageCollapsed, chatKey],
+  );
   if (workers.length === 0) return null;
+  const toggle = (
+    <SidebarLineageToggle
+      collapsed={collapsed}
+      count={workers.length}
+      onToggle={toggleCollapsed}
+      indentStyle={indentStyle}
+      testID={`sidebar-agent-lineage-toggle-${chatKey}`}
+    />
+  );
+  if (collapsed) return toggle;
   return (
-    <View style={[styles.lineage, indentStyle]}>
-      {/* Subagents sit on the chat title's rail: this spacer stands in for the status slot. */}
-      <View style={styles.workspaceStatusSpacer} />
-      <View style={styles.workers}>
-        {workers.map((worker) => (
-          <SidebarLineageWorkerRow key={workerKey(worker)} worker={worker} />
-        ))}
+    <>
+      {toggle}
+      <View style={[styles.lineage, indentStyle]}>
+        {/* Subagents sit on the chat title's rail: this spacer stands in for the status slot. */}
+        <View style={styles.workspaceStatusSpacer} />
+        <View style={styles.workers}>
+          {workers.map((worker) => (
+            <SidebarLineageWorkerRow key={workerKey(worker)} worker={worker} />
+          ))}
+        </View>
       </View>
-    </View>
+    </>
   );
 }
 

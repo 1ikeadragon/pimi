@@ -1735,8 +1735,7 @@ export const en = {
   sidebar: {
     statusGroupAccessibility: "{{label}} group",
     lineage: {
-      showNested: "{{count}} nested",
-      hideNested: "Hide nested",
+      label: "Lineage {{count}}",
     },
     statusBucket: {
       needsInput: "Needs input",
