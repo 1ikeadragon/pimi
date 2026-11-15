@@ -26,6 +26,13 @@ const patchedPackages = [
     patchPrefix: "expo-camera+",
     cwd: "packages/app",
   },
+  // Pimi Android excludes expo-application (install referrer SDK). expo-notifications imports it
+  // for Expo push tokens, which Pimi never requests, and the import crashes the app at launch.
+  {
+    nodeModulesPath: "packages/app/node_modules/expo-notifications",
+    patchPrefix: "expo-notifications+",
+    cwd: "packages/app",
+  },
   // Android file previews block network resources in the WebView itself.
   {
     nodeModulesPath: "node_modules/react-native-webview",

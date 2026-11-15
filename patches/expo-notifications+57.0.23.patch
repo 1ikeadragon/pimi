@@ -1,0 +1,22 @@
+diff --git a/node_modules/expo-notifications/build/getExpoPushTokenAsync.js b/node_modules/expo-notifications/build/getExpoPushTokenAsync.js
+index f2c73e1..19bcdd7 100644
+--- a/node_modules/expo-notifications/build/getExpoPushTokenAsync.js
++++ b/node_modules/expo-notifications/build/getExpoPushTokenAsync.js
+@@ -1,4 +1,5 @@
+-import * as Application from 'expo-application';
++// Pimi Android excludes expo-application (install referrer SDK) and never uses Expo push tokens.
++const Application = {};
+ import Constants from 'expo-constants';
+ import { Platform, CodedError, UnavailabilityError } from 'expo-modules-core';
+ import { setAutoServerRegistrationEnabledAsync } from './DevicePushTokenAutoRegistration.fx';
+diff --git a/node_modules/expo-notifications/build/utils/updateDevicePushTokenAsync.js b/node_modules/expo-notifications/build/utils/updateDevicePushTokenAsync.js
+index 9128f1f..4ac4838 100644
+--- a/node_modules/expo-notifications/build/utils/updateDevicePushTokenAsync.js
++++ b/node_modules/expo-notifications/build/utils/updateDevicePushTokenAsync.js
+@@ -1,4 +1,5 @@
+-import * as Application from 'expo-application';
++// Pimi Android excludes expo-application (install referrer SDK) and never uses Expo push tokens.
++const Application = {};
+ import { CodedError, Platform, UnavailabilityError } from 'expo-modules-core';
+ import { computeNextBackoffInterval } from './backoff';
+ import ServerRegistrationModule from '../ServerRegistrationModule';
