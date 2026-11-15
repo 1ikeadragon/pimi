@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.59 - 2026-11-15
+
+- Sidebar: a chat's subagents stay listed under it after they finish, marked Done. Hide nested folds them.
+
 ## 0.17.58 - 2026-11-15
 
 - Agents start lighter: Pimi adds about half as many tokens to each Claude session. Only core Pimi tools are listed up front; the rest load when the agent asks for them.
