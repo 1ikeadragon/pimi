@@ -124,7 +124,7 @@ function parseNpx(argv: readonly string[]): ParsedRunner | null {
       i += 1;
       continue;
     }
-    if (token.startsWith("--before=")) {
+    if (token.startsWith("--before=") || token.startsWith("--min-release-age=")) {
       if (dateFlagIndex !== -1) return null;
       dateFlagIndex = i;
       continue;
@@ -166,16 +166,28 @@ function parseUvx(argv: readonly string[]): ParsedRunner | null {
   return null;
 }
 
-function dateFlag(runner: PackageRunner, iso: string): string {
-  return runner === "npx" ? `--before=${iso}` : `--exclude-newer=${iso}`;
+// npm refuses `--before` whenever any min-release-age is configured, including a project or user
+// .npmrc, and no flag or env value cancels that. A `--min-release-age` flag overrides the
+// configured value instead, so npx gets the relative bound. uv has no such conflict.
+function dateFlag(runner: PackageRunner, iso: string, days: number): string {
+  return runner === "npx" ? `--min-release-age=${days}` : `--exclude-newer=${iso}`;
 }
 
-function cutoffIso(nowMs: number, days: number): string {
-  const clamped = Math.min(
+function clampDays(days: number): number {
+  return Math.min(
     PACKAGE_POLICY_MIN_AGE_DAYS_MAX,
     Math.max(PACKAGE_POLICY_MIN_AGE_DAYS_MIN, Math.round(days)),
   );
-  const bound = new Date(nowMs - clamped * DAY_MS);
+}
+
+// The instant an existing date flag allows, for display.
+function existingFlagCutoff(flag: string, nowMs: number): string {
+  const value = flag.slice(flag.indexOf("=") + 1);
+  return flag.startsWith("--min-release-age=") ? cutoffIso(nowMs, Number(value)) : value;
+}
+
+function cutoffIso(nowMs: number, days: number): string {
+  const bound = new Date(nowMs - clampDays(days) * DAY_MS);
   bound.setUTCHours(0, 0, 0, 0);
   return bound.toISOString();
 }
@@ -201,7 +213,7 @@ export function applyPackagePolicy(
   const { runner, spec, specIndex, dateFlagIndex } = parsed;
   const base = { managed: true, runner, name: spec.name };
   const existingCutoff =
-    dateFlagIndex === -1 ? null : argv[dateFlagIndex].slice(argv[dateFlagIndex].indexOf("=") + 1);
+    dateFlagIndex === -1 ? null : existingFlagCutoff(argv[dateFlagIndex], nowMs);
 
   if (policy.mode === "pinned") {
     if (spec.version.kind === "exact") {
@@ -226,7 +238,7 @@ export function applyPackagePolicy(
   }
 
   const iso = cutoffIso(nowMs, policy.minAgeDays);
-  const flag = dateFlag(runner, iso);
+  const flag = dateFlag(runner, iso, clampDays(policy.minAgeDays));
   if (dateFlagIndex !== -1) out[dateFlagIndex] = flag;
   else out.splice(1, 0, flag);
   return { ...base, argv: out, pinnedVersion: null, cutoff: iso };
