@@ -4,9 +4,9 @@ import { PIMI_VISUALIZATION_GUIDE_TOOL } from "@pimi/protocol/chat-visualization
 import type { PimiToolCatalog, PimiToolDefinition, PimiToolResult } from "./types.js";
 
 /**
- * Providers that send every tool schema on every turn (Codex, OpenCode, OMP, ACP agents) get only
- * these tools listed. Everything else sits behind `pimi_tools` and `call_pimi_tool`, so a chat that
- * never touches automations does not pay for their schemas.
+ * Every agent session lists only these tools. Everything else sits behind `pimi_tools` and
+ * `call_pimi_tool`, so a chat that never touches automations pays for neither their schemas (a
+ * provider that sends every schema each turn) nor their names (a provider that defers schemas).
  */
 const DEFAULT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "create_agent",
@@ -55,19 +55,49 @@ const GROUP_BY_TOOL: Readonly<Record<string, string>> = {
   search_pimi_codebase: "search",
   search_pimi_spaces: "search",
   read_pimi_space_item: "search",
+  list_pimi_tasks: "tasks",
+  get_pimi_task: "tasks",
+  update_pimi_task: "tasks",
+  list_pimi_labels: "tasks",
+  create_pimi_label: "tasks",
+  set_pimi_label: "tasks",
+  remember_project_note: "memory",
+  forget_project_note: "memory",
+  remember_global_note: "memory",
+  forget_global_note: "memory",
+  list_flows: "flows",
+  run_flow: "flows",
+  save_flow: "flows",
+  submit_verdict: "flows",
+  submit_finding: "attack",
+  finish_attack_run: "attack",
+  get_annotation: "attack",
+  report_annotation_result: "attack",
 };
 
-/** Group names a loader-fed agent can ask for, for the prompt. Tools outside the map fall under "other", so tools not named here still show up in the loader's own listing. */
+/** The groups that exist only for an agent of an Attack run, plus the browser it drives. */
+const ATTACK_RUN_GROUPS: ReadonlySet<string> = new Set(["attack", "desktop", "browser"]);
+
+/** Group names a loader-fed agent can ask for, for the prompt. Attack groups are left out: an Attack run's own prompt names its tools. */
 export const LAZY_TOOL_GROUP_NAMES: readonly string[] = [
-  ...new Set([...Object.values(GROUP_BY_TOOL), "automations", "heartbeats"]),
-].sort();
+  ...new Set([...Object.values(GROUP_BY_TOOL), "automations", "heartbeats", "browser"]),
+]
+  .filter((group) => group !== "attack")
+  .sort();
 
 export function toolGroupOf(name: string): string {
   const mapped = GROUP_BY_TOOL[name];
   if (mapped) return mapped;
+  if (name.startsWith("browser_")) return "browser";
+  if (name.startsWith("desktop_")) return "desktop";
   if (name.includes("automation")) return "automations";
   if (name.includes("heartbeat")) return "heartbeats";
   return "other";
+}
+
+export interface LazyListing {
+  /** List an Attack run's tools directly: for a provider that defers schemas, a name costs little and the run's prompt calls them by name. */
+  listAttackRunTools?: boolean;
 }
 
 export interface SplitTools {
@@ -75,15 +105,21 @@ export interface SplitTools {
   groups: Map<string, PimiToolDefinition[]>;
 }
 
-export function splitToolsForLazyLoading(tools: Iterable<PimiToolDefinition>): SplitTools {
+export function splitToolsForLazyLoading(
+  tools: Iterable<PimiToolDefinition>,
+  listing: LazyListing = {},
+): SplitTools {
   const listed: PimiToolDefinition[] = [];
   const groups = new Map<string, PimiToolDefinition[]>();
   for (const tool of tools) {
-    if (DEFAULT_TOOL_NAMES.has(tool.name)) {
+    const group = toolGroupOf(tool.name);
+    if (
+      DEFAULT_TOOL_NAMES.has(tool.name) ||
+      (listing.listAttackRunTools && ATTACK_RUN_GROUPS.has(group))
+    ) {
       listed.push(tool);
       continue;
     }
-    const group = toolGroupOf(tool.name);
     const members = groups.get(group) ?? [];
     members.push(tool);
     groups.set(group, members);
@@ -102,6 +138,21 @@ function textResult(value: unknown): PimiToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value) }] };
 }
 
+function describe(tools: PimiToolDefinition[]): PimiToolResult {
+  return textResult(
+    tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: jsonSchemaOf(tool),
+    })),
+  );
+}
+
+const LoaderInput = z.object({
+  group: z.string().optional(),
+  tools: z.array(z.string()).optional(),
+});
+
 export function createLazyLoaderTools(
   groups: Map<string, PimiToolDefinition[]>,
   listedNames: ReadonlySet<string>,
@@ -117,10 +168,20 @@ export function createLazyLoaderTools(
     {
       name: LOADER_TOOL_NAME,
       title: "Load Pimi tools",
-      description: `More Pimi tools exist beyond the ones listed. Call this with a group to get each tool's description and input schema, then run one with ${CALL_TOOL_NAME}. Groups: ${groupNames.join(", ")}. Call with no group to list the tool names in every group.`,
-      inputSchema: { group: z.enum(groupNames as [string, ...string[]]).optional() },
+      description: `More Pimi tools exist beyond the ones listed. Call this with a group to get each tool's description and input schema, or with tools to get only the ones you name, then run one with ${CALL_TOOL_NAME}. Groups: ${groupNames.join(", ")}. Call with no arguments to list the tool names in every group.`,
+      inputSchema: {
+        group: z.enum(groupNames as [string, ...string[]]).optional(),
+        tools: z.array(z.string()).optional(),
+      },
       handler: async (input) => {
-        const { group } = z.object({ group: z.string().optional() }).parse(input);
+        const { group, tools } = LoaderInput.parse(input);
+        if (tools?.length) {
+          const unknown = tools.filter((name) => !byName.has(name));
+          if (unknown.length) {
+            return { ...textResult(`Unknown tools: ${unknown.join(", ")}`), isError: true };
+          }
+          return describe(tools.map((name) => byName.get(name)!));
+        }
         if (!group) {
           return textResult(
             Object.fromEntries(
@@ -130,13 +191,7 @@ export function createLazyLoaderTools(
         }
         const members = groups.get(group);
         if (!members) return { ...textResult(`Unknown group: ${group}`), isError: true };
-        return textResult(
-          members.map((tool) => ({
-            name: tool.name,
-            description: tool.description,
-            inputSchema: jsonSchemaOf(tool),
-          })),
-        );
+        return describe(members);
       },
     },
     {
@@ -163,12 +218,15 @@ export function createLazyLoaderTools(
 }
 
 /**
- * The catalog a provider that sends every tool schema each turn sees: the core tools and the
- * loader. A tool outside them stays callable by name, so an agent that already knows it (resumed
- * history, a stale schema) is not refused.
+ * The catalog an agent session sees: the core tools and the loader. A tool outside them stays
+ * callable by name, so an agent that already knows it (resumed history, a stale schema) is not
+ * refused.
  */
-export function lazyPimiToolCatalog(catalog: PimiToolCatalog): PimiToolCatalog {
-  const { listed, groups } = splitToolsForLazyLoading(catalog.tools.values());
+export function lazyPimiToolCatalog(
+  catalog: PimiToolCatalog,
+  listing: LazyListing = {},
+): PimiToolCatalog {
+  const { listed, groups } = splitToolsForLazyLoading(catalog.tools.values(), listing);
   const loaderTools = new Map(
     createLazyLoaderTools(groups, new Set(listed.map((tool) => tool.name)), (name, args, signal) =>
       catalog.executeTool(name, args, { signal }),

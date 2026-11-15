@@ -152,17 +152,22 @@ function visualizationBrief(guide: string): string {
     `Pimi chat draws visuals from fenced blocks: ${PIMI_VEGA_FENCE} for a chart of numbers, ${PIMI_VIEW_FENCE} for metrics, tables, flows, state machines and message sequences, ${PIMI_HTML_FENCE} for something the user operates with sliders or inputs, and mermaid only for a gantt chart.`,
     "Draw when the user asked for a visual or you are about to send a table of numbers. Say one or two numbers in a sentence.",
     `Before any visual, ${guide}, not a general charting skill: it holds each block's format and limits. A request to visualize, chart, plot, or explore data, or to build an interactive explorer, calculator, or simulator, means a block in the reply, even a large or interactive one (aggregate or sample big data), never a project HTML file unless the user asks for a file to keep.`,
-    `A ${PIMI_VEGA_FENCE} block holds one Vega-Lite v6 spec as JSON, rows inline:`,
-    ...fenced(PIMI_VEGA_FENCE, JSON.stringify(VEGA_EXAMPLE)),
   ].join("\n");
 }
 
-/** For providers that read the bundled pimi-visualize skill: routing only, the formats live in its SKILL.md. */
-export const PIMI_VISUALIZATION_BRIEF = visualizationBrief("load the pimi-visualize skill");
+/**
+ * For providers that read the bundled pimi-visualize skill. The skill's description, which those
+ * providers always list, says when to draw and names the blocks, and its SKILL.md holds the
+ * formats, so the prompt only keeps the agent off other charting skills and project files.
+ */
+export const PIMI_VISUALIZATION_BRIEF =
+  "Before any chart, diagram, table of numbers, or interactive visual, load the pimi-visualize skill, not a general charting skill. The visual is a block in the reply, never a project HTML file unless the user asks for a file to keep.";
 
 /** For providers that cannot read skills but have Pimi's tools: routing, and the guide tool for the formats. */
 export const PIMI_VISUALIZATION_TOOL_BRIEF = [
   visualizationBrief(`call ${PIMI_VISUALIZATION_GUIDE_TOOL}`),
+  `A ${PIMI_VEGA_FENCE} block holds one Vega-Lite v6 spec as JSON, rows inline:`,
+  ...fenced(PIMI_VEGA_FENCE, JSON.stringify(VEGA_EXAMPLE)),
   `If that tool is unavailable, draw a diagram, flow, or state machine as a ${PIMI_VIEW_FENCE} block like this one, never as ASCII art:`,
   ...fenced(PIMI_VIEW_FENCE, JSON.stringify(FLOW_EXAMPLE)),
 ].join("\n");

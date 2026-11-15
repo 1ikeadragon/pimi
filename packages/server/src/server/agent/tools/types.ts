@@ -50,6 +50,8 @@ export interface PimiToolCatalog {
 export interface PimiToolRuntimeContext {
   callerAgentId?: string;
   pimiToolPolicy?: ProviderPimiToolsPolicy;
+  /** The caller carries an Attack run's label, so the Attack and desktop tools exist for it. */
+  attackRun?: boolean;
   enableVoiceTools?: boolean;
   voiceOnly?: boolean;
 }

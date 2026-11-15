@@ -17,6 +17,7 @@ import {
 import {
   getParentAgentIdFromLabels,
   hasOpenAgentTab,
+  ATTACK_RUN_LABEL,
   isDelegatedAgent,
   isOpenAgentTabLabel,
   PARENT_AGENT_ID_LABEL,
@@ -180,45 +181,46 @@ function pimiToolsOffInstructions(provider: string, hostToolsEnabled: boolean): 
   return `Pimi's agent tools are turned off ${where}, so you cannot start other agents or providers, use shared memory, or track tasks here. If the user asks for one of these, say that Pimi tools are off ${where} and that they can ${fix}. Do not run claude, codex, opencode, or another agent CLI from a shell instead, and do not write Pimi's memory or task files yourself.`;
 }
 
+// Only what an agent must know before it picks a tool lives here. How to use a tool is in that
+// tool's description, which the agent reads once the tool is listed or loaded.
 function pimiActionInstructions(input: {
   policy: ProviderPimiToolsPolicy | undefined;
   provider: string;
   hostToolsEnabled: boolean;
-  toolLoading: "deferred" | "loader";
 }): string[] {
   const { policy } = input;
   if (!isPimiToolPolicyEnabled(policy)) {
     return [pimiToolsOffInstructions(input.provider, input.hostToolsEnabled)];
   }
-  const instructions = [];
-  if (input.toolLoading === "deferred") {
-    instructions.push("Pimi's tools are deferred: load one with ToolSearch before calling it.");
-  } else if (input.toolLoading === "loader") {
-    instructions.push(
-      `Pimi lists only its core tools. For ${LAZY_TOOL_GROUP_NAMES.join(", ")}, call pimi_tools with a group, then run a tool with call_pimi_tool.`,
-    );
-  }
+  const instructions = [
+    `Pimi lists only its core tools. For ${LAZY_TOOL_GROUP_NAMES.join(", ")}, call pimi_tools with a group, then run a tool with call_pimi_tool.`,
+  ];
   if (isPimiToolEnabled(policy, "create_pimi_task")) {
     instructions.push(
-      "When the user asks to add, track, or remember a task or to-do, call create_pimi_task with a short title. The current chat is linked to it, and Pimi writes the description from the chat when you leave it out. Use list_pimi_tasks and update_pimi_task to find or change a task; set a status only when the user asks or the work clearly moved.",
+      "When the user asks to add, track, or remember a task or to-do, call create_pimi_task.",
     );
   }
   if (isPimiToolEnabled(policy, "create_agent")) {
     instructions.push(
-      'When the user asks for another agent, a worker, a second opinion, or another provider or model to do or answer something ("ask another agent", "use opencode to", "split this between two agents"), or for parallel workers, call create_agent once per worker, even on your own provider, with a focused initialPrompt. Pimi shows each as a card nested under this chat. A new chat the user asks to open is not a worker: that is create_chat. Your built-in subagent tool (Task or Agent) and agent CLIs run from a shell (claude, codex, opencode, gemini) show the user nothing: never use them for a worker the user asked for or another model\'s answer, only for your own lookups. Follow up with send_agent_prompt; report here when the completion notification arrives.',
+      'When the user asks for another agent, a worker, a second opinion, or another provider or model to do or answer something ("ask another agent", "use opencode to", "split this between two agents"), or for parallel workers, call create_agent once per worker, even on your own provider. Your built-in subagent tool (Task or Agent) and agent CLIs run from a shell (claude, codex, opencode, gemini) show the user nothing: never use them for a worker the user asked for or another model\'s answer, only for your own lookups.',
     );
   }
   if (isPimiToolEnabled(policy, "create_chat")) {
     instructions.push(
-      'When the user asks to open or start a new chat, or to do something "in a new chat", call create_chat with initialPrompt: that chat is the user\'s own, not your worker. If your first message says Pimi opened this chat for the request, do the work here.',
+      'When the user asks to open or start a new chat, or to do something "in a new chat", call create_chat with initialPrompt: that chat is the user\'s own, not your worker.',
     );
   }
   if (isPimiToolEnabled(policy, "browser_show")) {
     instructions.push(
-      "When the user asks to see, open, or look at a web page or link, or you want them to look at one (for example a dev server you started), call browser_show with the URL. Pimi opens it in a browser tab beside this chat where the user can annotate elements back to you. It only shows the page; you get no content from it. Keep the link in your reply too.",
+      "When the user asks to see or open a web page or link, or you want them to look at one (for example a dev server you started), call browser_show with the URL and keep the link in your reply.",
     );
   }
   return instructions;
+}
+
+/** Every agent of an Attack run carries the run's label: the lead from the run, the rest from create_agent. */
+function carriesAttackRun(launch: { labels?: Record<string, string> } | undefined): boolean {
+  return Boolean(launch?.labels?.[ATTACK_RUN_LABEL]);
 }
 
 const RELOAD_SESSION_CLOSE_TIMEOUT_MS = 3_000;
@@ -337,6 +339,7 @@ interface ReplacementLaunch {
   providerLaunchConfig: AgentSessionConfig;
   launchContext: AgentLaunchContext;
   pimiToolPolicy: ProviderPimiToolsPolicy | undefined;
+  attackRun: boolean;
 }
 
 type ProviderSwitchEndpoint = AgentProviderSwitchMarker["from"];
@@ -455,6 +458,15 @@ interface PreparedSessionConfig {
   storedConfig: AgentSessionConfig;
   launchConfig: AgentSessionConfig;
   pimiToolPolicy: ProviderPimiToolsPolicy | undefined;
+  /** The agent carries an Attack run's label. Every agent of a run does: create_agent stamps it. */
+  attackRun: boolean;
+}
+
+/** What decides which Pimi tools an agent's session lists, fixed when the session launches. */
+export interface PimiToolListing {
+  attackRun: boolean;
+  /** The provider loads MCP tool schemas on demand, so a listed tool costs it only its name. */
+  defersTools: boolean;
 }
 
 interface NormalizeConfigOptions {
@@ -1184,7 +1196,7 @@ export class AgentManager {
   private pimiToolCatalogFactory: PimiToolCatalogFactory | null = null;
   private readonly pimiToolPolicies = new Map<string, ProviderPimiToolsPolicy | undefined>();
   /** Agents whose provider gets Pimi's tools through the lazy loader; set before the session exists so a resume-time tools/list sees it. */
-  private readonly pimiLoaderAgents = new Set<string>();
+  private readonly pimiToolListings = new Map<string, PimiToolListing>();
   private isSkillAvailable: (name: string) => Promise<boolean> = async () => false;
   private getPackagePolicy: () => PackagePolicy = () => DEFAULT_PACKAGE_POLICY;
   // Stdio MCP servers seen at launch, as configured. Covers servers that plugins contribute at
@@ -1381,26 +1393,22 @@ export class AgentManager {
     return this.pimiToolPolicies.get(agentId);
   }
 
-  /** How the provider receives Pimi's tools: deferred by itself, or the core tools plus a loader. */
-  private pimiToolLoading(provider: string): "deferred" | "loader" {
-    return this.clients.get(provider)?.capabilities?.defersMcpTools === true
-      ? "deferred"
-      : "loader";
-  }
-
-  /** Whether the agent's provider receives Pimi's tools through the lazy loader. */
-  agentUsesPimiToolLoader(agentId: string): boolean {
-    return this.pimiLoaderAgents.has(agentId);
+  /** The facts that decide which Pimi tools the agent's session lists; unset for an agent never launched here. */
+  getPimiToolListing(agentId: string): PimiToolListing | undefined {
+    return this.pimiToolListings.get(agentId);
   }
 
   private recordPimiToolPolicy(
     agentId: string,
     provider: string,
     policy: ProviderPimiToolsPolicy | undefined,
+    attackRun: boolean,
   ): void {
     this.pimiToolPolicies.set(agentId, policy);
-    if (this.pimiToolLoading(provider) === "loader") this.pimiLoaderAgents.add(agentId);
-    else this.pimiLoaderAgents.delete(agentId);
+    this.pimiToolListings.set(agentId, {
+      attackRun,
+      defersTools: this.clients.get(provider)?.capabilities?.defersMcpTools === true,
+    });
   }
 
   /**
@@ -1968,16 +1976,18 @@ export class AgentManager {
     // A stored agent without a provider thread is recreated under its own id, and
     // still owns the rows it carried over from an earlier provider.
     await this.deleteAgentState(resolvedAgentId, { keepCarriedTimeline: true });
-    const { storedConfig, launchConfig, pimiToolPolicy } = await this.prepareSessionConfig(
-      config,
-      resolvedAgentId,
-      { env: options.env, background: options.background, labels: options.labels, withoutAppTools },
-    );
+    const { storedConfig, launchConfig, pimiToolPolicy, attackRun } =
+      await this.prepareSessionConfig(config, resolvedAgentId, {
+        env: options.env,
+        background: options.background,
+        labels: options.labels,
+        withoutAppTools,
+      });
     this.requireEnabledProvider(storedConfig.provider);
     const client = await this.requireAvailableClient({
       provider: storedConfig.provider,
     });
-    this.recordPimiToolPolicy(resolvedAgentId, storedConfig.provider, pimiToolPolicy);
+    this.recordPimiToolPolicy(resolvedAgentId, storedConfig.provider, pimiToolPolicy, attackRun);
     const launchContext = withoutAppTools
       ? { agentId: resolvedAgentId, env: options.env }
       : await this.buildLaunchContext(
@@ -2107,11 +2117,13 @@ export class AgentManager {
 
     const launchEnv = record?.launchEnv;
     const workspaceId = resolveResumeWorkspaceId({ options, record });
-    const { storedConfig, launchConfig, pimiToolPolicy } = await this.prepareSessionConfig(
-      mergedConfig,
-      resolvedAgentId,
-      { purpose, env: launchEnv, background: record?.background, labels: record?.labels },
-    );
+    const { storedConfig, launchConfig, pimiToolPolicy, attackRun } =
+      await this.prepareSessionConfig(mergedConfig, resolvedAgentId, {
+        purpose,
+        env: launchEnv,
+        background: record?.background,
+        labels: record?.labels,
+      });
     markPhase("prepareSessionConfigMs");
     const client = this.requireClient(handle.provider);
     const available = await client.isAvailable();
@@ -2121,7 +2133,7 @@ export class AgentManager {
         `Provider '${handle.provider}' is not available. Please ensure the CLI is installed.`,
       );
     }
-    this.recordPimiToolPolicy(resolvedAgentId, handle.provider, pimiToolPolicy);
+    this.recordPimiToolPolicy(resolvedAgentId, handle.provider, pimiToolPolicy, attackRun);
     const launchContext = await this.buildLaunchContext(
       resolvedAgentId,
       client,
@@ -2193,14 +2205,15 @@ export class AgentManager {
       throw new Error(`Provider '${input.provider}' does not support importing sessions`);
     }
 
-    const { storedConfig, launchConfig, pimiToolPolicy } = await this.prepareSessionConfig(
-      {
-        provider: input.provider,
-        cwd: input.cwd,
-      },
-      resolvedAgentId,
-    );
-    this.recordPimiToolPolicy(resolvedAgentId, input.provider, pimiToolPolicy);
+    const { storedConfig, launchConfig, pimiToolPolicy, attackRun } =
+      await this.prepareSessionConfig(
+        {
+          provider: input.provider,
+          cwd: input.cwd,
+        },
+        resolvedAgentId,
+      );
+    this.recordPimiToolPolicy(resolvedAgentId, input.provider, pimiToolPolicy, attackRun);
     const launchContext = await this.buildLaunchContext(
       resolvedAgentId,
       client,
@@ -2687,11 +2700,12 @@ export class AgentManager {
     plan: SessionReplacementPlan,
   ): Promise<ReplacementLaunch> {
     const agentId = agent.id;
-    const { storedConfig, launchConfig, pimiToolPolicy } = await this.prepareSessionConfig(
-      plan.config,
-      agentId,
-      { env: agent.launchEnv, background: agent.background, labels: agent.labels },
-    );
+    const { storedConfig, launchConfig, pimiToolPolicy, attackRun } =
+      await this.prepareSessionConfig(plan.config, agentId, {
+        env: agent.launchEnv,
+        background: agent.background,
+        labels: agent.labels,
+      });
     const previousPluginTools = this.attachedPluginTools.get(agentId);
     const previousOpenGeneration = this.sessionOpenGenerations.get(agentId);
     try {
@@ -2714,7 +2728,7 @@ export class AgentManager {
       if (Object.keys(externalMcpServers).length > 0 && !plan.supportsMcpServers) {
         throw this.unsupportedMcpError(providerLaunchConfig, launchContext);
       }
-      return { storedConfig, providerLaunchConfig, launchContext, pimiToolPolicy };
+      return { storedConfig, providerLaunchConfig, launchContext, pimiToolPolicy, attackRun };
     } catch (error) {
       this.detachPluginTools(agentId);
       // A session that keeps running keeps the plugin tools it was opened with.
@@ -2769,8 +2783,8 @@ export class AgentManager {
     const { client } = plan;
     const hadPreviousPimiToolPolicy = this.pimiToolPolicies.has(agentId);
     const previousPimiToolPolicy = this.pimiToolPolicies.get(agentId);
-    const hadPreviousLoader = this.pimiLoaderAgents.has(agentId);
-    const { storedConfig, providerLaunchConfig, launchContext, pimiToolPolicy } =
+    const previousPimiToolListing = this.pimiToolListings.get(agentId);
+    const { storedConfig, providerLaunchConfig, launchContext, pimiToolPolicy, attackRun } =
       await this.prepareReplacementLaunch(agent, plan);
 
     let session: AgentSession | undefined;
@@ -2786,7 +2800,7 @@ export class AgentManager {
       }
       this.assertAcceptingAgentRegistrations();
 
-      this.recordPimiToolPolicy(agentId, storedConfig.provider, pimiToolPolicy);
+      this.recordPimiToolPolicy(agentId, storedConfig.provider, pimiToolPolicy, attackRun);
       session = await withLaunchAgent(agentId, () =>
         plan.handle
           ? client.resumeSession(plan.handle!, providerLaunchConfig, launchContext)
@@ -2838,8 +2852,8 @@ export class AgentManager {
         } else {
           this.pimiToolPolicies.delete(agentId);
         }
-        if (hadPreviousLoader) this.pimiLoaderAgents.add(agentId);
-        else this.pimiLoaderAgents.delete(agentId);
+        if (previousPimiToolListing) this.pimiToolListings.set(agentId, previousPimiToolListing);
+        else this.pimiToolListings.delete(agentId);
         if (session) {
           await this.closeUnregisteredSession(session);
         }
@@ -5468,7 +5482,7 @@ export class AgentManager {
     this.timelineStore.delete(agentId);
     this.sentJoiners.delete(agentId);
     this.pimiToolPolicies.delete(agentId);
-    this.pimiLoaderAgents.delete(agentId);
+    this.pimiToolListings.delete(agentId);
     this.detachPluginTools(agentId);
     for (const event of this.providerSubagents.deleteParent(agentId)) {
       this.dispatch({ type: "provider_subagent", event });
@@ -7416,7 +7430,7 @@ export class AgentManager {
       // The caller's own MCP servers stay: an internal query can bring its own bounded tools.
       const launchConfig = { ...storedConfig };
       delete launchConfig.daemonAppendSystemPrompt;
-      return { storedConfig, launchConfig, pimiToolPolicy: { enabled: false } };
+      return { storedConfig, launchConfig, pimiToolPolicy: { enabled: false }, attackRun: false };
     }
     const pimiToolPolicy = this.pimiToolsEnabled
       ? this.resolvePimiToolPolicy(storedConfig.provider)
@@ -7439,7 +7453,6 @@ export class AgentManager {
             policy: pimiToolPolicy,
             provider: storedConfig.provider,
             hostToolsEnabled: this.pimiToolsEnabled,
-            toolLoading: this.pimiToolLoading(storedConfig.provider),
           }),
           visualizationInstructions,
         ]
@@ -7457,7 +7470,12 @@ export class AgentManager {
       }),
       [...pimiInstructions, ...memoryPrompt].join("\n\n"),
     );
-    return { storedConfig, launchConfig, pimiToolPolicy };
+    return {
+      storedConfig,
+      launchConfig,
+      pimiToolPolicy,
+      attackRun: carriesAttackRun(options),
+    };
   }
 
   private applyDaemonAppendSystemPrompt(
@@ -7540,6 +7558,7 @@ export class AgentManager {
         const catalog = await this.pimiToolCatalogFactory({
           callerAgentId: agentId,
           pimiToolPolicy,
+          attackRun: carriesAttackRun(opening),
         });
         if (useNativeTools) context.pimiTools = lazyPimiToolCatalog(catalog);
       } catch (error) {

@@ -219,6 +219,8 @@ export interface PimiToolHostDependencies {
   ) => Promise<string>;
   browserToolsEnabled?: boolean;
   browserToolsBroker?: BrowserToolsBroker | null;
+  /** The caller is an agent of an Attack run. Only then do the Attack and desktop tools exist. */
+  attackRun?: boolean;
   pimiToolPolicy?: ProviderPimiToolsPolicy;
   pimiHome?: string;
   worktreesRoot?: string;
@@ -1488,6 +1490,7 @@ function createToolCatalog(
     registerTool,
     broker: options.browserToolsBroker?.desktop,
     attack: options.attackService,
+    attackRun: options.attackRun,
     callerAgentId,
   });
 
@@ -1495,6 +1498,7 @@ function createToolCatalog(
     registerTool,
     scope,
     service: options.attackService,
+    attackRun: options.attackRun,
     callerAgentId,
     browserToolsEnabled: options.browserToolsEnabled,
     broker: options.browserToolsBroker,
@@ -1948,7 +1952,7 @@ function createToolCatalog(
       title: "Create agent",
       description:
         scope === "agent"
-          ? "Starts a worker for this chat. When the user asks to open or start a new chat, call create_chat with initialPrompt instead. Creates an agent in your chat as your subagent; the user sees it as a card in this chat. Needs an initialPrompt. Create one per worker the user asked for, even on your own provider, and omit provider when no provider or model was named. Set inheritContext: true for work discussed in this chat unless the user wants an independent view. Keep the user's edit and launch constraints, use separate worktrees for parallel edits, and add the work to the Tasks board only when asked to track it. provider is a provider (codex) or provider/model (codex/gpt-5.4); omitted, it is your own. For another provider, omitting settings.modeId uses its default mode. Do not guess ids: call list_providers and list_models if unsure. For a machine the user names, call list_hosts and pass its serverId, a chatId from list_chats or create_chat there, and a provider/model from list_providers and list_models there; inheritContext, profile and cwd are this-host only."
+          ? "Starts a worker for this chat. When the user asks to open or start a new chat, call create_chat with initialPrompt instead. Creates an agent in your chat as your subagent; the user sees it as a card in this chat. Needs a focused initialPrompt. Create one per worker the user asked for, even on your own provider, and omit provider when no provider or model was named. Follow up with send_agent_prompt, and report in the chat when its completion notification arrives. Set inheritContext: true for work discussed in this chat unless the user wants an independent view. Keep the user's edit and launch constraints, use separate worktrees for parallel edits, and add the work to the Tasks board only when asked to track it. provider is a provider (codex) or provider/model (codex/gpt-5.4); omitted, it is your own. For another provider, omitting settings.modeId uses its default mode. Do not guess ids: call list_providers and list_models if unsure. For a machine the user names, call list_hosts and pass its serverId, a chatId from list_chats or create_chat there, and a provider/model from list_providers and list_models there; inheritContext, profile and cwd are this-host only."
           : "Create an agent. Without chatId it opens a new local chat. Needs an initialPrompt and either a provider (codex, or codex/gpt-5.4 for a model) or a profile that sets one. Omitting settings.modeId uses the provider's default mode. Do not guess ids: call list_providers and list_models if unsure. For a machine the user names, call list_hosts and pass its serverId, a chatId from list_chats or create_chat there, and a provider/model from list_providers and list_models there; inheritContext, profile and cwd are this-host only.",
       inputSchema: createAgentInputSchema,
       outputSchema: {

@@ -1920,6 +1920,7 @@ export async function createPimiDaemon(
     createPimiWorktree: createAgentCommandDependencies.createPimiWorktree,
     browserToolsEnabled: browserToolsPolicy.isEnabled(),
     browserToolsBroker,
+    attackRun: runtime.attackRun,
     pimiToolPolicy:
       runtime.pimiToolPolicy ??
       (runtime.callerAgentId ? agentManager.getPimiToolPolicy(runtime.callerAgentId) : undefined),
@@ -1952,6 +1953,7 @@ export async function createPimiDaemon(
       callerAgentId: string | undefined,
       boundCaller: boolean,
     ) => {
+      const listing = callerAgentId ? agentManager.getPimiToolListing(callerAgentId) : undefined;
       const agentMcpServer = await createAgentMcpServer(
         createAgentToolHostDependencies(
           {
@@ -1959,10 +1961,15 @@ export async function createPimiDaemon(
             pimiToolPolicy: callerAgentId
               ? agentManager.getPimiToolPolicy(callerAgentId)
               : undefined,
+            attackRun: listing?.attackRun,
           },
           boundCaller && daemonConfigStore.get().mcp.injectIntoAgents !== false,
         ),
-        { lazyTools: callerAgentId ? agentManager.agentUsesPimiToolLoader(callerAgentId) : false },
+        {
+          // An agent this daemon launched. Any other caller of the endpoint gets every tool.
+          lazyTools: listing !== undefined,
+          listAttackRunTools: listing?.attackRun && listing.defersTools,
+        },
       );
 
       // Stateless mode: each HTTP request builds a fresh server + transport that is

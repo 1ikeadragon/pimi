@@ -1,6 +1,6 @@
 ---
 name: pimi-plugin
-description: Build and manage trusted local Pimi plugins. Use when the user asks to create, edit, install, reload, enable, disable, remove, or troubleshoot a plugin, or to add lifecycle hooks; transform agent config, environment, MCP servers, or workspace creation; automate permissions or turn follow-ups; add a screen, sidebar item, workspace or file panel, Command Center item, slash command, composer pill, attachment source, or theme; read or edit the composer draft or annotations; render composer attachments; transform, render, or append timeline items; change Pimi's own UI (chat messages, sidebar, settings); add shortcuts or menu items; read repository files or git state; use Pimi from plugin code; or add plugin RPCs.
+description: Build and manage trusted local Pimi plugins. Use when the user asks to create, edit, install, reload, enable, disable, remove, or troubleshoot a plugin, or to extend or change Pimi itself: lifecycle hooks, agent config, environment or MCP transforms, permission or follow-up automation, screens, panels, sidebar or Command Center items, slash commands, composer or timeline changes, themes, shortcuts, menus, repository or git access, or plugin RPCs.
 ---
 
 # Pimi plugins

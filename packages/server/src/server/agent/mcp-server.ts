@@ -8,7 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { addModelVisibleStructuredContent } from "./tools/pimi-tool-serialization.js";
-import { lazyPimiToolCatalog } from "./tools/lazy-tool-groups.js";
+import { lazyPimiToolCatalog, type LazyListing } from "./tools/lazy-tool-groups.js";
 import { createPimiToolCatalog, type PimiToolHostDependencies } from "./tools/pimi-tools.js";
 import type { PimiToolDefinition, PimiToolResult } from "./tools/types.js";
 
@@ -55,8 +55,8 @@ export function createToolMcpServer(
   return server;
 }
 
-export interface AgentMcpServerLoading {
-  /** List only the core tools plus a loader, for providers that send every tool schema each turn. */
+export interface AgentMcpServerLoading extends LazyListing {
+  /** List only the core tools plus a loader: every agent session. A caller that is no agent gets every tool. */
   lazyTools: boolean;
 }
 
@@ -68,7 +68,7 @@ export async function createAgentMcpServer(
   const execute = (name: string, args: unknown, signal?: AbortSignal) =>
     catalog.executeTool(name, args, { signal });
   if (!loading.lazyTools) return createToolMcpServer(catalog.tools.values(), execute);
-  const lazy = lazyPimiToolCatalog(catalog);
+  const lazy = lazyPimiToolCatalog(catalog, loading);
   const route = (name: string, args: unknown, signal?: AbortSignal) =>
     lazy.executeTool(name, args, { signal });
   const server = createToolMcpServer(lazy.tools.values(), route);

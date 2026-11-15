@@ -1003,8 +1003,10 @@ export function registerDesktopToolsWhenWired(
   options: Omit<RegisterDesktopToolsOptions, "broker" | "attack"> & {
     broker?: RegisterDesktopToolsOptions["broker"] | null;
     attack?: RegisterDesktopToolsOptions["attack"] | null;
+    /** The caller is an agent of an Attack run. No other caller can use a desktop tool. */
+    attackRun: boolean | undefined;
   },
 ): void {
-  const { broker, attack, ...rest } = options;
-  if (broker && attack) registerDesktopTools({ ...rest, broker, attack });
+  const { broker, attack, attackRun, ...rest } = options;
+  if (broker && attack && attackRun) registerDesktopTools({ ...rest, broker, attack });
 }
