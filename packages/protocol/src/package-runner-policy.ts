@@ -177,6 +177,19 @@ function dateFlag(runner: PackageRunner, iso: string, days: number): string {
   return runner === "npx" ? `--min-release-age=${days}` : `--exclude-newer=${iso}`;
 }
 
+// Pinned mode keeps the command's own date bound. npx gets it as whole days so it still runs when
+// an .npmrc sets min-release-age; flooring keeps the cutoff within a day of the original instant.
+function keepDateBound(argv: readonly string[], parsed: ParsedRunner, nowMs: number): string[] {
+  const out = [...argv];
+  const flag = parsed.dateFlagIndex === -1 ? null : out[parsed.dateFlagIndex];
+  if (parsed.runner !== "npx" || !flag?.startsWith("--before=")) return out;
+  const beforeMs = Date.parse(flag.slice("--before=".length));
+  if (Number.isNaN(beforeMs)) return out;
+  const days = Math.max(0, Math.floor((nowMs - beforeMs) / DAY_MS));
+  out[parsed.dateFlagIndex] = `--min-release-age=${days}`;
+  return out;
+}
+
 function clampDays(days: number): number {
   return Math.min(
     PACKAGE_POLICY_MIN_AGE_DAYS_MAX,
@@ -226,7 +239,7 @@ export function applyPackagePolicy(
     if (spec.version.kind === "exact") {
       return {
         ...base,
-        argv: [...argv],
+        argv: keepDateBound(argv, parsed, nowMs),
         spec: requestedSpec,
         pinnedVersion: spec.version.version,
         cutoff: existingCutoff,
@@ -235,7 +248,7 @@ export function applyPackagePolicy(
     if (existingCutoff !== null) {
       return {
         ...base,
-        argv: [...argv],
+        argv: keepDateBound(argv, parsed, nowMs),
         spec: requestedSpec,
         pinnedVersion: null,
         cutoff: existingCutoff,
