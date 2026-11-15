@@ -1814,6 +1814,7 @@ export const AgentControls = memo(function AgentControls({
   const crewControl = useMemo<CrewControlValue | null>(() => {
     if (!client) return null;
     return {
+      serverId,
       enabled: crewEnabled,
       onChange: (enabled) => {
         client.setAgentCrew(agentId, enabled).catch((error: unknown) => {
@@ -1821,7 +1822,7 @@ export const AgentControls = memo(function AgentControls({
         });
       },
     };
-  }, [agentId, client, crewEnabled, toast]);
+  }, [agentId, client, crewEnabled, serverId, toast]);
 
   if (!agent) {
     return null;
@@ -1927,8 +1928,11 @@ export function DraftAgentControls({
     [selectedProvider, providerDefinitions, modeOptions, selectedMode, onSelectMode, disabled],
   );
   const crewControl = useMemo<CrewControlValue | null>(
-    () => (onSetCrew ? { enabled: crewEnabled, onChange: onSetCrew, disabled } : null),
-    [crewEnabled, disabled, onSetCrew],
+    () =>
+      onSetCrew && modelSelectorServerId
+        ? { serverId: modelSelectorServerId, enabled: crewEnabled, onChange: onSetCrew, disabled }
+        : null,
+    [crewEnabled, disabled, modelSelectorServerId, onSetCrew],
   );
 
   return (

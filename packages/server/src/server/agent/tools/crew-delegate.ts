@@ -5,12 +5,12 @@
 import { z } from "zod";
 import {
   CREW_ROLE_LABEL,
+  CREW_TIER_PROFILE_IDS,
   CREW_ROLES,
   PARENT_AGENT_ID_LABEL,
   type CrewRole,
 } from "@pimi/protocol/agent-labels";
 import type { AgentProfile } from "@pimi/protocol/agent-profile";
-import { CREW_TIER_PROFILE_IDS } from "../profiles/builtin-profiles.js";
 import { renderTemplate } from "../../prompts/render.js";
 import {
   PimiToolInputError,
@@ -198,9 +198,10 @@ async function resolveTier(
       `The Crew ${role} profile was deleted. Restore it in Library > Profiles, or do this yourself.`,
     );
   }
+  const sameAsLead = profile.provider === undefined;
   const models = profile.provider ? await options.listProviderModels(profile.provider) : null;
   const usable =
-    profile.provider !== undefined &&
+    !sameAsLead &&
     models !== null &&
     (profile.model === undefined ? models.length > 0 : models.includes(profile.model));
   if (usable) return { profileId: profile.id };
@@ -208,9 +209,9 @@ async function resolveTier(
   if (!lead) throw new PimiToolInputError("Crew lead is not running");
   const leadModel = lead.config.model ?? lead.runtimeInfo?.model;
   const own = leadModel ? `${lead.provider}/${leadModel}` : lead.provider;
-  const wanted = profile.provider
-    ? `${profile.provider}${profile.model ? `/${profile.model}` : ""}`
-    : "no provider";
+  // No provider on the tier profile is the user's choice of "same as lead", not a failure.
+  if (sameAsLead) return { profileId: profile.id, provider: own };
+  const wanted = `${profile.provider}${profile.model ? `/${profile.model}` : ""}`;
   return {
     profileId: profile.id,
     provider: own,

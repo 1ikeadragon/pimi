@@ -6,6 +6,7 @@ import type { AgentProvider } from "@pimi/protocol/agent-types";
 import type { ProviderSnapshotEntry } from "@pimi/protocol/agent-types";
 import { formatThinkingOptionLabel } from "@/agent-controls/labels";
 import { CombinedModelSelector } from "@/components/combined-model-selector";
+import { ModelProviderGlyph } from "@/components/model-browser";
 import { SettingsRow } from "@/components/settings";
 import { Button } from "@/components/ui/button";
 import type { ControlSize } from "@/components/ui/control-geometry";
@@ -36,6 +37,8 @@ interface PimiModelRowProps {
   onChange: (value: PimiModelChoice) => void;
   /** Clears the choice. The row offers Reset only when there is a choice and a handler. */
   onReset?: () => void;
+  /** Text of the reset button; defaults to Reset. */
+  resetLabel?: string;
   /** Limits the picker to these providers. */
   providerIds?: readonly string[];
   /** For a choice that has no thinking level to keep. */
@@ -76,7 +79,9 @@ export function PimiModelRow(props: PimiModelRowProps): ReactElement {
   const entry = value ? snapshot.entries?.find((item) => item.provider === value.provider) : null;
   const unavailable =
     value && !snapshot.isLoading && (!entry || !entry.enabled)
-      ? t("settings.pimiModels.unavailable", { provider: entry?.label ?? value.provider })
+      ? t("settings.pimiModels.unavailable", {
+          provider: entry?.label ?? value.provider,
+        })
       : undefined;
   return (
     <SettingsRow label={label} hint={hint} error={unavailable} testID={props.testID}>
@@ -92,6 +97,7 @@ export function PimiModelControls({
   placeholder,
   onChange,
   onReset,
+  resetLabel,
   providerIds,
   withoutThinking,
   disabled,
@@ -123,6 +129,11 @@ export function PimiModelControls({
     (provider: AgentProvider) => void snapshot.refresh([provider]),
     [snapshot],
   );
+  const leading = useMemo(
+    () =>
+      value ? <ModelProviderGlyph provider={value.provider} serverId={serverId} size={14} /> : null,
+    [serverId, value],
+  );
   const renderTrigger = useCallback(
     (input: { disabled: boolean; isOpen: boolean; hovered: boolean; pressed: boolean }) => (
       <SelectFieldTrigger
@@ -130,12 +141,13 @@ export function PimiModelControls({
         isPlaceholder={!value}
         placeholder={placeholder}
         disabled={input.disabled}
+        leading={leading}
         active={input.hovered || input.pressed || input.isOpen}
         size={size}
         testID={`${testID}-model-trigger`}
       />
     ),
-    [placeholder, size, testID, triggerLabel, value],
+    [leading, placeholder, size, testID, triggerLabel, value],
   );
 
   return (
@@ -170,7 +182,7 @@ export function PimiModelControls({
       ) : null}
       {value && onReset ? (
         <Button variant="ghost" onPress={onReset} disabled={disabled} testID={`${testID}-reset`}>
-          {t("settings.pimiModels.reset")}
+          {resetLabel ?? t("settings.pimiModels.reset")}
         </Button>
       ) : null}
     </View>

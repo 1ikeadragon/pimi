@@ -78,25 +78,33 @@ function createPimiAppearanceBridge() {
   };
 }
 
+// Kept here because the preload only imports types from the window module.
+const PIMI_APPEARANCE_VALUES: ReadonlySet<string> = new Set<PimiAppearance>([
+  "system",
+  "light",
+  "dark",
+  "paper",
+  "sakura",
+  "cel-night",
+  "ayu-light",
+  "one-dark",
+  "nord",
+  "gruvbox",
+  "catppuccin-mocha",
+  "sky-day",
+  "sky-dusk",
+  "sky-night",
+  "sky-dawn",
+  "sky-cirrus",
+  "sky-mist",
+  "sky-gold",
+  "sky-aurora",
+  "sky-storm",
+  "tide",
+]);
+
 function isPimiAppearance(value: unknown): value is PimiAppearance {
-  return (
-    value === "system" ||
-    value === "light" ||
-    value === "dark" ||
-    value === "paper" ||
-    value === "sakura" ||
-    value === "cel-night" ||
-    value === "ayu-light" ||
-    value === "one-dark" ||
-    value === "nord" ||
-    value === "gruvbox" ||
-    value === "catppuccin-mocha" ||
-    value === "sky-day" ||
-    value === "sky-dusk" ||
-    value === "sky-night" ||
-    value === "sky-dawn" ||
-    value === "tide"
-  );
+  return typeof value === "string" && PIMI_APPEARANCE_VALUES.has(value);
 }
 
 const pimiAppearance = createPimiAppearanceBridge();

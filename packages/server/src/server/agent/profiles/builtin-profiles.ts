@@ -1,16 +1,10 @@
 // Built-in agent profiles. The daemon seeds them into `daemon.agentProfiles` (seed.ts).
 // Raise a profile's `version` when its copy changes: unedited copies on hosts are replaced.
 import type { AgentProfile } from "@pimi/protocol/agent-profile";
+import { CREW_TIER_PROFILE_IDS } from "@pimi/protocol/agent-labels";
 import { renderTemplate } from "../../prompts/render.js";
 
 export const BUILTIN_PROFILE_ID_PREFIX = "builtin-";
-
-/** Crew tier profile ids, one per `delegate` role. The lead is the chat that has Crew mode on. */
-export const CREW_TIER_PROFILE_IDS = {
-  thinker: `${BUILTIN_PROFILE_ID_PREFIX}crew-thinker`,
-  worker: `${BUILTIN_PROFILE_ID_PREFIX}crew-worker`,
-  chore: `${BUILTIN_PROFILE_ID_PREFIX}crew-chore`,
-} as const;
 
 export const BUILTIN_AGENT_PROFILES: readonly AgentProfile[] = [
   {

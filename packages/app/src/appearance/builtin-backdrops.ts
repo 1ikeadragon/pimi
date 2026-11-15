@@ -17,6 +17,11 @@ export const BUILTIN_BACKDROPS: Record<string, BackdropSpec> = {
   "sky-dusk": sky("sky-dusk"),
   "sky-night": sky("sky-night"),
   "sky-dawn": sky("sky-dawn"),
+  "sky-cirrus": sky("sky-cirrus"),
+  "sky-mist": sky("sky-mist"),
+  "sky-gold": sky("sky-gold"),
+  "sky-aurora": sky("sky-aurora"),
+  "sky-storm": sky("sky-storm"),
   tide: {
     kind: "video",
     video: `${TEXTURES}/tide.mp4`,

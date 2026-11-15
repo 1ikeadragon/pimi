@@ -45,6 +45,11 @@ const PIMI_APPEARANCES = [
   "sky-dusk",
   "sky-night",
   "sky-dawn",
+  "sky-cirrus",
+  "sky-mist",
+  "sky-gold",
+  "sky-aurora",
+  "sky-storm",
   "tide",
 ] as const;
 export type PimiAppearance = (typeof PIMI_APPEARANCES)[number];
@@ -64,6 +69,11 @@ const PIMI_APPEARANCE_BACKGROUNDS: Record<Exclude<PimiAppearance, "system">, str
   "sky-dusk": "#0f0705",
   "sky-night": "#050508",
   "sky-dawn": "#faf2ec",
+  "sky-cirrus": "#d9e6f5",
+  "sky-mist": "#d6dedf",
+  "sky-gold": "#f6daac",
+  "sky-aurora": "#0d212a",
+  "sky-storm": "#2b3038",
   tide: "#050e12",
 };
 
@@ -74,6 +84,11 @@ const WINDOW_BACKDROP_APPEARANCES: ReadonlySet<PimiAppearance> = new Set([
   "sky-dusk",
   "sky-night",
   "sky-dawn",
+  "sky-cirrus",
+  "sky-mist",
+  "sky-gold",
+  "sky-aurora",
+  "sky-storm",
   "tide",
 ]);
 

@@ -8,6 +8,16 @@ export const CREW_ROLE_LABEL = "pimi.crew-role";
 export const CREW_ROLES = ["thinker", "worker", "chore"] as const;
 export type CrewRole = (typeof CREW_ROLES)[number];
 
+/**
+ * The profile behind each Crew tier. Its provider and model are the tier's model; a profile with
+ * no provider means "same as the lead".
+ */
+export const CREW_TIER_PROFILE_IDS = {
+  thinker: "builtin-crew-thinker",
+  worker: "builtin-crew-worker",
+  chore: "builtin-crew-chore",
+} as const satisfies Record<CrewRole, string>;
+
 export function getCrewRoleFromLabels(
   labels: Record<string, unknown> | null | undefined,
 ): CrewRole | null {
