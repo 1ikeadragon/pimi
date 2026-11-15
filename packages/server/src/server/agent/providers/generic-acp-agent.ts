@@ -1,4 +1,9 @@
 import type { Logger } from "pino";
+import {
+  applyPackagePolicy,
+  DEFAULT_PACKAGE_POLICY,
+  type PackagePolicy,
+} from "@pimi/protocol/package-runner-policy";
 
 import { checkProviderLaunchAvailable, resolveProviderLaunch } from "../provider-launch-config.js";
 import {
@@ -22,6 +27,8 @@ interface GenericACPAgentClientOptions {
   env?: Record<string, string>;
   providerId?: string;
   label?: string;
+  // Live supply-chain policy for npx and uvx commands; read on every launch.
+  getPackagePolicy?: () => PackagePolicy;
   usageProvider?: string;
   waitForInitialCommands?: boolean;
   initialCommandsWaitTimeoutMs?: number;
@@ -37,6 +44,7 @@ export class GenericACPAgentClient extends ACPAgentClient {
   private readonly command: [string, ...string[]];
   private readonly providerId?: string;
   private readonly label?: string;
+  private readonly getPackagePolicy: () => PackagePolicy;
   private readonly diagnosticPhaseTimeoutMs?: number;
 
   constructor(options: GenericACPAgentClientOptions) {
@@ -63,14 +71,13 @@ export class GenericACPAgentClient extends ACPAgentClient {
     this.command = options.command;
     this.providerId = options.providerId;
     this.label = options.label;
+    this.getPackagePolicy = options.getPackagePolicy ?? (() => DEFAULT_PACKAGE_POLICY);
     this.diagnosticPhaseTimeoutMs = options.diagnosticPhaseTimeoutMs;
   }
 
   protected override async resolveLaunchCommand(): Promise<{ command: string; args: string[] }> {
-    return {
-      command: this.command[0],
-      args: this.command.slice(1),
-    };
+    const [command, ...args] = this.effectiveCommand();
+    return { command, args };
   }
 
   override async isAvailable(): Promise<boolean> {
@@ -85,7 +92,7 @@ export class GenericACPAgentClient extends ACPAgentClient {
       { label: "Provider ID", value: this.providerId ?? "unknown" },
       { label: "Configured command", value: this.command.join(" ") },
     ];
-    const versionProbe = buildVersionProbeCommand(this.command);
+    const versionProbe = buildVersionProbeCommand(this.effectiveCommand());
 
     try {
       const launch = await this.resolveConfiguredLaunch();
@@ -118,6 +125,12 @@ export class GenericACPAgentClient extends ACPAgentClient {
     return {
       diagnostic: formatProviderDiagnostic(providerName, entries),
     };
+  }
+
+  // The configured command after the supply-chain policy, as it is spawned.
+  private effectiveCommand(): [string, ...string[]] {
+    const { argv } = applyPackagePolicy(this.command, this.getPackagePolicy(), Date.now());
+    return argv as [string, ...string[]];
   }
 
   private async resolveConfiguredLaunch() {

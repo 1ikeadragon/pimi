@@ -1,5 +1,6 @@
 import type { Logger } from "pino";
 import type { ProviderOptions, ToolPolicy } from "@pimi/protocol/agent-types";
+import type { PackagePolicy } from "@pimi/protocol/package-runner-policy";
 
 import type {
   AgentClient,
@@ -113,6 +114,7 @@ export interface BuildProviderRegistryOptions {
   isDev?: boolean;
   ompRuntime?: OmpRuntime;
   openCodeBridge?: OpenCodeBridge;
+  getPackagePolicy?: () => PackagePolicy;
 }
 
 interface ProviderClientFactoryOptions extends Pick<
@@ -788,7 +790,10 @@ function buildResolvedBuiltinProviders(
 function addDerivedProviders(
   resolvedProviders: Map<string, ResolvedProvider>,
   providerOverrides: Record<string, ProviderOverride>,
-  options: Pick<BuildProviderRegistryOptions, "managedProcesses" | "openCodeBridge">,
+  options: Pick<
+    BuildProviderRegistryOptions,
+    "managedProcesses" | "openCodeBridge" | "getPackagePolicy"
+  >,
 ): void {
   for (const [providerId, override] of Object.entries(providerOverrides)) {
     if (resolvedProviders.has(providerId) || BUILTIN_PROVIDER_IDS.includes(providerId)) {
@@ -833,6 +838,7 @@ function addDerivedProviders(
             env: override.env,
             providerId,
             label: override.label ?? providerId,
+            getPackagePolicy: options.getPackagePolicy,
           };
           if (providerId === "cursor") {
             return new CursorACPAgentClient(acpOptions);
@@ -934,10 +940,7 @@ export function buildProviderRegistry(
       }),
     );
   }
-  addDerivedProviders(resolvedProviders, providerOverrides, {
-    managedProcesses: options?.managedProcesses,
-    openCodeBridge: options?.openCodeBridge,
-  });
+  addDerivedProviders(resolvedProviders, providerOverrides, options ?? {});
 
   return Object.fromEntries(
     [...resolvedProviders.entries()].map(([provider, resolved]) => [

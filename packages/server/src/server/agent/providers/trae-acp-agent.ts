@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import type { PackagePolicy } from "@pimi/protocol/package-runner-policy";
 
 import { GenericACPAgentClient } from "./generic-acp-agent.js";
 
@@ -8,6 +9,7 @@ interface TraeACPAgentClientOptions {
   env?: Record<string, string>;
   providerId?: string;
   label?: string;
+  getPackagePolicy?: () => PackagePolicy;
 }
 
 const TRAE_INITIAL_COMMANDS_WAIT_TIMEOUT_MS = 10_000;
@@ -20,6 +22,7 @@ export class TraeACPAgentClient extends GenericACPAgentClient {
       env: options.env,
       providerId: options.providerId,
       label: options.label,
+      getPackagePolicy: options.getPackagePolicy,
       // traecli publishes slash commands and skills asynchronously via available_commands_update.
       waitForInitialCommands: true,
       initialCommandsWaitTimeoutMs: TRAE_INITIAL_COMMANDS_WAIT_TIMEOUT_MS,

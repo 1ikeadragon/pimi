@@ -11,6 +11,7 @@ import {
   hostConnectionsSettings,
   hostPairDeviceSettings,
   hostSettings,
+  hostSupplyChainSettings,
   hostTerminalsSettings,
   hostWorkspacesSettings,
 } from "@/screens/settings/host.settings";
@@ -57,6 +58,7 @@ const SETTINGS_PAGES: readonly SettingsPage[] = [
   hostAgentsSettings,
   hostWorkspacesSettings,
   hostTerminalsSettings,
+  hostSupplyChainSettings,
 ];
 
 function sameLocation(left: SettingsLocation, right: SettingsLocation): boolean {

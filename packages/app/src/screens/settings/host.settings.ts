@@ -97,3 +97,14 @@ export const hostConnectionsSettings = defineSettingsPage(
       : null,
   ],
 );
+
+export const hostSupplyChainSettings = defineSettingsPage(
+  { kind: "host", section: "providers" },
+  ({ t }) => [
+    {
+      id: "providers.supplyChain",
+      title: t("settings.supplyChain.updates"),
+      keywords: ["supply chain", "pin", "latest", "npx", "uvx", "mcp", "updates"],
+    },
+  ],
+);

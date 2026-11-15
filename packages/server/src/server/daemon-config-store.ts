@@ -26,6 +26,7 @@ interface SupportedMutableConfigPatch {
   removeProviders?: string[];
   metadataGeneration?: MutableDaemonConfigPatch["metadataGeneration"];
   autoArchiveAfterMerge?: boolean;
+  supplyChain?: MutableDaemonConfig["supplyChain"];
   enableTerminalAgentHooks?: boolean;
   limitFallback?: MutableDaemonConfig["limitFallback"];
   log?: MutableDaemonConfigPatch["log"];
@@ -234,6 +235,7 @@ const RELOADABLE_PATHS = [
   "daemon.git.maxProcessesPerSecond",
   "daemon.git.maxProcessConcurrency",
   "daemon.autoArchiveAfterMerge",
+  "daemon.supplyChain",
   "daemon.enableTerminalAgentHooks",
   "daemon.limitFallback",
   "log.network.enabled",
@@ -267,6 +269,7 @@ const PERSISTED_TO_MUTABLE_PATH = new Map<string, string>([
   ["daemon.git.maxProcessesPerSecond", "git.maxProcessesPerSecond"],
   ["daemon.git.maxProcessConcurrency", "git.maxProcessConcurrency"],
   ["daemon.autoArchiveAfterMerge", "autoArchiveAfterMerge"],
+  ["daemon.supplyChain", "supplyChain"],
   ["daemon.enableTerminalAgentHooks", "enableTerminalAgentHooks"],
   ["daemon.limitFallback", "limitFallback"],
   ["log.network.enabled", "log.network.enabled"],
@@ -353,10 +356,13 @@ function pickLogPatch(patch: MutableDaemonConfigPatch): Pick<SupportedMutableCon
   return patch.log?.network === undefined ? {} : { log: { network: patch.log.network } };
 }
 
-function pickLimitFallbackPatch(
-  patch: MutableDaemonConfigPatch,
-): Pick<SupportedMutableConfigPatch, "limitFallback"> {
-  return patch.limitFallback === undefined ? {} : { limitFallback: patch.limitFallback };
+function pickPolicyPatch(
+  patch: Pick<MutableDaemonConfigPatch, "limitFallback" | "supplyChain">,
+): Pick<SupportedMutableConfigPatch, "limitFallback" | "supplyChain"> {
+  return {
+    ...(patch.limitFallback === undefined ? {} : { limitFallback: patch.limitFallback }),
+    ...(patch.supplyChain === undefined ? {} : { supplyChain: patch.supplyChain }),
+  };
 }
 
 function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMutableConfigPatch {
@@ -379,7 +385,7 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
     ...(patch.enableTerminalAgentHooks !== undefined
       ? { enableTerminalAgentHooks: patch.enableTerminalAgentHooks }
       : {}),
-    ...pickLimitFallbackPatch(patch),
+    ...pickPolicyPatch(patch),
     ...pickLogPatch(patch),
     ...(patch.resumeOnStartup !== undefined ? { resumeOnStartup: patch.resumeOnStartup } : {}),
     ...(patch.resumePrompt !== undefined ? { resumePrompt: patch.resumePrompt } : {}),
@@ -911,7 +917,7 @@ function mergeMutableDaemonPatch(
   if (patch.enableTerminalAgentHooks !== undefined) {
     next.enableTerminalAgentHooks = patch.enableTerminalAgentHooks;
   }
-  if (patch.limitFallback !== undefined) next.limitFallback = patch.limitFallback;
+  Object.assign(next, pickPolicyPatch(patch));
   if (patch.appendSystemPrompt !== undefined) next.appendSystemPrompt = patch.appendSystemPrompt;
   if (patch.terminalProfiles !== undefined) next.terminalProfiles = patch.terminalProfiles;
   if (patch.editorLanguageServers !== undefined) {

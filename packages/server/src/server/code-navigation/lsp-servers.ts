@@ -68,7 +68,7 @@ export const LSP_LANGUAGES: LspLanguage[] = [
     languageId: "go",
     extensions: ["go"],
     servers: [{ name: "gopls", command: "gopls", args: [] }],
-    installHint: "go install golang.org/x/tools/gopls@latest",
+    installHint: "go install golang.org/x/tools/gopls@v0.24.0",
   },
 ];
 
