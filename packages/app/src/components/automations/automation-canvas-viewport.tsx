@@ -67,17 +67,26 @@ function clampScale(scale: number): number {
 }
 
 /**
- * Scales the graph to fit the room below `topInset`, but never below `MIN_READABLE_SCALE` or
- * above 100%. An axis that fits is centred; one that does not starts at its margin, so the
+ * Scales the graph to fit the room below `topInset`, but never below `minScale` or above
+ * 100%. An axis that fits is centred; one that does not starts at its margin, so the
  * trigger stays in view at the left (or top) and the person pans for the rest.
  */
-function fitTransform(content: Size, viewport: Size, topInset: number): Transform {
-  const room = { width: viewport.width, height: Math.max(1, viewport.height - topInset) };
+function fitTransform(
+  content: Size,
+  viewport: Size,
+  topInset: number,
+  bottomInset: number,
+  minScale: number,
+): Transform {
+  const room = {
+    width: viewport.width,
+    height: Math.max(1, viewport.height - topInset - bottomInset),
+  };
   const fitScale = Math.min(
     (room.width - FIT_MARGIN * 2) / content.width,
     (room.height - FIT_MARGIN * 2) / content.height,
   );
-  const scale = Math.min(1, Math.max(MIN_READABLE_SCALE, fitScale));
+  const scale = Math.min(1, Math.max(minScale, fitScale));
   const axis = (roomSize: number, contentSize: number) =>
     contentSize <= roomSize - FIT_MARGIN * 2 ? (roomSize - contentSize) / 2 : FIT_MARGIN;
   return {
@@ -119,6 +128,8 @@ export function AutomationCanvasViewport({
   width,
   height,
   topInset,
+  bottomInset = 0,
+  minScale = MIN_READABLE_SCALE,
   fitKey,
   reveal,
   children,
@@ -126,6 +137,10 @@ export function AutomationCanvasViewport({
   width: number;
   height: number;
   topInset: number;
+  /** The strip at the bottom a fitted graph keeps clear, such as for the toolbar on a short view. */
+  bottomInset?: number;
+  /** Fit stops shrinking here. A small read-only view passes less to show the whole graph. */
+  minScale?: number;
   /** Fits again whenever this changes, such as the graph turning from a row to a column. */
   fitKey: string;
   /** A node to pan into view when it is off screen, such as one just added. */
@@ -142,6 +157,10 @@ export function AutomationCanvasViewport({
   contentRef.current = content;
   const topInsetRef = useRef(topInset);
   topInsetRef.current = topInset;
+  const bottomInsetRef = useRef(bottomInset);
+  bottomInsetRef.current = bottomInset;
+  const minScaleRef = useRef(minScale);
+  minScaleRef.current = minScale;
   // Set once the person pans or zooms; a resize then leaves their view alone.
   const touched = useRef(false);
   const surface = useRef<View>(null);
@@ -157,7 +176,15 @@ export function AutomationCanvasViewport({
     const size = viewportRef.current;
     if (!size) return;
     touched.current = false;
-    apply(fitTransform(contentRef.current, size, topInsetRef.current));
+    apply(
+      fitTransform(
+        contentRef.current,
+        size,
+        topInsetRef.current,
+        bottomInsetRef.current,
+        minScaleRef.current,
+      ),
+    );
   }, [apply]);
 
   const measure = useCallback(
@@ -168,7 +195,15 @@ export function AutomationCanvasViewport({
       viewportRef.current = { width: w, height: h };
       setViewport({ width: w, height: h });
       if (!touched.current)
-        apply(fitTransform(contentRef.current, { width: w, height: h }, topInsetRef.current));
+        apply(
+          fitTransform(
+            contentRef.current,
+            { width: w, height: h },
+            topInsetRef.current,
+            bottomInsetRef.current,
+            minScaleRef.current,
+          ),
+        );
     },
     [apply],
   );

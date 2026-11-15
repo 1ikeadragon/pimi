@@ -26,7 +26,7 @@ import {
   validateAutomationDefinition,
   type AutomationIssueCode,
 } from "@pimi/protocol/automation/validate";
-import { DEFAULT_GATE_ATTEMPTS } from "@pimi/protocol/automation/types";
+import { DEFAULT_GATE_ATTEMPTS, GATE_RETRY_FROM_START } from "@pimi/protocol/automation/types";
 import type { Cadence } from "@pimi/protocol/schedule/cadence";
 import type { FormPreferences } from "@/create-agent-preferences/preferences";
 import {
@@ -60,7 +60,7 @@ import { PROJECT_OPTION_PREFIX, type AutomationProjectTarget } from "./automatio
  */
 
 /** The trigger's id on the canvas. `@` is not allowed in a step id, so it never collides. */
-export const TRIGGER_NODE_ID = "@trigger";
+export const TRIGGER_NODE_ID = GATE_RETRY_FROM_START;
 
 export interface AutomationEditorDisplay {
   label: string;

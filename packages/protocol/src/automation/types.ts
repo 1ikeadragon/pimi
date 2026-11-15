@@ -84,6 +84,10 @@ export const AutomationConditionNodeSchema = z.object({
 });
 export type AutomationConditionNode = z.infer<typeof AutomationConditionNodeSchema>;
 
+// `retryFrom` naming the start of the graph instead of a step: every step before the gate runs
+// again, which is the only way to redo parallel branches that no single step leads to.
+export const GATE_RETRY_FROM_START = "@trigger";
+
 // A judge gate. A fresh agent in the run's directory inspects the work against `criteria` and
 // must call the run-scoped `submit_verdict` tool; no call counts as a fail. On a fail with
 // attempts left the run re-prompts the steps from `retryFrom` down to the gate with the judge's

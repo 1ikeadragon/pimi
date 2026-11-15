@@ -1,5 +1,5 @@
-import { router, usePathname } from "expo-router";
-import { Rocket, History, Plus, Search, SquarePen } from "lucide-react-native";
+import { router, useGlobalSearchParams, usePathname } from "expo-router";
+import { Rocket, History, Plus, Search, SquarePen, Workflow } from "lucide-react-native";
 import { memo, useCallback, useMemo, useRef, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "@/i18n/use-translation";
 import { View, type StyleProp, type ViewStyle } from "react-native";
@@ -9,6 +9,7 @@ import { DensityIcon } from "@/components/ui/density-icon";
 import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
 import { getDesktopHost } from "@/desktop/host";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
+import { openPimiLibrary, PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
 import { PluginSidebarItem } from "@/plugins/sidebar-items";
 import {
   builtinSidebarNavLabelKey,
@@ -89,7 +90,7 @@ export function SidebarNavRows({
           </View>
         ) : (
           visibleItems
-            .filter((item) => !["new-workspace", "search", "history"].includes(item.key))
+            .filter((item) => !["new-workspace", "search", "history", "flows"].includes(item.key))
             .map(renderItem)
         )}
       </View>
@@ -264,11 +265,36 @@ function SidebarAutomationsRow({ onBeforeNavigate }: SidebarNavRowProps) {
   );
 }
 
+// Flows live in the Library screen. The Pimi desktop sidebar has its own Library > Flows row, so
+// this one serves the phone and the browser.
+function SidebarFlowsRow({ onBeforeNavigate }: SidebarNavRowProps) {
+  const { t } = useTranslation();
+  const pathname = usePathname();
+  const { section } = useGlobalSearchParams<{ section?: string }>();
+  const inLibrary = pathname === PIMI_LIBRARY_ROUTE;
+  const handlePress = useCallback(() => {
+    onBeforeNavigate?.();
+    openPimiLibrary("flows", inLibrary);
+  }, [inLibrary, onBeforeNavigate]);
+
+  return (
+    <SidebarHeaderRow
+      icon={Workflow}
+      label={t(builtinSidebarNavLabelKey("flows"))}
+      onPress={handlePress}
+      isActive={inLibrary && section === "flows"}
+      testID="sidebar-flows"
+      variant="compact"
+    />
+  );
+}
+
 const BUILTIN_ROWS: Record<BuiltinSidebarNavId, ComponentType<SidebarNavRowProps>> = {
   "new-workspace": SidebarNewWorkspaceRow,
   history: SidebarHistoryRow,
   search: SidebarSearchRow,
   automations: SidebarAutomationsRow,
+  flows: SidebarFlowsRow,
 };
 
 const styles = StyleSheet.create((theme) => ({

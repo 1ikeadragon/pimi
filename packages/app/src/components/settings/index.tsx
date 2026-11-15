@@ -36,6 +36,8 @@ export { SettingsInfoTip } from "./headings/settings-info-tip";
 /** What app screens can add to a plugin-facing row: an accessory beside the label, such as an info tip. */
 interface AppRowExtras {
   labelAccessory?: ReactNode;
+  /** Makes the label itself pressable, for a row that names something the person can open. */
+  onLabelPress?: () => void;
   /** Makes the row findable from search; matches a declaration in the page's `*.settings.ts`. */
   settingId?: string;
 }
@@ -62,6 +64,7 @@ export function SettingsCard({ children, testID }: { children: ReactNode; testID
 export function SettingsRow({
   label,
   labelAccessory,
+  onLabelPress,
   settingId,
   hint,
   error,
@@ -77,11 +80,23 @@ export function SettingsRow({
       <View style={styles.label}>
         {labelAccessory ? (
           <View style={styles.labelRow}>
-            <Text style={accessoryTitleStyle}>{label}</Text>
+            <Text
+              style={accessoryTitleStyle}
+              onPress={onLabelPress}
+              accessibilityRole={onLabelPress ? "button" : undefined}
+            >
+              {label}
+            </Text>
             {labelAccessory}
           </View>
         ) : (
-          <Text style={layout.title}>{label}</Text>
+          <Text
+            style={layout.title}
+            onPress={onLabelPress}
+            accessibilityRole={onLabelPress ? "button" : undefined}
+          >
+            {label}
+          </Text>
         )}
         {typeof hint === "string" ? <Text style={layout.hint}>{hint}</Text> : hint}
         {error ? (

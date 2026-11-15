@@ -8,6 +8,7 @@ import {
   ArrowUp,
   Blocks,
   Rocket,
+  Workflow,
   History,
   Plus,
   Search,
@@ -44,6 +45,7 @@ const BUILTIN_ICONS: Record<BuiltinSidebarItemId, LucideIcon> = {
   history: History,
   search: Search,
   automations: Rocket,
+  flows: Workflow,
   usage: UsageIcon,
 };
 

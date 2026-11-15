@@ -8,6 +8,7 @@ import type {
   AutomationRunStatus,
   AutomationRunStep,
 } from "@pimi/protocol/automation/types";
+import { GATE_RETRY_FROM_START } from "@pimi/protocol/automation/types";
 import {
   downstreamNodeIds,
   evaluateAutomationCondition,
@@ -297,11 +298,19 @@ export async function runFlow(
   // Sends the run back: the steps from the gate's `retryFrom` down to the gate go back to
   // pending, and the agents of those that ran get the feedback as their next message.
   async function sendBack(gate: AutomationGateNode, feedback: string) {
-    const redo = new Set([gate.retryFrom]);
     const upstream = upstreamNodeIds(flow, gate.id);
-    for (const id of downstreamNodeIds(flow, gate.retryFrom)) {
-      if (upstream.has(id)) {
+    // From the start, every step before the gate goes back, parallel branches included.
+    const redo = new Set<string>();
+    if (gate.retryFrom === GATE_RETRY_FROM_START) {
+      for (const id of upstream) {
         redo.add(id);
+      }
+    } else {
+      redo.add(gate.retryFrom);
+      for (const id of downstreamNodeIds(flow, gate.retryFrom)) {
+        if (upstream.has(id)) {
+          redo.add(id);
+        }
       }
     }
     const message = gateFailureMessage(gate.title || gate.id, feedback);

@@ -14,7 +14,7 @@ A gate is a node, shared with automations: `{ kind: "gate", criteria, retryFrom,
 
 - The judge is a fresh agent in the run's directory with the model settings of the step it checks (`retryFrom` when that is an agent, else the nearest agent step before the gate). It never takes that step's profile.
 - It must call the run-scoped `submit_verdict` MCP tool. Only an agent with an open slot on `GateVerdictBoard` can file a verdict. A turn that ends without one, or a judge that errors, is a fail. Prose is never parsed.
-- On a fail with attempts left, `retryFrom` plus every step between it and the gate go back to pending. The agents that already ran get "Check '<title>' failed: <feedback>. Fix it and report again." as their next message (`resumeAgentId`); they are not recreated.
+- On a fail with attempts left, `retryFrom` plus every step between it and the gate go back to pending. `retryFrom` may also be the start (`GATE_RETRY_FROM_START`, "Start" in the editor): every step before the gate goes back, which is how a gate over parallel branches reruns all of them; a step id reruns only that step's path to the gate. The agents that already ran get "Check '<title>' failed: <feedback>. Fix it and report again." as their next message (`resumeAgentId`); they are not recreated.
 - Out of attempts, the gate fails and the existing rule (a failed step skips its dependents) blocks everything after it. A flow run ends `not_met` when that is the only failure; an automation run ends `failed`.
 - A gate can only judge what it can see in the directory. Write criteria that name files, fields and numbers.
 

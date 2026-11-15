@@ -2951,7 +2951,7 @@ function createToolCatalog(
         .trim()
         .min(1)
         .describe(
-          "Id of an earlier step. When the check fails, the steps from it down to this gate run again with the judge's feedback.",
+          'Id of an earlier step, or "@trigger" for the start. When the check fails, the steps from it down to this gate run again with the judge\'s feedback; "@trigger" reruns every step before the gate, which is what a gate over parallel branches needs.',
         ),
       maxAttempts: z
         .number()

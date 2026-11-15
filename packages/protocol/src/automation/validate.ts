@@ -7,6 +7,7 @@ import type {
   AutomationPullRequestEvent,
   AutomationTrigger,
 } from "./types.js";
+import { GATE_RETRY_FROM_START } from "./types.js";
 
 export type AutomationIssueCode =
   | "name_required"
@@ -503,7 +504,10 @@ function validateGate(flow: AutomationFlow, node: AutomationGateNode, issues: Au
       nodeId: node.id,
     });
   }
-  if (!upstreamNodeIds(flow, node.id).has(node.retryFrom)) {
+  if (
+    node.retryFrom !== GATE_RETRY_FROM_START &&
+    !upstreamNodeIds(flow, node.id).has(node.retryFrom)
+  ) {
     issues.push({
       path: `${path}.retryFrom`,
       message: `Gate ${node.id} must retry from a step that runs before it`,

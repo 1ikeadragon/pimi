@@ -1034,19 +1034,29 @@ function GateStepSection({
   const handleDelete = useCallback(() => model.removeStep(step.id), [model, step.id]);
   const targets = gateRetryTargets(state, step.id);
   const retryOptions = useMemo<SelectFieldOption<string>[]>(
-    () =>
-      targets.map((target) => ({
+    () => [
+      {
+        id: TRIGGER_NODE_ID,
+        value: TRIGGER_NODE_ID,
+        label: t("automationEditor.inspector.retryFromStart"),
+        testID: "automation-gate-retry-start",
+      },
+      ...targets.map((target) => ({
         id: target.id,
         value: target.id,
         label: target.title || target.id,
         testID: `automation-gate-retry-${target.id}`,
       })),
-    [targets],
+    ],
+    [t, targets],
   );
   const retryDisplay = useMemo<SelectFieldDisplay | null>(() => {
+    if (step.retryFrom === TRIGGER_NODE_ID) {
+      return { label: t("automationEditor.inspector.retryFromStart") };
+    }
     const chosen = targets.find((target) => target.id === step.retryFrom);
     return chosen ? { label: chosen.title || chosen.id } : null;
-  }, [step.retryFrom, targets]);
+  }, [step.retryFrom, t, targets]);
   const attemptOptions = useMemo<SegmentedControlOption<string>[]>(
     () =>
       Array.from({ length: MAX_GATE_ATTEMPTS }, (_, index) => ({

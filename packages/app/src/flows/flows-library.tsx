@@ -126,7 +126,7 @@ function FlowRow({
     [command, flow.description, stepCount, t],
   );
   return (
-    <SettingsRow label={flow.name} hint={hint} testID={`flow-row-${flow.name}`}>
+    <SettingsRow label={flow.name} onLabelPress={open} hint={hint} testID={`flow-row-${flow.name}`}>
       <View style={styles.actions}>
         {flow.approved ? null : (
           <>

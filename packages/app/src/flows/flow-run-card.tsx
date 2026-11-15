@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Text, View } from "react-native";
+import { Text, View, type LayoutChangeEvent } from "react-native";
 import { Play, RotateCcw, Square, Workflow } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { z } from "zod";
@@ -23,13 +23,21 @@ import {
 } from "@/automations/automation-editor-model";
 import { useTranslation } from "@/i18n/use-translation";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { toErrorMessage } from "@/utils/error-messages";
 import { flowRunQueryKey, requireFlowClient, useFlow, useFlowMutations } from "./use-flows";
 
 const RUN_POLL_MS = 3000;
-const CANVAS_HEIGHT_COMPACT = 300;
-const CANVAS_HEIGHT_DESKTOP = 240;
+// The card sizes its canvas to the graph at the scale that fits its width, within these bounds.
+const CANVAS_MIN_HEIGHT = 160;
+const CANVAS_MAX_HEIGHT = 440;
+const CANVAS_PADDING = 64;
+// Keeps the graph clear of the zoom toolbar in the corner.
+const CANVAS_TOOLBAR_INSET = 48;
+// The card fits below the editor's readable floor: a glance at the whole graph beats legible
+// titles, and a tap opens the step.
+const CARD_MIN_SCALE = 0.3;
 const NO_PROBLEMS = new Map();
 const NO_SELECTION: EditorSelection = { kind: "none" };
 
@@ -254,13 +262,34 @@ function RunGraph({
     },
     [run.steps, serverId],
   );
-  const frame = compact ? styles.canvasCompact : styles.canvasDesktop;
+  const [frameWidth, setFrameWidth] = useState(0);
+  const handleFrameLayout = useCallback(
+    ({ nativeEvent }: LayoutChangeEvent) => setFrameWidth(nativeEvent.layout.width),
+    [],
+  );
+  const fitWidthScale =
+    frameWidth > 0 ? Math.min(1, (frameWidth - CANVAS_PADDING) / layout.width) : 1;
+  const frameHeight = Math.min(
+    CANVAS_MAX_HEIGHT,
+    Math.max(
+      CANVAS_MIN_HEIGHT,
+      layout.height * Math.max(CARD_MIN_SCALE, fitWidthScale) +
+        CANVAS_PADDING +
+        CANVAS_TOOLBAR_INSET,
+    ),
+  );
+  const frameStyle = useMemo(
+    () => [styles.canvas, inlineUnistylesStyle({ height: frameHeight })],
+    [frameHeight],
+  );
   return (
-    <View style={frame} testID="flow-run-canvas">
+    <View style={frameStyle} onLayout={handleFrameLayout} testID="flow-run-canvas">
       <AutomationCanvasViewport
         width={layout.width}
         height={layout.height}
         topInset={0}
+        bottomInset={CANVAS_TOOLBAR_INSET}
+        minScale={CARD_MIN_SCALE}
         fitKey={direction}
         reveal={null}
       >
@@ -335,16 +364,7 @@ const styles = StyleSheet.create((theme) => ({
   muted: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   output: { color: theme.colors.foreground, fontSize: theme.fontSize.sm, lineHeight: 20 },
   error: { color: theme.colors.statusDanger, fontSize: theme.fontSize.sm },
-  canvasCompact: {
-    height: CANVAS_HEIGHT_COMPACT,
-    overflow: "hidden",
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface0,
-  },
-  canvasDesktop: {
-    height: CANVAS_HEIGHT_DESKTOP,
+  canvas: {
     overflow: "hidden",
     borderRadius: theme.borderRadius.md,
     borderWidth: 1,
