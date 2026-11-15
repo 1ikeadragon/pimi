@@ -233,12 +233,7 @@ function ProfileEditorForm({
       keyboardShouldPersistTaps="handled"
       testID="profile-editor"
     >
-      <AgentProfileFormFields
-        model={model}
-        state={state}
-        initialText={initialText}
-        layout="columns"
-      />
+      <AgentProfileFormFields model={model} state={state} initialText={initialText} />
 
       {state.submitError ? (
         <Text style={styles.error} testID="profile-editor-error">

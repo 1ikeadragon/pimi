@@ -122,6 +122,7 @@ function buildCreateAgentOptions({
     effectiveModelId: string | null;
     effectiveThinkingOptionId: string | null;
     attachedProfile: { id: string } | null;
+    crew: boolean;
   };
   text: string;
   attachments: NonNullable<CreateAgentRequestOptions["attachments"]>;
@@ -140,6 +141,7 @@ function buildCreateAgentOptions({
       ? { thinkingOptionId: composerState.effectiveThinkingOptionId }
       : {}),
     ...(composerState.attachedProfile ? { profileId: composerState.attachedProfile.id } : {}),
+    ...(composerState.crew ? { crew: true } : {}),
     ...(text.trim() ? { initialPrompt: text.trim() } : {}),
     ...(encodedImages && encodedImages.length > 0 ? { images: encodedImages } : {}),
     ...(attachments.length > 0 ? { attachments } : {}),

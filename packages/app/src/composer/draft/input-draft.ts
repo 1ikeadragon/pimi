@@ -66,6 +66,8 @@ type DraftComposerState = UseAgentFormStateResult & {
   agentControls: DraftAgentControlsProps;
   commandDraft: DraftCommandTarget;
   attachedProfile: DraftAttachedProfile | null;
+  /** Crew mode for the chat this draft creates. */
+  crew: boolean;
 };
 
 export interface AgentInputDraft {
@@ -239,6 +241,7 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
   // Kept until the draft is sent or the user detaches it; changing the model does not detach it,
   // because the instructions are what the profile adds.
   const [attachedProfile, setAttachedProfile] = useState<DraftAttachedProfile | null>(null);
+  const [crew, setCrew] = useState(false);
 
   const clear = useCallback(
     (lifecycle: "sent" | "abandoned") => {
@@ -392,22 +395,24 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
         formState,
         features: draftFeatures,
         onSetFeature: setDraftFeatureValue,
-        onApplyAgentProfile: applyDraftAgentProfile,
         attachedProfile,
         onDetachAgentProfile: detachAgentProfile,
+        crewEnabled: crew,
+        onSetCrew: setCrew,
       }),
       commandDraft,
       attachedProfile,
+      crew,
     };
   }, [
     commandDraft,
     composerOptions,
+    crew,
     effectiveModeId,
     effectiveModelId,
     effectiveThinkingOptionId,
     draftFeatures,
     draftFeatureValues,
-    applyDraftAgentProfile,
     attachedProfile,
     detachAgentProfile,
     formState,

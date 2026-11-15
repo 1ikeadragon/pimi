@@ -29,6 +29,7 @@ export interface AgentConfigOperations {
   setMode(agentId: string, modeId: string): Promise<AgentProviderNotice | null>;
   setModel(agentId: string, modelId: string | null): Promise<void>;
   setFeature(agentId: string, featureId: string, value: unknown): Promise<void>;
+  setCrew(agentId: string, enabled: boolean): Promise<void>;
   setThinking(
     agentId: string,
     thinkingOptionId: string | null,
@@ -117,6 +118,24 @@ export class AgentConfigSession {
         return undefined;
       },
       emitResponse: (payload) => this.host.emit({ type: "set_agent_feature_response", payload }),
+    });
+  }
+
+  handleAgentCrewSetRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.crew.set.request" }>,
+  ): Promise<void> {
+    const { agentId, enabled, requestId } = msg;
+    return this.applyConfigChange({
+      agentId,
+      requestId,
+      logLabel: "agent.crew.set.request",
+      logFields: { agentId, enabled, requestId },
+      failureText: "Failed to set Crew mode",
+      run: async () => {
+        await this.operations.setCrew(agentId, enabled);
+        return undefined;
+      },
+      emitResponse: (payload) => this.host.emit({ type: "agent.crew.set.response", payload }),
     });
   }
 

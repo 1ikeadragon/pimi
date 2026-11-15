@@ -10,7 +10,6 @@ import {
   type RefObject,
 } from "react";
 import { useTranslation } from "@/i18n/use-translation";
-import { router } from "expo-router";
 import {
   View,
   Text,
@@ -97,19 +96,7 @@ import { ComposerToolbarGlyph } from "@/composer/agent-controls/glyph";
 import { AgentControlTrigger } from "@/composer/agent-controls/control";
 import { CompactModelSheet } from "@/composer/agent-controls/model-sheet";
 import { LimitFallbackToggle } from "@/composer/agent-controls/limit-fallback-toggle";
-import {
-  useAgentProfileEditor,
-  useAgentProfilePicker,
-  type AgentProfileApplyTarget,
-  type AgentProfileEditorControls,
-  type AgentProfilePicker,
-  type AgentProfileSeed,
-  type DraftAgentProfileControls,
-} from "@/agent-profiles";
-import { buildProfilesRoute } from "@/utils/host-routes";
-import { buildDraftAgentSetup } from "@/client-slash-commands";
-import { generateDraftId } from "@/stores/draft-keys";
-import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
+import { CrewControl, type CrewControlValue } from "@/composer/agent-controls/crew-control";
 import { ProfileChip } from "@/composer/draft/profile-chip";
 
 interface AgentControlOption {
@@ -136,11 +123,6 @@ interface ControlledAgentControlsProps {
   disabled?: boolean;
   isModelLoading?: boolean;
   modelSelectorProviders?: ProviderSelectorProvider[];
-  agentProfiles?: AgentProfilePicker | null;
-  onApplyAgentProfile?: (profileId: string) => void;
-  onEditAgentProfiles?: () => void;
-  onCreateAgentProfile?: (seed: AgentProfileSeed) => void;
-  onEditAgentProfile?: (profileId: string) => void;
   features?: AgentFeature[];
   onSetFeature?: (featureId: string, value: unknown) => void;
   onDropdownClose?: () => void;
@@ -148,6 +130,7 @@ interface ControlledAgentControlsProps {
   onRetryModelProvider?: (provider: AgentProvider) => void;
   isRetryingModelProvider?: boolean;
   modeControl?: AgentModeControlValue | null;
+  crewControl?: CrewControlValue | null;
   modelSelectorServerId?: string | null;
   /** Rendered in the model picker and the compact sheet, for a setting that belongs to this chat. */
   limitFallbackControl?: ReactNode;
@@ -170,10 +153,12 @@ export interface DraftAgentControlsProps {
   thinkingOptions: NonNullable<AgentModelDefinition["thinkingOptions"]>;
   selectedThinkingOptionId: string;
   onSelectThinkingOption: (thinkingOptionId: string) => void;
-  onApplyAgentProfile: DraftAgentProfileControls["applyProfile"];
   /** The profile the draft will be created with, shown as a chip until sent or removed. */
   attachedProfile?: { id: string; name: string } | null;
   onDetachAgentProfile?: () => void;
+  /** Crew mode for the chat this draft creates. */
+  crewEnabled?: boolean;
+  onSetCrew?: (enabled: boolean) => void;
   features?: AgentFeature[];
   onSetFeature?: (featureId: string, value: unknown) => void;
   onDropdownClose?: () => void;
@@ -295,37 +280,6 @@ function toThinkingControlOptions(options: AgentControlOption[] | undefined): Ag
   }));
 }
 
-/**
- * The picker's edit shortcut. Agent profiles are host config, so it lands on the
- * host settings section that owns the list.
- */
-function useEditAgentProfilesNavigation(
-  serverId: string | null,
-  isSupported: boolean,
-): (() => void) | undefined {
-  const handleEdit = useCallback(() => {
-    if (!serverId) return;
-    router.push(buildProfilesRoute());
-  }, [serverId]);
-  return serverId && isSupported ? handleEdit : undefined;
-}
-
-function resolveAgentProfileEditorActions(
-  isSupported: boolean,
-  editor: AgentProfileEditorControls,
-): {
-  create?: (seed: AgentProfileSeed) => void;
-  edit?: (profileId: string) => void;
-} {
-  if (!isSupported) {
-    return {};
-  }
-  return {
-    create: editor.openCreateFromModel,
-    edit: editor.openEdit,
-  };
-}
-
 function buildFallbackModelSelectorProviders(
   provider: string,
   modelOptions: AgentControlOption[] | undefined,
@@ -423,6 +377,7 @@ type AgentControlsSlice = {
   thinkingOptionId: string | null | undefined;
   lastUsage: unknown;
   profile: { id: string; name: string } | null;
+  crew: boolean;
 } | null;
 
 function selectAgentControlsSlice(
@@ -445,6 +400,7 @@ function selectAgentControlsSlice(
     thinkingOptionId: currentAgent.thinkingOptionId,
     lastUsage: currentAgent.lastUsage,
     profile: currentAgent.profile ?? null,
+    crew: currentAgent.crew === true,
   };
 }
 
@@ -456,15 +412,6 @@ function resolveSnapshotSelectedEntry(
     return null;
   }
   return snapshotEntries.find((e) => e.provider === agentProvider) ?? null;
-}
-
-function resolveSnapshotModeIds(
-  entry: ReturnType<typeof resolveSnapshotSelectedEntry>,
-): string[] | null {
-  if (entry?.status !== "ready" || !entry.modes) {
-    return null;
-  }
-  return entry.modes.map((mode) => mode.id);
 }
 
 function buildAgentProviderDefinitions(
@@ -520,11 +467,6 @@ function ControlledAgentControls({
   disabled = false,
   isModelLoading = false,
   modelSelectorProviders,
-  agentProfiles = null,
-  onApplyAgentProfile,
-  onEditAgentProfiles,
-  onCreateAgentProfile,
-  onEditAgentProfile,
   features,
   onSetFeature,
   onDropdownClose,
@@ -532,6 +474,7 @@ function ControlledAgentControls({
   onRetryModelProvider,
   isRetryingModelProvider = false,
   modeControl,
+  crewControl,
   modelSelectorServerId = null,
   limitFallbackControl,
   isCompactLayout,
@@ -605,10 +548,11 @@ function ControlledAgentControls({
       hasModel: canSelectModel,
       hasThinking: canSelectThinking,
       hasMode: modeControl !== null && modeControl !== undefined,
+      hasCrew: crewControl !== null && crewControl !== undefined,
       features: featureControls,
       fontScale,
     }),
-    [canSelectModel, canSelectThinking, featureControls, fontScale, modeControl],
+    [canSelectModel, canSelectThinking, crewControl, featureControls, fontScale, modeControl],
   );
   const presentation = useMemo(() => resolveComposerControlPresentation(density), [density]);
   const layoutContextValue = useMemo(
@@ -791,15 +735,10 @@ function ControlledAgentControls({
             selectedThinkingOptionId={selectedThinkingOptionId}
             features={features}
             onSetFeature={onSetFeature}
-            onApplyAgentProfile={onApplyAgentProfile}
-            onEditAgentProfiles={onEditAgentProfiles}
-            onCreateAgentProfile={onCreateAgentProfile}
-            onEditAgentProfile={onEditAgentProfile}
             onDropdownClose={onDropdownClose}
             onModelSelectorOpen={onModelSelectorOpen}
             onRetryModelProvider={onRetryModelProvider}
             isRetryingModelProvider={isRetryingModelProvider}
-            agentProfiles={agentProfiles}
             disabled={disabled}
             isModelLoading={isModelLoading}
             canSelectProvider={canSelectProvider}
@@ -827,6 +766,7 @@ function ControlledAgentControls({
             handleNestedOpenChange={handleSheetOpenChange}
             renderThinkingOption={renderThinkingOption}
             modeControl={modeControl}
+            crewControl={crewControl}
             presentation={presentation}
             glyphs={layoutContextValue.glyphs}
             activeSheet={activeSheet}
@@ -842,15 +782,10 @@ function ControlledAgentControls({
             selectedThinkingOptionId={selectedThinkingOptionId}
             features={features}
             onSetFeature={onSetFeature}
-            onApplyAgentProfile={onApplyAgentProfile}
-            onEditAgentProfiles={onEditAgentProfiles}
-            onCreateAgentProfile={onCreateAgentProfile}
-            onEditAgentProfile={onEditAgentProfile}
             onDropdownClose={onDropdownClose}
             onModelSelectorOpen={onModelSelectorOpen}
             onRetryModelProvider={onRetryModelProvider}
             isRetryingModelProvider={isRetryingModelProvider}
-            agentProfiles={agentProfiles}
             disabled={disabled}
             isModelLoading={isModelLoading}
             canSelectModel={canSelectModel}
@@ -868,6 +803,7 @@ function ControlledAgentControls({
             handleOpenChange={handleSheetOpenChange}
             renderThinkingOption={renderThinkingOption}
             modeControl={modeControl}
+            crewControl={crewControl}
             glyphs={layoutContextValue.glyphs}
             showLabels={presentation.showModelLabel}
             modelSelectorServerId={modelSelectorServerId}
@@ -890,15 +826,10 @@ interface DesktopAgentControlsContentProps {
   selectedThinkingOptionId?: string;
   features?: AgentFeature[];
   onSetFeature?: (featureId: string, value: unknown) => void;
-  onApplyAgentProfile?: (profileId: string) => void;
-  onEditAgentProfiles?: () => void;
-  onCreateAgentProfile?: (seed: AgentProfileSeed) => void;
-  onEditAgentProfile?: (profileId: string) => void;
   onDropdownClose?: () => void;
   onModelSelectorOpen?: () => void;
   onRetryModelProvider?: (provider: AgentProvider) => void;
   isRetryingModelProvider: boolean;
-  agentProfiles: AgentProfilePicker | null;
   disabled: boolean;
   isModelLoading: boolean;
   canSelectProvider: boolean;
@@ -931,6 +862,7 @@ interface DesktopAgentControlsContentProps {
     onPress: () => void;
   }) => ReactElement;
   modeControl?: AgentModeControlValue | null;
+  crewControl?: CrewControlValue | null;
   presentation: ComposerControlPresentation;
   glyphs: ToolbarGlyphs;
   activeSheet: ActiveSheet;
@@ -954,15 +886,10 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
     selectedThinkingOptionId,
     features,
     onSetFeature,
-    onApplyAgentProfile,
-    onEditAgentProfiles,
-    onCreateAgentProfile,
-    onEditAgentProfile,
     onDropdownClose,
     onModelSelectorOpen,
     onRetryModelProvider,
     isRetryingModelProvider,
-    agentProfiles,
     disabled,
     isModelLoading,
     canSelectProvider,
@@ -990,6 +917,7 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
     handleNestedOpenChange,
     renderThinkingOption,
     modeControl,
+    crewControl,
     presentation,
     glyphs,
     activeSheet,
@@ -1046,11 +974,6 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
                 selectedModel={selectedModelId ?? ""}
                 openOnProviders={openModelPickerOnProviders}
                 onSelect={handleDesktopModelSelect}
-                profiles={agentProfiles}
-                onApplyProfile={onApplyAgentProfile}
-                onEditProfiles={onEditAgentProfiles}
-                onCreateProfile={onCreateAgentProfile}
-                onEditProfile={onEditAgentProfile}
                 isLoading={isModelLoading}
                 disabled={modelDisabled}
                 onOpen={onModelSelectorOpen}
@@ -1112,6 +1035,7 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
       ) : null}
 
       {modeControl ? <AgentModeControl {...modeControl} onClose={onDropdownClose} /> : null}
+      {crewControl ? <CrewControl {...crewControl} /> : null}
 
       {presentation.aggregateFeatures && features?.length ? (
         <>
@@ -1172,15 +1096,10 @@ interface SheetAgentControlsContentProps {
   selectedThinkingOptionId?: string;
   features?: AgentFeature[];
   onSetFeature?: (featureId: string, value: unknown) => void;
-  onApplyAgentProfile?: (profileId: string) => void;
-  onEditAgentProfiles?: () => void;
-  onCreateAgentProfile?: (seed: AgentProfileSeed) => void;
-  onEditAgentProfile?: (profileId: string) => void;
   onDropdownClose?: () => void;
   onModelSelectorOpen?: () => void;
   onRetryModelProvider?: (provider: AgentProvider) => void;
   isRetryingModelProvider: boolean;
-  agentProfiles: AgentProfilePicker | null;
   disabled: boolean;
   isModelLoading: boolean;
   canSelectModel: boolean;
@@ -1203,6 +1122,7 @@ interface SheetAgentControlsContentProps {
     onPress: () => void;
   }) => ReactElement;
   modeControl?: AgentModeControlValue | null;
+  crewControl?: CrewControlValue | null;
   glyphs: ToolbarGlyphs;
   showLabels: boolean;
   modelSelectorServerId: string | null;
@@ -1218,15 +1138,10 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
     selectedThinkingOptionId,
     features,
     onSetFeature,
-    onApplyAgentProfile,
-    onEditAgentProfiles,
-    onCreateAgentProfile,
-    onEditAgentProfile,
     onDropdownClose,
     onModelSelectorOpen,
     onRetryModelProvider,
     isRetryingModelProvider,
-    agentProfiles,
     disabled,
     isModelLoading,
     canSelectModel,
@@ -1244,6 +1159,7 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
     handleOpenChange,
     renderThinkingOption,
     modeControl,
+    crewControl,
     glyphs,
     showLabels,
     modelSelectorServerId,
@@ -1301,6 +1217,7 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
       ) : null}
 
       {modeControl ? <AgentModeControl {...modeControl} surface="sheet" /> : null}
+      {crewControl ? <CrewControl {...crewControl} surface="sheet" /> : null}
 
       {(features ?? []).map((feature) => (
         <SheetFeatureItem
@@ -1323,11 +1240,6 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
       selectedModel={selectedModelId ?? ""}
       thinkingLabel={hasThinking ? displayThinking : null}
       onSelect={handleSheetModelSelect}
-      profiles={agentProfiles}
-      onApplyProfile={onApplyAgentProfile}
-      onEditProfiles={onEditAgentProfiles}
-      onCreateProfile={onCreateAgentProfile}
-      onEditProfile={onEditAgentProfile}
       isLoading={isModelLoading}
       disabled={modelDisabled}
       onOpen={onModelSelectorOpen}
@@ -1781,48 +1693,6 @@ export const AgentControls = memo(function AgentControls({
     });
   }, [agentProviderDefinitions, agentProviderModels, snapshotEntries, snapshotSelectedEntry]);
 
-  // A running agent is one provider's process, so only that provider's profiles
-  // can apply to it.
-  const profileProviders = useMemo(() => (agentProvider ? [agentProvider] : []), [agentProvider]);
-  const profileModeIds = useMemo(
-    () => resolveSnapshotModeIds(snapshotSelectedEntry),
-    [snapshotSelectedEntry],
-  );
-  const startNewAgentWithProfile = useCallback(
-    (profile: { id: string; name: string }) => {
-      const session = useSessionStore.getState().sessions[serverId];
-      const current = session?.agents?.get(agentId) ?? session?.agentDetails?.get(agentId);
-      if (!current?.workspaceId) return;
-      navigateToWorkspace({
-        serverId,
-        workspaceId: current.workspaceId,
-        target: {
-          kind: "draft",
-          draftId: generateDraftId(),
-          setup: { ...buildDraftAgentSetup(current), profile },
-        },
-      });
-    },
-    [agentId, serverId],
-  );
-  const profileTarget = useMemo<AgentProfileApplyTarget>(
-    () => ({
-      kind: "agent",
-      agentId,
-      availableModeIds: profileModeIds,
-      onStartNewAgent: startNewAgentWithProfile,
-    }),
-    [agentId, profileModeIds, startNewAgentWithProfile],
-  );
-  const agentProfiles = useAgentProfilePicker({
-    serverId,
-    availableProviders: profileProviders,
-    target: profileTarget,
-  });
-  const handleEditAgentProfiles = useEditAgentProfilesNavigation(serverId, agentProfiles !== null);
-  const profileEditor = useAgentProfileEditor(serverId);
-  const profileActions = resolveAgentProfileEditorActions(agentProfiles !== null, profileEditor);
-
   const persistProviderUpdates = useCallback(
     (updates: Parameters<typeof mergeProviderPreferences>[0]["updates"]) => {
       if (!agentProvider) return Promise.resolve();
@@ -1940,6 +1810,18 @@ export const AgentControls = memo(function AgentControls({
     () => <LimitFallbackToggle serverId={serverId} agentId={agentId} />,
     [agentId, serverId],
   );
+  const crewEnabled = agent?.crew === true;
+  const crewControl = useMemo<CrewControlValue | null>(() => {
+    if (!client) return null;
+    return {
+      enabled: crewEnabled,
+      onChange: (enabled) => {
+        client.setAgentCrew(agentId, enabled).catch((error: unknown) => {
+          toast.error(toErrorMessage(error));
+        });
+      },
+    };
+  }, [agentId, client, crewEnabled, toast]);
 
   if (!agent) {
     return null;
@@ -1948,7 +1830,6 @@ export const AgentControls = memo(function AgentControls({
   return (
     <>
       {commandCenterRegistration}
-      {profileEditor.element}
       {agent.profile ? (
         <ProfileChip
           serverId={serverId}
@@ -1964,11 +1845,6 @@ export const AgentControls = memo(function AgentControls({
         selectedModelId={modelSelection.activeModelId ?? undefined}
         onSelectModel={handleSelectModel}
         onSelectProviderAndModel={selectProviderModel}
-        agentProfiles={agentProfiles}
-        onApplyAgentProfile={agentProfiles?.applyProfile}
-        onEditAgentProfiles={handleEditAgentProfiles}
-        onCreateAgentProfile={profileActions.create}
-        onEditAgentProfile={profileActions.edit}
         thinkingOptions={thinkingOptions.length > 0 ? thinkingOptions : undefined}
         selectedThinkingOptionId={modelSelection.selectedThinkingId ?? undefined}
         onSelectThinkingOption={handleSelectThinkingOption}
@@ -1981,6 +1857,7 @@ export const AgentControls = memo(function AgentControls({
         onDropdownClose={onDropdownClose}
         disabled={!client}
         modeControl={modeControl}
+        crewControl={crewControl}
         modelSelectorServerId={serverId}
         limitFallbackControl={limitFallbackControl}
         isCompactLayout={isCompactLayout}
@@ -2005,9 +1882,10 @@ export function DraftAgentControls({
   thinkingOptions,
   selectedThinkingOptionId,
   onSelectThinkingOption,
-  onApplyAgentProfile,
   attachedProfile = null,
   onDetachAgentProfile,
+  crewEnabled = false,
+  onSetCrew,
   features,
   onSetFeature,
   onDropdownClose,
@@ -2034,33 +1912,6 @@ export function DraftAgentControls({
     [models],
   );
 
-  // The draft form is the one surface that can switch provider, so every profile
-  // the host can actually run is offered here.
-  const profileProviders = useMemo(
-    () => modelSelectorProviders.map((entry) => entry.id),
-    [modelSelectorProviders],
-  );
-  const profileTarget = useMemo<AgentProfileApplyTarget>(
-    () => ({
-      kind: "draft",
-      controls: {
-        applyProfile: onApplyAgentProfile,
-      },
-    }),
-    [onApplyAgentProfile],
-  );
-  const agentProfiles = useAgentProfilePicker({
-    serverId: modelSelectorServerId,
-    availableProviders: profileProviders,
-    target: profileTarget,
-  });
-  const handleEditAgentProfiles = useEditAgentProfilesNavigation(
-    modelSelectorServerId,
-    agentProfiles !== null,
-  );
-  const profileEditor = useAgentProfileEditor(modelSelectorServerId);
-  const profileActions = resolveAgentProfileEditorActions(agentProfiles !== null, profileEditor);
-
   const modeControl = useMemo<AgentModeControlValue | null>(
     () =>
       selectedProvider && modeOptions.length > 0
@@ -2075,10 +1926,13 @@ export function DraftAgentControls({
         : null,
     [selectedProvider, providerDefinitions, modeOptions, selectedMode, onSelectMode, disabled],
   );
+  const crewControl = useMemo<CrewControlValue | null>(
+    () => (onSetCrew ? { enabled: crewEnabled, onChange: onSetCrew, disabled } : null),
+    [crewEnabled, disabled, onSetCrew],
+  );
 
   return (
     <>
-      {profileEditor.element}
       {attachedProfile ? (
         <ProfileChip
           serverId={modelSelectorServerId}
@@ -2095,11 +1949,6 @@ export function DraftAgentControls({
         onSelectModel={onSelectModel}
         onSelectProviderAndModel={onSelectProviderAndModel}
         isModelLoading={isAllModelsLoading}
-        agentProfiles={agentProfiles}
-        onApplyAgentProfile={agentProfiles?.applyProfile}
-        onEditAgentProfiles={handleEditAgentProfiles}
-        onCreateAgentProfile={profileActions.create}
-        onEditAgentProfile={profileActions.edit}
         thinkingOptions={mappedThinkingOptions.length > 0 ? mappedThinkingOptions : undefined}
         selectedThinkingOptionId={effectiveSelectedThinkingOption}
         onSelectThinkingOption={onSelectThinkingOption}
@@ -2111,6 +1960,7 @@ export function DraftAgentControls({
         isRetryingModelProvider={isRetryingModelProvider}
         disabled={disabled}
         modeControl={modeControl}
+        crewControl={crewControl}
         modelSelectorServerId={modelSelectorServerId}
         isCompactLayout={isCompactLayout}
       />

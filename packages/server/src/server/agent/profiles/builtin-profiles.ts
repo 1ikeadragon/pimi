@@ -5,10 +5,7 @@ import { renderTemplate } from "../../prompts/render.js";
 
 export const BUILTIN_PROFILE_ID_PREFIX = "builtin-";
 
-/** The Crew lead's profile id: the `delegate` tool is registered only for agents created with it. */
-export const CREW_LEAD_PROFILE_ID = `${BUILTIN_PROFILE_ID_PREFIX}crew-lead`;
-
-/** Crew tier profile ids, one per `delegate` role. */
+/** Crew tier profile ids, one per `delegate` role. The lead is the chat that has Crew mode on. */
 export const CREW_TIER_PROFILE_IDS = {
   thinker: `${BUILTIN_PROFILE_ID_PREFIX}crew-thinker`,
   worker: `${BUILTIN_PROFILE_ID_PREFIX}crew-worker`,
@@ -147,18 +144,6 @@ export const BUILTIN_AGENT_PROFILES: readonly AgentProfile[] = [
     builtin: { key: "attack-desktop-security", version: 1 },
   },
   {
-    id: CREW_LEAD_PROFILE_ID,
-    name: "Crew lead",
-    icon: "compass",
-    color: "blue",
-    provider: "claude",
-    model: "claude-opus-5-5",
-    notes:
-      "Leads a Crew: talks to you, does most of the work itself and delegates design, review, implementation and chores to the Crew thinker, worker and chore profiles. Edit the four Crew profiles to change who fills each tier.",
-    instructions: renderTemplate("profile-crew-lead", {}),
-    builtin: { key: "crew-lead", version: 1 },
-  },
-  {
     id: CREW_TIER_PROFILE_IDS.thinker,
     name: "Crew thinker",
     icon: "brain",
@@ -166,9 +151,9 @@ export const BUILTIN_AGENT_PROFILES: readonly AgentProfile[] = [
     provider: "claude",
     model: "claude-fable-5-1",
     notes:
-      "The Crew's thinker: hard design, planning and review. Returns a plan or a review; does not edit. Started by the Crew lead.",
+      "The Crew's thinker: hard design, planning and review. Returns a plan or a review; does not edit. Started by a chat in Crew mode.",
     instructions: renderTemplate("profile-crew-thinker", {}),
-    builtin: { key: "crew-thinker", version: 1 },
+    builtin: { key: "crew-thinker", version: 2 },
   },
   {
     id: CREW_TIER_PROFILE_IDS.worker,
@@ -178,9 +163,9 @@ export const BUILTIN_AGENT_PROFILES: readonly AgentProfile[] = [
     provider: "claude",
     model: "claude-sonnet-5-5",
     notes:
-      "The Crew's worker: implements a well-specified brief, verifies it and reports the diff, evidence and gaps. Started by the Crew lead.",
+      "The Crew's worker: implements a well-specified brief, verifies it and reports the diff, evidence and gaps. Started by a chat in Crew mode.",
     instructions: renderTemplate("profile-crew-worker", {}),
-    builtin: { key: "crew-worker", version: 1 },
+    builtin: { key: "crew-worker", version: 2 },
   },
   {
     id: CREW_TIER_PROFILE_IDS.chore,
@@ -190,8 +175,8 @@ export const BUILTIN_AGENT_PROFILES: readonly AgentProfile[] = [
     provider: "claude",
     model: "claude-haiku-5-5",
     notes:
-      "The Crew's chore model: mechanical jobs that need no judgment. Started by the Crew lead.",
+      "The Crew's chore model: mechanical jobs that need no judgment. Started by a chat in Crew mode.",
     instructions: renderTemplate("profile-crew-chore", {}),
-    builtin: { key: "crew-chore", version: 1 },
+    builtin: { key: "crew-chore", version: 2 },
   },
 ];

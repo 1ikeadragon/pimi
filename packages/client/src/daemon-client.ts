@@ -4314,6 +4314,34 @@ export class DaemonClient {
     }
   }
 
+  /** Turns Crew mode on or off for one chat. It takes effect on the chat's next turn. */
+  async setAgentCrew(agentId: string, enabled: boolean): Promise<void> {
+    const requestId = this.createRequestId();
+    const message = SessionInboundMessageSchema.parse({
+      type: "agent.crew.set.request",
+      agentId,
+      enabled,
+      requestId,
+    });
+    const payload = await this.sendRequest({
+      requestId,
+      message,
+      timeout: 15_000,
+      select: (msg) => {
+        if (msg.type !== "agent.crew.set.response") {
+          return null;
+        }
+        if (msg.payload.requestId !== requestId) {
+          return null;
+        }
+        return msg.payload;
+      },
+    });
+    if (!payload.accepted) {
+      throw new Error(payload.error ?? "The host could not change Crew mode for this chat");
+    }
+  }
+
   async restartServer(
     reason?: string,
     requestId?: string,

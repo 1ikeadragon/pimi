@@ -25,6 +25,8 @@ export interface ComposerControlPresence {
   hasModel: boolean;
   hasThinking: boolean;
   hasMode: boolean;
+  /** The Crew on/off control, which carries its label wherever the mode does. */
+  hasCrew: boolean;
   features: readonly ComposerFeatureControlPresence[];
   fontScale: number;
 }
@@ -74,6 +76,8 @@ export function composerToolbarGeometry(sizing: ControlSizing): ComposerToolbarG
 const DENSITY_HYSTERESIS = 12;
 /** The model label's narrowest useful width: enough for the model family, such as "GPT-6…". */
 const MODEL_FAMILY_LABEL_WIDTH = 56;
+/** The "Crew" label. */
+const CREW_LABEL_WIDTH = 36;
 
 function normalizedFontScale(fontScale: number): number {
   return Number.isFinite(fontScale) ? Math.max(1, fontScale) : 1;
@@ -119,6 +123,7 @@ function resolveCondensedFloor(
   if (controls.hasModel) widths.push(chrome + 60 * fontScale);
   if (controls.hasThinking) widths.push(geometry.controlSize);
   if (controls.hasMode) widths.push(chrome + 96 * fontScale);
+  if (controls.hasCrew) widths.push(chrome + CREW_LABEL_WIDTH * fontScale);
   if (controls.features.length > 0) widths.push(geometry.controlSize);
   return sumControlWidths(widths, geometry);
 }
@@ -134,6 +139,7 @@ function resolveFullFloor(
   if (controls.hasModel) widths.push(chrome + caret + 70 * fontScale);
   if (controls.hasThinking) widths.push(chrome + geometry.iconLabelGap + caret + 48 * fontScale);
   if (controls.hasMode) widths.push(chrome + geometry.iconLabelGap + caret + 96 * fontScale);
+  if (controls.hasCrew) widths.push(chrome + CREW_LABEL_WIDTH * fontScale);
   for (const feature of controls.features) {
     widths.push(resolveFeatureControlWidth(feature, fontScale, geometry));
   }
@@ -152,6 +158,7 @@ function resolveTightFloor(
   }
   if (controls.hasThinking) widths.push(geometry.controlSize);
   if (controls.hasMode) widths.push(geometry.controlSize);
+  if (controls.hasCrew) widths.push(geometry.controlSize);
   if (controls.features.length > 0) widths.push(geometry.controlSize);
   return sumControlWidths(widths, geometry);
 }

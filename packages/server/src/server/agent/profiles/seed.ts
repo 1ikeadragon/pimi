@@ -4,6 +4,7 @@
 //   deleted it). "Reset to default" in the app is therefore "remove it without recording the key".
 // - An unedited built-in whose shipped version rose is replaced in place, keeping its position.
 // - An edited built-in (`builtin.edited`) is left alone.
+// - An unedited built-in that no longer ships is dropped.
 import type { AgentProfile } from "@pimi/protocol/agent-profile";
 import type { MutableDaemonConfig } from "@pimi/protocol/messages";
 import type { DaemonConfigStore } from "../../daemon-config-store.js";
@@ -22,15 +23,21 @@ export function seedBuiltinProfiles(input: SeedBuiltinProfilesInput): AgentProfi
   );
   let changed = false;
   const present = new Set<string>();
-  const next = input.profiles.map((profile) => {
+  const next = input.profiles.flatMap((profile) => {
     const key = profile.builtin?.key;
-    if (!key) return profile;
+    if (!key) return [profile];
     present.add(key);
     const latest = shipped.get(key);
-    if (!latest?.builtin || profile.builtin?.edited) return profile;
-    if (latest.builtin.version <= (profile.builtin?.version ?? 0)) return profile;
+    if (profile.builtin?.edited) return [profile];
+    if (!latest?.builtin) {
+      // COMPAT(config.json agentProfiles): a built-in seeded by an earlier build and since
+      // removed, such as "crew-lead" (Crew is now a chat mode).
+      changed = true;
+      return [];
+    }
+    if (latest.builtin.version <= (profile.builtin?.version ?? 0)) return [profile];
     changed = true;
-    return { ...latest, id: profile.id };
+    return [{ ...latest, id: profile.id }];
   });
   for (const [key, profile] of shipped) {
     if (present.has(key) || removed.has(key)) continue;

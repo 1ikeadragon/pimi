@@ -112,6 +112,7 @@ interface DraftComposerSelection {
   effectiveThinkingOptionId: string | null;
   featureValues: Record<string, unknown> | undefined;
   attachedProfile: { id: string } | null;
+  crew: boolean;
 }
 
 // A pending auto-submit (from the new-workspace screen) wins over the tab's own composer.
@@ -135,6 +136,7 @@ function buildDraftCreateConfig(input: {
       autoSubmitConfig?.thinkingOptionId ?? (composerState.effectiveThinkingOptionId || undefined),
     featureValues: autoSubmitConfig?.featureValues ?? composerState.featureValues,
     ...(composerState.attachedProfile ? { profileId: composerState.attachedProfile.id } : {}),
+    crew: composerState.crew,
   });
 }
 

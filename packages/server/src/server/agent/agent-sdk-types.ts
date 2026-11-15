@@ -630,6 +630,10 @@ export interface AgentSessionConfig {
   daemonAppendSystemPrompt?: string;
   /** The agent profile the agent was created with. */
   profile?: { id: string; name: string };
+  /** Crew mode: the agent leads a crew. Gates the `delegate` tool and the lead instructions. */
+  crew?: boolean;
+  /** The provider session has the Crew lead instructions; differs from `crew` until the next turn says so. */
+  crewTold?: boolean;
   modeId?: string;
   model?: string;
   thinkingOptionId?: string;

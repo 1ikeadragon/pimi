@@ -1083,6 +1083,7 @@ export class Session {
         setMode: async (agentId, modeId) =>
           (await setAgentModeCommand({ agentManager }, { agentId, modeId })).notice,
         setModel: (agentId, modelId) => agentManager.setAgentModel(agentId, modelId),
+        setCrew: (agentId, enabled) => agentManager.setAgentCrew(agentId, enabled),
         setFeature: (agentId, featureId, value) =>
           agentManager.setAgentFeature(agentId, featureId, value),
         setThinking: (agentId, thinkingOptionId) =>
@@ -3005,6 +3006,8 @@ export class Session {
         return this.agentConfigSession.handleSetAgentThinkingRequest(msg);
       case "agent.config.apply.request":
         return this.agentConfigSession.handleAgentConfigApplyRequest(msg);
+      case "agent.crew.set.request":
+        return this.agentConfigSession.handleAgentCrewSetRequest(msg);
       case "get_daemon_config_request": {
         const config = this.daemonConfigStore.get();
         const configHash = createHash("sha256").update(JSON.stringify(config)).digest("hex");

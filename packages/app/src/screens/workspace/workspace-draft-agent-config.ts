@@ -8,6 +8,7 @@ export function buildWorkspaceDraftAgentConfig(input: {
   thinkingOptionId?: string;
   featureValues?: Record<string, unknown>;
   profileId?: string;
+  crew?: boolean;
 }): AgentSessionConfig {
   return {
     provider: input.provider,
@@ -17,5 +18,6 @@ export function buildWorkspaceDraftAgentConfig(input: {
     ...(input.thinkingOptionId ? { thinkingOptionId: input.thinkingOptionId } : {}),
     ...(input.featureValues ? { featureValues: input.featureValues } : {}),
     ...(input.profileId ? { profileId: input.profileId } : {}),
+    ...(input.crew ? { crew: true } : {}),
   };
 }

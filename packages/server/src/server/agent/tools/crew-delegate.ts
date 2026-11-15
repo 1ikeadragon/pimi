@@ -1,4 +1,5 @@
-// The Crew lead's `delegate` tool: a structured brief to one of the Crew tier profiles.
+// Crew mode's `delegate` tool: a structured brief from the chat's own model, the lead, to one of
+// the Crew tier profiles. A chat has it while its `crew` flag is on.
 // It is a thin layer over create_agent (and create_chat for worktrees), so the child is an
 // ordinary subagent: parent label, inherited context, and a finish notification to the lead.
 import { z } from "zod";
@@ -9,13 +10,31 @@ import {
   type CrewRole,
 } from "@pimi/protocol/agent-labels";
 import type { AgentProfile } from "@pimi/protocol/agent-profile";
-import { CREW_LEAD_PROFILE_ID, CREW_TIER_PROFILE_IDS } from "../profiles/builtin-profiles.js";
+import { CREW_TIER_PROFILE_IDS } from "../profiles/builtin-profiles.js";
+import { renderTemplate } from "../../prompts/render.js";
 import {
   PimiToolInputError,
   type PimiToolConfig,
   type PimiToolExecutionContext,
   type PimiToolResult,
 } from "./types.js";
+
+/** What a chat in Crew mode is told, appended to its instructions when its session opens. */
+export const CREW_LEAD_INSTRUCTIONS = renderTemplate("crew-lead", {});
+
+const CREW_OFF_NOTE =
+  "Crew mode is now off for this chat. You no longer lead a crew: the `delegate` tool is gone and the crew lead instructions no longer apply. Do the work yourself.";
+
+/**
+ * What a chat's next turn must tell its provider after Crew mode changed, or null when the
+ * session already knows. `crewTold` records that the lead instructions reached the session, in
+ * its system prompt at creation or in an earlier note.
+ */
+export function crewChangeNote(config: { crew?: boolean; crewTold?: boolean }): string | null {
+  const crew = config.crew === true;
+  if (crew === (config.crewTold === true)) return null;
+  return `<pimi-crew-mode>\n${crew ? CREW_LEAD_INSTRUCTIONS : CREW_OFF_NOTE}\n</pimi-crew-mode>`;
+}
 
 /** Live crew children one lead may have at once. */
 export const CREW_MAX_LIVE_CHILDREN = 4;
@@ -55,7 +74,7 @@ type DelegateArgs = z.infer<typeof DelegateInput>;
 
 interface CallerAgent {
   provider: string;
-  config: { model?: string | null; profile?: { id: string } | null };
+  config: { model?: string | null; crew?: boolean };
   runtimeInfo?: { model?: string | null } | null;
 }
 
@@ -85,7 +104,7 @@ export interface RegisterDelegateToolOptions {
 
 export function registerDelegateTool(options: RegisterDelegateToolOptions): void {
   const { callerAgentId } = options;
-  if (!callerAgentId || options.getCallerAgent()?.config.profile?.id !== CREW_LEAD_PROFILE_ID) {
+  if (!callerAgentId || options.getCallerAgent()?.config.crew !== true) {
     return;
   }
   options.registerTool(

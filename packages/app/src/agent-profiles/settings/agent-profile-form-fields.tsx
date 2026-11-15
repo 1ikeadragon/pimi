@@ -36,8 +36,6 @@ export interface AgentProfileFormFieldsProps {
   model: AgentProfileFormModel;
   state: AgentProfileFormState;
   initialText: AgentProfileFormInitialText;
-  /** "columns" puts name and launch setup on the left, instructions and notes on the right. */
-  layout: "stacked" | "columns";
   size?: ControlSize;
 }
 
@@ -51,12 +49,11 @@ function toSelectOptions(options: AgentProfileFormOption[]): SelectFieldOption<s
   }));
 }
 
-/** The profile form's inputs, shared by the quick-edit sheet and the profile page. */
+/** The profile form's inputs: name and launch setup on the left, instructions and notes on the right. */
 export function AgentProfileFormFields({
   model,
   state,
   initialText,
-  layout,
   size = "md",
 }: AgentProfileFormFieldsProps): ReactElement {
   const { t } = useTranslation();
@@ -174,8 +171,8 @@ export function AgentProfileFormFields({
         onChangeText={model.setInstructions}
         placeholder={t("profiles.instructionsPlaceholder")}
         multiline
-        numberOfLines={layout === "columns" ? 16 : 8}
-        style={layout === "columns" ? styles.instructionsInputTall : styles.instructionsInput}
+        numberOfLines={16}
+        style={styles.instructionsInput}
         editable={!disabled}
         size={size}
         accessibilityLabel={t("profiles.instructionsLabel")}
@@ -279,26 +276,16 @@ export function AgentProfileFormFields({
     </>
   );
 
-  if (layout === "columns") {
-    return (
-      <View style={styles.columns}>
-        <View style={styles.setupColumn}>
-          {nameRow}
-          {launchSetup}
-        </View>
-        <View style={styles.instructionsColumn}>
-          {instructionsField}
-          {notesField}
-        </View>
-      </View>
-    );
-  }
   return (
-    <View style={styles.stack}>
-      {nameRow}
-      {launchSetup}
-      {instructionsField}
-      {notesField}
+    <View style={styles.columns}>
+      <View style={styles.setupColumn}>
+        {nameRow}
+        {launchSetup}
+      </View>
+      <View style={styles.instructionsColumn}>
+        {instructionsField}
+        {notesField}
+      </View>
     </View>
   );
 }
@@ -395,9 +382,6 @@ function AgentProfileFeatureRow({
 }
 
 const styles = StyleSheet.create((theme) => ({
-  stack: {
-    gap: theme.spacing[4],
-  },
   columns: {
     flexDirection: {
       xs: "column",
@@ -463,10 +447,6 @@ const styles = StyleSheet.create((theme) => ({
     textAlignVertical: "top",
   },
   instructionsInput: {
-    minHeight: 140,
-    textAlignVertical: "top",
-  },
-  instructionsInputTall: {
     minHeight: 320,
     textAlignVertical: "top",
   },

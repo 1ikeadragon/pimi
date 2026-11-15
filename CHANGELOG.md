@@ -2,6 +2,11 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.62 - 2026-11-15
+
+- Crew is now a switch in the chat composer, next to the mode. Turn it on in any chat and that chat's own model leads the crew; the Crew lead profile is gone.
+- The model picker no longer lists profiles. Profiles stay in Library > Profiles.
+
 ## 0.17.61 - 2026-11-15
 
 - Sidebar: the Lineage fold shows no count.

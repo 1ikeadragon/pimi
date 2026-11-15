@@ -1,4 +1,4 @@
-import type { AgentConfigApply, AgentProfile } from "@pimi/protocol/messages";
+import type { AgentProfile } from "@pimi/protocol/messages";
 
 /**
  * A profile with its blank fields resolved away. Storage keeps every field
@@ -31,34 +31,5 @@ export function materializeAgentProfile(profile: AgentProfile): MaterializedAgen
     modeId: trimmed(profile.modeId),
     thinkingOptionId: trimmed(profile.thinkingOptionId),
     featureValues: profile.featureValues ?? {},
-  };
-}
-
-export function reconcileMaterializedProfileMode(
-  profile: MaterializedAgentProfile,
-  availableModeIds: readonly string[] | null,
-): MaterializedAgentProfile | null {
-  if (availableModeIds === null) {
-    return null;
-  }
-  if (!profile.modeId || availableModeIds.includes(profile.modeId)) {
-    return profile;
-  }
-  return { ...profile, modeId: "" };
-}
-
-/**
- * The payload for a running agent. Omitted fields are left alone by the daemon,
- * so a profile that names no mode does not reset the agent's mode. Provider is
- * absent because a running agent cannot change the process it is.
- */
-export function toAgentConfigApply(profile: MaterializedAgentProfile): AgentConfigApply {
-  return {
-    ...(profile.modelId ? { modelId: profile.modelId } : {}),
-    ...(profile.modeId ? { modeId: profile.modeId } : {}),
-    ...(profile.thinkingOptionId ? { thinkingOptionId: profile.thinkingOptionId } : {}),
-    ...(Object.keys(profile.featureValues).length > 0
-      ? { featureValues: profile.featureValues }
-      : {}),
   };
 }

@@ -491,7 +491,7 @@ Each agent is a single JSON file. Fields relevant to this doc:
 | `labels["pimi.parent-agent-id"]`        | `string?`     | Parent agent ID, set automatically for agent-scoped creation and removed by detach |
 | `labels["pimi.stopped-by-agent-id"]`    | `string?`     | Agent whose Stop interrupted this subagent; cleared by Resume or the next turn     |
 | `labels["pimi.stopped-with-subagents"]` | `string?`     | `mid-turn` / `idle` on an agent whose Stop also stopped subagents                  |
-| `labels["pimi.crew-role"]`              | `string?`     | `thinker` / `worker` / `chore` on a subagent a Crew lead delegated to              |
+| `labels["pimi.crew-role"]`              | `string?`     | `thinker` / `worker` / `chore` on a subagent a chat in Crew mode delegated to      |
 | `lastStatus`                            | `AgentStatus` | `initializing` / `idle` / `running` / `error` / `closed`                           |
 
 See [`docs/data-model.md`](./data-model.md) for the full agent record.

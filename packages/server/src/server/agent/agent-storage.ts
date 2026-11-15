@@ -29,6 +29,8 @@ const SERIALIZABLE_CONFIG_SCHEMA = z
     systemPrompt: z.string().nullable().optional(),
     mcpServers: z.record(z.string(), z.any()).nullable().optional(),
     profile: z.object({ id: z.string(), name: z.string() }).nullable().optional(),
+    crew: z.boolean().optional(),
+    crewTold: z.boolean().optional(),
   })
   .nullable()
   .optional();
@@ -97,6 +99,8 @@ export type SerializableAgentConfig = Pick<
   | "systemPrompt"
   | "mcpServers"
   | "profile"
+  | "crew"
+  | "crewTold"
 >;
 
 export type StoredAgentRecord = z.infer<typeof STORED_AGENT_SCHEMA>;

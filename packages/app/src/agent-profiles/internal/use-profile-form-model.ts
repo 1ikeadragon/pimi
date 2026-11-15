@@ -8,7 +8,7 @@ import {
 import { useAgentProfileFormCatalog, useAgentProfileFormFeatures } from "./use-profile-form-inputs";
 
 /**
- * One model per mount. The modal keys its body on mode + profile id, so create
+ * One model per mount. The profile page keys its form on the profile, so create
  * and edit never share an instance and reopening always starts from the record.
  */
 export function useAgentProfileFormModel(
@@ -31,8 +31,7 @@ export function useAgentProfileFormState(model: AgentProfileFormModel): AgentPro
 
 /**
  * A profile form bound to one host: the model, its state, and the host's provider catalog and
- * feature listings feeding it. Used by the profile page; the quick-edit sheet wires the same
- * pieces itself.
+ * feature listings feeding it.
  */
 export function useAgentProfileForm(input: {
   serverId: string;

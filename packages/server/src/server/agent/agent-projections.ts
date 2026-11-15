@@ -145,6 +145,7 @@ export function toAgentPayload(
     thinkingOptionId,
     effectiveThinkingOptionId,
     profile: agent.config.profile ?? null,
+    ...(agent.config.crew ? { crew: true } : {}),
     ...(runtimeInfo ? { runtimeInfo } : {}),
     createdAt: agent.createdAt.toISOString(),
     updatedAt: agent.updatedAt.toISOString(),
@@ -239,12 +240,13 @@ function storedConfigFields(
   runtimeInfo: ReturnType<typeof buildStoredRuntimeInfo>,
 ): Pick<
   AgentSnapshotPayload,
-  "model" | "profile" | "thinkingOptionId" | "effectiveThinkingOptionId"
+  "model" | "profile" | "crew" | "thinkingOptionId" | "effectiveThinkingOptionId"
 > {
   const thinkingOptionId = record.config?.thinkingOptionId ?? null;
   return {
     model: record.config?.model ?? null,
     profile: record.config?.profile ?? null,
+    ...(record.config?.crew ? { crew: true } : {}),
     thinkingOptionId,
     effectiveThinkingOptionId: resolveEffectiveThinkingOptionId({
       runtimeInfo,
@@ -446,6 +448,8 @@ function buildSerializableConfig(config: AgentSessionConfig): SerializableAgentC
   if (config.profile) {
     serializable.profile = { ...config.profile };
   }
+  if (config.crew) serializable.crew = true;
+  if (config.crewTold) serializable.crewTold = true;
   return Object.keys(serializable).length ? serializable : null;
 }
 

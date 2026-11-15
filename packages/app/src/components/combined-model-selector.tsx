@@ -3,7 +3,6 @@ import { Pressable, Text, View, type PressableStateCallbackType } from "react-na
 import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { AgentProvider } from "@pimi/protocol/agent-types";
-import type { AgentProfilePicker, AgentProfileSeed } from "@/agent-profiles";
 import { ComboboxTrigger } from "@/components/ui/combobox-trigger";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Combobox, type ComboboxOption, type ComboboxProps } from "@/components/ui/combobox";
@@ -35,11 +34,6 @@ interface CombinedModelSelectorProps {
   onSelect: (provider: AgentProvider, modelId: string) => void;
   isLoading: boolean;
   openOnProviders?: boolean;
-  profiles?: AgentProfilePicker | null;
-  onApplyProfile?: (profileId: string) => void;
-  onEditProfiles?: () => void;
-  onCreateProfile?: (seed: AgentProfileSeed) => void;
-  onEditProfile?: (profileId: string) => void;
   renderTrigger?: (input: {
     selectedModelLabel: string;
     onPress: () => void;
@@ -80,11 +74,6 @@ export function CombinedModelSelector({
   onSelect,
   isLoading,
   openOnProviders,
-  profiles = null,
-  onApplyProfile,
-  onEditProfiles,
-  onCreateProfile,
-  onEditProfile,
   renderTrigger,
   onOpen,
   onClose,
@@ -109,7 +98,6 @@ export function CombinedModelSelector({
     selectedProvider,
     selectedModel,
     isLoading,
-    profiles,
     serverId,
   });
   const { prepareToOpen, reset, showAll } = browser;
@@ -174,43 +162,10 @@ export function CombinedModelSelector({
     [disabled, isOpen, renderTrigger, triggerFill],
   );
 
-  const handleApplyProfile = useCallback(
-    (profileId: string) => {
-      onApplyProfile?.(profileId);
-      handleOpenChange(false);
-    },
-    [handleOpenChange, onApplyProfile],
-  );
-
-  const handleEditProfiles = useCallback(() => {
-    handleOpenChange(false);
-    onEditProfiles?.();
-  }, [handleOpenChange, onEditProfiles]);
-
-  const handleCreateProfile = useCallback(
-    (seed: AgentProfileSeed) => {
-      handleOpenChange(false);
-      onCreateProfile?.(seed);
-    },
-    [handleOpenChange, onCreateProfile],
-  );
-
-  const handleEditProfile = useCallback(
-    (profileId: string) => {
-      handleOpenChange(false);
-      onEditProfile?.(profileId);
-    },
-    [handleOpenChange, onEditProfile],
-  );
-
   const selectorBody = isContentReady ? (
     <ModelBrowser
       state={browser}
       onSelect={handleSelect}
-      onApplyProfile={handleApplyProfile}
-      onEditProfiles={onEditProfiles ? handleEditProfiles : undefined}
-      onCreateProfile={onCreateProfile ? handleCreateProfile : undefined}
-      onEditProfile={onEditProfile ? handleEditProfile : undefined}
       onRetryProvider={onRetryProvider}
       isRetryingProvider={isRetryingProvider}
       scrolling={modelBrowserScrolling}

@@ -759,6 +759,8 @@ const AgentSessionConfigSchema = z.object({
   // Create only: an agent profile id or exact name. The daemon adds the profile's instructions
   // to the system prompt and records the profile on the agent.
   profileId: z.string().optional(),
+  // Crew mode: this chat leads a crew and gets the `delegate` tool.
+  crew: z.boolean().optional(),
 });
 
 const AgentPermissionUpdateSchema = z.record(z.string(), z.unknown());
@@ -1359,6 +1361,8 @@ export const AgentSnapshotPayloadSchema = z.object({
   labels: z.record(z.string(), z.string()).default({}),
   // The agent profile this agent was created with, as it was named then.
   profile: AgentProfileRefSchema.nullable().optional(),
+  // Crew mode is on: the chat has the `delegate` tool and the lead instructions.
+  crew: z.boolean().optional(),
   requiresAttention: z.boolean().optional(),
   attentionReason: z.enum(["finished", "error", "permission"]).nullable().optional(),
   attentionTimestamp: z.string().nullable().optional(),
@@ -2567,6 +2571,19 @@ export const AgentLimitFallbackSetResponseMessageSchema = z.object({
     accepted: z.boolean(),
     error: z.string().nullable(),
   }),
+});
+
+/** Turns Crew mode on or off for one chat. It takes effect on the chat's next turn. */
+export const AgentCrewSetRequestMessageSchema = z.object({
+  type: z.literal("agent.crew.set.request"),
+  agentId: z.string(),
+  enabled: z.boolean(),
+  requestId: z.string(),
+});
+
+export const AgentCrewSetResponseMessageSchema = z.object({
+  type: z.literal("agent.crew.set.response"),
+  payload: AgentActionResponsePayloadSchema,
 });
 
 export const AgentDetachRequestMessageSchema = z.object({
@@ -3910,6 +3927,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AgentConfigApplyRequestMessageSchema,
   AgentProviderSwitchRequestMessageSchema,
   AgentLimitFallbackSetRequestMessageSchema,
+  AgentCrewSetRequestMessageSchema,
   AgentDetachRequestMessageSchema,
   AgentSubagentsResumeRequestMessageSchema,
   AgentRewindRequestMessageSchema,
@@ -7862,6 +7880,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AgentConfigApplyResponseMessageSchema,
   AgentProviderSwitchResponseMessageSchema,
   AgentLimitFallbackSetResponseMessageSchema,
+  AgentCrewSetResponseMessageSchema,
   AgentDetachResponseMessageSchema,
   AgentSubagentsResumeResponseMessageSchema,
   AgentRewindResponseMessageSchema,

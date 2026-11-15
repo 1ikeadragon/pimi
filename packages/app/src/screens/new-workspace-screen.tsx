@@ -451,6 +451,7 @@ async function createWorkspaceChatAgent(input: CreateChatAgentInput): Promise<Su
       thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
       featureValues: composerState.featureValues,
       ...(composerState.attachedProfile ? { profileId: composerState.attachedProfile.id } : {}),
+      ...(composerState.crew ? { crew: true } : {}),
     },
     initialPrompt: wirePayload.text,
     clientMessageId: `${input.draftId}:initial-message`,

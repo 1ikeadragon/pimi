@@ -114,6 +114,7 @@ import {
 } from "./provider-subagents/store.js";
 import { AgentBackgroundWorkStore, type AgentBackgroundWorkItem } from "./background-work/index.js";
 import { LAZY_TOOL_GROUP_NAMES, lazyPimiToolCatalog } from "./tools/lazy-tool-groups.js";
+import { CREW_LEAD_INSTRUCTIONS, crewChangeNote } from "./tools/crew-delegate.js";
 import { withTimeout } from "../../utils/promise-timeout.js";
 import { extractAttention } from "../persistence-hooks.js";
 import {
@@ -166,6 +167,16 @@ const PIMI_SCOPE_INSTRUCTIONS =
 
 // Without its tools an agent asked to delegate or remember improvises: it runs `claude -p` or
 // `codex exec` in a shell, or writes Pimi's memory files by hand. Neither shows up in Pimi.
+/** The lead instructions for a chat in Crew mode that can reach the `delegate` tool. */
+function crewLeadInstructions(
+  config: AgentSessionConfig,
+  hostToolsEnabled: boolean,
+  policy: ProviderPimiToolsPolicy | undefined,
+): string[] {
+  const delegates = config.crew && hostToolsEnabled && isPimiToolEnabled(policy, "delegate");
+  return delegates ? [CREW_LEAD_INSTRUCTIONS] : [];
+}
+
 function pimiToolsOffInstructions(provider: string, hostToolsEnabled: boolean): string {
   const [where, fix] = hostToolsEnabled
     ? [
@@ -284,6 +295,12 @@ function withCarriedContext(prompt: AgentPromptInput, context: string): AgentPro
   ];
 }
 
+/** Puts a note from Pimi in front of the prompt the provider gets; the chat's own message is unchanged. */
+function withLeadingNote(prompt: AgentPromptInput, note: string): AgentPromptInput {
+  if (typeof prompt === "string") return `${note}\n\n${prompt}`;
+  return [{ type: "text", text: note }, ...prompt];
+}
+
 /**
  * Settings that mean the same thing to every provider move with the chat. Model,
  * mode, thinking and feature values belong to the provider being left, so the
@@ -293,7 +310,7 @@ function buildSwitchedSessionConfig(
   current: AgentSessionConfig,
   target: AgentProviderSwitchTarget,
 ): AgentSessionConfig {
-  const { cwd, title, systemPrompt, mcpServers, toolPolicy, internal, profile } = current;
+  const { cwd, title, systemPrompt, mcpServers, toolPolicy, internal, profile, crew } = current;
   const { provider, model, modeId, featureValues } = target;
   return {
     provider,
@@ -301,6 +318,9 @@ function buildSwitchedSessionConfig(
     title,
     systemPrompt,
     profile,
+    crew,
+    // The new session opens with the lead instructions in its system prompt.
+    crewTold: crew,
     mcpServers,
     toolPolicy,
     internal,
@@ -512,6 +532,8 @@ function buildStoredAgentConfig(record: StoredAgentRecord): AgentSessionConfig {
   }
   if (record.config.mcpServers != null) config.mcpServers = record.config.mcpServers;
   if (record.config.profile != null) config.profile = record.config.profile;
+  if (record.config.crew) config.crew = true;
+  if (record.config.crewTold) config.crewTold = true;
   return stripInternalPimiMcpServer(config);
 }
 
@@ -2146,6 +2168,8 @@ export class AgentManager {
       };
       options = { ...options, env: request.env };
     }
+    // A chat created in Crew mode opens with the lead instructions in its system prompt.
+    if (config.crew) config = { ...config, crewTold: true };
     const placement = await this.claimChatPlacement({
       agentId: resolvedAgentId,
       workspaceId: options.workspaceId,
@@ -3555,6 +3579,22 @@ export class AgentManager {
     this.emitState(agent);
   }
 
+  /**
+   * Turn Crew mode on or off. The `delegate` tool list belongs to the provider session, so the
+   * session is marked stale and reopens before the chat's next turn; a running turn is left
+   * alone. A provider can keep the system prompt its session started with (Claude Code does on
+   * resume), so that turn also carries a note with the change: see `crewChangeNote`.
+   */
+  async setAgentCrew(agentId: string, enabled: boolean): Promise<void> {
+    const agent = this.requireSessionAgent(agentId);
+    if ((agent.config.crew === true) === enabled) return;
+    if (enabled) agent.config.crew = true;
+    else delete agent.config.crew;
+    this.sessionOpenGenerations.delete(agentId);
+    this.touchUpdatedAt(agent);
+    this.emitState(agent);
+  }
+
   async setAgentThinkingOption(
     agentId: string,
     thinkingOptionId: string | null,
@@ -4159,14 +4199,24 @@ export class AgentManager {
         }
       }
       const carriedContext = agent.pendingProviderContext;
+      const crewNote = crewChangeNote(agent.config);
+      const turnPrompt = carriedContext ? withCarriedContext(prompt, carriedContext) : prompt;
       const result = await withLaunchAgent(agentId, () =>
         agent.session.startTurn(
-          carriedContext ? withCarriedContext(prompt, carriedContext) : prompt,
+          crewNote ? withLeadingNote(turnPrompt, crewNote) : turnPrompt,
           options,
         ),
       );
       if (pendingRun.settled) {
         throw new Error(`Agent ${agentId} run was canceled before its turn started`);
+      }
+      if (crewNote) {
+        // The provider accepted the turn that carried it. A rejected start keeps it owed.
+        if (agent.config.crew) agent.config.crewTold = true;
+        else delete agent.config.crewTold;
+        this.persistSnapshot(agent).catch((error) =>
+          this.logger.warn({ err: error, agentId }, "Failed to persist the Crew mode note"),
+        );
       }
       if (carriedContext && agent.pendingProviderContext === carriedContext) {
         // The provider accepted the turn that carried it. A rejected start keeps it owed.
@@ -7710,6 +7760,7 @@ export class AgentManager {
             hostToolsEnabled: this.pimiToolsEnabled,
           }),
           visualizationInstructions,
+          ...crewLeadInstructions(storedConfig, this.pimiToolsEnabled, pimiToolPolicy),
         ]
       : [];
     const canRecallMemory =

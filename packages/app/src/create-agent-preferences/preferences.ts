@@ -155,35 +155,6 @@ export function mergeProviderPreferences(args: {
   };
 }
 
-export function mergeCreateAgentSelectionPreferences(args: {
-  preferences: FormPreferences;
-  provider: AgentProvider | null;
-  modelId?: string | null;
-  modeId?: string | null;
-  thinkingOptionId?: string | null;
-  featureValues?: Record<string, unknown>;
-}): FormPreferences {
-  if (!args.provider) {
-    return args.preferences;
-  }
-
-  const modelId = args.modelId?.trim() ?? "";
-  const modeId = args.modeId?.trim() ?? "";
-  const thinkingOptionId = args.thinkingOptionId?.trim() ?? "";
-  const featureValues = featureValuesSchema.safeParse(args.featureValues);
-
-  return mergeProviderPreferences({
-    preferences: args.preferences,
-    provider: args.provider,
-    updates: {
-      model: modelId || undefined,
-      mode: args.modeId === undefined ? undefined : modeId || null,
-      ...(modelId && thinkingOptionId ? { thinkingByModel: { [modelId]: thinkingOptionId } } : {}),
-      ...(featureValues.success ? { featureValues: featureValues.data } : {}),
-    },
-  });
-}
-
 export function applyAgentProfilePreferences(args: {
   preferences: FormPreferences;
   previousProvider: AgentProvider | null;

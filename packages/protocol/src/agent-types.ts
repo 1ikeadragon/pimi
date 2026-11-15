@@ -647,6 +647,8 @@ export interface AgentSessionConfig {
    * the system prompt and records the profile on the agent.
    */
   profileId?: string;
+  /** Crew mode: this chat leads a crew and gets the `delegate` tool. */
+  crew?: boolean;
   modeId?: string;
   model?: string;
   thinkingOptionId?: string;

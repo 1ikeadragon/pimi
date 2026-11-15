@@ -22,18 +22,20 @@ export function buildDraftAgentControls(input: {
   formState: UseAgentFormStateResult;
   features?: DraftAgentControlsProps["features"];
   onSetFeature?: DraftAgentControlsProps["onSetFeature"];
-  onApplyAgentProfile: DraftAgentControlsProps["onApplyAgentProfile"];
   attachedProfile?: DraftAgentControlsProps["attachedProfile"];
   onDetachAgentProfile?: DraftAgentControlsProps["onDetachAgentProfile"];
+  crewEnabled?: DraftAgentControlsProps["crewEnabled"];
+  onSetCrew?: DraftAgentControlsProps["onSetCrew"];
   onDropdownClose?: DraftAgentControlsProps["onDropdownClose"];
 }): DraftAgentControlsProps {
   const {
     formState,
     features,
     onSetFeature,
-    onApplyAgentProfile,
     attachedProfile,
     onDetachAgentProfile,
+    crewEnabled,
+    onSetCrew,
     onDropdownClose,
   } = input;
   return {
@@ -52,9 +54,10 @@ export function buildDraftAgentControls(input: {
     thinkingOptions: formState.availableThinkingOptions,
     selectedThinkingOptionId: formState.selectedThinkingOptionId,
     onSelectThinkingOption: formState.setThinkingOptionFromUser,
-    onApplyAgentProfile,
     attachedProfile: attachedProfile ?? null,
     onDetachAgentProfile,
+    crewEnabled,
+    onSetCrew,
     features,
     onSetFeature,
     onDropdownClose,

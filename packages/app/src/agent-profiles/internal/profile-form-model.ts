@@ -40,20 +40,9 @@ export interface AgentProfileFormOption {
   testID: string;
 }
 
-/**
- * Pre-fill values for create mode. Only used when `mode === "create"`; edit
- * mode always seeds from the stored `profile` and ignores this.
- */
-export interface AgentProfileSeed {
-  provider: string;
-  modelId?: string;
-  name?: string;
-}
-
 export interface AgentProfileFormSnapshot {
   mode: "create" | "edit";
   profile?: AgentProfile;
-  seed?: AgentProfileSeed;
 }
 
 /**
@@ -391,10 +380,9 @@ function seedDisplay(value: string | undefined): AgentProfileFormDisplay | null 
  */
 function buildInitialState(snapshot: AgentProfileFormSnapshot): AgentProfileFormState {
   const profile = snapshot.profile ?? BLANK_PROFILE;
-  const seed = snapshot.mode === "create" ? snapshot.seed : undefined;
-  const name = seed?.name ?? profile.name;
-  const provider = seed?.provider ?? profile.provider ?? "";
-  const modelId = seed?.modelId ?? profile.model ?? "";
+  const name = profile.name;
+  const provider = profile.provider ?? "";
+  const modelId = profile.model ?? "";
   return {
     mode: snapshot.mode,
     name,
