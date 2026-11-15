@@ -152,7 +152,7 @@ export const BUILTIN_AGENT_PROFILES: readonly AgentProfile[] = [
     icon: "compass",
     color: "blue",
     provider: "claude",
-    model: "claude-opus-4-8[1m]",
+    model: "claude-opus-5-5",
     notes:
       "Leads a Crew: talks to you, does most of the work itself and delegates design, review, implementation and chores to the Crew thinker, worker and chore profiles. Edit the four Crew profiles to change who fills each tier.",
     instructions: renderTemplate("profile-crew-lead", {}),
