@@ -2,6 +2,12 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.56 - 2026-11-15
+
+- Notifications: alerts shown while the app is connected also use the chat name as the title.
+- Android: tapping a terminal notification opens that terminal's workspace.
+- Android: dropped the unused expo-system-ui module.
+
 ## 0.17.55 - 2026-11-15
 
 - Android: notifications show the Pimi paw icon in Pimi pink.
