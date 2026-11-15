@@ -234,7 +234,7 @@ export class FlowService {
   }
 
   // Creates a run for the chat `agentId` on behalf of its agent (`run_flow`). A flow the owner has
-  // not approved gets a run that waits for the card's Run button; every other flow starts at
+  // not approved gets a run that waits for the card's Start button; every other flow starts at
   // once. Returns before any step finishes.
   async startRun(input: { name: string; input: string; agentId: string }): Promise<FlowRun> {
     const { flow, run } = await this.createRun({

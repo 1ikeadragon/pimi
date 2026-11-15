@@ -3387,7 +3387,7 @@ function createToolCatalog(
     {
       title: "Run flow",
       description:
-        "Run a saved flow by name in this chat's directory. `input` is the text the flow's steps read as {{input}}. Returns at once with the run id while the flow works; its step and judge agents appear as your subagents, and when the run ends the result arrives here as a message: the final step's output, or the last failing feedback when a check never passed (Not met). Do not poll or wait for it; tell the user the flow started and carry on. A flow the user has not approved yet starts only when the user presses Run on its card.",
+        "Run a saved flow by name in this chat's directory. `input` is the text the flow's steps read as {{input}}. Returns at once with the run id while the flow works; its step and judge agents appear as your subagents, and when the run ends the result arrives here as a message: the final step's output, or the last failing feedback when a check never passed (Not met). Do not poll or wait for it; tell the user the flow started and carry on. A flow the user has not approved yet starts only when the user presses Start on its card.",
       inputSchema: {
         name: z.string().trim().min(1).describe("The flow's name, as in list_flows."),
         input: z.string().default("").describe("What the flow should work on."),
@@ -3414,7 +3414,7 @@ function createToolCatalog(
     {
       title: "Save flow",
       description:
-        "Save a reusable flow: a graph of agent steps, with judge gates that must pass before later steps run. Flows are run from chat with run_flow and never on a schedule. Step prompts may use {{input}} (what the chat passes when it runs the flow) and {{steps.<id>.output}} of an earlier step. Each step's agent knows nothing of this conversation, so write each prompt as a complete brief. The flow waits for the user's approval, and you cannot approve it: tell the user it is in Library > Flows, where Approve approves it, and that run_flow then posts a card in this chat whose Run button approves and starts it. Saving again under the same name replaces your flow and returns it to waiting.",
+        "Save a reusable flow: a graph of agent steps, with judge gates that must pass before later steps run. Flows are run from chat with run_flow and never on a schedule. Step prompts may use {{input}} (what the chat passes when it runs the flow) and {{steps.<id>.output}} of an earlier step. Each step's agent knows nothing of this conversation, so write each prompt as a complete brief. When the user asks for a flow from this conversation, build the steps from what was actually done here, with the exact commands, files and checks, and add a gate for anything that was verified. The flow waits for the user's approval, and you cannot approve it: tell the user to type /<name> in this chat, which posts a card whose Start button approves and runs it (Library > Flows also has Approve). Saving again under the same name replaces your flow and returns it to waiting.",
       inputSchema: z.object({
         name: z
           .string()
