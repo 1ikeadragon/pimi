@@ -22,7 +22,13 @@ export function useOpenChatVisualInTab(
 }
 
 /** The "Open in tab" action every chat visual card carries. */
-export function OpenInTabButton({ onPress }: { onPress?: () => void }) {
+export function OpenInTabButton({
+  onPress,
+  iconOnly = false,
+}: {
+  onPress?: () => void;
+  iconOnly?: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <Button
@@ -34,7 +40,7 @@ export function OpenInTabButton({ onPress }: { onPress?: () => void }) {
       onPress={onPress}
       testID="chat-visual-open-in-tab"
     >
-      {t("message.visualization.openInTab")}
+      {iconOnly ? undefined : t("message.visualization.openInTab")}
     </Button>
   );
 }

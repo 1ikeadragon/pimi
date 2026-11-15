@@ -346,6 +346,7 @@ function RunHeader({
     [run.flowName, run.id],
   );
   const openInTab = useOpenChatVisualInTab(visual, title);
+  const isCompact = useIsCompactFormFactor();
   return (
     <View style={styles.header}>
       <Workflow size={16} color={styles.icon.color} />
@@ -353,7 +354,7 @@ function RunHeader({
         {title}
       </Text>
       <StatusBadge label={t(`flowRun.status.${run.status}`)} variant={STATUS_VARIANT[run.status]} />
-      <OpenInTabButton onPress={openInTab} />
+      <OpenInTabButton onPress={openInTab} iconOnly={isCompact} />
       <Button
         variant="ghost"
         size="sm"
