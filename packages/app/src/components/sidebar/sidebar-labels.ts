@@ -23,12 +23,12 @@ export function statusWorkspaceGroups(groups: readonly StatusGroup[]): SidebarWo
  *
  * `Unlabelled` is a row like any other, so it is a key in the same list rather than a boolean
  * beside it; the only thing that makes it special is what the key asks of a workspace.
- * Selecting several labels includes workspaces whose root chats carry any of them.
+ * Selecting several labels includes workspaces whose chat carries any of them.
  */
 export function filterWorkspacesByLabels(
   input: {
     workspaces: readonly SidebarWorkspaceEntry[];
-    /** Label ids on the workspace's root chats, wherever they sit. */
+    /** Label ids on the workspace's chat. */
     labelIdsOf: (workspace: SidebarWorkspaceEntry) => readonly string[];
   } & SidebarLabelFilter,
 ): SidebarWorkspaceEntry[] {

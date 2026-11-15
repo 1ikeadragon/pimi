@@ -22,7 +22,7 @@ export function useChatLabelMenu(
   workspaceId: string,
 ): { pages: readonly MenuPageDefinition[]; trigger: ReactElement | null } {
   const { t } = useTranslation();
-  const target = useWorkspaceChatTarget(serverId, workspaceId, "shown");
+  const target = useWorkspaceChatTarget(serverId, workspaceId);
   const pages = useLabelMenuPages(serverId, target);
   const trigger = useMemo(
     () =>

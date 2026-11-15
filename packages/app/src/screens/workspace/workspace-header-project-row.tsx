@@ -37,8 +37,8 @@ export function WorkspaceHeaderProjectRow({
   workspaceId: string;
 }) {
   const isCompact = useIsCompactFormFactor();
-  // The header names the workspace's primary chat, so it shows that chat's labels.
-  const labelTarget = useWorkspaceChatTarget(serverId, workspaceId, "shown");
+  // The header names the workspace's chat, so it shows that chat's labels.
+  const labelTarget = useWorkspaceChatTarget(serverId, workspaceId);
   const hasLabels = useTargetLabelIds(serverId, labelTarget).length > 0;
   const hostBadge = useHostBadges({ enabled: isCompact }).get(serverId) ?? null;
   const showProject = isSubtitleDistinct || isCompact;

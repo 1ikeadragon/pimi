@@ -11,7 +11,7 @@ import type { CommandCenterContribution, CommandCenterIcon } from "./contributio
 export interface WorkspaceCommandCenterLabelChoice {
   id: string;
   name: string;
-  /** Whether the workspace's primary chat already carries this label. */
+  /** Whether the workspace's chat already carries this label. */
   assigned: boolean;
   icon?: CommandCenterIcon;
 }

@@ -44,7 +44,6 @@ interface CloseBulkWorkspaceTabsInput {
   groups: BulkClosableTabGroups;
   closeTab: (tabId: string, action: () => Promise<void>) => Promise<void>;
   closeWorkspaceTabWithCleanup: (input: CloseWorkspaceTabWithCleanupInput) => void;
-  closeLayoutOnlyAgent: (agentId: string) => Promise<void>;
   logLabel: string;
   warn?: (message: string, payload: object) => void;
 }
@@ -121,25 +120,11 @@ export function buildBulkCloseConfirmationMessage(
 }
 
 export async function closeBulkWorkspaceTabs(input: CloseBulkWorkspaceTabsInput): Promise<void> {
-  const {
-    client,
-    groups,
-    closeTab,
-    closeWorkspaceTabWithCleanup,
-    closeLayoutOnlyAgent,
-    logLabel,
-    warn,
-  } = input;
+  const { client, groups, closeTab, closeWorkspaceTabWithCleanup, logLabel, warn } = input;
   const hasDestructiveTabs = groups.archiveAgentTabs.length > 0 || groups.terminalTabs.length > 0;
 
   for (const { tabId, agentId } of groups.layoutOnlyAgentTabs) {
     await closeTab(tabId, async () => {
-      try {
-        await closeLayoutOnlyAgent(agentId);
-      } catch (error) {
-        warn?.(`[WorkspaceScreen] Failed to close subagent tab ${logLabel}`, { error, agentId });
-        return;
-      }
       closeWorkspaceTabWithCleanup({
         tabId,
         target: { kind: "agent", agentId },

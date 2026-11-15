@@ -218,6 +218,13 @@ class SqlBackedRegistry<TRecord extends RegistryRecord> {
     await this.load();
   }
 
+  /** Reads the rows again after a startup step rewrote them underneath the cache. */
+  async reload(): Promise<void> {
+    await this.mutationQueue;
+    this.loaded = false;
+    await this.load();
+  }
+
   async listAll(): Promise<TRecord[]> {
     await this.load();
     return Array.from(this.cache.values());

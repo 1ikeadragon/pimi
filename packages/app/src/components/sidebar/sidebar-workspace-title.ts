@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
 import { getStatusBucketLabel } from "@/hooks/sidebar-status-view-model";
-import { resolveChatTitle, useWorkspacePrimaryChat } from "@/chats/primary-chat";
+import { resolveChatTitle, useWorkspaceChat } from "@/chats/workspace-chat";
 
 /**
  * The row's label is the chat's title, the same string its tab shows. The workspace title only
@@ -10,9 +10,9 @@ import { resolveChatTitle, useWorkspacePrimaryChat } from "@/chats/primary-chat"
 export function useSidebarChatTitle(
   workspace: Pick<SidebarWorkspaceEntry, "serverId" | "workspaceId" | "name">,
 ): string {
-  const primary = useWorkspacePrimaryChat(workspace.serverId, workspace.workspaceId);
+  const chat = useWorkspaceChat(workspace.serverId, workspace.workspaceId);
   return resolveChatTitle({
-    primaryTitle: primary?.title,
+    chatTitle: chat?.title,
     workspaceTitle: workspace.name,
     fallback: "New chat",
   });

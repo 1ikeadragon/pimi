@@ -15,7 +15,6 @@ export function getCrewRoleFromLabels(
   return CREW_ROLES.find((candidate) => candidate === role) ?? null;
 }
 
-const OPEN_AGENT_TAB_LABEL_PREFIX = "pimi.open-agent-tab.";
 /** On a subagent stopped with an ancestor: the ID of the agent whose Stop reached it. */
 export const STOPPED_BY_AGENT_ID_LABEL = "pimi.stopped-by-agent-id";
 /**
@@ -32,14 +31,6 @@ export function getStoppedByAgentIdFromLabels(
   return typeof stoppedBy === "string" && stoppedBy.length > 0 ? stoppedBy : null;
 }
 
-export function getOpenAgentTabLabel(clientId: string): string {
-  return `${OPEN_AGENT_TAB_LABEL_PREFIX}${clientId}`;
-}
-
-export function isOpenAgentTabLabel(label: string): boolean {
-  return label.startsWith(OPEN_AGENT_TAB_LABEL_PREFIX);
-}
-
 export interface AgentLabelSource {
   labels?: Record<string, unknown> | null;
 }
@@ -53,12 +44,6 @@ export function getParentAgentIdFromLabels(labels: Record<string, unknown> | nul
 
 export function isDelegatedAgent(agent: AgentLabelSource): boolean {
   return getParentAgentIdFromLabels(agent.labels) !== null;
-}
-
-export function hasOpenAgentTab(labels: Record<string, unknown> | null | undefined): boolean {
-  return Object.entries(labels ?? {}).some(
-    ([label, value]) => isOpenAgentTabLabel(label) && value === "true",
-  );
 }
 
 // Absent parent server label means the same host.

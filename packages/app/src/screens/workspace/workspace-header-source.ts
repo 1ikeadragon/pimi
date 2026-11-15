@@ -1,4 +1,4 @@
-import { resolveChatTitle } from "@/chats/primary-chat";
+import { resolveChatTitle } from "@/chats/workspace-chat";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 
 export type WorkspaceHeaderCheckoutState =
@@ -44,7 +44,7 @@ function areHeaderLabelsEquivalent(
 
 export function resolveWorkspaceHeader(input: {
   workspace: WorkspaceDescriptor;
-  /** The shown chat's own title, the same string its tab and sidebar row show. */
+  /** The chat agent's own title, the same string its tab and sidebar row show. */
   chatTitle: string | null;
 }): {
   title: string;
@@ -52,7 +52,7 @@ export function resolveWorkspaceHeader(input: {
 } {
   return {
     title: resolveChatTitle({
-      primaryTitle: input.chatTitle,
+      chatTitle: input.chatTitle,
       workspaceTitle: input.workspace.name,
       fallback: "New chat",
     }),

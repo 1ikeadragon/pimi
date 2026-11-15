@@ -16,10 +16,8 @@ import {
 } from "@pimi/protocol/agent-lifecycle";
 import {
   getParentAgentIdFromLabels,
-  hasOpenAgentTab,
   ATTACK_RUN_LABEL,
   isDelegatedAgent,
-  isOpenAgentTabLabel,
   PARENT_AGENT_ID_LABEL,
   STOPPED_BY_AGENT_ID_LABEL,
   STOPPED_WITH_SUBAGENTS_LABEL,
@@ -662,6 +660,11 @@ export interface AgentManagerOptions {
   isAutoNamingEnabled?: () => boolean;
   /** The chat record's title when the user or a tool set it explicitly, else null. */
   resolveChatRecordTitle?: (workspaceId: string) => Promise<string | null>;
+  /** Mints a workspace record beside `fromWorkspaceId` (same project and directory); returns its id. */
+  createChatWorkspace?: (input: {
+    fromWorkspaceId: string;
+    title: string | null;
+  }) => Promise<string>;
   timelineStore?: InMemoryAgentTimelineStore;
   /** Where chat timelines are kept across daemon restarts; without it they live in memory only. */
   timelineArchive?: SqliteTimelineStore;
@@ -1114,26 +1117,28 @@ function getFirstUserMessageTextFromImport(
   return null;
 }
 
+// A child in another workspace is that workspace's chat, so it outlives its parent. A child in the
+// parent's workspace is part of the parent's chat and is archived with it.
 function shouldDetachFromArchivedParent(
   parent: Pick<StoredAgentRecord, "workspaceId">,
   child: StoredAgentRecord,
 ): boolean {
-  const isCrossWorkspace =
+  return (
     parent.workspaceId !== undefined &&
     child.workspaceId !== undefined &&
-    parent.workspaceId !== child.workspaceId;
-  return isCrossWorkspace || hasOpenAgentTab(child.labels);
+    parent.workspaceId !== child.workspaceId
+  );
 }
 
-function detachedAgentLabelPatch(labels: Record<string, string>): AgentLabelPatch {
-  const patch: AgentLabelPatch = { [PARENT_AGENT_ID_LABEL]: null };
-  for (const label of Object.keys(labels)) {
-    if (isOpenAgentTabLabel(label)) {
-      patch[label] = null;
-    }
-  }
-  return patch;
+const DETACHED_AGENT_LABEL_PATCH: AgentLabelPatch = { [PARENT_AGENT_ID_LABEL]: null };
+
+interface ChatMember {
+  id: string;
+  labels: Record<string, string>;
+  createdAt: number;
 }
+
+const NO_CHAT_CLAIM = (): void => undefined;
 
 /**
  * How long an archived internal agent stays readable by id. Storage plays this
@@ -1212,6 +1217,10 @@ export class AgentManager {
   private readonly generateChatTitle?: AgentManagerOptions["generateChatTitle"];
   private readonly isAutoNamingEnabled?: () => boolean;
   private readonly resolveChatRecordTitle?: (workspaceId: string) => Promise<string | null>;
+  private readonly createChatWorkspace?: AgentManagerOptions["createChatWorkspace"];
+  // Workspaces whose first agent is still being created. A second creation waits for it, so two
+  // agents started together cannot both become the chat.
+  private readonly chatRootClaims = new Map<string, Promise<void>>();
   private logger: Logger;
   private readonly rescueTimeouts: Required<AgentManagerRescueTimeouts>;
   private readonly beforeSteerUnavailableFallback?: AgentManagerOptions["beforeSteerUnavailableFallback"];
@@ -1232,6 +1241,7 @@ export class AgentManager {
     this.generateChatTitle = options.generateChatTitle;
     this.isAutoNamingEnabled = options.isAutoNamingEnabled;
     this.resolveChatRecordTitle = options.resolveChatRecordTitle;
+    this.createChatWorkspace = options.createChatWorkspace;
     this.mcpBaseUrl = options?.mcpBaseUrl ?? null;
     this.mcpAuthToken = options?.mcpAuthToken ?? null;
     this.mcpCallerAuthToken = options.mcpCallerAuthToken;
@@ -1943,6 +1953,169 @@ export class AgentManager {
     return this.providerSubagents.fetchTimeline(parentAgentId, subagentId, options);
   }
 
+  /** A workspace's visible agents that are not archived, live state winning over stored. */
+  private async listChatMembers(workspaceId: string): Promise<Map<string, ChatMember>> {
+    const members = new Map<string, ChatMember>();
+    for (const record of (await this.registry?.listByWorkspace(workspaceId)) ?? []) {
+      if (record.archivedAt || record.internal || record.background) continue;
+      members.set(record.id, {
+        id: record.id,
+        labels: record.labels,
+        createdAt: Date.parse(record.createdAt),
+      });
+    }
+    for (const agent of this.agents.values()) {
+      if (agent.workspaceId !== workspaceId || agent.internal || agent.background) continue;
+      members.set(agent.id, {
+        id: agent.id,
+        labels: agent.labels,
+        createdAt: agent.createdAt.getTime(),
+      });
+    }
+    return members;
+  }
+
+  /** Where an agent's parent lives: `"unknown"` for a parent this daemon has no record of. */
+  private async resolveParentWorkspace(
+    labels: Record<string, string> | undefined,
+  ): Promise<
+    { parented: false } | { parented: true; workspaceId: string | undefined | "unknown" }
+  > {
+    const parentId = getParentAgentIdFromLabels(labels);
+    if (!parentId) return { parented: false };
+    const parent = this.agents.get(parentId) ?? (await this.registry?.get(parentId));
+    return { parented: true, workspaceId: parent ? parent.workspaceId : "unknown" };
+  }
+
+  /**
+   * A workspace is one chat: a root agent and the subagents below it. The root is the agent with
+   * no parent, or with a parent in another workspace. Returns the oldest one that is not archived.
+   */
+  private async findChatRoot(workspaceId: string, exceptAgentId?: string): Promise<string | null> {
+    const members = await this.listChatMembers(workspaceId);
+    let root: ChatMember | null = null;
+    for (const member of members.values()) {
+      if (member.id === exceptAgentId) continue;
+      const parentId = getParentAgentIdFromLabels(member.labels);
+      if (parentId && members.has(parentId)) continue;
+      const parent = await this.resolveParentWorkspace(member.labels);
+      if (
+        parent.parented &&
+        (parent.workspaceId === "unknown" || parent.workspaceId === workspaceId)
+      ) {
+        continue;
+      }
+      if (!root || member.createdAt < root.createdAt) root = member;
+    }
+    return root?.id ?? null;
+  }
+
+  /**
+   * Decides what a new agent is to the chat it is placed in. A subagent of an agent in that chat
+   * stays one. Anything else becomes the chat when the workspace has none, and otherwise joins it
+   * as a subagent of the chat. `settle` must be called once the agent is registered or has failed.
+   */
+  private async claimChatPlacement(input: {
+    agentId: string;
+    workspaceId: string | undefined;
+    labels: Record<string, string> | undefined;
+    hidden: boolean;
+  }): Promise<{ labels: Record<string, string> | undefined; settle: () => void }> {
+    const { workspaceId, labels } = input;
+    const unclaimed = { labels, settle: NO_CHAT_CLAIM };
+    if (!workspaceId || input.hidden) return unclaimed;
+    const parent = await this.resolveParentWorkspace(labels);
+    if (
+      parent.parented &&
+      (parent.workspaceId === "unknown" || parent.workspaceId === workspaceId)
+    ) {
+      return unclaimed;
+    }
+    for (let pending = this.chatRootClaims.get(workspaceId); pending; ) {
+      await pending;
+      pending = this.chatRootClaims.get(workspaceId);
+    }
+    let resolveClaim: () => void = NO_CHAT_CLAIM;
+    const claim = new Promise<void>((done) => {
+      resolveClaim = done;
+    });
+    this.chatRootClaims.set(workspaceId, claim);
+    const settle = (): void => {
+      if (this.chatRootClaims.get(workspaceId) === claim) this.chatRootClaims.delete(workspaceId);
+      resolveClaim();
+    };
+    try {
+      const chatAgentId = await this.findChatRoot(workspaceId, input.agentId);
+      if (!chatAgentId) return { labels, settle };
+      settle();
+      return { labels: { ...labels, [PARENT_AGENT_ID_LABEL]: chatAgentId }, settle: NO_CHAT_CLAIM };
+    } catch (error) {
+      settle();
+      throw error;
+    }
+  }
+
+  /**
+   * Moves a root agent that shares its workspace with another chat into a workspace of its own,
+   * in the same project and directory, together with the subagents below it.
+   */
+  private async giveOwnChatWorkspace(agentId: string): Promise<void> {
+    const registry = this.requireRegistry();
+    const record = await registry.get(agentId);
+    const workspaceId = this.agents.get(agentId)?.workspaceId ?? record?.workspaceId;
+    if (!workspaceId || !record || record.internal || record.background) return;
+    if (!this.createChatWorkspace || !(await this.findChatRoot(workspaceId, agentId))) return;
+
+    const tree = await this.collectChatTree(agentId, workspaceId);
+    const nextWorkspaceId = await this.createChatWorkspace({
+      fromWorkspaceId: workspaceId,
+      title: record.title ?? null,
+    });
+    for (const id of tree) {
+      const live = this.agents.get(id);
+      if (live) {
+        live.workspaceId = nextWorkspaceId;
+        this.touchUpdatedAt(live);
+        await this.persistSnapshot(live);
+        this.emitState(live, { persist: false });
+        continue;
+      }
+      const moved = await registry.updateRecord(id, (current) => ({
+        ...current,
+        workspaceId: nextWorkspaceId,
+      }));
+      if (moved && !moved.internal && !moved.archivedAt) this.dispatchStoredAgentState(moved);
+    }
+  }
+
+  /** An agent and every agent below it in the same workspace, archived ones included. */
+  private async collectChatTree(agentId: string, workspaceId: string): Promise<string[]> {
+    const registry = this.requireRegistry();
+    const childrenByParent = new Map<string, string[]>();
+    const addChild = (id: string, labels: Record<string, string> | undefined): void => {
+      const parentId = getParentAgentIdFromLabels(labels);
+      if (!parentId || id === agentId) return;
+      const children = childrenByParent.get(parentId);
+      if (!children) childrenByParent.set(parentId, [id]);
+      else if (!children.includes(id)) children.push(id);
+    };
+    for (const stored of await registry.listByWorkspace(workspaceId))
+      addChild(stored.id, stored.labels);
+    for (const live of this.agents.values()) {
+      if (live.workspaceId === workspaceId) addChild(live.id, live.labels);
+    }
+    const tree: string[] = [];
+    const seen = new Set<string>();
+    const queue = [agentId];
+    for (let next = queue.shift(); next; next = queue.shift()) {
+      if (seen.has(next)) continue;
+      seen.add(next);
+      tree.push(next);
+      queue.push(...(childrenByParent.get(next) ?? []));
+    }
+    return tree;
+  }
+
   createAgent(
     config: AgentSessionConfig,
     agentId: string | undefined,
@@ -1973,6 +2146,26 @@ export class AgentManager {
       };
       options = { ...options, env: request.env };
     }
+    const placement = await this.claimChatPlacement({
+      agentId: resolvedAgentId,
+      workspaceId: options.workspaceId,
+      labels: options.labels,
+      hidden: config.internal === true || options.background === true,
+    });
+    options = { ...options, labels: placement.labels };
+    try {
+      return await this.createPlacedAgent(config, resolvedAgentId, options, withoutAppTools);
+    } finally {
+      placement.settle();
+    }
+  }
+
+  private async createPlacedAgent(
+    config: AgentSessionConfig,
+    resolvedAgentId: string,
+    options: CreateAgentOptions,
+    withoutAppTools: boolean,
+  ): Promise<ManagedAgent> {
     // A stored agent without a provider thread is recreated under its own id, and
     // still owns the rows it carried over from an earlier provider.
     await this.deleteAgentState(resolvedAgentId, { keepCarriedTimeline: true });
@@ -2199,7 +2392,32 @@ export class AgentManager {
     this.assertAcceptingAgentRegistrations();
     const resolvedAgentId = validateAgentId(this.idFactory(), "importProviderSession");
     this.requireEnabledProvider(input.provider);
+    const placement = await this.claimChatPlacement({
+      agentId: resolvedAgentId,
+      workspaceId: input.workspaceId,
+      labels: input.labels,
+      hidden: false,
+    });
+    try {
+      return await this.importPlacedProviderSession(
+        { ...input, labels: placement.labels },
+        resolvedAgentId,
+      );
+    } finally {
+      placement.settle();
+    }
+  }
 
+  private async importPlacedProviderSession(
+    input: {
+      provider: AgentProvider;
+      providerHandleId: string;
+      cwd: string;
+      workspaceId: string;
+      labels?: Record<string, string>;
+    },
+    resolvedAgentId: string,
+  ): Promise<ManagedAgent> {
     const client = await this.requireAvailableClient({ provider: input.provider });
     if (!client.importSession) {
       throw new Error(`Provider '${input.provider}' does not support importing sessions`);
@@ -3511,7 +3729,9 @@ export class AgentManager {
         return { record, live: true, previousParentAgentId: null };
       }
 
-      const { record } = await this.writeLabels(agentId, detachedAgentLabelPatch(liveAgent.labels));
+      await this.writeLabels(agentId, DETACHED_AGENT_LABEL_PATCH);
+      await this.giveOwnChatWorkspace(agentId);
+      const record = await registry.get(agentId);
       if (!record) {
         throw new Error(`Agent not found in storage after detach: ${agentId}`);
       }
@@ -3527,11 +3747,13 @@ export class AgentManager {
       return { record, live: false, previousParentAgentId: null };
     }
 
-    const result = await this.writeLabels(agentId, detachedAgentLabelPatch(record.labels));
-    if (!result.record) {
+    await this.writeLabels(agentId, DETACHED_AGENT_LABEL_PATCH);
+    await this.giveOwnChatWorkspace(agentId);
+    const detached = await registry.get(agentId);
+    if (!detached) {
       throw new Error(`Agent not found in storage after detach: ${agentId}`);
     }
-    return { record: result.record, live: false, previousParentAgentId };
+    return { record: detached, live: false, previousParentAgentId };
   }
 
   notifyAgentState(agentId: string): void {
@@ -3655,14 +3877,27 @@ export class AgentManager {
     if (this.agents.has(agentId)) await this.closeAgentRuntime(agentId);
     await this.syncNativeArchiveState(record.provider, record.persistence, "restore");
 
-    const nextRecord: StoredAgentRecord = {
+    let nextRecord: StoredAgentRecord = {
       ...record,
       ...(updates?.workspaceId ? { workspaceId: updates.workspaceId } : {}),
       ...(updates?.labels ? { labels: applyLabelPatch(record.labels, updates.labels) } : {}),
       archivedAt: null,
       updatedAt: new Date().toISOString(),
     };
+    // The workspace may have gained a chat while this one was archived. Placed there on purpose
+    // (an import into that chat), it joins as a subagent; restored, it gets a workspace of its own.
+    const otherChatAgentId = await this.findOtherChatFor(nextRecord);
+    if (otherChatAgentId && updates?.workspaceId) {
+      nextRecord = {
+        ...nextRecord,
+        labels: { ...nextRecord.labels, [PARENT_AGENT_ID_LABEL]: otherChatAgentId },
+      };
+    }
     await registry.upsert(nextRecord);
+    if (otherChatAgentId && !updates?.workspaceId) {
+      await this.giveOwnChatWorkspace(agentId);
+      nextRecord = (await registry.get(agentId)) ?? nextRecord;
+    }
 
     if (this.getAgent(agentId)) {
       this.notifyAgentState(agentId);
@@ -3671,6 +3906,19 @@ export class AgentManager {
       this.dispatchStoredAgentState(nextRecord);
     }
     return true;
+  }
+
+  /** The chat a root record would share its workspace with, or null when it would not. */
+  private async findOtherChatFor(record: StoredAgentRecord): Promise<string | null> {
+    if (!record.workspaceId || record.internal || record.background) return null;
+    const parent = await this.resolveParentWorkspace(record.labels);
+    if (
+      parent.parented &&
+      (parent.workspaceId === "unknown" || parent.workspaceId === record.workspaceId)
+    ) {
+      return null;
+    }
+    return this.findChatRoot(record.workspaceId, record.id);
   }
 
   async unarchiveSnapshotByHandle(handle: AgentPersistenceHandle): Promise<void> {
@@ -3709,6 +3957,13 @@ export class AgentManager {
     },
   ): Promise<void> {
     const liveAgent = this.getAgent(agentId);
+    const requestedParent = updates.labels?.[PARENT_AGENT_ID_LABEL];
+    if (requestedParent !== undefined) {
+      const labels = liveAgent?.labels ?? (await this.registry?.get(agentId))?.labels;
+      if (labels?.[PARENT_AGENT_ID_LABEL] !== requestedParent) {
+        throw new Error("An agent's parent is set when it is created and cannot be changed");
+      }
+    }
     if (liveAgent) {
       if (updates.title) {
         await this.setTitle(agentId, updates.title);
@@ -3723,8 +3978,8 @@ export class AgentManager {
   }
 
   private async runLifecycleMutation<T>(agentId: string, mutation: () => Promise<T>): Promise<T> {
-    // Parent cascade classifies a child inside the same lane used by open-tab
-    // label writes, so a received ownership update cannot be overtaken.
+    // Parent cascade classifies a child inside the same lane used by label
+    // writes, so a received ownership update cannot be overtaken.
     const previous = this.lifecycleMutationTails.get(agentId) ?? Promise.resolve();
     const result = previous.catch(() => undefined).then(mutation);
     const tail = result.then(

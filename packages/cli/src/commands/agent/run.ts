@@ -53,7 +53,7 @@ export function addRunOptions(cmd: Command): Command {
     .option("--forge <forge>", "Forge for checkout-pr mode")
     .option(
       "--chat <id>",
-      "Run in an existing chat (defaults to the caller's chat when agent-scoped)",
+      "Run in an existing chat: as its agent when it has none yet, otherwise as a subagent of its agent (defaults to the caller's chat when agent-scoped)",
     )
     .option(
       "--image <path>",
@@ -544,7 +544,8 @@ export async function resolveExistingRunWorkspace(
 }
 
 // Chat policy for `pimi run`. Precedence:
-//   1. --chat <id>                 -> run in that existing chat
+//   1. --chat <id>                 -> run in that existing chat (the daemon makes the agent
+//                                     the chat's subagent when the chat already has an agent)
 //   2. caller agent                -> daemon resolves the caller's chat
 //   3. $PIMI_CHAT_ID               -> exported by chat terminals
 //   4. --new-chat <kind>           -> mint a new chat explicitly

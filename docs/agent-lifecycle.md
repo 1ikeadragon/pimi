@@ -165,22 +165,14 @@ Accepting new work after an ambiguous interruption would create a split-brain se
 
 ## Relationships
 
-Agents can launch other agents via the agent-scoped `create_agent` MCP tool. Agent-scoped creation is always asynchronous and always stamps `pimi.parent-agent-id`, pointing back at the caller. Omit `chatId` to use the caller's chat, or pass an existing chat ID returned by `create_chat`. Placement never changes parentage. An agent that should be the user's own chat calls `create_chat` with `initialPrompt` instead: that agent carries no parent label.
+Agents can launch other agents via the agent-scoped `create_agent` MCP tool. Agent-scoped creation is always asynchronous and always stamps `pimi.parent-agent-id`, pointing back at the caller. Omit `chatId` to use the caller's chat, or pass an existing chat ID returned by `create_chat`. An agent that should be the user's own chat calls `create_chat` with `initialPrompt` instead: that agent carries no parent label.
+
+A workspace is one chat: one root agent and the subagents below it. `AgentManager.claimChatPlacement` enforces this for every creation and import, whoever asks. An agent whose parent is in the target workspace stays that parent's subagent. Any other agent placed in a workspace that already has a root agent becomes a subagent of that root, so a new agent tab, `pimi run --chat`, an imported session, an Attack lead and a later automation step all join the chat. Placed in a workspace with no root, the agent becomes the chat and keeps a parent in another workspace if it has one. Two creations into an empty workspace are serialized so only one becomes the chat.
 
 - **Subagents** — exist as part of the creating agent's work, appear in that agent's subagent track, and are archived with it.
-- **Detached agents** — stand on their own after an explicit detach transition, do not appear in the former parent's subagent track, and are not archived with it.
+- **Detached agents** — become chats of their own after an explicit detach transition, do not appear in the former parent's subagent track, and are not archived with it.
 
-Parent archive detaches a subagent instead of archiving it when either condition holds:
-
-- The child belongs to another workspace.
-- The child is currently open in an agent tab.
-
-All other children archive with the parent. After the workspace layout hydrates, the client marks
-every managed subagent present in its tabs with `pimi.open-agent-tab.<client-id>=true` through the
-generic agent metadata update. This includes background and restored tabs; navigation does not own
-the marker. Closing a tab sets that client's label to `false`. Any `true` client label keeps the child
-open. Detach clears the parent and every open-tab label. The surviving child therefore becomes a
-normal root agent immediately, and closing its still-open tab archives it.
+Parent archive detaches a child that belongs to another workspace, where it is that workspace's chat. Every child in the parent's own workspace archives with the parent, open tab or not.
 
 Agent-scoped workspace creation records the caller's workspace as `parentWorkspaceId`.
 This is informational ancestry for future workspace grouping. It does not change placement,
@@ -192,7 +184,7 @@ Runtime ownership is resolved from explicit workspace ID and caller context, nev
 
 Setup belongs to the workspace, including combined workspace-plus-agent creation and the supported agent `worktree` request. Run setup through the workspace workflow before launching configured terminals or scripts. Setup output is read in the Setup panel from per-command snapshots; never produce setup chat timeline rows or concatenate command logs. Legacy agent `git`/`worktreeName` inputs and hidden MCP worktree placement are rejected with workspace-creation guidance. Existing wire schemas retain an empty combined-log string for parsing compatibility.
 
-Users can also detach an existing subagent from the subagents track. Detach is deliberately a manual lifecycle gesture, not an agent-facing MCP tool. It removes the parent and open-tab lifecycle labels: it does not stop, archive, move, or restart the agent. The agent keeps its current `cwd` and `workspaceId`, leaves the former parent's track, and behaves like a root agent for tab close, workspace activity, and future parent archive.
+Users can also detach an existing subagent from the subagents track. Detach is deliberately a manual lifecycle gesture, not an agent-facing MCP tool. It removes the parent label and moves the agent, with the subagents below it, into a new workspace record beside the old one (same project, `cwd` and git placement), so it becomes a chat with its own sidebar row. It does not stop, archive, or restart the agent. Restoring an archived root agent whose workspace gained another chat in the meantime moves it the same way. The agent's parent label cannot be rewritten through an agent update.
 
 `notifyOnFinish` defaults to `true` for agent-scoped creation and prompt follow-ups because most delegated work needs to report back to the creating agent. Set it to `false` for explicit reporting or no completion callback.
 
@@ -307,7 +299,7 @@ Archiving runs through `AgentManager.archiveAgent` (`packages/server/src/server/
 2. Set `archivedAt` and normalize `lastStatus` away from `running`/`initializing`
 3. Notify subscribers
 4. Close the runtime (kills the process if still running)
-5. **Resolve children** — detach cross-workspace and open-tab children; cascade-archive the rest recursively
+5. **Resolve children** — detach cross-workspace children; cascade-archive the rest recursively
 
 Cascade is what keeps subagent fleets from outliving their orchestrator.
 
@@ -378,7 +370,7 @@ These are two distinct concepts that used to be conflated:
 
 Closing a tab on a **root agent** still archives — the tab is the agent's home, so closing it means "I'm done with this agent." A confirm dialog protects against archiving a running agent by accident.
 
-Closing a tab on a **subagent** (any agent with `parentAgentId`) is **layout-only**. The app clears the current client's open-tab label before removing the tab. Another client's open tab remains protected. The agent stays unarchived and stays in its parent's track, so a later parent archive cascades to it when no client still has it open. The user can re-open the tab from the track at any time. Single and bulk tab close apply the same policy.
+Closing a tab on a **subagent** (any agent with `parentAgentId`) is **layout-only**. The agent stays unarchived and stays in its parent's track, so a later parent archive cascades to it. The user can re-open the tab from the track at any time. Single and bulk tab close apply the same policy.
 
 The asymmetry is intentional: a subagent's persistent relationship lives in the parent's track. Same-workspace subagents are not auto-opened as tabs; the user opens one from that track when needed. A cross-workspace subagent is also auto-opened as a tab in its own workspace so opening that workspace does not appear empty. It remains in the parent's track until it is actually detached.
 
@@ -388,7 +380,7 @@ Agent lifecycle status stays literal: a parent agent is `idle` when its own turn
 
 Workspace status is an aggregate activity signal computed **per `workspaceId`**. Ownership is never derived from `cwd` — many workspaces may share one directory, and same-`cwd` siblings do not clump under one status. Root agents and cross-workspace subagents contribute their normal state bucket to their own workspace. Same-workspace descendants contribute `running` to the nearest ancestor in that workspace; their non-running attention, permission, and error states stay in the parent's subagents track. This makes a cross-workspace subagent behave like a detached agent for workspace visibility and status without removing its parent relationship.
 
-A workspace with several root agents shows one sidebar row per root chat. The row that highlights, and the header title, labels and rename target, follow the root chat of the focused agent (the oldest root when no agent in the workspace is focused). Archiving a row archives that chat's agent when other root chats share the workspace, and the workspace record when it is the only one.
+A workspace has one root agent, so its sidebar row, header title, labels and rename target are that agent's, and archiving the row archives the workspace record. Data from builds before 0.17.62 could hold several root agents in one workspace; `splitMultiChatWorkspaces` (`packages/server/src/server/db/split-multi-chat-workspaces.ts`) gives each one its own record once at daemon start, after copying `pimi.db` to `pimi.db.pre-chat-split`.
 
 Running provider-native subagents contribute `running` to the workspace owned by their parent agent. Their completed, failed, and canceled states stay in the parent's subagents track.
 
@@ -458,7 +450,7 @@ Archived Pimi subagents disappear from the track, by design. To remove one from 
 
 The **Archive finished** row at the foot of the panel covers every finished row. It archives idle or errored managed Pimi subagents one at a time, and hides completed, failed, or canceled provider-owned rows in the current app session. Native sessions and timelines are untouched. Running and initializing children remain in the track. If a hidden provider child starts running again, the app brings it back to the track.
 
-To keep the agent alive but remove it from the parent's track, use **detach**. The daemon clears the relationship lifecycle labels, emits the normal agent update, and every client reclassifies the agent from subagent to root/sibling from that updated snapshot.
+To keep the agent alive but remove it from the parent's track, use **detach**. The daemon clears the relationship lifecycle labels, emits the normal agent update, and every client reclassifies the agent from subagent to the chat of its new workspace from that updated snapshot.
 
 ## Why this shape
 
@@ -492,15 +484,14 @@ $PIMI_HOME/agents/{cwd-with-dashes}/{agent-id}.json
 
 Each agent is a single JSON file. Fields relevant to this doc:
 
-| Field                                       | Type          | Meaning                                                                            |
-| ------------------------------------------- | ------------- | ---------------------------------------------------------------------------------- |
-| `id`                                        | `string`      | Stable identifier                                                                  |
-| `archivedAt`                                | `string?`     | Soft-delete timestamp (ISO 8601)                                                   |
-| `labels["pimi.parent-agent-id"]`            | `string?`     | Parent agent ID, set automatically for agent-scoped creation and removed by detach |
-| `labels["pimi.open-agent-tab.<client-id>"]` | `string?`     | `"true"` protects an open tab on that client; detach clears every matching label   |
-| `labels["pimi.stopped-by-agent-id"]`        | `string?`     | Agent whose Stop interrupted this subagent; cleared by Resume or the next turn     |
-| `labels["pimi.stopped-with-subagents"]`     | `string?`     | `mid-turn` / `idle` on an agent whose Stop also stopped subagents                  |
-| `labels["pimi.crew-role"]`                  | `string?`     | `thinker` / `worker` / `chore` on a subagent a Crew lead delegated to              |
-| `lastStatus`                                | `AgentStatus` | `initializing` / `idle` / `running` / `error` / `closed`                           |
+| Field                                   | Type          | Meaning                                                                            |
+| --------------------------------------- | ------------- | ---------------------------------------------------------------------------------- |
+| `id`                                    | `string`      | Stable identifier                                                                  |
+| `archivedAt`                            | `string?`     | Soft-delete timestamp (ISO 8601)                                                   |
+| `labels["pimi.parent-agent-id"]`        | `string?`     | Parent agent ID, set automatically for agent-scoped creation and removed by detach |
+| `labels["pimi.stopped-by-agent-id"]`    | `string?`     | Agent whose Stop interrupted this subagent; cleared by Resume or the next turn     |
+| `labels["pimi.stopped-with-subagents"]` | `string?`     | `mid-turn` / `idle` on an agent whose Stop also stopped subagents                  |
+| `labels["pimi.crew-role"]`              | `string?`     | `thinker` / `worker` / `chore` on a subagent a Crew lead delegated to              |
+| `lastStatus`                            | `AgentStatus` | `initializing` / `idle` / `running` / `error` / `closed`                           |
 
 See [`docs/data-model.md`](./data-model.md) for the full agent record.

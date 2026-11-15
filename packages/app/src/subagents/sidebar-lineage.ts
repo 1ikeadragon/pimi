@@ -1,8 +1,7 @@
 import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
 import type { ProviderSubagentDescriptorPayload } from "@pimi/protocol/messages";
 import type { Agent } from "@/stores/session-store";
-import { chatStateBucket, isVisibleChatAgent } from "@/chats/primary-chat";
-import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
+import { isVisibleChatAgent } from "@/chats/workspace-chat";
 import {
   managedSubagentStatusBucket,
   providerSubagentStatusBucket,
@@ -32,13 +31,11 @@ export type SidebarLineageWorker =
       bucket: SubagentStatusBucket;
     };
 
-/** A root chat in a workspace and the children it started. */
-export interface SidebarLineageChat {
+/** A workspace's chat and the children it started. */
+export interface SidebarLineage {
   serverId: string;
+  /** The chat's agent. */
   agentId: string;
-  title: string | null;
-  /** The chat's own state, as its workspace row would show it. */
-  bucket: SidebarStateBucket;
   workers: SidebarLineageWorker[];
 }
 
@@ -52,8 +49,6 @@ export interface ProviderSubagentsSnapshot {
   hiddenFromTrack: ReadonlySet<string>;
 }
 
-const EMPTY_CHATS: SidebarLineageChat[] = [];
-
 export function sidebarLineageWorkspaceKey(serverId: string, workspaceId: string): string {
   return `${serverId}:${workspaceId}`;
 }
@@ -64,21 +59,20 @@ interface ChatEntry {
 }
 
 /**
- * Every workspace's chats that have children, keyed by `sidebarLineageWorkspaceKey`. One
- * pass over the agents and the provider descriptors, plus a sort per chat.
+ * Every workspace whose chat has children, keyed by `sidebarLineageWorkspaceKey`. One pass
+ * over the agents and the provider descriptors, plus a sort per chat.
  *
  * The lineage is a quiet projection of each chat's subagents track (`select.ts`): the same
  * managed and provider children, finished ones included with their Done status. Archived and
  * hidden children stay out, and the workspace's Hide nested toggle folds the rest.
  *
- * A chat is listed under its own workspace only when it is a workspace root there, so a
- * same-workspace subagent never appears both as a worker and as a chat of its own; its own
- * children stay one click away in its track.
+ * Only the workspace's root agent is its chat, so a subagent never appears both as a worker and
+ * as a chat of its own; its own children stay one click away in its track.
  */
 export function buildSidebarLineageIndex(
   sessions: Readonly<Record<string, SessionAgents>>,
   providers: ProviderSubagentsSnapshot,
-): Map<string, SidebarLineageChat[]> {
+): Map<string, SidebarLineage> {
   const chats = new Map<string, ChatEntry>();
   collectManagedChildren(sessions, chats);
   collectProviderChildren(sessions, providers, chats);
@@ -160,37 +154,20 @@ function collectProviderChildren(
 function groupChatsByWorkspace(
   sessions: Readonly<Record<string, SessionAgents>>,
   chats: ReadonlyMap<string, ChatEntry>,
-): Map<string, SidebarLineageChat[]> {
-  const byWorkspace = new Map<string, ChatEntry[]>();
-  for (const entry of chats.values()) {
-    const { parent } = entry;
+): Map<string, SidebarLineage> {
+  const result = new Map<string, SidebarLineage>();
+  for (const { parent, workers } of chats.values()) {
     const grandparent = parent.parentAgentId
       ? sessions[parent.serverId]?.agents.get(parent.parentAgentId)
       : undefined;
     if (!isWorkspaceRootAgent(parent, grandparent)) continue;
-    const key = sidebarLineageWorkspaceKey(parent.serverId, parent.workspaceId ?? "");
-    const list = byWorkspace.get(key);
-    if (list) list.push(entry);
-    else byWorkspace.set(key, [entry]);
-  }
-
-  const result = new Map<string, SidebarLineageChat[]>();
-  for (const [key, entries] of byWorkspace) {
-    entries.sort(
-      (left, right) => left.parent.createdAt.getTime() - right.parent.createdAt.getTime(),
-    );
-    result.set(
-      key,
-      entries.map(({ parent, workers }) => ({
-        serverId: parent.serverId,
-        agentId: parent.id,
-        title: parent.title,
-        bucket: chatStateBucket(parent),
-        workers: workers
-          .sort((left, right) => left.createdAt - right.createdAt)
-          .map(({ worker }) => worker),
-      })),
-    );
+    result.set(sidebarLineageWorkspaceKey(parent.serverId, parent.workspaceId ?? ""), {
+      serverId: parent.serverId,
+      agentId: parent.id,
+      workers: workers
+        .sort((left, right) => left.createdAt - right.createdAt)
+        .map(({ worker }) => worker),
+    });
   }
   return result;
 }
@@ -203,12 +180,12 @@ function groupChatsByWorkspace(
 let cachedMaps: Array<ReadonlyMap<string, Agent>> = [];
 let cachedServerIds: string[] = [];
 let cachedProviders: ProviderSubagentsSnapshot | null = null;
-let cachedIndex: Map<string, SidebarLineageChat[]> | null = null;
+let cachedIndex: Map<string, SidebarLineage> | null = null;
 
 function getSidebarLineageIndex(
   sessions: Readonly<Record<string, SessionAgents>>,
   providers: ProviderSubagentsSnapshot,
-): Map<string, SidebarLineageChat[]> {
+): Map<string, SidebarLineage> {
   const serverIds = Object.keys(sessions);
   const unchanged =
     cachedIndex !== null &&
@@ -227,10 +204,10 @@ function getSidebarLineageIndex(
   return cachedIndex;
 }
 
-export function selectSidebarLineageChats(
+export function selectSidebarLineage(
   sessions: Readonly<Record<string, SessionAgents>>,
   providers: ProviderSubagentsSnapshot,
   workspaceKey: string,
-): SidebarLineageChat[] {
-  return getSidebarLineageIndex(sessions, providers).get(workspaceKey) ?? EMPTY_CHATS;
+): SidebarLineage | null {
+  return getSidebarLineageIndex(sessions, providers).get(workspaceKey) ?? null;
 }

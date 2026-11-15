@@ -26,7 +26,7 @@ export function resolveDetachSubagentDialog(
 
   return {
     title: "Detach subagent?",
-    message: `${subagentLabel} will leave this track and continue as a standalone agent.`,
+    message: `${subagentLabel} will leave this track and continue as a chat of its own.`,
     confirmLabel: "Detach",
     cancelLabel: "Cancel",
     destructive: false,

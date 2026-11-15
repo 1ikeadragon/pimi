@@ -3,7 +3,7 @@ import { useTranslation } from "@/i18n/use-translation";
 import { useMutation } from "@tanstack/react-query";
 import { AdaptiveRenameModal } from "@/components/rename-modal";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
-import { resolveChatTitle, useWorkspaceChat, useWorkspacePrimaryChat } from "@/chats/primary-chat";
+import { resolveChatTitle, useWorkspaceChat } from "@/chats/workspace-chat";
 
 // The subset of a workspace the rename dialog needs. Narrower than SidebarWorkspaceEntry so the
 // command center can build one from the active route selection without a sidebar row.
@@ -24,16 +24,13 @@ export interface WorkspaceRenameModalProps {
    * builds its locators from exactly that prefix.
    */
   testID?: string;
-  /** The chat to rename: the workspace's primary chat (a sidebar row) or the one it is showing. */
-  chat?: "primary" | "shown";
 }
 
 /**
  * Renames a chat. The chat's title is its agent's name. The workspace title is the fallback the
- * sidebar uses before the primary agent has one, so renaming the primary chat writes both: the
- * tab, the sidebar row and the header then agree and the name survives a restart. Renaming any
- * other chat in the workspace writes only its agent. Owns every rename string, so a
- * caller only tracks its own open/closed boolean. Errors surface inline inside
+ * sidebar uses before the agent has one, so a rename writes both: the tab, the sidebar row and
+ * the header then agree and the name survives a restart. Owns every rename string, so a caller
+ * only tracks its own open/closed boolean. Errors surface inline inside
  * AdaptiveRenameModal; the dialog stays open.
  */
 export function WorkspaceRenameModal({
@@ -41,15 +38,12 @@ export function WorkspaceRenameModal({
   workspace,
   onClose,
   testID,
-  chat = "primary",
 }: WorkspaceRenameModalProps) {
   const { t } = useTranslation();
-  const targetChat = useWorkspaceChat(workspace.serverId, workspace.workspaceId, chat);
-  const primaryChat = useWorkspacePrimaryChat(workspace.serverId, workspace.workspaceId);
-  const targetAgentId = targetChat?.agentId ?? null;
-  const writesWorkspaceTitle = !targetChat || targetChat.agentId === primaryChat?.agentId;
+  const chat = useWorkspaceChat(workspace.serverId, workspace.workspaceId);
+  const chatAgentId = chat?.agentId ?? null;
   const currentTitle = resolveChatTitle({
-    primaryTitle: targetChat?.title,
+    chatTitle: chat?.title,
     workspaceTitle: workspace.title ?? workspace.name,
     fallback: workspace.name,
   });
@@ -60,12 +54,10 @@ export function WorkspaceRenameModal({
       if (!client) {
         throw new Error(t("sidebar.workspace.toasts.hostDisconnected"));
       }
-      if (targetAgentId && title.length > 0) {
-        await client.updateAgent(targetAgentId, { name: title });
+      if (chatAgentId && title.length > 0) {
+        await client.updateAgent(chatAgentId, { name: title });
       }
-      if (writesWorkspaceTitle) {
-        await client.setWorkspaceTitle(workspace.workspaceId, title.length === 0 ? null : title);
-      }
+      await client.setWorkspaceTitle(workspace.workspaceId, title.length === 0 ? null : title);
     },
   });
   const renameAsync = renameMutation.mutateAsync;

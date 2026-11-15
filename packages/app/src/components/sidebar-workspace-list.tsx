@@ -22,6 +22,7 @@ import {
   type ComponentProps,
   type PropsWithChildren,
 } from "react";
+import { useWorkspaceArchive } from "@/workspace/use-workspace-archive";
 import { useTranslation } from "@/i18n/use-translation";
 import { router, usePathname, type Href } from "expo-router";
 import {
@@ -108,7 +109,6 @@ import { useSidebarModel } from "@/components/sidebar/sidebar-model";
 import { useLimitedSidebarGroup } from "@/components/sidebar/use-limited-sidebar-group";
 import {
   SidebarWorkspaceRowFrame,
-  usePrimaryRowSelected,
   SidebarWorkspaceRowContent,
   SidebarWorkspaceShortcutBadge,
   resolveTrailingActionVisibility,
@@ -143,10 +143,6 @@ import {
 } from "@/utils/sidebar-project-row-model";
 import { redirectIfArchivingActiveWorkspace } from "@/utils/sidebar-workspace-archive-redirect";
 import { openExternalUrl } from "@/utils/open-external-url";
-import { useArchiveChat } from "@/components/sidebar/use-archive-chat";
-import { selectWorkspaceRootChats } from "@/chats/primary-chat";
-import { navigateToAgent } from "@/utils/navigate-to-agent";
-import { useSessionStore } from "@/stores/session-store";
 import { removeProjectFromHosts } from "@/projects/project-remove";
 import {
   isWeb as platformIsWeb,
@@ -1133,25 +1129,23 @@ function WorkspaceRowInner({
     setIsPressed(false);
     interaction.handlePressOut();
   }, [interaction]);
-
-  const rowSelected = usePrimaryRowSelected(workspace, selected);
-  const accessibilityState = useMemo(() => ({ selected: rowSelected }), [rowSelected]);
+  const accessibilityState = useMemo(() => ({ selected }), [selected]);
 
   return (
-    <SidebarWorkspaceRowFrame workspace={workspace} isDragging={isDragging} selected={selected}>
+    <SidebarWorkspaceRowFrame workspace={workspace} isDragging={isDragging}>
       {({ isHovered, contextMenuOpen, onContextMenuOpenChange, hoverHandlers }) => {
         const isDesktop = !isTouchPlatform;
         const serviceSummary = isDesktop ? selectWorkspaceServiceSummary(workspace.scripts) : null;
         const workspaceRowStyle = getProjectWorkspaceRowStyle({
           isDragging,
           isPressed,
-          selected: rowSelected,
+          selected,
           isHovered,
         });
         const backdrop = getSidebarRowBackdrop({
           isDragging,
           isPressed,
-          selected: rowSelected,
+          selected,
           isHovered,
         });
         return (
@@ -1183,7 +1177,7 @@ function WorkspaceRowInner({
               onTogglePin={onTogglePin}
               openInFileManagerPath={workspace.workspaceDirectory}
               disabled={isArchiving}
-              aria-selected={rowSelected}
+              aria-selected={selected}
               accessibilityRole="button"
               accessibilityState={accessibilityState}
               style={workspaceRowStyle}
@@ -1276,7 +1270,6 @@ function WorkspaceRowWithMenu({
   const [isHidingWorkspace, setIsHidingWorkspace] = useState(false);
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const isArchiving = workspace.archivingAt !== null || isHidingWorkspace;
-  const rowSelected = usePrimaryRowSelected(workspace, selected);
   const redirectAfterArchive = useCallback(() => {
     redirectIfArchivingActiveWorkspace({
       serverId: workspace.serverId,
@@ -1285,7 +1278,7 @@ function WorkspaceRowWithMenu({
     });
   }, [selected, workspace]);
 
-  const archiveController = useArchiveChat({
+  const archiveController = useWorkspaceArchive({
     serverId: workspace.serverId,
     workspaceId: workspace.workspaceId,
     workspaceKind: workspace.workspaceKind,
@@ -1344,7 +1337,7 @@ function WorkspaceRowWithMenu({
   useKeyboardActionHandler({
     handlerId: `workspace-archive-${workspace.workspaceKey}`,
     actions: ["workspace.archive"],
-    enabled: rowSelected && !isArchiving,
+    enabled: selected && !isArchiving,
     priority: 0,
     handle: () => {
       handleArchive();
@@ -1378,7 +1371,7 @@ function WorkspaceRowWithMenu({
         onRename={handleOpenRename}
         onMarkAsRead={hasClearableAttention ? handleMarkAsRead : undefined}
         onMarkAsUnread={canMarkUnread ? handleMarkAsUnread : undefined}
-        archiveShortcutKeys={rowSelected ? archiveShortcutKeys : null}
+        archiveShortcutKeys={selected ? archiveShortcutKeys : null}
         isPinned={isPinned}
         onTogglePin={handleTogglePin}
         reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
@@ -1437,16 +1430,6 @@ function WorkspaceRowItem({
       return;
     }
     onWorkspacePress?.();
-    // A record with several root chats opens the row's own chat, not whichever tab was last shown.
-    const roots = selectWorkspaceRootChats(
-      useSessionStore.getState().sessions,
-      workspace.serverId,
-      workspace.workspaceId,
-    );
-    if (roots.length >= 2) {
-      navigateToAgent({ serverId: workspace.serverId, agentId: roots[0]!.agentId });
-      return;
-    }
     navigateToWorkspace({ serverId: workspace.serverId, workspaceId: workspace.workspaceId });
   }, [onWorkspacePress, workspace.serverId, workspace.workspaceId]);
 

@@ -7,6 +7,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
+import { useWorkspaceArchive } from "@/workspace/use-workspace-archive";
 import { useTranslation } from "@/i18n/use-translation";
 import {
   View,
@@ -43,10 +44,6 @@ import { useToast } from "@/contexts/toast-context";
 import { WorkspaceRenameModal } from "@/components/workspace-rename-modal";
 import { useWorkspaceClipboardActions } from "@/hooks/use-workspace-clipboard-actions";
 import { redirectIfArchivingActiveWorkspace } from "@/utils/sidebar-workspace-archive-redirect";
-import { useArchiveChat } from "@/components/sidebar/use-archive-chat";
-import { selectWorkspaceRootChats } from "@/chats/primary-chat";
-import { navigateToAgent } from "@/utils/navigate-to-agent";
-import { useSessionStore } from "@/stores/session-store";
 import { toWorktreeArchiveRisk } from "@/git/worktree-archive-warning";
 import type { ShortcutKey } from "@/utils/format-shortcut";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
@@ -54,7 +51,6 @@ import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import { useWorkspaceReadState } from "@/hooks/use-workspace-read-state";
 import {
   SidebarWorkspaceRowFrame,
-  usePrimaryRowSelected,
   SidebarWorkspaceRowContent,
   resolveTrailingActionVisibility,
   type SidebarWorkspaceTrailingPresentation,
@@ -566,16 +562,6 @@ const StatusWorkspaceRow = memo(function StatusWorkspaceRow({
   const handlePress = useCallback(() => {
     if (!workspace.serverId) return;
     onWorkspacePress?.();
-    // A record with several root chats opens the row's own chat, not whichever tab was last shown.
-    const roots = selectWorkspaceRootChats(
-      useSessionStore.getState().sessions,
-      workspace.serverId,
-      workspace.workspaceId,
-    );
-    if (roots.length >= 2) {
-      navigateToAgent({ serverId: workspace.serverId, agentId: roots[0]!.agentId });
-      return;
-    }
     navigateToWorkspace({ serverId: workspace.serverId, workspaceId: workspace.workspaceId });
   }, [onWorkspacePress, workspace.serverId, workspace.workspaceId]);
 
@@ -639,7 +625,6 @@ function StatusWorkspaceRowWithMenu({
   const [isHidingWorkspace, setIsHidingWorkspace] = useState(false);
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const isArchiving = workspace.archivingAt !== null || isHidingWorkspace;
-  const rowSelected = usePrimaryRowSelected(workspace, selected);
 
   const redirectAfterArchive = useCallback(() => {
     redirectIfArchivingActiveWorkspace({
@@ -651,7 +636,7 @@ function StatusWorkspaceRowWithMenu({
     });
   }, [selected, workspace]);
 
-  const archiveController = useArchiveChat({
+  const archiveController = useWorkspaceArchive({
     serverId: workspace.serverId,
     workspaceId: workspace.workspaceId,
     workspaceKind: workspace.workspaceKind,
@@ -702,7 +687,7 @@ function StatusWorkspaceRowWithMenu({
   useKeyboardActionHandler({
     handlerId: `workspace-archive-${workspace.workspaceKey}`,
     actions: ["workspace.archive"],
-    enabled: rowSelected && !isArchiving,
+    enabled: selected && !isArchiving,
     priority: 0,
     handle: () => {
       handleArchive();
@@ -731,7 +716,7 @@ function StatusWorkspaceRowWithMenu({
         onRename={handleOpenRename}
         onMarkAsRead={hasClearableAttention ? handleMarkAsRead : undefined}
         onMarkAsUnread={canMarkUnread ? handleMarkAsUnread : undefined}
-        archiveShortcutKeys={rowSelected ? archiveShortcutKeys : null}
+        archiveShortcutKeys={selected ? archiveShortcutKeys : null}
         isPinned={isPinned}
         onTogglePin={handleTogglePin}
         reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
@@ -840,9 +825,7 @@ function StatusWorkspaceRowInnerContent({
 
   const isDesktop = !isTouchPlatform;
   const serviceSummary = isDesktop ? selectWorkspaceServiceSummary(workspace.scripts) : null;
-
-  const rowSelected = usePrimaryRowSelected(workspace, selected);
-  const accessibilityState = useMemo(() => ({ selected: rowSelected }), [rowSelected]);
+  const accessibilityState = useMemo(() => ({ selected }), [selected]);
   const didLongPressRef = dragInteraction?.didLongPressRef;
   const startDragPress = dragInteraction?.handlePressIn;
   const moveDragPress = dragInteraction?.handleTouchMove;
@@ -871,7 +854,6 @@ function StatusWorkspaceRowInnerContent({
       workspace={workspace}
       isDragging={isDragging}
       indented={inStatusGroup}
-      selected={selected}
     >
       {({ isHovered, contextMenuOpen, onContextMenuOpenChange, hoverHandlers }) => {
         const showShortcut = showShortcutBadge && shortcutNumber !== null;
@@ -892,7 +874,7 @@ function StatusWorkspaceRowInnerContent({
         });
         const workspaceRowStyle = getStatusWorkspaceRowStyle({
           isPressed,
-          selected: rowSelected,
+          selected,
           isHovered,
           inStatusGroup,
           isDragging,
@@ -900,7 +882,7 @@ function StatusWorkspaceRowInnerContent({
         const backdrop = getSidebarRowBackdrop({
           isDragging,
           isPressed,
-          selected: rowSelected,
+          selected,
           isHovered,
         });
         return (

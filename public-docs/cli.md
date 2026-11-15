@@ -117,11 +117,11 @@ pimi run --output-schema schema.json "extract release notes"
 pimi run --output-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' "summarize release notes"
 ```
 
-From a human shell, a bare `pimi run` creates a new local chat for the current directory. Use `--chat <id>` to add the agent to an existing chat, or `--new-chat local|worktree` to explicitly create a separate chat for the run.
+From a human shell, a bare `pimi run` creates a new local chat for the current directory. Use `--chat <id>` to add the agent to an existing chat: it becomes that chat's agent when the chat has none yet, and otherwise a subagent of the chat's agent. Use `--new-chat local|worktree` to explicitly create a separate chat for the run.
 
 Worktree creation accepts `--worktree-mode branch-off|checkout-branch|checkout-pr` plus the matching `--new-branch`/`--base`, `--branch`, or `--pr-number`/`--forge` options. Use `--worktree-slug` to choose the managed directory slug.
 
-When an existing Pimi agent runs the same command, Pimi recognizes it through `PIMI_AGENT_ID`. Without explicit placement, the new agent becomes its subagent in the same chat. `--chat` can place that subagent elsewhere without changing its parent.
+When an existing Pimi agent runs the same command, Pimi recognizes it through `PIMI_AGENT_ID`. Without explicit placement, the new agent becomes its subagent in the same chat. `--chat` places it in another chat instead: as that chat's agent, still your subagent, when the chat is empty, and otherwise as a subagent of that chat's agent.
 
 Use `--output-schema` to return only matching JSON output. You can pass a schema file path or an inline JSON schema object. This mode cannot be used with `--no-wait`.
 

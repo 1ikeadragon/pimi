@@ -108,7 +108,7 @@ function resolveWorkspaceShortcuts(overrides: ShortcutOverrides): WorkspaceComma
 /**
  * The label catalog and its toggle callback, pulled out of `useWorkspaceCommandCenterActions` to
  * keep that hook under the complexity limit. Labels attach to chats, so the choices act on the
- * workspace's primary chat — the one its sidebar row stands for. Null while the host's catalog
+ * workspace's chat. Null while the host's catalog
  * hasn't loaded or the workspace has no chat, so the group is omitted rather than shown empty.
  */
 function useWorkspaceLabelCatalog(
@@ -119,7 +119,7 @@ function useWorkspaceLabelCatalog(
   toggleLabel: (labelId: string, assigned: boolean) => void;
 } {
   const host = useHostLabels(serverId ?? "");
-  const target = useWorkspaceChatTarget(serverId, workspaceId ?? "", "shown");
+  const target = useWorkspaceChatTarget(serverId, workspaceId ?? "");
   const assignedIds = useTargetLabelIds(serverId ?? "", target);
   const toast = useToast();
   const labelCatalog = useMemo<readonly WorkspaceCommandCenterLabelChoice[] | null>(() => {

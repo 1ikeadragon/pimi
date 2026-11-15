@@ -80,6 +80,11 @@ export interface WorkspaceProvisioningService {
   createWorkspaceForWorktree(
     input: CreateWorktreeWorkspaceInput,
   ): Promise<PersistedWorkspaceRecord>;
+  /** A new chat's record beside an existing one: same project, directory and git placement. */
+  createWorkspaceBeside(
+    sourceWorkspaceId: string,
+    title: string | null,
+  ): Promise<PersistedWorkspaceRecord>;
   findOrCreateProjectForDirectory(cwd: string): Promise<PersistedProjectRecord>;
   ensureWorkspaceRecordUnarchived(
     workspace: PersistedWorkspaceRecord,
@@ -329,6 +334,36 @@ export function createWorkspaceProvisioningService(deps: {
     return workspace;
   }
 
+  async function createWorkspaceBeside(
+    sourceWorkspaceId: string,
+    title: string | null,
+  ): Promise<PersistedWorkspaceRecord> {
+    const source = await workspaceRegistry.get(sourceWorkspaceId);
+    if (!source) throw new Error(`Workspace ${sourceWorkspaceId} not found`);
+    const timestamp = new Date().toISOString();
+    const workspace = createPersistedWorkspaceRecord({
+      ...(source.parentWorkspaceId ? { parentWorkspaceId: source.parentWorkspaceId } : {}),
+      workspaceId: generateWorkspaceId(),
+      projectId: source.projectId,
+      cwd: source.cwd,
+      kind: source.kind,
+      displayName: source.displayName,
+      branch: source.branch,
+      worktreeRoot: source.worktreeRoot,
+      baseBranch: source.baseBranch,
+      isPimiOwnedWorktree: source.isPimiOwnedWorktree,
+      mainRepoRoot: source.mainRepoRoot,
+      ...(source.untrustedSource ? { untrustedSource: source.untrustedSource } : {}),
+      background: source.background,
+      title: title?.trim() || null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    await workspaceRegistry.upsert(workspace);
+    emitWorkspaceCreated(workspace);
+    return workspace;
+  }
+
   function emitWorkspaceCreated(workspace: PersistedWorkspaceRecord): void {
     deps.lifecycle?.emit("workspace.create.after", {
       workspace: describeHookWorkspace(workspace),
@@ -535,6 +570,7 @@ export function createWorkspaceProvisioningService(deps: {
     resolveOrCreateWorkspaceIdForCreateAgent,
     createWorkspaceForDirectory,
     createWorkspaceForWorktree,
+    createWorkspaceBeside,
     findOrCreateProjectForDirectory,
     ensureWorkspaceRecordUnarchived,
   };

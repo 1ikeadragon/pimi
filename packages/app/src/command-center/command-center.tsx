@@ -31,7 +31,7 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { BottomSheetFlatList, type BottomSheetFlatListMethods } from "@gorhom/bottom-sheet";
 import { useAgentDescriptor, resolveAgentLabel } from "@/agent-presentation";
 import { useSessionStore } from "@/stores/session-store";
-import { resolveChatTitle, selectWorkspaceRootChats } from "@/chats/primary-chat";
+import { resolveChatTitle, selectWorkspaceChat } from "@/chats/workspace-chat";
 import { StatusIcon } from "@/components/status-icon";
 import { useWorkspaceStatus } from "@/workspace-status";
 import type { SurfaceBackdrop } from "@/styles/surface-backdrop";
@@ -225,8 +225,7 @@ function useBuiltInRows(open: boolean): {
               id: `workspace:${host.serverId}:${workspace.id}`,
               // The row is a chat: same title its sidebar row and tab show.
               title: resolveChatTitle({
-                primaryTitle: selectWorkspaceRootChats(sessions, host.serverId, workspace.id)[0]
-                  ?.title,
+                chatTitle: selectWorkspaceChat(sessions, host.serverId, workspace.id)?.title,
                 workspaceTitle: workspace.title ?? workspace.name,
                 fallback: "New chat",
               }),

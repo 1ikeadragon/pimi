@@ -467,6 +467,19 @@ async function maybeRemoveDirectory(
     return { removedDirectory: false };
   }
 
+  // Another chat still works in this worktree: leave it alone, teardown commands included.
+  const remainingActive = await dependencies.listActiveWorkspaces();
+  if (
+    !(await isDirectoryUnreferenced(
+      remainingActive,
+      backing.path,
+      new Set(archivedWorkspaceIds),
+      dependencies,
+    ))
+  ) {
+    return { removedDirectory: false };
+  }
+
   const archivedWorkspaceIdSet = new Set(archivedWorkspaceIds);
   const teardownTargets = target.teardownTargets.filter(
     (teardownTarget) =>
@@ -495,18 +508,6 @@ async function maybeRemoveDirectory(
       return { removedDirectory: false };
     }
     throw error;
-  }
-
-  const remainingActive = await dependencies.listActiveWorkspaces();
-  if (
-    !(await isDirectoryUnreferenced(
-      remainingActive,
-      backing.path,
-      new Set(archivedWorkspaceIds),
-      dependencies,
-    ))
-  ) {
-    return { removedDirectory: false };
   }
 
   // Last chance to keep the directory. Teardown commands already ran, so a cancel here restores

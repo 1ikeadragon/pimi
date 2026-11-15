@@ -161,6 +161,7 @@ import { AgentStorage } from "./agent/agent-storage.js";
 import { MessageReceipts } from "./message-receipts/index.js";
 import { CreationService } from "./creation/index.js";
 import { openPimiDatabase, openPimiTimelineDatabase } from "./db/pimi-db.js";
+import { splitMultiChatWorkspaces } from "./db/split-multi-chat-workspaces.js";
 import { UsageReader } from "./usage/aggregate.js";
 import { UsageScanner } from "./usage/scanner.js";
 import { importCarriedTimelines } from "./agent/carried-timeline.js";
@@ -1250,6 +1251,8 @@ export async function createPimiDaemon(
       const record = await workspaceRegistry?.get(workspaceId);
       return record?.titleManuallySet ? (record.title ?? null) : null;
     },
+    createChatWorkspace: async ({ fromWorkspaceId, title }) =>
+      (await workspaceProvisioning.createWorkspaceBeside(fromWorkspaceId, title)).workspaceId,
     generateChatTitle: (manager, agent, firstPrompt) =>
       generateChatTitle({
         manager,
@@ -1371,10 +1374,17 @@ export async function createPimiDaemon(
     config: () => daemonConfigStore.get().limitFallback,
     logger,
   });
-  await restartRecovery.prepareStartup();
-  logger.info({ elapsed: elapsed() }, "Agent storage initialized");
+  // The registries import their legacy files on first load, and restart recovery reads workspace
+  // records, so both one-time steps run here: after every import, before anything uses the data.
   await Promise.all([projectRegistry.initialize(), workspaceRegistry.initialize()]);
   await migrateWorkspaceLabels({ database: pimiDatabase, pimiHome: config.pimiHome, logger });
+  await splitMultiChatWorkspaces({
+    database: pimiDatabase,
+    logger,
+    onSplit: () => workspaceRegistry.reload(),
+  });
+  await restartRecovery.prepareStartup();
+  logger.info({ elapsed: elapsed() }, "Agent storage initialized");
   logger.info({ elapsed: elapsed() }, "Workspace registries bootstrapped");
   const teardownArchivedWorkspaceRuntime = (workspaceId: string): void => {
     closeCodeNavigationWorkspace(workspaceId);

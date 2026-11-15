@@ -19,7 +19,6 @@ export function buildWorkspaceAgentActivityIndex(
   previous?: ReadonlyMap<string, WorkspaceAgentActivity>,
 ): Map<string, WorkspaceAgentActivity> {
   const activityByWorkspaceId = new Map<string, WorkspaceAgentActivity>();
-  const latestActivityAtByWorkspaceId = new Map<string, Date>();
 
   for (const agent of agents.values()) {
     const parentAgent = agent.parentAgentId ? agents.get(agent.parentAgentId) : undefined;
@@ -33,12 +32,6 @@ export function buildWorkspaceAgentActivityIndex(
     }
 
     const enteredAt = agent.attentionTimestamp ?? agent.updatedAt;
-    const latestActivityAt = latestActivityAtByWorkspaceId.get(agent.workspaceId);
-    if (latestActivityAt && enteredAt <= latestActivityAt) {
-      continue;
-    }
-    latestActivityAtByWorkspaceId.set(agent.workspaceId, enteredAt);
-
     const status = deriveSidebarStateBucket({
       status: workspaceAgentStatus(agent),
       backgroundWork: agent.backgroundWork,

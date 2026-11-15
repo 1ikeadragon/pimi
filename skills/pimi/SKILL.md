@@ -100,7 +100,7 @@ Initial runtime settings live under `settings`: `modeId`, `thinkingOptionId`, an
 
 `create_agent` always creates your subagent; to open a chat for the user, use `create_chat` with `initialPrompt`. On your own host, omit `chatId` to use your current chat. On another host, first list or create a chat with that `serverId`, then pass its `chatId` and the same `serverId` to `create_agent`. Placement never changes parentage.
 
-Detach is an explicit user action in the subagents track, not an agent tool. A child in another chat remains your subagent even though it also appears as a normal tab in that chat.
+Detach is an explicit user action in the subagents track, not an agent tool; it turns the subagent into a chat of its own. A child you place in an empty chat remains your subagent and is that chat's agent. A chat that already has an agent takes the child as that agent's subagent.
 
 Agent-scoped `create_agent` defaults `notifyOnFinish` to true. Set it to `false` when you want explicit reporting or no completion callback.
 

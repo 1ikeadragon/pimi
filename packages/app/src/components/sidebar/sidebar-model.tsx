@@ -28,7 +28,7 @@ import {
   useLabelProjection,
   useLabelStore,
 } from "@/labels/store";
-import { selectWorkspaceRootChats } from "@/chats/primary-chat";
+import { selectWorkspaceChat } from "@/chats/workspace-chat";
 import { useSessionStore } from "@/stores/session-store";
 
 interface SidebarModel extends SidebarWorkspacesListResult {
@@ -52,7 +52,7 @@ interface SidebarModel extends SidebarWorkspacesListResult {
   shortcutModel: SidebarShortcutModel;
 }
 
-const NO_ROOT_CHATS: ReadonlyMap<string, string[]> = new Map();
+const NO_CHATS: ReadonlyMap<string, string> = new Map();
 
 const SidebarModelContext = createContext<SidebarModel | null>(null);
 
@@ -106,7 +106,7 @@ export function SidebarModelProvider({
   const hasActiveProjectFilter = resolvedProjectFilters.length > 0;
   // The project filter is deliberately absent from this gate. It reads `projectViewKey`, which
   // lives on the project and the placement, so it can narrow the project list without hydrating
-  // anything; the label filter reads each workspace's root chats, which are keyed by an entry.
+  // anything; the label filter reads each workspace's chat, which is keyed by an entry.
   // Hydration opens a live session-store subscription over every workspace on every visible host,
   // so widening this for a filter that does not need it costs a retained-but-inactive sidebar
   // real work.
@@ -116,21 +116,16 @@ export function SidebarModelProvider({
     list.workspacePlacements,
     modelActive || needsWorkspaceEntries,
   );
-  // Labels live on chats. A workspace matches when any root chat in it carries the label, so the
-  // filter reads each workspace's root chat ids — only while a filter is active, because the
-  // session store ticks on every stream event.
-  const rootChatIdsByWorkspace = useStoreWithEqualityFn(
+  // Labels live on chats, so the filter reads each workspace's chat agent id — only while a filter
+  // is active, because the session store ticks on every stream event.
+  const chatAgentIdByWorkspace = useStoreWithEqualityFn(
     useSessionStore,
     (state) => {
-      if (!hasActiveLabelFilter) return NO_ROOT_CHATS;
-      const result = new Map<string, string[]>();
+      if (!hasActiveLabelFilter) return NO_CHATS;
+      const result = new Map<string, string>();
       for (const workspace of workspaceEntriesByKey.values()) {
-        result.set(
-          workspace.workspaceKey,
-          selectWorkspaceRootChats(state.sessions, workspace.serverId, workspace.workspaceId).map(
-            (chat) => chat.agentId,
-          ),
-        );
+        const chat = selectWorkspaceChat(state.sessions, workspace.serverId, workspace.workspaceId);
+        if (chat) result.set(workspace.workspaceKey, chat.agentId);
       }
       return result;
     },
@@ -145,20 +140,22 @@ export function SidebarModelProvider({
     const filtered = filterWorkspacesByLabels({
       workspaces: byProject.filter((workspace) => showBackground || !workspace.background),
       ...labelFilter,
-      labelIdsOf: (workspace) =>
-        (rootChatIdsByWorkspace.get(workspace.workspaceKey) ?? []).flatMap(
-          (agentId) =>
-            labelHostsById[workspace.serverId]?.assignments[
-              labelTargetKey({ kind: "agent", agentId })
-            ] ?? [],
-        ),
+      labelIdsOf: (workspace) => {
+        const agentId = chatAgentIdByWorkspace.get(workspace.workspaceKey);
+        if (!agentId) return [];
+        return (
+          labelHostsById[workspace.serverId]?.assignments[
+            labelTargetKey({ kind: "agent", agentId })
+          ] ?? []
+        );
+      },
     });
     return new Map(filtered.map((workspace) => [workspace.workspaceKey, workspace]));
   }, [
     showBackground,
     labelFilter,
     labelHostsById,
-    rootChatIdsByWorkspace,
+    chatAgentIdByWorkspace,
     resolvedProjectFilters,
     workspaceEntriesByKey,
   ]);

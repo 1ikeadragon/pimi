@@ -1235,7 +1235,7 @@ function createToolCatalog(
       .min(1)
       .optional()
       .describe(
-        "Omit to work in your own chat (top-level calls open a new local one). Pass a chatId from list_chats or create_chat to put the worker in another chat, for example one on a fresh worktree.",
+        "Omit to work in your own chat (top-level calls open a new local one). Pass a chatId from list_chats or create_chat to put the worker in another chat, for example one on a fresh worktree. A chat that already has an agent takes the worker as that agent's subagent.",
       ),
   };
   const agentToAgentInputSchema = {

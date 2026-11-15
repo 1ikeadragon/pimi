@@ -17,7 +17,7 @@ export function LabelChips({
   return <LabelChipList labels={useTargetLabels(serverId, target)} wrap={wrap} />;
 }
 
-/** One dot per label, for rows with no room for names (sibling chats, subagents). */
+/** One dot per label, for rows with no room for names (subagents). */
 export function LabelDots({
   serverId,
   target,

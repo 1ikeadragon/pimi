@@ -39,7 +39,6 @@ import { getDesktopHost } from "@/desktop/host";
 import { openPimiReview, pullRequestUrlToSource } from "@/navigation/pimi-review";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { SidebarAgentLineage } from "@/components/sidebar/sidebar-agent-lineage";
-import { useWorkspaceRootChats, useWorkspaceShownChat } from "@/chats/primary-chat";
 
 const needsInputColorMapping = (theme: Theme) => ({
   color: theme.colors.surface0,
@@ -48,30 +47,14 @@ const needsInputColorMapping = (theme: Theme) => ({
 
 const ThemedCircleAlert = withUnistyles(CircleAlert);
 
-/**
- * Whether the workspace row itself is the highlighted one. A workspace with several root chats
- * highlights the row of the chat being shown, so the primary row lights only when it is that chat.
- */
-export function usePrimaryRowSelected(
-  workspace: SidebarWorkspaceEntry,
-  selected: boolean,
-): boolean {
-  const roots = useWorkspaceRootChats(workspace.serverId, workspace.workspaceId);
-  const shown = useWorkspaceShownChat(workspace.serverId, workspace.workspaceId);
-  return selected && (roots.length < 2 || shown?.agentId === roots[0]?.agentId);
-}
-
 export function SidebarWorkspaceRowFrame({
   workspace,
   isDragging = false,
   indented = false,
-  selected = false,
   children,
 }: {
   workspace: SidebarWorkspaceEntry;
   isDragging?: boolean;
-  /** The workspace is the one on screen. Its chat rows decide which of them highlights. */
-  selected?: boolean;
   /** The row carries `rowIndented`, so the rows nested under it start on the same rail. */
   indented?: boolean;
   children: (input: {
@@ -115,7 +98,6 @@ export function SidebarWorkspaceRowFrame({
         <SidebarAgentLineage
           serverId={workspace.serverId}
           workspaceId={workspace.workspaceId}
-          workspaceSelected={selected}
           indentStyle={indented ? sidebarWorkspaceRowStyles.rowIndented : undefined}
         />
       ) : null}
@@ -156,7 +138,7 @@ const SidebarWorkspaceRowContentBase = memo(function SidebarWorkspaceRowContent(
   children?: ReactNode;
 }) {
   const workspaceLabel = useSidebarChatTitle(workspace);
-  // Labels belong to chats; the row shows its primary chat's.
+  // Labels belong to chats; the row shows its chat's.
   const labels = useWorkspaceRowLabels(workspace.serverId, workspace.workspaceId);
   const workspaceBranchTextStyle = useMemo(
     () => [

@@ -2,6 +2,11 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.62 - 2026-11-15
+
+- Every chat is its own sidebar row with its own subagents. Chats that used to share one row are separated when Pimi starts; nothing is removed, and Pimi keeps a copy of its data from before the change.
+- An agent added to a chat that already has one (a new agent tab, `pimi run --chat`) joins as that chat's subagent. Detaching a subagent makes it a chat of its own. Archiving a chat archives all of its subagents.
+
 ## 0.17.60 - 2026-11-15
 
 - Sidebar: each chat has its own Lineage line that folds only its subagents; other chats always stay visible. The section is called Projects.
