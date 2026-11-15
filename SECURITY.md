@@ -46,7 +46,7 @@ When a daemon password is configured, relay clients send it in the encrypted `he
 
 Relay pairing and provider quota polling are opt-in. Pimi checks GitHub for desktop releases when automatic updates are enabled. Voice model downloads start when you request them in Settings.
 
-Remote Markdown images appear as links. Loading a Spaces preview sends the saved video, post, or paper ID to its publisher. The desktop app uses a separate session for those previews and strips cookies and credentials from their requests. Android scans pairing QR codes on-device and ships without the Google scanner and Firebase push stack.
+Remote Markdown images appear as links. Loading a Spaces preview sends the saved video, post, or paper ID to its publisher. The desktop app uses a separate session for those previews and strips cookies and credentials from their requests. Android scans pairing QR codes on-device and ships without the Google scanner. Android push is optional: when a relay with a push service is enabled, the app registers its Firebase token with that service, and Google then sees the token, a fixed notification text, the host ID, the agent or terminal ID, and timing. Pimi sends no message content through it.
 
 ### Provider traffic
 

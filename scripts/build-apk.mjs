@@ -50,6 +50,16 @@ if (pimi) {
       : "");
 }
 
+// The Firebase config enables FCM push. app.config.js reads the same variable from env.
+const googleServicesFile = process.env.PIMI_ANDROID_GOOGLE_SERVICES_FILE;
+if (!googleServicesFile) {
+  console.log("Push disabled: PIMI_ANDROID_GOOGLE_SERVICES_FILE is not set.");
+} else if (!existsSync(googleServicesFile)) {
+  throw new Error("PIMI_ANDROID_GOOGLE_SERVICES_FILE does not point at an existing file.");
+} else {
+  console.log("Push enabled: building with the Firebase config.");
+}
+
 function signingOptions() {
   const sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT;
   const keystore = process.env.PIMI_ANDROID_KEYSTORE;

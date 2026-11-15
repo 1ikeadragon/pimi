@@ -170,6 +170,101 @@ ufw delete allow 80/tcp && ufw delete allow 443/tcp
 
 Cloudflare's ranges change rarely; rerun the loop when they do. The origin IP stays in DNS history, so move the box to a new IP if you want it hidden.
 
+## Android push (optional)
+
+`pimi-push` is a separate process from the relay. It holds the only Firebase service-account key and calls Google, which the relay's sandbox (`IPAddressDeny=any`) must never do. It sends fixed-text notifications ("An agent finished.") to phones that registered a handle; no chat content reaches Google.
+
+Build it with `npm run build:node-relay`, which also writes `packages/relay/dist-node/push-service.mjs`. Create a Firebase project with Cloud Messaging, then a service account whose custom role holds only `cloudmessaging.messages.create`. Copy its key to the server as `/etc/pimi-push/fcm-sa.json`, owner root, mode 600. Keep it out of the repo and out of backups you share.
+
+```bash
+useradd --system --no-create-home --shell /usr/sbin/nologin pimi-push
+install -d -m 755 /opt/pimi-push
+install -m 644 push-service.mjs /opt/pimi-push/push-service.mjs
+install -d -m 700 /etc/pimi-push   # then place fcm-sa.json here, mode 600
+```
+
+`/etc/systemd/system/pimi-push.service`. `LoadCredential` hands the key to the service without making it readable by the `pimi-push` user, and `StateDirectory` owns the handle store:
+
+```ini
+[Unit]
+Description=Pimi push service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pimi-push
+Group=pimi-push
+ExecStart=/usr/bin/node /opt/pimi-push/push-service.mjs
+LoadCredential=fcm-sa.json:/etc/pimi-push/fcm-sa.json
+StateDirectory=pimi-push
+StateDirectoryMode=0700
+Environment=PIMI_PUSH_HOST=127.0.0.1
+Environment=PIMI_PUSH_PORT=8788
+Environment=PIMI_PUSH_STORE=/var/lib/pimi-push/handles.json
+Restart=always
+RestartSec=2
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+RestrictAddressFamilies=AF_INET AF_INET6
+UMask=0077
+MemoryMax=512M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Unlike the relay, this unit may reach the internet (`oauth2.googleapis.com`, `fcm.googleapis.com`); the service hardcodes both hosts, ignores the key file's `token_uri`, and refuses redirects. The service reads the key from `$CREDENTIALS_DIRECTORY/fcm-sa.json` when `PIMI_PUSH_SERVICE_ACCOUNT` is unset.
+
+In the Caddyfile add a `/push/*` block with a small body cap **before** the catch-all `handle`. Registration and send bodies are under 1 KB:
+
+```
+relay.example.com {
+	handle /ws {
+		reverse_proxy 127.0.0.1:8787
+	}
+	handle /health {
+		reverse_proxy 127.0.0.1:8787
+	}
+	handle /push/* {
+		request_body {
+			max_size 4KB
+		}
+		reverse_proxy 127.0.0.1:8788
+	}
+	handle {
+		respond "Not found" 404
+	}
+}
+```
+
+The service rate-limits per client IP (and per FCM token for sends). It takes the IP from the **last** `X-Forwarded-For` entry, and only when the request comes from loopback. Caddy appends the peer it sees. Behind Cloudflare that peer is a Cloudflare address, so every client would share one budget: use the `relay_proxy` snippet from [Behind Cloudflare](#behind-cloudflare) for `/push/*` too, so `X-Forwarded-For` is replaced with `CF-Connecting-IP` for Cloudflare peers. Without it, one noisy client can exhaust everyone's limit.
+
+Phones pin the push origin when the APK is built: `EXPO_PUBLIC_PIMI_PUSH_ENDPOINT` (default `https://relay.stateless.computer/push`) is baked into the bundle, together with `PIMI_ANDROID_GOOGLE_SERVICES_FILE` for the matching Firebase project. A daemon can advertise a different push URL, but the app then skips push instead of sending its token there. A self-hosted push service therefore needs your own APK build. The daemon advertises `https://<relay>/push` while the relay is enabled; set `PIMI_PUSH_ENDPOINT` to override.
+
 ## Point a daemon at it
 
 In the daemon's `config.json`:

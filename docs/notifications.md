@@ -13,7 +13,7 @@ the host. Terminal payloads name their workspace and use `navigateToWorkspace`.
 
 See [agent targets and deferred opens](expo-router.md#agent-targets) for route
 ownership and workspace recovery. Notification generation, presence, and push
-eligibility remain daemon concerns.
+eligibility remain daemon concerns: `computeNotificationPlan` pushes when no client is present, or when the chosen recipient holds a push handle and is not visible.
 
 ## Native delivery
 
@@ -49,6 +49,8 @@ read by Expo arrives under `userInfo.body`; simulator payloads must match:
 
 An Android FCM launch intent needs `google.message_id` and a JSON `body` extra.
 An arbitrary Activity launch with data extras does not exercise Expo's FCM path.
+
+Android pushes carry fixed text and the same `body` JSON (`serverId`, `agentId` or `terminalId`, `reason`). Terminal taps open the host root because the push has no workspace ID. See [Push](android.md#push).
 
 Foreground pushes remain in Notification Center without a banner or sound.
 This preserves notifications sent with stale presence information.

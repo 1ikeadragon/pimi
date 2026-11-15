@@ -239,6 +239,7 @@ import { WorkspaceFilesSession } from "./session/files/workspace-files-session.j
 import { AgentConfigSession } from "./session/agent-config/agent-config-session.js";
 import { ProjectConfigSession } from "./session/project-config/project-config-session.js";
 import { DaemonSession, type DaemonRuntimeConfig } from "./session/daemon/daemon-session.js";
+import type { PushNotifier } from "./push/push-notifier.js";
 import type { DaemonWebSocketRuntimeDiagnosticSnapshot } from "./session/daemon/diagnostics.js";
 import { DownloadTokenStore } from "./file-download/token-store.js";
 import {
@@ -514,6 +515,7 @@ export interface SessionOptions {
   workspaceAutoName: WorkspaceAutoName;
   daemonConfigStore: DaemonConfigStore;
   usageLedger?: { reader: UsageReader; scanner: UsageScanner };
+  pushNotifier?: PushNotifier;
   pluginRuntime?: {
     wait: import("./plugins/lifecycle/index.js").PluginLifecycle["wait"];
     before: import("./plugins/lifecycle/index.js").PluginLifecycle["before"];
@@ -672,6 +674,11 @@ interface ClientActivity {
   appVisibilityChangedAt: Date;
 }
 
+interface ClientSourceMetadata {
+  activity: ClientActivity | null;
+  pushHandle: string | null;
+}
+
 const IMAGE_FRAME_CHUNK_BYTES = 256 * 1024;
 
 export class Session {
@@ -724,6 +731,7 @@ export class Session {
     | null;
   private readonly getTransportBufferedAmount: (source?: object) => number | null;
   private readonly onLifecycleIntent: ((intent: SessionLifecycleIntent) => void) | null;
+  private readonly pushNotifier: PushNotifier | null;
   private readonly onWorkspaceRecovered:
     | ((workspace: PersistedWorkspaceRecord) => Promise<void>)
     | null;
@@ -764,12 +772,7 @@ export class Session {
     string,
     { owner: OwnedSubscription; agentIds: Set<string> }
   >();
-  private readonly clientSources = new Map<
-    object,
-    {
-      activity: ClientActivity | null;
-    }
-  >();
+  private readonly clientSources = new Map<object, ClientSourceMetadata>();
   private unsubscribeTerminalWorkspaceContributionEvents: (() => void) | null = null;
   private readonly agentUpdates: AgentUpdatesService;
   private readonly workspaceUpdatesSubscriptions = new Map<
@@ -898,6 +901,7 @@ export class Session {
     this.onLifecycleIntent = onLifecycleIntent ?? null;
     this.onWorkspaceRecovered = onWorkspaceRecovered ?? null;
     this.pimiHome = pimiHome;
+    this.pushNotifier = options.pushNotifier ?? null;
     this.messageReceipts = options.messageReceipts;
     this.agentMessages = options.agentMessages;
     this.creationService = options.creationService;
@@ -1287,6 +1291,7 @@ export class Session {
     this.delivery.attach(source);
     this.clientSources.set(source, {
       activity: this.clientSources.get(source)?.activity ?? null,
+      pushHandle: this.clientSources.get(source)?.pushHandle ?? null,
     });
     this.refreshObservationProducers();
   }
@@ -1451,6 +1456,52 @@ export class Session {
     const metadata = this.clientSources.get(source);
     if (!metadata) throw new Error("Client control source is not registered");
     return metadata;
+  }
+
+  /** The push handle this client registered, if the daemon still holds it (410s prune it). */
+  public getClientPushHandle(source: object): string | null {
+    const handle = this.clientSources.get(source)?.pushHandle ?? null;
+    return handle !== null && this.pushNotifier?.hasHandle(handle) ? handle : null;
+  }
+
+  private handlePushRegisterHandleRequest(
+    request: Extract<SessionInboundMessage, { type: "push.register_handle.request" }>,
+  ): void {
+    try {
+      if (!this.pushNotifier) throw new Error("Push is unavailable");
+      this.pushNotifier.add(request.handle);
+      this.currentClientMetadata().pushHandle = request.handle;
+      this.emit({
+        type: "push.register_handle.response",
+        payload: { requestId: request.requestId, success: true, error: null },
+      });
+    } catch (error) {
+      // The handle is a bearer capability: report the failure, never the request.
+      this.sessionLogger.warn({ err: error }, "Failed to register push handle");
+      this.emit({
+        type: "push.register_handle.response",
+        payload: { requestId: request.requestId, success: false, error: getErrorMessage(error) },
+      });
+    }
+  }
+
+  private handlePushUnregisterHandleRequest(
+    request: Extract<SessionInboundMessage, { type: "push.unregister_handle.request" }>,
+  ): void {
+    try {
+      if (!this.pushNotifier) throw new Error("Push is unavailable");
+      this.pushNotifier.remove(request.handle);
+      this.emit({
+        type: "push.unregister_handle.response",
+        payload: { requestId: request.requestId, success: true, error: null },
+      });
+    } catch (error) {
+      this.sessionLogger.warn({ err: error }, "Failed to unregister push handle");
+      this.emit({
+        type: "push.unregister_handle.response",
+        payload: { requestId: request.requestId, success: false, error: getErrorMessage(error) },
+      });
+    }
   }
 
   public getClientActivity(source = this.delivery.currentSource): ClientActivity | null {
@@ -2722,6 +2773,12 @@ export class Session {
         });
       case "client_heartbeat":
         this.handleClientHeartbeat(msg);
+        return undefined;
+      case "push.register_handle.request":
+        this.handlePushRegisterHandleRequest(msg);
+        return undefined;
+      case "push.unregister_handle.request":
+        this.handlePushUnregisterHandleRequest(msg);
         return undefined;
       case "ping": {
         const now = Date.now();

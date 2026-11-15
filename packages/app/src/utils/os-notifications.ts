@@ -6,6 +6,9 @@ import { parseNotificationOpenTarget, WEB_NOTIFICATION_CLICK_EVENT } from "@/not
 import { isNative } from "@/constants/platform";
 
 interface OsNotificationPayload {
+  // Native only: a stable id. Android posts it as the notification tag, and a push (FCM)
+  // notification with the same tag replaces it instead of stacking a duplicate.
+  identifier?: string;
   title: string;
   body?: string;
   data?: Record<string, unknown>;
@@ -121,6 +124,7 @@ async function sendNativeNotification(payload: OsNotificationPayload): Promise<b
   if (!(await ensureNativeNotificationPermission())) return false;
   const Notifications = await import("expo-notifications");
   await Notifications.scheduleNotificationAsync({
+    ...(payload.identifier ? { identifier: payload.identifier } : {}),
     content: { title: payload.title, body: payload.body, data: payload.data },
     trigger: Platform.OS === "android" ? { channelId: ANDROID_NOTIFICATION_CHANNEL_ID } : null,
   });

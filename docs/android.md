@@ -8,7 +8,7 @@ Pimi for Android runs chats on your paired host. You can browse workspace
 files and diffs, tile agents, keep tasks and labels, and check usage. Tasks live on
 the host, so they work with the desktop app closed. Memory, Spaces,
 cross-repository Review, and Usage Recap stay on desktop for this preview.
-Agent notifications appear while Pimi stays connected to your host; there is no cloud push.
+Agent notifications appear while Pimi stays connected to your host. When your relay runs the `pimi-push` service and the APK was built with a Firebase config, they also arrive while the app is closed (see [Push](#push)).
 
 On Pimi Desktop, open **Pair a device** in your local host settings.
 Choose **Same Wi-Fi**, enable local pairing, then scan the QR code in Pimi for
@@ -253,3 +253,15 @@ Keep `react` and `react-dom` pinned to the React version embedded by the current
 ```bash
 adb exec-out screencap -p > screenshot.png
 ```
+
+## Push
+
+Push uses FCM through the separate `pimi-push` service (`packages/relay/src/push-service.ts`), which holds the only Google service-account key. The daemon advertises the service URL in `server_info.pushEndpoint` while its relay is enabled. The app registers its FCM token only with the origin pinned at build time (`EXPO_PUBLIC_PIMI_PUSH_ENDPOINT`, default `https://relay.stateless.computer/push`) and skips push when the daemon advertises a different URL. It receives an opaque handle bound to the host's server ID, and gives the handle to the daemon. `PIMI_PUSH_ENDPOINT` overrides the URL; the app accepts `http://` only in development builds.
+
+Build with the Firebase config to enable it. Without the variable, `build-apk.mjs` prints "Push disabled" and the app keeps local notifications only:
+
+```sh
+export PIMI_ANDROID_GOOGLE_SERVICES_FILE=/path/outside/the/checkout/google-services.json
+```
+
+Keep `google-services.json` and the service-account key out of the checkout. Local and push notifications share the Android tag `agent:<agentId>` or `terminal:<terminalId>`, so a second one replaces the first instead of stacking.

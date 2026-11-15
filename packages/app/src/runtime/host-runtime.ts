@@ -76,6 +76,7 @@ import { automationsQueryBaseKey } from "@/automations/aggregated-automations";
 import { dispatchComposerAgentMessage, sendQueuedComposerMessageNow } from "@/composer/actions";
 import { createMessageSubmissionWriter } from "@/composer/submission/writer";
 import { encodeImages } from "@/utils/encode-images";
+import { unregisterPush } from "@/utils/push-registration";
 import { DirectorySync, type RefreshAgentDirectoryResult } from "@/runtime/directory-sync";
 import { ReplicaCache } from "@/runtime/replica-cache";
 import type { ReplicaRowStore } from "@/runtime/replica-cache/row-store";
@@ -2358,6 +2359,12 @@ export class HostRuntimeStore {
   async removeHost(serverId: string): Promise<void> {
     const removed = this.hosts.find((daemon) => daemon.serverId === serverId);
     if (removed) await forgetRemoteSshSignIn(removed.connections);
+    // Revoke while the connection is still open (the daemon drops its copy over it); the handle
+    // would otherwise live until its TTL. Capped so an unreachable host never blocks removal.
+    await Promise.race([
+      unregisterPush(serverId, this.getClient(serverId)),
+      new Promise<void>((resolve) => setTimeout(resolve, 3_000)),
+    ]);
     const remaining = this.hosts.filter((daemon) => daemon.serverId !== serverId);
     this.setHostsAndSync(remaining);
     await this.persistHosts();

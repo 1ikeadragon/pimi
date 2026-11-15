@@ -242,6 +242,7 @@ interface ResolvedRelay {
   publicEndpoint: string | undefined;
   useTls: boolean;
   publicUseTls: boolean;
+  pushEndpoint: string | undefined;
 }
 
 interface ResolvedServiceProxy {
@@ -277,6 +278,37 @@ function resolveRelayEndpoints(input: ResolveRelayInput): {
   return { endpoint, publicEndpoint };
 }
 
+// The push service sits behind the relay's reverse proxy (docs/self-hosted-relay.md). Phones
+// register against the same URL the daemon sends to, so both use the public relay endpoint.
+function resolvePushEndpoint(
+  env: NodeJS.ProcessEnv,
+  publicEndpoint: string | undefined,
+  publicUseTls: boolean,
+): string | undefined {
+  const override = env.PIMI_PUSH_ENDPOINT?.trim();
+  if (override) {
+    let url: URL;
+    try {
+      url = new URL(override);
+    } catch {
+      throw new Error("PIMI_PUSH_ENDPOINT must be an http(s) URL");
+    }
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error("PIMI_PUSH_ENDPOINT must be an http(s) URL");
+    }
+    return normalizePushEndpoint(url);
+  }
+  return publicEndpoint
+    ? normalizePushEndpoint(new URL(`${publicUseTls ? "https" : "http"}://${publicEndpoint}/push`))
+    : undefined;
+}
+
+// The phone compares this string with its pinned origin, so a default port (`:443`) must not
+// survive into it.
+function normalizePushEndpoint(url: URL): string {
+  return url.href.replace(/\/+$/, "");
+}
+
 function resolveRelayConfig(input: ResolveRelayInput): ResolvedRelay {
   const environmentEnabled = parseBooleanEnv(input.env.PIMI_RELAY_ENABLED);
   const { endpoint, publicEndpoint } = resolveRelayEndpoints(input);
@@ -306,6 +338,7 @@ function resolveRelayConfig(input: ResolveRelayInput): ResolvedRelay {
     publicEndpoint,
     useTls,
     publicUseTls,
+    pushEndpoint: resolvePushEndpoint(input.env, publicEndpoint, publicUseTls),
   };
 }
 
@@ -600,6 +633,7 @@ export function resolveConfigFromPersisted(
     relayPublicEndpoint: relay.publicEndpoint,
     relayUseTls: relay.useTls,
     relayPublicUseTls: relay.publicUseTls,
+    pushEndpoint: relay.pushEndpoint,
     serviceProxy: resolveServiceProxyConfig(env, persisted),
     auth: resolveAuthConfig(env, persisted),
     openai,

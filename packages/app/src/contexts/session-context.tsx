@@ -35,6 +35,7 @@ import {
   type SessionState,
 } from "@/stores/session-store";
 import { sendOsNotification } from "@/utils/os-notifications";
+import { syncPushRegistration } from "@/utils/push-registration";
 import { getIsAppActivelyVisible, getIsAppVisible } from "@/utils/app-visibility";
 import {
   getInitKey,
@@ -244,6 +245,14 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
     viewedTimelineSyncRef.current?.setActive(isAppVisible);
   }, [isAppVisible]);
 
+  const pushEndpoint = useSessionStore(
+    (state) => state.sessions[serverId]?.serverInfo?.pushEndpoint ?? null,
+  );
+  useEffect(() => {
+    if (!isConnected || !pushEndpoint) return;
+    void syncPushRegistration({ client, serverId, pushEndpoint });
+  }, [client, isConnected, pushEndpoint, serverId]);
+
   // Client activity tracking (heartbeat)
   useClientActivity({
     client,
@@ -298,6 +307,7 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
       }
 
       void sendOsNotification({
+        identifier: `agent:${params.agentId}`,
         title: notification.title,
         body: notification.body,
         data: notification.data,
@@ -647,6 +657,7 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
         return;
       }
       void sendOsNotification({
+        identifier: `terminal:${message.payload.terminalId}`,
         title: message.payload.title,
         body: message.payload.body,
         // serverId + workspaceId + terminalId route a tap to the terminal tab; cwd is

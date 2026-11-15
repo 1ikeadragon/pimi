@@ -97,3 +97,9 @@ app.json
 
 # Self-hosted relay bundle (npm run build:node-relay)
 packages/relay/dist-node/
+
+# Firebase / FCM credentials
+google-services.json
+*service-account*.json
+*firebase-adminsdk*.json
+fcm-sa.json

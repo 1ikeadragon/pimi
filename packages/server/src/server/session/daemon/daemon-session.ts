@@ -26,6 +26,8 @@ export interface DaemonRuntimeConfig {
   worktreesRoot?: string;
   appBaseUrl?: string;
   desktopManaged?: boolean;
+  /** Push service URL; only advertised while the relay is enabled. */
+  pushEndpoint: string | null;
   getRelayConfig(): {
     enabled: boolean;
     endpoint: string;

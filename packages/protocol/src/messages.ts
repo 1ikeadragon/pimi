@@ -3306,6 +3306,21 @@ export const WorkspaceClearAttentionRequestSchema = z.object({
   requestId: z.string(),
 });
 
+// Opaque push handle issued by the push service (256-bit, base64url).
+const PushHandleSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+
+export const PushRegisterHandleRequestSchema = z.object({
+  type: z.literal("push.register_handle.request"),
+  handle: PushHandleSchema,
+  requestId: z.string(),
+});
+
+export const PushUnregisterHandleRequestSchema = z.object({
+  type: z.literal("push.unregister_handle.request"),
+  handle: PushHandleSchema,
+  requestId: z.string(),
+});
+
 export const WorkspaceMarkUnreadRequestSchema = z.object({
   type: z.literal("workspace.mark_unread.request"),
   workspaceId: z.string(),
@@ -3924,6 +3939,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CreationSubscribeRequestSchema,
   WorkspaceClearAttentionRequestSchema,
   WorkspaceMarkUnreadRequestSchema,
+  PushRegisterHandleRequestSchema,
+  PushUnregisterHandleRequestSchema,
   FileExplorerRequestSchema,
   FileSubscribeRequestSchema,
   FileUnsubscribeRequestSchema,
@@ -4147,6 +4164,8 @@ export const ServerInfoStatusPayloadSchema = z
     // Authenticated producer for host registration ownership.
     sourceId: z.string().optional(),
     desktopManaged: z.boolean(),
+    // Push service the daemon vouches for. Set only while the relay is enabled.
+    pushEndpoint: z.string().optional(),
     capabilities: ServerCapabilitiesSchema.optional(),
     features: z.object({
       hopliteProvider: z.boolean().optional(),
@@ -5335,6 +5354,24 @@ export const WorkspaceMarkUnreadResponseSchema = z.object({
     requestId: z.string(),
     workspaceId: z.string(),
     markedAgentId: z.string().nullable(),
+    success: z.boolean(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const PushRegisterHandleResponseSchema = z.object({
+  type: z.literal("push.register_handle.response"),
+  payload: z.object({
+    requestId: z.string(),
+    success: z.boolean(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const PushUnregisterHandleResponseSchema = z.object({
+  type: z.literal("push.unregister_handle.response"),
+  payload: z.object({
+    requestId: z.string(),
     success: z.boolean(),
     error: z.string().nullable(),
   }),
@@ -7720,6 +7757,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CreationSubscribeResponseSchema,
   WorkspaceClearAttentionResponseSchema,
   WorkspaceMarkUnreadResponseSchema,
+  PushRegisterHandleResponseSchema,
+  PushUnregisterHandleResponseSchema,
   SendAgentMessageResponseMessageSchema,
   SetVoiceModeResponseMessageSchema,
   DaemonGetStatusResponseSchema,

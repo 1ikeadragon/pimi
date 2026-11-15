@@ -2490,6 +2490,26 @@ export class DaemonClient {
     }
   }
 
+  async registerPushHandle(handle: string): Promise<void> {
+    const response =
+      await this.sendNamespacedCorrelatedSessionRequest<"push.register_handle.response">({
+        message: { type: "push.register_handle.request", handle },
+      });
+    if (!response.success) {
+      throw new Error(response.error ?? "Failed to register push handle");
+    }
+  }
+
+  async unregisterPushHandle(handle: string): Promise<void> {
+    const response =
+      await this.sendNamespacedCorrelatedSessionRequest<"push.unregister_handle.response">({
+        message: { type: "push.unregister_handle.request", handle },
+      });
+    if (!response.success) {
+      throw new Error(response.error ?? "Failed to unregister push handle");
+    }
+  }
+
   sendHeartbeat(params: {
     deviceType: "web" | "mobile";
     focusedAgentId: string | null;

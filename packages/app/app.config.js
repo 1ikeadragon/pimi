@@ -10,6 +10,9 @@ const appVariant = process.env.APP_VARIANT ?? "production";
 const isPimiAndroid = appVariant === "pimi-android";
 const isWatchdogBuild = process.env.PIMI_WATCHDOG_BUILD === "1";
 const isProfileBuild = process.env.PIMI_PROFILE_BUILD === "1";
+// Firebase config for FCM push. Without it the Android build has no push and the app falls back
+// to local notifications only.
+const androidGoogleServicesFile = process.env.PIMI_ANDROID_GOOGLE_SERVICES_FILE;
 
 const androidPermissions = [
   "RECORD_AUDIO",
@@ -77,6 +80,7 @@ export default {
       usesCleartextTraffic: true,
       permissions: androidPermissions,
       package: variant.packageId,
+      ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : {}),
       ...(isPimiAndroid
         ? { allowBackup: false, blockedPermissions: ["android.permission.SYSTEM_ALERT_WINDOW"] }
         : {}),

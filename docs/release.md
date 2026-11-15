@@ -2,12 +2,12 @@
 
 Releases are built on the maintainer's Apple silicon Mac and published as one GitHub release, `pimi-vX.Y.Z`, with these assets and a `SHA256SUMS.txt`:
 
-| Asset                                                            | Built with                                                     |
-| ---------------------------------------------------------------- | -------------------------------------------------------------- |
-| `Pimi-macOS-arm64.dmg`                                           | `npm run pimi:package:mac` (ad hoc signed, not notarized)      |
-| `Pimi-daemon-linux-x64.tar.gz`, `Pimi-daemon-linux-arm64.tar.gz` | `scripts/build-daemon-bundle.mjs` after `npm run build:server` |
-| `Pimi-Android-arm64.apk`                                         | `npm run pimi:package:android`, signed with the release key    |
-| `Pimi-iOS-arm64.ipa`                                             | Unsigned `xcodebuild` of the Expo prebuild, for SideStore      |
+| Asset                                                            | Built with                                                                                                           |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `Pimi-macOS-arm64.dmg`                                           | `npm run pimi:package:mac` (ad hoc signed, not notarized)                                                            |
+| `Pimi-daemon-linux-x64.tar.gz`, `Pimi-daemon-linux-arm64.tar.gz` | `scripts/build-daemon-bundle.mjs` after `npm run build:server`                                                       |
+| `Pimi-Android-arm64.apk`                                         | `npm run pimi:package:android`, signed with the release key; set `PIMI_ANDROID_GOOGLE_SERVICES_FILE` to include push |
+| `Pimi-iOS-arm64.ipa`                                             | Unsigned `xcodebuild` of the Expo prebuild, for SideStore                                                            |
 
 Windows is not built. The desktop app updates itself from the newest stable release; macOS may ask for approval when opening the new version.
 

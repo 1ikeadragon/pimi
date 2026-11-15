@@ -499,6 +499,7 @@ export interface PimiDaemonConfig {
   relayPublicEndpoint?: string;
   relayUseTls?: boolean;
   relayPublicUseTls?: boolean;
+  pushEndpoint?: string;
   serviceProxy?: {
     publicBaseUrl: string | null;
     standaloneListen: string | null;
@@ -2223,6 +2224,7 @@ export async function createPimiDaemon(
                   return appBaseUrl;
                 },
                 desktopManaged: config.desktopManaged === true,
+                pushEndpoint: config.pushEndpoint ?? null,
                 getRelayConfig: () => {
                   const current = relayRuntime?.getConfig() ?? relayConfig;
                   return (

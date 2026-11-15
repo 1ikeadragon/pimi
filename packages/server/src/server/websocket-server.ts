@@ -92,6 +92,7 @@ import type { WorkspaceScriptRuntimeStore } from "./workspace-script-runtime-sto
 import type { SpeechReadinessSnapshot, SpeechService } from "./speech/speech-runtime.js";
 import type { VoiceCallerContext, VoiceSpeakHandler } from "./voice-types.js";
 import { computeNotificationPlan, type ClientPresenceState } from "./agent-attention-policy.js";
+import { PushNotifier, type PushKind } from "./push/push-notifier.js";
 import {
   buildAgentAttentionNotificationPayload,
   findLatestPermissionRequest,
@@ -554,6 +555,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly serverId: string;
   private readonly daemonVersion: string;
   private readonly daemonRuntimeConfig: DaemonRuntimeConfig | undefined;
+  private readonly pushNotifier: PushNotifier;
   private readonly agentManager: AgentManager;
   private readonly agentStorage: AgentStorage;
   private readonly messageReceipts: MessageReceipts;
@@ -699,6 +701,11 @@ export class VoiceAssistantWebSocketServer {
     this.daemonVersion = daemonVersion.trim();
     this.credentialSource = auth;
     this.daemonRuntimeConfig = daemonRuntimeConfig;
+    this.pushNotifier = new PushNotifier({
+      pimiHome,
+      logger: this.logger,
+      getEndpoint: () => this.getPushEndpoint(),
+    });
     this.browserToolsBroker = browserToolsBroker ?? null;
     this.pluginRuntime = pluginRuntime;
     this.orchestrationSkills = orchestrationSkills;
@@ -1629,6 +1636,7 @@ export class VoiceAssistantWebSocketServer {
       daemonConfigStore: this.daemonConfigStore,
       pluginRuntime: this.pluginRuntime,
       usageLedger: this.usageLedger,
+      pushNotifier: this.pushNotifier,
       orchestrationSkills: this.orchestrationSkills,
       mcpBaseUrl: this.mcpBaseUrl,
       stt: () => this.speech?.resolveStt() ?? null,
@@ -1925,6 +1933,12 @@ export class VoiceAssistantWebSocketServer {
     connection.session.setHostSource(sourceId);
   }
 
+  // Push rides the relay's reverse proxy, so it is only offered while the relay is enabled.
+  private getPushEndpoint(): string | null {
+    const config = this.daemonRuntimeConfig;
+    return config?.getRelayConfig()?.enabled === true ? config.pushEndpoint : null;
+  }
+
   private buildServerInfoStatusPayload(session: Session): ServerInfoStatusPayload {
     return {
       status: "server_info",
@@ -1934,6 +1948,7 @@ export class VoiceAssistantWebSocketServer {
       version: this.daemonVersion,
       sourceId: session.getHostSourceId(),
       desktopManaged: this.daemonRuntimeConfig?.desktopManaged === true,
+      ...(this.getPushEndpoint() ? { pushEndpoint: this.getPushEndpoint() as string } : {}),
       ...(this.serverCapabilities ? { capabilities: this.serverCapabilities } : {}),
       features: {
         binaryChunkingV1: true,
@@ -2595,9 +2610,11 @@ export class VoiceAssistantWebSocketServer {
 
   private getClientActivityState(session: Session, source: object): ClientPresenceState {
     const activity = session.getClientActivity(source);
+    const hasPushHandle = session.getClientPushHandle(source) !== null;
     if (!activity) {
       return {
         appVisible: false,
+        hasPushHandle,
         focusedAgentId: null,
         focusedTerminalId: null,
         lastActivityAtMs: null,
@@ -2606,10 +2623,28 @@ export class VoiceAssistantWebSocketServer {
 
     return {
       appVisible: activity.appVisible,
+      hasPushHandle,
       focusedAgentId: activity.focusedAgentId,
       focusedTerminalId: activity.focusedTerminalId,
       lastActivityAtMs: activity.lastActivityAt.getTime(),
     };
+  }
+
+  private pushAttention(
+    plan: { shouldPush: boolean; pushRecipientIndex: number | null },
+    entries: Array<{ ws: WebSocketLike }>,
+    kind: PushKind,
+    id: string,
+  ): void {
+    if (!plan.shouldPush) return;
+    let handles: string[] | null = null;
+    if (plan.pushRecipientIndex !== null) {
+      const ws = entries[plan.pushRecipientIndex]?.ws;
+      const handle = ws ? this.sessions.get(ws)?.session.getClientPushHandle(ws) : null;
+      if (!handle) return;
+      handles = [handle];
+    }
+    this.pushNotifier.notify({ handles, kind, id });
   }
 
   private async broadcastAgentAttention(params: {
@@ -2654,6 +2689,14 @@ export class VoiceAssistantWebSocketServer {
       focusTarget: { kind: "agent", id: params.agentId },
       nowMs,
     });
+    if (params.reason !== "error") {
+      this.pushAttention(
+        plan,
+        notificationEntries,
+        params.reason === "permission" ? "agent_permission" : "agent_finished",
+        params.agentId,
+      );
+    }
 
     for (const { ws } of clientEntries) {
       const shouldNotify =
@@ -2704,6 +2747,7 @@ export class VoiceAssistantWebSocketServer {
       focusTarget: { kind: "terminal", id: params.terminalId },
       nowMs,
     });
+    this.pushAttention(plan, notificationEntries, "terminal", params.terminalId);
 
     const title = terminalAttentionTitle(params.reason);
     const body = params.terminalName;
