@@ -56,9 +56,9 @@ export default {
     orientation: "default",
     icon: "./assets/images/pimi-icon.png",
     scheme: "pimi",
-    userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
+      userInterfaceStyle: "automatic",
       supportsTablet: true,
       infoPlist: {
         NSMicrophoneUsageDescription: "This app needs access to the microphone for voice commands.",
