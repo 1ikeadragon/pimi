@@ -148,6 +148,8 @@ export interface ProviderSnapshotEntry {
   label?: string;
   description?: string;
   iconSvg?: string;
+  /** The registered provider a custom provider extends; the app shows its icon. */
+  baseProvider?: string;
   defaultModeId?: string | null;
 }
 

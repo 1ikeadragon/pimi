@@ -949,6 +949,9 @@ export class ProviderSnapshotManager {
           label: definition.label,
           description: definition.description,
           iconSvg: definition.iconSvg,
+          ...(definition.derivedFromProviderId
+            ? { baseProvider: definition.derivedFromProviderId }
+            : {}),
           defaultModeId: definition.defaultModeId ?? null,
         }),
       });
