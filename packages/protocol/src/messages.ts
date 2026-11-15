@@ -1794,6 +1794,11 @@ export const DiagnosticsResourcesSnapshotRequestSchema = z.object({
   resolveNames: z.boolean().optional(),
 });
 
+export const PackageRunsRequestSchema = z.object({
+  type: z.literal("diagnostics.package_runs.request"),
+  requestId: z.string(),
+});
+
 export const DiagnosticsResourcesBaselineUpdateRequestSchema = z.object({
   type: z.literal("diagnostics.resources.baseline.update.request"),
   requestId: z.string(),
@@ -3826,6 +3831,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   DaemonConfigReloadRequestSchema,
   DiagnosticsRequestSchema,
   DiagnosticsResourcesSnapshotRequestSchema,
+  PackageRunsRequestSchema,
   DiagnosticsResourcesBaselineUpdateRequestSchema,
   PluginCatalogGetRequestSchema,
   PluginListRequestSchema,
@@ -5668,6 +5674,48 @@ export const DiagnosticsResourcesSnapshotResponseSchema = z.object({
   payload: z.object({
     requestId: z.string(),
     snapshot: ResourcesSnapshotSchema,
+  }),
+});
+
+/**
+ * One package the daemon runs through a package runner: a custom ACP provider's command or a
+ * stdio MCP server. The daemon applies the supply-chain policy, so clients only render this.
+ */
+export const PackageRunEntrySchema = z.object({
+  id: z.string(),
+  kind: z.enum(["acp", "mcp"]),
+  /** The provider label or MCP server name that runs the package. */
+  label: z.string(),
+  /** First word of the configured command: npx, uvx, bunx, pnpm, ... */
+  runner: z.string(),
+  /** False when Pimi leaves the command untouched (unknown runner or unrecognised flags). */
+  managed: z.boolean(),
+  /** Package name, or null when the command is not managed. */
+  name: z.string().nullable(),
+  /** The spec as written in the command, and as it is run after the policy. */
+  requestedSpec: z.string().nullable(),
+  spec: z.string().nullable(),
+  /** Exact version the command runs, or null when the version is resolved by date. */
+  pinnedVersion: z.string().nullable(),
+  /** ISO instant of the date bound the command runs with, or null. */
+  cutoff: z.string().nullable(),
+  /** Why this command got its version rule: the policy mode, or something in the command itself. */
+  reason: z.enum(["policy", "exactVersion", "commandDateFlag", "unmanaged"]),
+  /** The command as configured and as it is spawned. */
+  configuredCommand: z.array(z.string()),
+  effectiveCommand: z.array(z.string()),
+  /** The version in the npx cache for this spec, read from disk. Null when none is installed. */
+  installed: z.object({ version: z.string(), installedAtMs: z.number() }).nullable(),
+  /** False when the daemon cannot read the runner's cache (uvx, bunx, pnpm). */
+  installedKnown: z.boolean(),
+});
+export type PackageRunEntry = z.infer<typeof PackageRunEntrySchema>;
+
+export const PackageRunsResponseSchema = z.object({
+  type: z.literal("diagnostics.package_runs.response"),
+  payload: z.object({
+    requestId: z.string(),
+    entries: z.array(PackageRunEntrySchema),
   }),
 });
 
@@ -7801,6 +7849,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   DaemonConfigReloadResponseSchema,
   DiagnosticsResponseSchema,
   DiagnosticsResourcesSnapshotResponseSchema,
+  PackageRunsResponseSchema,
   DiagnosticsResourcesBaselineUpdateResponseSchema,
   GetDaemonConfigResponseMessageSchema,
   SetDaemonConfigResponseMessageSchema,
@@ -8128,6 +8177,7 @@ export type DiagnosticsResponse = z.infer<typeof DiagnosticsResponseSchema>;
 export type DiagnosticsResourcesSnapshotResponse = z.infer<
   typeof DiagnosticsResourcesSnapshotResponseSchema
 >;
+export type PackageRunsResponse = z.infer<typeof PackageRunsResponseSchema>;
 export type GetProvidersSnapshotResponseMessage = z.infer<
   typeof GetProvidersSnapshotResponseMessageSchema
 >;

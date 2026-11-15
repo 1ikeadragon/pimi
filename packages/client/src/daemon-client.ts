@@ -138,6 +138,7 @@ import type {
   DaemonConfigReloadResponse,
   DiagnosticsResponse,
   ResourcesSnapshot,
+  PackageRunEntry,
   AgentRewindResponseMessage,
   ListTerminalsResponse,
   CreateTerminalResponse,
@@ -5934,6 +5935,15 @@ export class DaemonClient {
         },
       });
     return payload.snapshot;
+  }
+
+  /** Every package this host runs through a package runner, with the policy applied. */
+  async getPackageRuns(): Promise<PackageRunEntry[]> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"diagnostics.package_runs.response">({
+        message: { type: "diagnostics.package_runs.request" },
+      });
+    return payload.entries;
   }
 
   async updateResourcesBaseline(input: {

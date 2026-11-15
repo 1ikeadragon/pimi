@@ -8,6 +8,8 @@ import { SettingsRowHeader } from "./row-header";
 
 interface SettingsCollapsibleRowProps {
   label: string;
+  /** A line under the label, such as what the row is. */
+  hint?: string;
   /** A short status shown before the chevron, so the row says something while collapsed. */
   summary?: string;
   defaultExpanded?: boolean;
@@ -23,6 +25,7 @@ interface SettingsCollapsibleRowProps {
  */
 export function SettingsCollapsibleRow({
   label,
+  hint,
   summary,
   defaultExpanded = false,
   testID,
@@ -41,6 +44,7 @@ export function SettingsCollapsibleRow({
     <View testID={testID}>
       <SettingsRowHeader
         label={label}
+        hint={hint}
         summary={summary}
         onPress={toggle}
         expanded={expanded}
