@@ -35,6 +35,10 @@ export interface PackagePolicyResult {
   managed: boolean;
   runner: PackageRunner | null;
   name: string | null;
+  // The package spec token as written in the command, and as it appears in the returned argv.
+  // They differ when the policy strips a version or a range.
+  requestedSpec: string | null;
+  spec: string | null;
   // The exact version the returned argv runs, or null when the version is resolved by date.
   pinnedVersion: string | null;
   // ISO instant of the date bound in the returned argv, or null when there is none.
@@ -202,6 +206,8 @@ export function applyPackagePolicy(
     managed: false,
     runner: null,
     name: null,
+    requestedSpec: null,
+    spec: null,
     pinnedVersion: null,
     cutoff: null,
   };
@@ -211,7 +217,8 @@ export function applyPackagePolicy(
   if (!parsed) return unmanaged;
 
   const { runner, spec, specIndex, dateFlagIndex } = parsed;
-  const base = { managed: true, runner, name: spec.name };
+  const requestedSpec = argv[specIndex];
+  const base = { managed: true, runner, name: spec.name, requestedSpec };
   const existingCutoff =
     dateFlagIndex === -1 ? null : existingFlagCutoff(argv[dateFlagIndex], nowMs);
 
@@ -220,26 +227,34 @@ export function applyPackagePolicy(
       return {
         ...base,
         argv: [...argv],
+        spec: requestedSpec,
         pinnedVersion: spec.version.version,
         cutoff: existingCutoff,
       };
     }
     if (existingCutoff !== null) {
-      return { ...base, argv: [...argv], pinnedVersion: null, cutoff: existingCutoff };
+      return {
+        ...base,
+        argv: [...argv],
+        spec: requestedSpec,
+        pinnedVersion: null,
+        cutoff: existingCutoff,
+      };
     }
   }
 
   const out = [...argv];
   if (policy.mode !== "pinned" || spec.version.kind !== "exact") out[specIndex] = spec.bare;
+  const effectiveSpec = out[specIndex];
 
   if (policy.mode === "latest") {
     if (dateFlagIndex !== -1) out.splice(dateFlagIndex, 1);
-    return { ...base, argv: out, pinnedVersion: null, cutoff: null };
+    return { ...base, argv: out, spec: effectiveSpec, pinnedVersion: null, cutoff: null };
   }
 
   const iso = cutoffIso(nowMs, policy.minAgeDays);
   const flag = dateFlag(runner, iso, clampDays(policy.minAgeDays));
   if (dateFlagIndex !== -1) out[dateFlagIndex] = flag;
   else out.splice(1, 0, flag);
-  return { ...base, argv: out, pinnedVersion: null, cutoff: iso };
+  return { ...base, argv: out, spec: effectiveSpec, pinnedVersion: null, cutoff: iso };
 }

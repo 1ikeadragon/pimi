@@ -112,6 +112,7 @@ import {
   type WorkspaceScriptsService,
 } from "./session/workspace-scripts/workspace-scripts-service.js";
 import type { DaemonConfigStore } from "./daemon-config-store.js";
+import { collectPackageRuns, type McpPackageSource } from "./package-runs.js";
 import { releaseWorkspaceServicePortPlan } from "./workspace-service-port-registry.js";
 import { getErrorMessage, getErrorMessageOr } from "@pimi/protocol/error-utils";
 import { getAgentStatusPriority } from "@pimi/protocol/agent-state-bucket";
@@ -1744,6 +1745,29 @@ export class Session {
     return next;
   }
 
+  private async handlePackageRunsRequest(
+    msg: Extract<SessionInboundMessage, { type: "diagnostics.package_runs.request" }>,
+  ): Promise<void> {
+    const mcpServers: McpPackageSource[] = [...this.agentManager.listLaunchedMcpServers()];
+    for (const record of await this.agentStorage.listAll()) {
+      for (const [name, server] of Object.entries(record.config?.mcpServers ?? {})) {
+        if (server?.type !== "stdio" || typeof server.command !== "string") continue;
+        mcpServers.push({ name, argv: [server.command, ...(server.args ?? [])] });
+      }
+    }
+    const config = this.daemonConfigStore.get();
+    const entries = await collectPackageRuns({
+      providers: config.providers,
+      mcpServers,
+      policy: config.supplyChain,
+      now: Date.now(),
+    });
+    this.emit({
+      type: "diagnostics.package_runs.response",
+      payload: { requestId: msg.requestId, entries },
+    });
+  }
+
   private async handleWorkspaceMutation(mutation: WorkspaceMutation): Promise<void> {
     try {
       if (this.isCleanedUp) {
@@ -3004,6 +3028,8 @@ export class Session {
       case "diagnostics.resources.snapshot.request":
         this.daemonSession.handleResourcesSnapshotRequest(msg);
         return undefined;
+      case "diagnostics.package_runs.request":
+        return this.handlePackageRunsRequest(msg);
       case "diagnostics.resources.baseline.update.request":
         this.daemonSession.handleResourcesBaselineUpdateRequest(msg);
         return undefined;

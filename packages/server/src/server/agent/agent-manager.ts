@@ -37,6 +37,7 @@ import {
 } from "@pimi/protocol/package-runner-policy";
 import { z } from "zod";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
+import type { McpPackageSource } from "../package-runs.js";
 
 import {
   getAgentStreamEventTurnId,
@@ -1186,6 +1187,9 @@ export class AgentManager {
   private readonly pimiLoaderAgents = new Set<string>();
   private isSkillAvailable: (name: string) => Promise<boolean> = async () => false;
   private getPackagePolicy: () => PackagePolicy = () => DEFAULT_PACKAGE_POLICY;
+  // Stdio MCP servers seen at launch, as configured. Covers servers that plugins contribute at
+  // launch and that no saved agent record holds.
+  private readonly launchedMcpServers = new Map<string, McpPackageSource>();
   private readonly resolvePimiToolPolicy: (
     provider: AgentProvider,
   ) => ProviderPimiToolsPolicy | undefined;
@@ -7590,6 +7594,10 @@ export class AgentManager {
     return { ...configured, toolPolicy: preapproved.length ? { preapproved } : undefined };
   }
 
+  listLaunchedMcpServers(): McpPackageSource[] {
+    return [...this.launchedMcpServers.values()];
+  }
+
   private applyPackagePolicyToMcpServers(config: AgentSessionConfig): AgentSessionConfig {
     const servers = config.mcpServers;
     if (!servers) return config;
@@ -7601,7 +7609,9 @@ export class AgentManager {
         rewritten[name] = server;
         continue;
       }
-      const result = applyPackagePolicy([server.command, ...(server.args ?? [])], policy, now);
+      const argv = [server.command, ...(server.args ?? [])];
+      this.launchedMcpServers.set(`${name}\0${argv.join("\0")}`, { name, argv });
+      const result = applyPackagePolicy(argv, policy, now);
       if (!result.managed) {
         rewritten[name] = server;
         continue;

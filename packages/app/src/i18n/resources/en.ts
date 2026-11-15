@@ -3386,10 +3386,31 @@ export const en = {
         latest: "Runs the newest version on every launch. Not recommended.",
       },
       package: {
-        pinned: "{{version}} pinned",
+        pinned: "Pinned {{version}}",
         newestBefore: "Newest before {{date}}",
         latest: "Latest",
         notManaged: "Not managed",
+      },
+      detail: {
+        policy: "Policy",
+        requested: "Requested",
+        running: "Version running now",
+        usedByLabel: "Used by",
+        usedBy: { acp: "Provider {{label}}", mcp: "MCP server {{label}}" },
+        runningVersion: "{{version}}, installed {{date}}",
+        notRunYet: "Not run yet",
+        runningUnknown: "Not recorded for {{runner}}",
+        why: {
+          unmanaged: "Not managed: Pimi does not recognise this command, so it runs as written.",
+          exactVersion: "Pinned: the command names an exact version, so Pimi runs it as written.",
+          commandDateFlag:
+            "The command has its own date limit ({{date}}), so Pimi leaves it as written.",
+          pinned:
+            "Pinned mode: the command has no exact version, so Pimi runs the newest version before {{date}}.",
+          minAge:
+            "Minimum age: the newest version published at least {{count}} days ago, before {{date}}.",
+          latest: "Latest: the newest version, resolved on every launch.",
+        },
       },
     },
     title: "Settings",

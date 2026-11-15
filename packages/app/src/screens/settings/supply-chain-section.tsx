@@ -1,22 +1,26 @@
-import { useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { ProviderOverrideSchema } from "@pimi/protocol/provider-config";
+import type { PackageRunEntry } from "@pimi/protocol/messages";
 import {
-  applyPackagePolicy,
   DEFAULT_PACKAGE_POLICY,
   PACKAGE_POLICY_MIN_AGE_DAYS_MAX,
   PACKAGE_POLICY_MIN_AGE_DAYS_MIN,
   type PackagePolicy,
   type PackagePolicyMode,
-  type PackagePolicyResult,
 } from "@pimi/protocol/package-runner-policy";
-import { SettingsCard, SettingsRow, SettingsSection } from "@/components/settings";
+import {
+  SettingsCard,
+  SettingsCollapsibleRow,
+  SettingsRow,
+  SettingsSection,
+} from "@/components/settings";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
+import { useFetchQuery } from "@/data/query";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useTranslation } from "@/i18n/use-translation";
-import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { settingsStyles } from "@/styles/settings";
 
 function formatCutoff(iso: string): string {
@@ -31,6 +35,7 @@ function formatCutoff(iso: string): string {
 export function SupplyChainSection({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const isConnected = useHostRuntimeIsConnected(serverId);
+  const client = useHostRuntimeClient(serverId);
   const { config, patchConfig } = useDaemonConfig(serverId);
   const [error, setError] = useState<string | null>(null);
   const policy: PackagePolicy = config?.supplyChain ?? DEFAULT_PACKAGE_POLICY;
@@ -74,22 +79,17 @@ export function SupplyChainSection({ serverId }: { serverId: string }) {
     [t],
   );
 
-  const packages = useMemo(() => {
-    const now = Date.now();
-    const rows: { id: string; label: string; result: PackagePolicyResult }[] = [];
-    for (const [id, raw] of Object.entries(config?.providers ?? {})) {
-      const parsed = ProviderOverrideSchema.safeParse(raw);
-      const command = parsed.success ? parsed.data.command : undefined;
-      if (!command) continue;
-      const result = applyPackagePolicy(command, policy, now);
-      if (!result.managed) {
-        // Only runners Pimi recognises are listed, plus any other runner it leaves alone.
-        if (!["npx", "uvx", "bunx", "pnpm"].includes(command[0])) continue;
-      }
-      rows.push({ id, label: parsed.data?.label ?? id, result });
-    }
-    return rows;
-  }, [config?.providers, policy]);
+  // The daemon applies the policy and reads its npx cache; the app only renders the answer.
+  const providersKey = JSON.stringify(config?.providers ?? {});
+  const runs = useFetchQuery({
+    dataShape: "value",
+    queryKey: ["supply-chain-packages", serverId, policy.mode, policy.minAgeDays, providersKey],
+    queryFn: () => client!.getPackageRuns(),
+    enabled: Boolean(client) && isConnected,
+    staleTimeMs: 0,
+    retry: false,
+  });
+  const packages = runs.data ?? [];
 
   if (!isConnected || !config) return null;
 
@@ -146,13 +146,8 @@ export function SupplyChainSection({ serverId }: { serverId: string }) {
       {packages.length > 0 ? (
         <SettingsSection title={t("settings.supplyChain.packages")} testID="supply-chain-packages">
           <SettingsCard>
-            {packages.map(({ id, label, result }) => (
-              <SettingsRow
-                key={id}
-                label={label}
-                hint={packageHint(t, result)}
-                testID={`supply-chain-package-${id}`}
-              />
+            {packages.map((entry) => (
+              <PackageRow key={entry.id} entry={entry} policy={policy} />
             ))}
           </SettingsCard>
         </SettingsSection>
@@ -161,16 +156,83 @@ export function SupplyChainSection({ serverId }: { serverId: string }) {
   );
 }
 
-function packageHint(t: ReturnType<typeof useTranslation>["t"], result: PackagePolicyResult) {
-  if (!result.managed) return t("settings.supplyChain.package.notManaged");
-  if (result.pinnedVersion) {
-    return t("settings.supplyChain.package.pinned", { version: result.pinnedVersion });
+type Translate = ReturnType<typeof useTranslation>["t"];
+
+function packageStatus(t: Translate, entry: PackageRunEntry): string {
+  if (!entry.managed) return t("settings.supplyChain.package.notManaged");
+  if (entry.pinnedVersion) {
+    return t("settings.supplyChain.package.pinned", { version: entry.pinnedVersion });
   }
-  if (result.cutoff) {
-    return t("settings.supplyChain.package.newestBefore", { date: formatCutoff(result.cutoff) });
+  if (entry.cutoff) {
+    return t("settings.supplyChain.package.newestBefore", { date: formatCutoff(entry.cutoff) });
   }
   return t("settings.supplyChain.package.latest");
 }
+
+function policyExplanation(t: Translate, entry: PackageRunEntry, policy: PackagePolicy): string {
+  const date = entry.cutoff ? formatCutoff(entry.cutoff) : "";
+  switch (entry.reason) {
+    case "unmanaged":
+      return t("settings.supplyChain.detail.why.unmanaged");
+    case "exactVersion":
+      return t("settings.supplyChain.detail.why.exactVersion");
+    case "commandDateFlag":
+      return t("settings.supplyChain.detail.why.commandDateFlag", { date });
+    case "policy":
+      return t(`settings.supplyChain.detail.why.${policy.mode}`, {
+        date,
+        count: policy.minAgeDays,
+      });
+  }
+}
+
+function installedLine(t: Translate, entry: PackageRunEntry): string {
+  if (!entry.installedKnown) {
+    return t("settings.supplyChain.detail.runningUnknown", { runner: entry.runner });
+  }
+  if (!entry.installed) return t("settings.supplyChain.detail.notRunYet");
+  return t("settings.supplyChain.detail.runningVersion", {
+    version: entry.installed.version,
+    date: new Date(entry.installed.installedAtMs).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+  });
+}
+
+const PackageRow = memo(function PackageRow({
+  entry,
+  policy,
+}: {
+  entry: PackageRunEntry;
+  policy: PackagePolicy;
+}) {
+  const { t } = useTranslation();
+  const used = t(`settings.supplyChain.detail.usedBy.${entry.kind}`, { label: entry.label });
+  return (
+    <SettingsCollapsibleRow
+      label={entry.name ?? entry.label}
+      hint={entry.runner}
+      summary={packageStatus(t, entry)}
+      testID={`supply-chain-package-${entry.id}`}
+    >
+      <SettingsRow
+        label={t("settings.supplyChain.detail.policy")}
+        hint={policyExplanation(t, entry, policy)}
+      />
+      <SettingsRow
+        label={t("settings.supplyChain.detail.requested")}
+        hint={entry.requestedSpec ?? entry.configuredCommand.join(" ")}
+      />
+      <SettingsRow
+        label={t("settings.supplyChain.detail.running")}
+        hint={installedLine(t, entry)}
+      />
+      <SettingsRow label={t("settings.supplyChain.detail.usedByLabel")} hint={used} />
+    </SettingsCollapsibleRow>
+  );
+});
 
 const styles = StyleSheet.create((theme) => ({
   stepper: {

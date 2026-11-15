@@ -242,26 +242,30 @@ function ProviderRow({
     },
     [def.id, onToggleEnabled],
   );
-  const rowStyle = useCallback(
+  const rowStyle = useMemo(
+    () => [settingsStyles.row, !isFirst && settingsStyles.rowBorder, styles.row, styles.rowOuter],
+    [isFirst],
+  );
+  const pressableStyle = useCallback(
     ({ pressed, hovered }: PressableStateCallbackType & { hovered?: boolean }) => [
-      settingsStyles.row,
-      !isFirst && settingsStyles.rowBorder,
-      styles.row,
+      styles.rowPressable,
       hovered && styles.rowHovered,
       pressed && styles.rowPressed,
     ],
-    [isFirst],
+    [],
   );
 
+  // The menu and the switch are controls of their own, so they sit beside the pressable
+  // detail area, not inside it: a button cannot contain a button.
   return (
-    <Pressable
-      style={rowStyle}
-      onPress={handlePress}
-      accessibilityRole="button"
-      accessibilityLabel={t("settings.providers.providerDetails", { name: def.label })}
-    >
-      {({ hovered }: PressableStateCallbackType & { hovered?: boolean }) => (
-        <>
+    <View style={rowStyle}>
+      <Pressable
+        style={pressableStyle}
+        onPress={handlePress}
+        accessibilityRole="button"
+        accessibilityLabel={t("settings.providers.providerDetails", { name: def.label })}
+      >
+        {({ hovered }: PressableStateCallbackType & { hovered?: boolean }) => (
           <View style={styles.rowContent}>
             <ChevronRight
               size={theme.iconSize.sm}
@@ -283,31 +287,31 @@ function ProviderRow({
               ) : null}
             </View>
           </View>
-          {/* The menu leads the switch, so every switch sits on the row's right edge without
-              rows that have no menu reserving room for one. */}
-          <View style={styles.trailingControls}>
-            {canRemove ? (
-              <ProviderActionsMenu
-                providerId={def.id}
-                providerLabel={def.label}
-                isRemoving={isRemoving}
-                iconSize={theme.iconSize.sm}
-                foregroundColor={theme.colors.foreground}
-                foregroundMutedColor={theme.colors.foregroundMuted}
-                dangerColor={theme.colors.statusDanger}
-                onRemove={onRemove}
-              />
-            ) : null}
-            <Switch
-              value={enabled}
-              onValueChange={handleToggleValueChange}
-              disabled={isToggling || isRemoving}
-              accessibilityLabel={t("settings.providers.enableProvider", { name: def.label })}
-            />
-          </View>
-        </>
-      )}
-    </Pressable>
+        )}
+      </Pressable>
+      {/* The menu leads the switch, so every switch sits on the row's right edge without
+          rows that have no menu reserving room for one. */}
+      <View style={styles.trailingControls}>
+        {canRemove ? (
+          <ProviderActionsMenu
+            providerId={def.id}
+            providerLabel={def.label}
+            isRemoving={isRemoving}
+            iconSize={theme.iconSize.sm}
+            foregroundColor={theme.colors.foreground}
+            foregroundMutedColor={theme.colors.foregroundMuted}
+            dangerColor={theme.colors.statusDanger}
+            onRemove={onRemove}
+          />
+        ) : null}
+        <Switch
+          value={enabled}
+          onValueChange={handleToggleValueChange}
+          disabled={isToggling || isRemoving}
+          accessibilityLabel={t("settings.providers.enableProvider", { name: def.label })}
+        />
+      </View>
+    </View>
   );
 }
 
@@ -666,6 +670,20 @@ const styles = StyleSheet.create((theme) => ({
   row: {
     gap: theme.spacing[3],
     minHeight: 56,
+  },
+  // The row's padding moves into the pressable so its hover fill reaches the row's edges.
+  rowOuter: {
+    paddingVertical: 0,
+    paddingLeft: 0,
+    gap: 0,
+  },
+  rowPressable: {
+    flex: 1,
+    alignSelf: "stretch",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: theme.spacing[4],
+    paddingLeft: theme.spacing[4],
   },
   rowHovered: {
     backgroundColor: theme.colors.surface2,
