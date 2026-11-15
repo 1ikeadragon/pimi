@@ -14,7 +14,6 @@ const {
 const verificationMetadata = path.join(__dirname, "pimi-android-verification-metadata.xml");
 
 const excludedModules = [
-  "expo-notifications",
   "expo-application",
   "expo-dev-client",
   "expo-dev-launcher",

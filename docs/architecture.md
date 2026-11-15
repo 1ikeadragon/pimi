@@ -460,7 +460,6 @@ $PIMI_HOME/
 ├── heartbeats/                                 # Live heartbeats
 ├── config.json                                 # Daemon config (mutable)
 ├── daemon-keypair.json                         # Daemon identity for relay/E2EE
-├── push-tokens.json                            # Mobile push tokens
 ├── pimi.pid                                   # Supervisor identity and published bound endpoint
 └── daemon.log                                  # Daemon trace logs (rotated)
 ```

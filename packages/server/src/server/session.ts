@@ -241,7 +241,6 @@ import { ProjectConfigSession } from "./session/project-config/project-config-se
 import { DaemonSession, type DaemonRuntimeConfig } from "./session/daemon/daemon-session.js";
 import type { DaemonWebSocketRuntimeDiagnosticSnapshot } from "./session/daemon/diagnostics.js";
 import { DownloadTokenStore } from "./file-download/token-store.js";
-import type { PushNotifications } from "./push/index.js";
 import {
   archivePersistedWorkspaceRecord,
   archiveWorkspaceContents,
@@ -485,7 +484,6 @@ export interface SessionOptions {
   publishScriptStatusUpdate?: (message: ScriptStatusUpdateMessage) => void;
   logger: pino.Logger;
   downloadTokenStore: DownloadTokenStore;
-  pushNotifications?: PushNotifications;
   pimiHome: string;
   worktreesRoot?: string;
   agentManager: AgentManager;
@@ -752,7 +750,6 @@ export class Session {
   private readonly workspaceRecovery: WorkspaceRecoveryService;
   private workspaceBaseBranch: WorkspaceBaseBranchService | undefined;
   private readonly daemonConfigStore: DaemonConfigStore;
-  private readonly pushNotifications?: PushNotifications;
   private readonly pluginRuntime: SessionOptions["pluginRuntime"];
   private readonly orchestrationSkills: SessionOptions["orchestrationSkills"];
   private unsubscribeAgentEvents: (() => void) | null = null;
@@ -771,7 +768,6 @@ export class Session {
     object,
     {
       activity: ClientActivity | null;
-      pushToken: string | null;
     }
   >();
   private unsubscribeTerminalWorkspaceContributionEvents: (() => void) | null = null;
@@ -838,7 +834,6 @@ export class Session {
       publishScriptStatusUpdate,
       logger,
       downloadTokenStore,
-      pushNotifications,
       pimiHome,
       worktreesRoot,
       agentManager,
@@ -902,7 +897,6 @@ export class Session {
     this.getTransportBufferedAmount = getTransportBufferedAmount ?? (() => 0);
     this.onLifecycleIntent = onLifecycleIntent ?? null;
     this.onWorkspaceRecovered = onWorkspaceRecovered ?? null;
-    this.pushNotifications = pushNotifications;
     this.pimiHome = pimiHome;
     this.messageReceipts = options.messageReceipts;
     this.agentMessages = options.agentMessages;
@@ -1293,7 +1287,6 @@ export class Session {
     this.delivery.attach(source);
     this.clientSources.set(source, {
       activity: this.clientSources.get(source)?.activity ?? null,
-      pushToken: this.clientSources.get(source)?.pushToken ?? null,
     });
     this.refreshObservationProducers();
   }
@@ -3253,19 +3246,6 @@ export class Session {
       case "list_commands_request":
         await this.handleListCommandsRequest(msg);
         return;
-      case "register_push_token":
-        this.handleRegisterPushToken(msg.token);
-        return;
-      case "push.unregister.request":
-        this.pushNotifications?.revoke(msg.token);
-        if (this.currentClientMetadata().pushToken?.trim() === msg.token.trim()) {
-          this.currentClientMetadata().pushToken = null;
-        }
-        this.emit({
-          type: "push.unregister.response",
-          payload: { requestId: msg.requestId },
-        });
-        return;
     }
   }
 
@@ -5072,9 +5052,6 @@ export class Session {
     if (msg.appVisible && focusedTerminalId) {
       void this.clearFocusedTerminalAttention(focusedTerminalId);
     }
-    if (metadata.pushToken) {
-      this.pushNotifications?.renew(metadata.pushToken);
-    }
   }
 
   private async clearFocusedTerminalAttention(terminalId: string): Promise<void> {
@@ -5087,16 +5064,6 @@ export class Session {
     } catch (error) {
       this.sessionLogger.warn({ err: error, terminalId }, "Failed to clear terminal attention");
     }
-  }
-
-  /**
-   * Handle push token registration
-   */
-  private handleRegisterPushToken(token: string): void {
-    if (!this.pushNotifications) return;
-    this.currentClientMetadata().pushToken = token;
-    this.pushNotifications.renew(token);
-    this.sessionLogger.info("Registered push token");
   }
 
   private refreshCommandsInBackground(agentId: string): void {

@@ -8,7 +8,6 @@ const appNodeModulesRoot = path.resolve(projectRoot, "node_modules");
 const appSrcRoot = path.resolve(projectRoot, "src");
 const isWatchdogBuild = process.env.PIMI_WATCHDOG_BUILD === "1";
 const isPimiAndroid = process.env.APP_VARIANT === "pimi-android";
-const pimiAndroidNotificationsStub = path.resolve(appSrcRoot, "fdroid/expo-notifications.ts");
 const webBarcodeDetectorStub = path.resolve(appSrcRoot, "web/barcode-detector-stub.ts");
 const customWebPlatform = (process.env.PIMI_WEB_PLATFORM ?? "")
   .trim()
@@ -176,9 +175,6 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   }
   if (platform === "web" && moduleName === "barcode-detector") {
     return { type: "sourceFile", filePath: webBarcodeDetectorStub };
-  }
-  if (platform === "android" && isPimiAndroid && moduleName === "expo-notifications") {
-    return resolveWithCustomWebOverlay(context, pimiAndroidNotificationsStub, platform);
   }
 
   return resolveWithCustomWebOverlay(context, moduleName, platform);

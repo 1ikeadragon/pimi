@@ -1193,7 +1193,6 @@ function toTimeoutError(error: unknown, label: string, timeoutMs: number): Error
 const DEFAULT_RECONNECT_BASE_DELAY_MS = 1500;
 const DEFAULT_RECONNECT_MAX_DELAY_MS = 30000;
 const DEFAULT_SESSION_RPC_TIMEOUT_MS = 60_000;
-const PUSH_TOKEN_REVOCATION_TIMEOUT_MS = 2_000;
 const DEFAULT_CONNECT_TIMEOUT_MS = 15_000;
 const DEFAULT_LIVENESS_TIMEOUT_MS = 5000;
 const LIVENESS_HEARTBEAT_INTERVAL_MS = 10_000;
@@ -2507,23 +2506,6 @@ export class DaemonClient {
       lastActivityAt: params.lastActivityAt,
       appVisible: params.appVisible,
       appVisibilityChangedAt: params.appVisibilityChangedAt,
-    });
-  }
-
-  registerPushToken(token: string): void {
-    this.sendSessionMessage({
-      type: "register_push_token",
-      token,
-    });
-  }
-
-  async unregisterPushToken(token: string): Promise<void> {
-    const requestId = this.createRequestId();
-    await this.sendCorrelatedSessionRequest({
-      requestId,
-      message: { type: "push.unregister.request", token, requestId },
-      responseType: "push.unregister.response",
-      timeout: PUSH_TOKEN_REVOCATION_TIMEOUT_MS,
     });
   }
 

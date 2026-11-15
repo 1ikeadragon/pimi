@@ -8,7 +8,7 @@ Pimi for Android runs chats on your paired host. You can browse workspace
 files and diffs, tile agents, keep tasks and labels, and check usage. Tasks live on
 the host, so they work with the desktop app closed. Memory, Spaces,
 cross-repository Review, and Usage Recap stay on desktop for this preview.
-Cloud push notifications are unavailable in the preview.
+Agent notifications appear while Pimi stays connected to your host; there is no cloud push.
 
 On Pimi Desktop, open **Pair a device** in your local host settings.
 Choose **Same Wi-Fi**, enable local pairing, then scan the QR code in Pimi for
@@ -34,8 +34,8 @@ npm run pimi:package:android
 
 Install Build Tools `36.0.0`, NDK `27.1.12297006`, and CMake `3.22.1` with
 `sdkmanager`. The build uses the `pimi-android` Expo variant and writes
-`artifacts/Pimi-Android-arm64.apk`. It excludes Firebase messaging, the Google
-barcode scanner, and Expo development modules. It signs with the `pimi` alias and verifies
+`artifacts/Pimi-Android-arm64.apk`. It excludes the Google
+barcode scanner and Expo development modules. It signs with the `pimi` alias and verifies
 the APK before copying it to that path. Keep the same signing key for future
 updates. Keep the keystore and password file outside the checkout with
 user-only access and an offline backup.

@@ -232,7 +232,6 @@ import { applyTerminalAgentHookSetting } from "../terminal/agent-hooks/terminal-
 import { loadOrCreateDaemonKeyPair } from "./daemon-keypair.js";
 import { createRelayRuntime, type RelayRuntime } from "./relay-runtime.js";
 import { admitSecuredRelaySocket } from "./websocket/secure-relay-ingress.js";
-import type { PushNotificationSender } from "./push/index.js";
 import { getOrCreateServerId } from "./server-id.js";
 import { resolveDaemonVersion } from "./daemon-version.js";
 import type { AgentClient, AgentProvider } from "./agent/agent-sdk-types.js";
@@ -524,7 +523,6 @@ export interface PimiDaemonConfig {
   providerOverrides?: Record<string, ProviderOverride>;
   log?: PersistedConfig["log"];
   onLifecycleIntent?: (intent: DaemonLifecycleIntent) => void;
-  pushNotificationSender?: PushNotificationSender;
   managedProcesses?: ManagedProcessRegistry;
   configReload?: {
     env: NodeJS.ProcessEnv;
@@ -1746,7 +1744,6 @@ export async function createPimiDaemon(
     logger,
     attackService,
     gh: (args) => runGitHubCli(args, { cwd: homedir() }),
-    notify: config.pushNotificationSender,
   });
   await attackScheduler.start();
   const heartbeatService = new HeartbeatService({
@@ -2218,7 +2215,6 @@ export async function createPimiDaemon(
               (hostname) => scriptHealthMonitor.getHealthForHostname(hostname),
               workspaceGitService,
               github,
-              config.pushNotificationSender,
               providerSnapshotManager,
               {
                 listen: formatListenTarget(boundListenTarget ?? listenTarget),

@@ -155,7 +155,6 @@ $PIMI_HOME/
 ├── plugins/
 │   ├── sources.json                      # Managed kind and Git acquisition remote
 │   └── {pluginId}/{uuid}/                # Git checkout or npm package/lockfile/dependency tree
-└── push-tokens.json                     # Expo push notification tokens
 ```
 
 The `agents/{sanitized-cwd}/` directory name is derived from the agent's `cwd` by stripping the filesystem root and replacing path separators with `-` (Windows drive letters become a `C-` style prefix). Persistent server stores write atomically by writing a temp file in the target directory and then renaming it into place. The temp file is fsynced before the rename and the directory after it (POSIX only), so a power loss leaves the old or the new file, never a partial one; this costs about 8 ms per write on an SSD against 0.6 ms without.
@@ -566,20 +565,6 @@ Rows of `pimi.db` `records`, by kind: `task`, `label` and `label_assignment`. Sh
 history surfaces tolerate transient orphaned workspaces by omitting those rows so one bad FK cannot
 blank the whole History screen, but mutation paths should repair or remove the orphaned state rather
 than treating it as valid.
-
----
-
-## 6. Push Token Store
-
-**Path:** `$PIMI_HOME/push-tokens.json`
-
-```json
-{
-  "tokens": ["ExponentPushToken[...]", ...]
-}
-```
-
-Simple set of Expo push notification tokens. Loaded with permissive parsing (filters non-string entries). Persisted with atomic temp-file rename.
 
 ---
 

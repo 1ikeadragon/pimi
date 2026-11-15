@@ -1,5 +1,3 @@
-import type { AgentAttentionReason } from "@pimi/protocol/agent-attention-notification";
-
 export const PRESENCE_THRESHOLD_MS = 180_000;
 
 export interface ClientPresenceState {
@@ -13,7 +11,6 @@ export type AttentionFocusTarget = { kind: "agent"; id: string } | { kind: "term
 
 export interface NotificationPlan {
   inAppRecipientIndex: number | null;
-  shouldPush: boolean;
 }
 
 interface ComputeNotificationPlanInput {
@@ -21,8 +18,6 @@ interface ComputeNotificationPlanInput {
   // A present, app-visible client focused on the attention target suppresses the
   // notification entirely. Pass null when the target should not suppress notifications.
   focusTarget: AttentionFocusTarget | null;
-  // Whether a push notification is allowed when no client is present.
-  pushEligible: boolean;
   nowMs: number;
 }
 
@@ -42,7 +37,6 @@ function isFocusedOnTarget(
 export function computeNotificationPlan({
   allStates,
   focusTarget,
-  pushEligible,
   nowMs,
 }: ComputeNotificationPlanInput): NotificationPlan {
   let mostRecentPresentIndex: number | null = null;
@@ -59,7 +53,7 @@ export function computeNotificationPlan({
     }
 
     if (state.appVisible && isFocusedOnTarget(state, focusTarget)) {
-      return { inAppRecipientIndex: null, shouldPush: false };
+      return { inAppRecipientIndex: null };
     }
 
     if (clampedActivityAtMs > mostRecentPresentAtMs) {
@@ -69,12 +63,8 @@ export function computeNotificationPlan({
   }
 
   if (mostRecentPresentIndex !== null) {
-    return { inAppRecipientIndex: mostRecentPresentIndex, shouldPush: false };
+    return { inAppRecipientIndex: mostRecentPresentIndex };
   }
 
-  return { inAppRecipientIndex: null, shouldPush: pushEligible };
-}
-
-export function isPushEligibleAttentionReason(reason: AgentAttentionReason): boolean {
-  return reason !== "error";
+  return { inAppRecipientIndex: null };
 }

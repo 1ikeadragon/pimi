@@ -312,6 +312,7 @@ export const en = {
     },
   },
   common: {
+    agentNotificationChannel: "Agent activity",
     bottomSheetBackdrop: "Bottom sheet backdrop",
     back: "Back",
     loading: "Loading...",

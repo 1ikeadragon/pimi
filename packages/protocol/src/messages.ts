@@ -3530,24 +3530,6 @@ export const ListCommandsRequestSchema = z.object({
   requestId: z.string(),
 });
 
-export const RegisterPushTokenMessageSchema = z.object({
-  type: z.literal("register_push_token"),
-  token: z.string(),
-});
-
-export const PushUnregisterRequestSchema = z.object({
-  type: z.literal("push.unregister.request"),
-  token: z.string(),
-  requestId: z.string(),
-});
-
-export const PushUnregisterResponseSchema = z.object({
-  type: z.literal("push.unregister.response"),
-  payload: z.object({
-    requestId: z.string(),
-  }),
-});
-
 // ============================================================================
 // Terminal Messages
 // ============================================================================
@@ -3957,8 +3939,6 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ClientHeartbeatMessageSchema,
   PingMessageSchema,
   ListCommandsRequestSchema,
-  RegisterPushTokenMessageSchema,
-  PushUnregisterRequestSchema,
   ListTerminalsRequestSchema,
   SubscribeTerminalsRequestSchema,
   UnsubscribeTerminalsRequestSchema,
@@ -7685,7 +7665,6 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   DictationStreamErrorMessageSchema,
   StatusMessageSchema,
   PongMessageSchema,
-  PushUnregisterResponseSchema,
   RpcErrorMessageSchema,
   ArtifactMessageSchema,
   AgentUpdateMessageSchema,
@@ -8448,9 +8427,6 @@ export type ClearAgentAttentionResponseMessage = z.infer<
 export type ClientHeartbeatMessage = z.infer<typeof ClientHeartbeatMessageSchema>;
 export type ListCommandsRequest = z.infer<typeof ListCommandsRequestSchema>;
 export type ListCommandsResponse = z.infer<typeof ListCommandsResponseSchema>;
-export type RegisterPushTokenMessage = z.infer<typeof RegisterPushTokenMessageSchema>;
-export type PushUnregisterRequest = z.infer<typeof PushUnregisterRequestSchema>;
-export type PushUnregisterResponse = z.infer<typeof PushUnregisterResponseSchema>;
 
 // Terminal message types
 export type ListTerminalsRequest = z.infer<typeof ListTerminalsRequestSchema>;

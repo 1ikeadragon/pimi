@@ -109,9 +109,10 @@ export default {
           },
         },
       ],
+      ...notificationPlugins,
       ...(isPimiAndroid
         ? [["expo-dev-client", { addGeneratedScheme: false }], withPimiAndroidRelease]
-        : notificationPlugins),
+        : []),
       "expo-audio",
       [
         "expo-gradle-jvmargs",

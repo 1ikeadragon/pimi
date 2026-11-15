@@ -12,7 +12,7 @@ export function createNotificationOpenSource(): NotificationOpenSource {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: false,
-      shouldShowBanner: false,
+      shouldShowBanner: true,
       shouldShowList: true,
       shouldPlaySound: false,
       shouldSetBadge: false,

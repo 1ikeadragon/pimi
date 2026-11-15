@@ -1,4 +1,6 @@
 import { Asset } from "expo-asset";
+import { Platform } from "react-native";
+import { i18n } from "@/i18n/i18next";
 import { getDesktopHost } from "@/desktop/host";
 import { parseNotificationOpenTarget, WEB_NOTIFICATION_CLICK_EVENT } from "@/notification-open";
 import { isNative } from "@/constants/platform";
@@ -88,9 +90,46 @@ async function ensureNotificationPermission(): Promise<boolean> {
   return result;
 }
 
+const ANDROID_NOTIFICATION_CHANNEL_ID = "agent-activity";
+let nativePermissionRequest: Promise<boolean> | null = null;
+
+// Loaded lazily: expo-notifications is native-only and must not evaluate on web or desktop.
+async function ensureNativeNotificationPermission(): Promise<boolean> {
+  nativePermissionRequest ??= (async () => {
+    const Notifications = await import("expo-notifications");
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync(ANDROID_NOTIFICATION_CHANNEL_ID, {
+        name: i18n.t("common.agentNotificationChannel"),
+        importance: Notifications.AndroidImportance.HIGH,
+      });
+    }
+    const current = await Notifications.getPermissionsAsync();
+    if (current.granted) return true;
+    if (!current.canAskAgain) return false;
+    return (await Notifications.requestPermissionsAsync()).granted;
+  })().catch((error) => {
+    console.warn("[OsNotifications] Failed to set up native notifications", error);
+    return false;
+  });
+  const granted = await nativePermissionRequest;
+  // A denied or failed result is retried next time; a grant is remembered for the session.
+  if (!granted) nativePermissionRequest = null;
+  return granted;
+}
+
+async function sendNativeNotification(payload: OsNotificationPayload): Promise<boolean> {
+  if (!(await ensureNativeNotificationPermission())) return false;
+  const Notifications = await import("expo-notifications");
+  await Notifications.scheduleNotificationAsync({
+    content: { title: payload.title, body: payload.body, data: payload.data },
+    trigger: Platform.OS === "android" ? { channelId: ANDROID_NOTIFICATION_CHANNEL_ID } : null,
+  });
+  return true;
+}
+
 export async function ensureOsNotificationPermission(): Promise<boolean> {
   if (isNative) {
-    return false;
+    return await ensureNativeNotificationPermission();
   }
   return await ensureNotificationPermission();
 }
@@ -142,9 +181,11 @@ function attachWebClickHandler(
 }
 
 export async function sendOsNotification(payload: OsNotificationPayload): Promise<boolean> {
-  // Mobile/native notifications should be remote push only.
   if (isNative) {
-    return false;
+    return await sendNativeNotification(payload).catch((error) => {
+      console.warn("[OsNotifications] Failed to present notification", error);
+      return false;
+    });
   }
 
   const desktopNotificationSender = getDesktopNotificationSender();

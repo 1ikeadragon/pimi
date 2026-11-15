@@ -23,7 +23,6 @@ import {
   type GhRunner,
   type PullRequestTriggerState,
 } from "../automation/pull-request-trigger.js";
-import type { PushNotificationSender } from "../push/index.js";
 import { spawnProcess } from "../../utils/spawn.js";
 import { AttackStateError, type AttackService } from "./service.js";
 
@@ -43,7 +42,6 @@ export interface AttackSchedulerOptions {
   /** Runs the host's `gh` CLI for pull-request triggers. */
   gh: GhRunner;
   /** Tells the owner a scheduled run ended with blockers. Absent when no device is paired. */
-  notify?: PushNotificationSender;
   /** Test seam: whether the URL answers. */
   isHealthy?: (url: string) => Promise<boolean>;
 }
@@ -106,7 +104,6 @@ export class AttackScheduler {
   private readonly logger: Logger;
   private readonly attack: AttackService;
   private readonly gh: GhRunner;
-  private readonly notify: PushNotificationSender | undefined;
   private readonly isHealthy: (url: string) => Promise<boolean>;
   private readonly schedules: SqlRecordStore<AttackSchedule>;
   private readonly triggerStates: SqlRecordStore<PullRequestTriggerState>;
@@ -123,7 +120,6 @@ export class AttackScheduler {
     this.logger = options.logger.child({ module: "attack-schedules" });
     this.attack = options.attackService;
     this.gh = options.gh;
-    this.notify = options.notify;
     this.isHealthy = options.isHealthy ?? defaultIsHealthy;
     this.database = options.database;
     this.schedules = new SqlRecordStore({
@@ -506,14 +502,5 @@ export class AttackScheduler {
     );
     if (blockers.length === 0) return;
     this.record(schedule, "blockers", run.id, `${blockers.length} open blocker(s)`);
-    try {
-      await this.notify?.send({
-        title: `Attack found ${blockers.length} blocker${blockers.length === 1 ? "" : "s"}`,
-        body: `${schedule.name}: ${blockers[0]?.title ?? ""}`.slice(0, 200),
-        data: { attackRunId: run.id, workspaceId: run.workspaceId },
-      });
-    } catch (error) {
-      this.logger.warn({ err: error, scheduleId }, "Could not notify the owner of blockers");
-    }
   }
 }
