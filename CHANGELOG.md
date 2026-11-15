@@ -2,6 +2,12 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.58 - 2026-11-15
+
+- Agents start lighter: Pimi adds about half as many tokens to each Claude session. Only core Pimi tools are listed up front; the rest load when the agent asks for them.
+- Attack and desktop tools are only offered to agents in an Attack run.
+- OpenCode: Pimi tools work again. A leftover bridge from before the rename was hiding them.
+
 ## 0.17.57 - 2026-11-15
 
 - Flows: build reusable agent graphs in Library > Flows, now also in every sidebar. Type /name in a chat to drop a flow card there; press Start to run it, and the result shows in the chat.
