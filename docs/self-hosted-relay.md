@@ -172,7 +172,7 @@ Cloudflare's ranges change rarely; rerun the loop when they do. The origin IP st
 
 ## Android push (optional)
 
-`pimi-push` is a separate process from the relay. It holds the only Firebase service-account key and calls Google, which the relay's sandbox (`IPAddressDeny=any`) must never do. It sends fixed-text notifications ("An agent finished.") to phones that registered a handle; no chat content reaches Google.
+`pimi-push` is a separate process from the relay. It holds the only Firebase service-account key and calls Google, which the relay's sandbox (`IPAddressDeny=any`) must never do. It sends notifications titled with the chat or terminal name (at most 80 characters) and a fixed body ("An agent finished.") to phones that registered a handle. The name passes through Google; messages and other chat content never do.
 
 Build it with `npm run build:node-relay`, which also writes `packages/relay/dist-node/push-service.mjs`. Create a Firebase project with Cloud Messaging, then a service account whose custom role holds only `cloudmessaging.messages.create`. Copy its key to the server as `/etc/pimi-push/fcm-sa.json`, owner root, mode 600. Keep it out of the repo and out of backups you share.
 

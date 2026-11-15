@@ -1,13 +1,14 @@
 /**
- * Pimi push service: relays fixed-text Android notifications to FCM.
+ * Pimi push service: relays Android notifications to FCM.
  *
  * Runs as its own process behind the TLS reverse proxy (`handle /push/*`), separate from the
  * relay so the relay keeps its no-credentials, no-egress sandbox. It holds the only Google
  * service-account key. Clients hold an opaque 256-bit handle bound to one serverId; the service
- * stores only SHA-256(handle) next to the FCM token and never forwards free-form text.
+ * stores only SHA-256(handle) next to the FCM token. The only free-form text it forwards is the
+ * optional title (a chat or terminal name, cleaned and capped); bodies are fixed per kind.
  *
  * - POST /push/register   {token, serverId, handle?} -> {handle}   (handle present rotates the token)
- * - POST /push/send       {handle, kind, id}         -> {ok}       (410 = handle gone, prune it)
+ * - POST /push/send       {handle, kind, id, title?} -> {ok}       (410 = handle gone, prune it)
  * - POST /push/unregister {handle}                   -> {ok}
  *
  * Google hosts are hardcoded; token_uri from the key file is ignored; redirects are refused.
@@ -50,6 +51,8 @@ const HANDLE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const TOKEN_PATTERN = /^[A-Za-z0-9_:.-]{20,1024}$/;
 const SERVER_ID_PATTERN = /^[\w.-]{1,128}$/;
 const ID_PATTERN = /^[\w-]{1,128}$/;
+const MAX_TITLE_INPUT = 512;
+const MAX_TITLE_CHARS = 80;
 const PROJECT_ID_PATTERN = /^[a-z][a-z0-9-]{3,62}$/;
 
 export type PushKind = "agent_finished" | "agent_permission" | "terminal";
@@ -337,6 +340,24 @@ async function readJsonBody(
   return body;
 }
 
+/** Chat or terminal name shown as the notification title; control characters dropped, trimmed. */
+function optionalTitle(body: Record<string, unknown>): string | null {
+  const value = body.title;
+  if (value === undefined) return null;
+  if (typeof value !== "string" || value.length > MAX_TITLE_INPUT) {
+    throw new HttpError(400, "invalid_title");
+  }
+  const clean = value
+    .replace(/[\p{C}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return null;
+  const chars = Array.from(clean);
+  return chars.length > MAX_TITLE_CHARS
+    ? `${chars.slice(0, MAX_TITLE_CHARS - 1).join("")}…`
+    : clean;
+}
+
 function requireString(body: Record<string, unknown>, key: string, pattern: RegExp): string {
   const value = body[key];
   if (typeof value !== "string" || !pattern.test(value)) throw new HttpError(400, `invalid_${key}`);
@@ -589,13 +610,14 @@ export function createPushService(options: PushServiceOptions): PushService {
 
   async function handleSend(req: IncomingMessage, ip: string): Promise<Record<string, unknown>> {
     if (!sendIpLimiter.allow(ip, Date.now())) throw new HttpError(429, "rate_limited");
-    const body = await readJsonBody(req, ["handle", "kind", "id"]);
+    const body = await readJsonBody(req, ["handle", "kind", "id", "title"]);
     const handle = requireString(body, "handle", HANDLE_PATTERN);
     const kind = body.kind;
     if (typeof kind !== "string" || !Object.prototype.hasOwnProperty.call(KIND_BODIES, kind)) {
       throw new HttpError(400, "invalid_kind");
     }
     const id = requireString(body, "id", ID_PATTERN);
+    const title = optionalTitle(body);
     const hash = sha256Hex(handle);
     const entry = entries.get(hash);
     const now = Date.now();
@@ -615,7 +637,7 @@ export function createPushService(options: PushServiceOptions): PushService {
     const result = await callFcm(
       {
         token: entry.token,
-        notification: { title: "Pimi", body: spec.body },
+        notification: { title: title ?? "Pimi", body: spec.body },
         data: {
           tag: notificationTag,
           // expo-notifications reads this JSON string as the notification's `data`.
@@ -631,7 +653,7 @@ export function createPushService(options: PushServiceOptions): PushService {
             channel_id: "agent-activity",
             tag: notificationTag,
             icon: "notification_icon",
-            color: "#20744A",
+            color: "#C8889A",
             proxy: "DENY",
           },
         },

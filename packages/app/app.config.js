@@ -34,7 +34,7 @@ const notificationPlugins = [
     "expo-notifications",
     {
       icon: "./assets/images/notification-icon.png",
-      color: "#20744A",
+      color: "#C8889A",
     },
   ],
 ];

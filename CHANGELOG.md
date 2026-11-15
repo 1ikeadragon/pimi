@@ -4,7 +4,8 @@
 
 ## 0.17.55 - 2026-11-15
 
-- Android: notifications show the Pimi paw icon.
+- Android: notifications show the Pimi paw icon in Pimi pink.
+- Android: push notifications are titled with the chat or terminal name. The name passes through Google; messages never do.
 
 ## 0.17.54 - 2026-11-15
 

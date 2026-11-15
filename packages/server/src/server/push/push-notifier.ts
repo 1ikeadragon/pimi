@@ -20,7 +20,7 @@ interface PushNotifierOptions {
 
 /**
  * Daemon side of Android push: owns the handles phones registered and asks the push service to
- * deliver a fixed-text notification. Handles are bearer capabilities, so they are persisted in a
+ * deliver a notification titled with the chat or terminal name. Handles are bearer capabilities, so they are persisted in a
  * private file and never logged. Sends are fire-and-forget; callers never wait on the network.
  */
 export class PushNotifier {
@@ -75,21 +75,38 @@ export class PushNotifier {
   }
 
   /** Push to the given handles, or to every stored handle when `handles` is null. */
-  notify(input: { handles: string[] | null; kind: PushKind; id: string }): void {
+  notify(input: {
+    handles: string[] | null;
+    kind: PushKind;
+    id: string;
+    title: string | null;
+  }): void {
     const endpoint = this.getEndpoint();
     if (!endpoint) return;
     const targets = input.handles ?? this.handles;
     for (const handle of targets) {
-      void this.send(endpoint, handle, input.kind, input.id);
+      void this.send(endpoint, handle, input.kind, input.id, input.title);
     }
   }
 
-  private async send(endpoint: string, handle: string, kind: PushKind, id: string): Promise<void> {
+  private async send(
+    endpoint: string,
+    handle: string,
+    kind: PushKind,
+    id: string,
+    title: string | null,
+  ): Promise<void> {
     try {
       const response = await fetch(`${endpoint}/send`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ handle, kind, id }),
+        // The push service trims the title; cap it here too so a huge name never hits its body limit.
+        body: JSON.stringify({
+          handle,
+          kind,
+          id,
+          ...(title ? { title: title.slice(0, 200) } : {}),
+        }),
         redirect: "error",
         signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       });

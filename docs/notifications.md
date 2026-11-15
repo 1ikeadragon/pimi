@@ -50,7 +50,7 @@ read by Expo arrives under `userInfo.body`; simulator payloads must match:
 An Android FCM launch intent needs `google.message_id` and a JSON `body` extra.
 An arbitrary Activity launch with data extras does not exercise Expo's FCM path.
 
-Android pushes carry fixed text and the same `body` JSON (`serverId`, `agentId` or `terminalId`, `reason`). Terminal taps open the host root because the push has no workspace ID. See [Push](android.md#push).
+Android pushes are titled with the chat or terminal name, carry fixed body text, and the same `body` JSON (`serverId`, `agentId` or `terminalId`, `reason`). Terminal taps open the host root because the push has no workspace ID. See [Push](android.md#push).
 
 Foreground pushes remain in Notification Center without a banner or sound.
 This preserves notifications sent with stale presence information.

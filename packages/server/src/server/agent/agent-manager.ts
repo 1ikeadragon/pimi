@@ -4913,6 +4913,13 @@ export class AgentManager {
     });
   }
 
+  /** The chat's display title, or null when it has none yet. */
+  async getAgentTitle(agentId: string): Promise<string | null> {
+    const agent = this.agents.get(agentId);
+    const record = await this.registry?.get(agentId);
+    return record?.title?.trim() || agent?.config.title?.trim() || null;
+  }
+
   async getLastAssistantMessage(agentId: string): Promise<string | null> {
     if (!this.timelineStore.has(agentId)) return null;
     return this.getLastAssistantMessageFromTimeline(this.timelineStore.getItems(agentId));
