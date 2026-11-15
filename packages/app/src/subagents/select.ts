@@ -1,5 +1,9 @@
 import type { AgentAddress } from "@pimi/protocol/addresses";
-import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
+import {
+  getCrewRoleFromLabels,
+  getParentAddressFromLabels,
+  type CrewRole,
+} from "@pimi/protocol/agent-labels";
 import { useEffect, useMemo } from "react";
 import { usePendingArchiveAgentKeys } from "@/hooks/use-archive-agent";
 import equal from "fast-deep-equal";
@@ -28,6 +32,8 @@ export interface PimiSubagentRow {
   requiresAttention: Agent["requiresAttention"];
   createdAt: Agent["createdAt"];
   statusBucket: SubagentStatusBucket;
+  /** The Crew tier a Crew lead delegated this agent to; null for any other subagent. */
+  crewRole: CrewRole | null;
 }
 
 export interface ProviderSubagentRow {
@@ -77,6 +83,7 @@ function toSubagentRow(agent: Agent): SubagentRow {
     requiresAttention: agent.requiresAttention,
     createdAt: agent.createdAt,
     statusBucket: managedSubagentStatusBucket(agent),
+    crewRole: getCrewRoleFromLabels(agent.labels),
   };
 }
 

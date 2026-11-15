@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## Unreleased
+
+- Crew: a lead model delegates design and review to a thinker, implementation to a worker and chores to a small model; edit the four Crew profiles in Library > Profiles.
+
 ## 0.17.56 - 2026-11-15
 
 - Notifications: alerts shown while the app is connected also use the chat name as the title.

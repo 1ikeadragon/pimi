@@ -180,6 +180,16 @@ export const PIMI_TOOL_CATALOG = {
       outputFields: ["agentId", "status", "currentModeId", "cwd"],
     },
   },
+  delegate: {
+    label: "Delegate",
+    completedLabel: "Delegated",
+    context: field("goal"),
+    detail: {
+      promptField: "goal",
+      inputOrder: ["role", "goal", "context", "files", "doneWhen", "constraints", "worktree"],
+      outputFields: ["agentId", "role", "provider", "note"],
+    },
+  },
   send_agent_prompt: {
     label: "Send message",
     completedLabel: "Sent message",

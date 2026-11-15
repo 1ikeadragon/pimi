@@ -10,6 +10,7 @@ import type { PimiToolCatalog, PimiToolDefinition, PimiToolResult } from "./type
  */
 const DEFAULT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "create_agent",
+  "delegate",
   "send_agent_prompt",
   "list_agents",
   "get_agent_status",

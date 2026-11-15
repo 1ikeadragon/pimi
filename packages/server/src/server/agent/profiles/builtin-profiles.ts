@@ -5,6 +5,16 @@ import { renderTemplate } from "../../prompts/render.js";
 
 export const BUILTIN_PROFILE_ID_PREFIX = "builtin-";
 
+/** The Crew lead's profile id: the `delegate` tool is registered only for agents created with it. */
+export const CREW_LEAD_PROFILE_ID = `${BUILTIN_PROFILE_ID_PREFIX}crew-lead`;
+
+/** Crew tier profile ids, one per `delegate` role. */
+export const CREW_TIER_PROFILE_IDS = {
+  thinker: `${BUILTIN_PROFILE_ID_PREFIX}crew-thinker`,
+  worker: `${BUILTIN_PROFILE_ID_PREFIX}crew-worker`,
+  chore: `${BUILTIN_PROFILE_ID_PREFIX}crew-chore`,
+} as const;
+
 export const BUILTIN_AGENT_PROFILES: readonly AgentProfile[] = [
   {
     id: `${BUILTIN_PROFILE_ID_PREFIX}adversarial-reviewer`,
@@ -135,5 +145,53 @@ export const BUILTIN_AGENT_PROFILES: readonly AgentProfile[] = [
       "Inspects a desktop app's own process, binary, files, local IPC and network read-mostly: signature, exploit mitigations, DLL-hijack paths, Electron fuses, secrets at rest, weak pipes and localhost servers, plaintext traffic. Reports weaknesses; does not fix. Started by the Attack coordinator only when the run has a desktop target.",
     instructions: renderTemplate("profile-attack-desktop-security", {}),
     builtin: { key: "attack-desktop-security", version: 1 },
+  },
+  {
+    id: CREW_LEAD_PROFILE_ID,
+    name: "Crew lead",
+    icon: "compass",
+    color: "blue",
+    provider: "claude",
+    model: "claude-opus-5-5",
+    notes:
+      "Leads a Crew: talks to you, does most of the work itself and delegates design, review, implementation and chores to the Crew thinker, worker and chore profiles. Edit the four Crew profiles to change who fills each tier.",
+    instructions: renderTemplate("profile-crew-lead", {}),
+    builtin: { key: "crew-lead", version: 1 },
+  },
+  {
+    id: CREW_TIER_PROFILE_IDS.thinker,
+    name: "Crew thinker",
+    icon: "brain",
+    color: "violet",
+    provider: "claude",
+    model: "claude-fable-5-1",
+    notes:
+      "The Crew's thinker: hard design, planning and review. Returns a plan or a review; does not edit. Started by the Crew lead.",
+    instructions: renderTemplate("profile-crew-thinker", {}),
+    builtin: { key: "crew-thinker", version: 1 },
+  },
+  {
+    id: CREW_TIER_PROFILE_IDS.worker,
+    name: "Crew worker",
+    icon: "hammer",
+    color: "emerald",
+    provider: "claude",
+    model: "claude-sonnet-5-5",
+    notes:
+      "The Crew's worker: implements a well-specified brief, verifies it and reports the diff, evidence and gaps. Started by the Crew lead.",
+    instructions: renderTemplate("profile-crew-worker", {}),
+    builtin: { key: "crew-worker", version: 1 },
+  },
+  {
+    id: CREW_TIER_PROFILE_IDS.chore,
+    name: "Crew chore",
+    icon: "wrench",
+    color: "amber",
+    provider: "claude",
+    model: "claude-haiku-5-5",
+    notes:
+      "The Crew's chore model: mechanical jobs that need no judgment. Started by the Crew lead.",
+    instructions: renderTemplate("profile-crew-chore", {}),
+    builtin: { key: "crew-chore", version: 1 },
   },
 ];
