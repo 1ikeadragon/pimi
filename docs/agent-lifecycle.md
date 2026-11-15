@@ -452,7 +452,7 @@ Claude Code announces subagent lifecycle on the SDK stream (`task_started` / `ta
 
 A child appears in its parent's delegation card (`packages/app/src/components/pimi-delegation-card.tsx`), in the track, and in the sidebar lineage under its parent chat (`packages/app/src/subagents/sidebar-lineage.ts`). All three name and color its state with `packages/app/src/subagents/status.ts`: **Needs input**, **Failed**, **Working**, **Done**, the sidebar's status-group words. A child never shows **Ready to review**; the parent's own finish carries that news.
 
-The sidebar lineage is a quiet projection of the track: the same managed and top-level provider children, minus the done ones. A finished child leaves the sidebar, and a chat with no working, blocked, or failed child has no row there. A failed child stays until it is archived or runs again.
+The sidebar lineage is a quiet projection of the track: the same managed and top-level provider children, finished ones included with a Done status. A child leaves the sidebar when it is archived or hidden with **Archive finished**, and the workspace's Hide nested toggle folds the whole lineage.
 
 Archived Pimi subagents disappear from the track, by design. To remove one from the track without closing its tab, use the **archive button** on the row — it opens a confirm dialog and archives the subagent on confirm. Provider-owned rows have no individual Pimi lifecycle controls.
 

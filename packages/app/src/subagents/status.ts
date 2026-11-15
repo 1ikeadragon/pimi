@@ -43,11 +43,6 @@ export function providerSubagentStatusBucket(
   return "done";
 }
 
-/** A child still worth a look outside its parent's track. */
-export function isLiveSubagentStatus(bucket: SubagentStatusBucket): boolean {
-  return bucket !== "done";
-}
-
 /** The sidebar's status-group names: one name per state across the app. */
 export const SUBAGENT_STATUS_LABEL_KEYS = {
   needs_input: "sidebar.statusBucket.needsInput",

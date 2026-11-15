@@ -4,7 +4,6 @@ import type { Agent } from "@/stores/session-store";
 import { chatStateBucket, isVisibleChatAgent } from "@/chats/primary-chat";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import {
-  isLiveSubagentStatus,
   managedSubagentStatusBucket,
   providerSubagentStatusBucket,
   type SubagentStatusBucket,
@@ -33,7 +32,7 @@ export type SidebarLineageWorker =
       bucket: SubagentStatusBucket;
     };
 
-/** A root chat in a workspace and the children it started that still want a look. */
+/** A root chat in a workspace and the children it started. */
 export interface SidebarLineageChat {
   serverId: string;
   agentId: string;
@@ -65,13 +64,12 @@ interface ChatEntry {
 }
 
 /**
- * Every workspace's chats that have live children, keyed by `sidebarLineageWorkspaceKey`. One
+ * Every workspace's chats that have children, keyed by `sidebarLineageWorkspaceKey`. One
  * pass over the agents and the provider descriptors, plus a sort per chat.
  *
  * The lineage is a quiet projection of each chat's subagents track (`select.ts`): the same
- * managed and provider children, minus the finished ones. A child stays while it is working,
- * needs input or has failed (`./status.ts`); once it is done it leaves the sidebar, and a chat
- * with no such child has no row, because the parent's own finish already carries the news.
+ * managed and provider children, finished ones included with their Done status. Archived and
+ * hidden children stay out, and the workspace's Hide nested toggle folds the rest.
  *
  * A chat is listed under its own workspace only when it is a workspace root there, so a
  * same-workspace subagent never appears both as a worker and as a chat of its own; its own
@@ -122,7 +120,6 @@ function collectManagedChildren(
       const parent = lineageParent(sessions, serverId, agent);
       if (!parent) continue;
       const bucket = managedSubagentStatusBucket(agent);
-      if (!isLiveSubagentStatus(bucket)) continue;
       addWorker(chats, parent, agent.createdAt.getTime(), {
         kind: "agent",
         serverId: agent.serverId,
@@ -144,7 +141,6 @@ function collectProviderChildren(
     // Nested provider children live in their own parent's track, as they do in the panel.
     if (descriptor.parentSubagentId || providers.hiddenFromTrack.has(key)) continue;
     const bucket = providerSubagentStatusBucket(descriptor.status);
-    if (!isLiveSubagentStatus(bucket)) continue;
     const serverId = key.slice(0, key.indexOf("\0"));
     const parent = sessions[serverId]?.agents.get(descriptor.parentAgentId);
     if (!parent || !isVisibleChatAgent(parent) || !parent.workspaceId) continue;
