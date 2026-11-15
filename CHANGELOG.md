@@ -2,6 +2,13 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.52 - 2026-11-15
+
+- You can annotate chat messages on iOS and Android: select assistant text and pick Annotate, or tap the Annotate button on your own message.
+- Phones show notifications while the app is open or recently backgrounded when an agent finishes or needs permission, and tapping one opens that agent.
+- Settings > Desktop > Power has Always keep awake, which stops the Mac and display sleeping, even on battery.
+- A reply with a large HTML or chart block is no longer cut off on desktop.
+
 ## 0.17.51 - 2026-11-15
 
 - iOS: an unsigned IPA ships with each release. Install it with SideStore.
