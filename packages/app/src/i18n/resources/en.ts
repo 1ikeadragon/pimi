@@ -4906,6 +4906,7 @@ export const en = {
       gate_retry_from: "Choose an earlier step to go back to",
       bad_name: "Use lowercase letters, digits, - and _ in the name",
       missing_description: "Describe what the flow is for",
+      flow_name_required: "Give the flow a name",
       invalid_cron: "Invalid schedule: {{detail}}",
     },
     linkRefused: {

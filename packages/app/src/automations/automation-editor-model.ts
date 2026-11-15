@@ -129,7 +129,8 @@ export type EditorProblemCode =
   | "invalid_cron"
   | "loop_member"
   | "choose_project"
-  | "missing_description";
+  | "missing_description"
+  | "flow_name_required";
 
 /** Where a problem shows: on a step, on the trigger, on the name, or in the settings. */
 export type EditorProblemTarget = "name" | "settings" | typeof TRIGGER_NODE_ID | (string & {});
@@ -589,7 +590,7 @@ function flowProblems(state: AutomationEditorState, problems: EditorProblem[]): 
     }
     problems.push({
       target: issueTarget(issue.code, issue.nodeId),
-      code: issue.code,
+      code: issue.code === "name_required" ? "flow_name_required" : issue.code,
       message: issue.message,
       ...(issue.ref ? { ref: issue.ref } : {}),
     });
