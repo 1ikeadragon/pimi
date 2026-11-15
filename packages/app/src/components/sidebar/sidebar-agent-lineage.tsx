@@ -201,19 +201,17 @@ function SidebarChatTree({
 /** Folds one chat's subagents into this one muted line. Other chats stay as they are. */
 function SidebarLineageToggle({
   collapsed,
-  count,
   onToggle,
   indentStyle,
   testID,
 }: {
   collapsed: boolean;
-  count: number;
   onToggle: () => void;
   indentStyle: StyleProp<ViewStyle>;
   testID: string;
 }) {
   const { t } = useTranslation();
-  const label = t("sidebar.lineage.label", { count });
+  const label = t("sidebar.lineage.label");
   return (
     <View style={[styles.lineage, indentStyle]}>
       <View style={styles.workspaceStatusSpacer} />
@@ -264,7 +262,6 @@ function SidebarWorkerList({
   const toggle = (
     <SidebarLineageToggle
       collapsed={collapsed}
-      count={workers.length}
       onToggle={toggleCollapsed}
       indentStyle={indentStyle}
       testID={`sidebar-agent-lineage-toggle-${chatKey}`}
