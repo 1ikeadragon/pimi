@@ -72,6 +72,7 @@ import { FilesSection } from "@/screens/settings/files-section";
 import { Button } from "@/components/ui/button";
 import { DesktopPermissionsSection } from "@/desktop/components/desktop-permissions-section";
 import { DesktopNotificationsSection } from "@/desktop/components/desktop-notifications-section";
+import { DesktopPowerSection } from "@/desktop/components/desktop-power-section";
 import { BrowserDataSection } from "@/desktop/browser/settings/browser-data-section";
 import { IntegrationsSection } from "@/desktop/components/integrations-section";
 import { isElectronRuntime } from "@/desktop/host";
@@ -210,6 +211,7 @@ function DesktopPage() {
   return (
     <>
       <DesktopNotificationsSection />
+      <DesktopPowerSection />
       <DesktopPermissionsSection />
     </>
   );

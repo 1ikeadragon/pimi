@@ -11,6 +11,9 @@ export interface DesktopSettings {
   notifications: {
     playSound: boolean;
   };
+  power: {
+    alwaysKeepAwake: boolean;
+  };
   daemon: {
     manageBuiltInDaemon: boolean;
     keepRunningAfterQuit: boolean;
@@ -20,6 +23,7 @@ export interface DesktopSettings {
 interface DesktopSettingsPatch {
   releaseChannel?: AppReleaseChannel;
   notifications?: Partial<DesktopSettings["notifications"]>;
+  power?: Partial<DesktopSettings["power"]>;
   daemon?: Partial<DesktopSettings["daemon"]>;
 }
 
@@ -32,6 +36,9 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   releaseChannel: "stable",
   notifications: {
     playSound: true,
+  },
+  power: {
+    alwaysKeepAwake: false,
   },
   daemon: {
     manageBuiltInDaemon: true,
@@ -49,6 +56,12 @@ const NotificationsSchema = z
   })
   .catch(() => ({ ...DEFAULT_DESKTOP_SETTINGS.notifications }));
 
+const PowerSchema = z
+  .looseObject({
+    alwaysKeepAwake: z.boolean().catch(DEFAULT_DESKTOP_SETTINGS.power.alwaysKeepAwake),
+  })
+  .catch(() => ({ ...DEFAULT_DESKTOP_SETTINGS.power }));
+
 const DaemonSchema = z
   .looseObject({
     manageBuiltInDaemon: z.boolean().catch(DEFAULT_DESKTOP_SETTINGS.daemon.manageBuiltInDaemon),
@@ -60,6 +73,7 @@ const DesktopSettingsSchema = z
   .looseObject({
     releaseChannel: ReleaseChannelSchema.catch(DEFAULT_DESKTOP_SETTINGS.releaseChannel),
     notifications: NotificationsSchema,
+    power: PowerSchema,
     daemon: DaemonSchema,
   })
   .catch(() => buildDefaultSettings());
@@ -104,6 +118,7 @@ function buildDefaultSettings(): StoredDesktopSettings {
   return {
     releaseChannel: DEFAULT_DESKTOP_SETTINGS.releaseChannel,
     notifications: { ...DEFAULT_DESKTOP_SETTINGS.notifications },
+    power: { ...DEFAULT_DESKTOP_SETTINGS.power },
     daemon: { ...DEFAULT_DESKTOP_SETTINGS.daemon },
   };
 }
@@ -122,6 +137,7 @@ function toDesktopSettings(stored: StoredDesktopSettings): DesktopSettings {
   return {
     releaseChannel: stored.releaseChannel,
     notifications: { playSound: stored.notifications.playSound },
+    power: { alwaysKeepAwake: stored.power.alwaysKeepAwake },
     daemon: {
       manageBuiltInDaemon: stored.daemon.manageBuiltInDaemon,
       keepRunningAfterQuit: stored.daemon.keepRunningAfterQuit,
@@ -144,6 +160,13 @@ function coerceDesktopSettingsPatch(input: unknown): DesktopSettingsPatch {
     const playSound = coerceBoolean(input.notifications.playSound);
     if (playSound !== null) {
       patch.notifications = { playSound };
+    }
+  }
+
+  if (isRecord(input.power)) {
+    const alwaysKeepAwake = coerceBoolean(input.power.alwaysKeepAwake);
+    if (alwaysKeepAwake !== null) {
+      patch.power = { alwaysKeepAwake };
     }
   }
 
@@ -173,6 +196,7 @@ function mergeDesktopSettings(
     ...current,
     releaseChannel: patch.releaseChannel ?? current.releaseChannel,
     notifications: { ...current.notifications, ...patch.notifications },
+    power: { ...current.power, ...patch.power },
     daemon: { ...current.daemon, ...patch.daemon },
   };
 }

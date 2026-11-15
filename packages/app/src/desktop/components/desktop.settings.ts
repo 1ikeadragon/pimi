@@ -22,6 +22,17 @@ export const notificationsSettings = defineSettingsPage(
   ],
 );
 
+export const powerSettings = defineSettingsPage(
+  { kind: "section", section: "desktop" },
+  ({ t }) => [
+    {
+      id: "power.alwaysKeepAwake",
+      title: t("settings.power.alwaysKeepAwake"),
+      keywords: ["caffeinate", "sleep", "awake", "display", "insomnia", "battery", "screen"],
+    },
+  ],
+);
+
 export const permissionsSettings = defineSettingsPage(
   { kind: "section", section: "desktop" },
   ({ t }) => [

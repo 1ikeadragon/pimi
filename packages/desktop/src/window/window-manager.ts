@@ -11,18 +11,26 @@ import {
   powerSaveBlocker,
   shell,
 } from "electron";
+import { getDesktopSettingsStore } from "../settings/desktop-settings-electron.js";
 
-// Keep the display awake while agents run and the machine is on AC power, like Codex and T3 Code.
+// Keep the display awake while agents run and the machine is on AC power, like Codex and T3 Code,
+// or always when the "Always keep awake" setting is on (battery included).
 // Each renderer reports whether any agent is running; its report is dropped when its webContents
 // is destroyed or crashes, so a closed window can't keep the display awake. A reloaded renderer
 // sends its first value unconditionally. Power source changes re-evaluate.
 const agentsRunningBySender = new Map<number, boolean>();
+let alwaysKeepAwake = false;
 let keepAwakeBlockerId: number | null = null;
 let keepAwakePowerListenersInstalled = false;
 
 function syncKeepAwake(): void {
+  if (!keepAwakePowerListenersInstalled) {
+    keepAwakePowerListenersInstalled = true;
+    powerMonitor.on("on-ac", syncKeepAwake);
+    powerMonitor.on("on-battery", syncKeepAwake);
+  }
   const anyRunning = [...agentsRunningBySender.values()].some(Boolean);
-  const want = anyRunning && !powerMonitor.isOnBatteryPower();
+  const want = alwaysKeepAwake || (anyRunning && !powerMonitor.isOnBatteryPower());
   if (want && keepAwakeBlockerId === null) {
     keepAwakeBlockerId = powerSaveBlocker.start("prevent-display-sleep");
   } else if (!want && keepAwakeBlockerId !== null) {
@@ -31,12 +39,12 @@ function syncKeepAwake(): void {
   }
 }
 
+export function setAlwaysKeepAwake(value: boolean): void {
+  alwaysKeepAwake = value;
+  syncKeepAwake();
+}
+
 function setAgentsRunning(sender: WebContents, running: boolean): void {
-  if (!keepAwakePowerListenersInstalled) {
-    keepAwakePowerListenersInstalled = true;
-    powerMonitor.on("on-ac", syncKeepAwake);
-    powerMonitor.on("on-battery", syncKeepAwake);
-  }
   const senderId = sender.id;
   if (!agentsRunningBySender.has(senderId)) {
     const forget = () => {
@@ -186,6 +194,11 @@ export function applyMacWindowControlsUpdate(input: {
 }
 
 export function registerWindowManager(input: { mode: DesktopWindowChromeMode }): void {
+  void getDesktopSettingsStore()
+    .get()
+    .then((settings) => setAlwaysKeepAwake(settings.power.alwaysKeepAwake))
+    .catch((error) => console.warn("[window-manager] Failed to load keep-awake setting", error));
+
   ipcMain.handle("pimi:window:minimize", (event) => {
     BrowserWindow.fromWebContents(event.sender)?.minimize();
   });

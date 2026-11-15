@@ -21,6 +21,7 @@ import {
   integrationsSettings,
   notificationsSettings,
   permissionsSettings,
+  powerSettings,
 } from "@/desktop/components/desktop.settings";
 import {
   APP_SETTINGS_PAGES,
@@ -46,6 +47,7 @@ const SETTINGS_PAGES: readonly SettingsPage[] = [
   terminalSettings,
   browserSettings,
   notificationsSettings,
+  powerSettings,
   permissionsSettings,
   aboutSettings,
   diagnosticsSettings,

@@ -16,6 +16,9 @@ export interface DesktopSettings {
   notifications: {
     playSound: boolean;
   };
+  power: {
+    alwaysKeepAwake: boolean;
+  };
   daemon: {
     manageBuiltInDaemon: boolean;
     keepRunningAfterQuit: boolean;
@@ -25,6 +28,7 @@ export interface DesktopSettings {
 export interface DesktopSettingsPatch {
   releaseChannel?: ReleaseChannel;
   notifications?: Partial<DesktopSettings["notifications"]>;
+  power?: Partial<DesktopSettings["power"]>;
   daemon?: Partial<DesktopSettings["daemon"]>;
 }
 
@@ -32,6 +36,9 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   releaseChannel: "stable",
   notifications: {
     playSound: true,
+  },
+  power: {
+    alwaysKeepAwake: false,
   },
   daemon: {
     manageBuiltInDaemon: true,
@@ -142,6 +149,7 @@ export async function updatePersistedDesktopSettings(
 function parseDesktopSettings(raw: unknown): DesktopSettings {
   const record = isRecord(raw) ? raw : {};
   const notifications = isRecord(record.notifications) ? record.notifications : {};
+  const power = isRecord(record.power) ? record.power : {};
   const daemon = isRecord(record.daemon) ? record.daemon : {};
 
   return {
@@ -151,6 +159,12 @@ function parseDesktopSettings(raw: unknown): DesktopSettings {
         typeof notifications.playSound === "boolean"
           ? notifications.playSound
           : DEFAULT_DESKTOP_SETTINGS.notifications.playSound,
+    },
+    power: {
+      alwaysKeepAwake:
+        typeof power.alwaysKeepAwake === "boolean"
+          ? power.alwaysKeepAwake
+          : DEFAULT_DESKTOP_SETTINGS.power.alwaysKeepAwake,
     },
     daemon: {
       manageBuiltInDaemon:
@@ -175,6 +189,10 @@ function mergeDesktopSettings(
       ...current.notifications,
       ...updates.notifications,
     },
+    power: {
+      ...current.power,
+      ...updates.power,
+    },
     daemon: {
       ...current.daemon,
       ...updates.daemon,
@@ -186,6 +204,7 @@ function normalizePatch(updates: DesktopSettingsPatch): Record<string, unknown> 
   return {
     ...(updates.releaseChannel ? { releaseChannel: updates.releaseChannel } : {}),
     ...(updates.notifications ? { notifications: updates.notifications } : {}),
+    ...(updates.power ? { power: updates.power } : {}),
     ...(updates.daemon ? { daemon: updates.daemon } : {}),
   };
 }

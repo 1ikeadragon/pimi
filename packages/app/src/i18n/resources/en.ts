@@ -3455,6 +3455,11 @@ export const en = {
       unavailable: "Not on a connected host",
       empty: "File panels appear here when a plugin adds one",
     },
+    power: {
+      title: "Power",
+      alwaysKeepAwake: "Always keep awake",
+      alwaysKeepAwakeHint: "Stops the Mac and display sleeping, even on battery.",
+    },
     notifications: {
       title: "Notifications",
       permission: "Notification permission",
