@@ -2,6 +2,13 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.65 - 2026-11-16
+
+- Crew: choose a thinking level for each member when its model supports it.
+- Reset pairing now closes relay sockets waiting for a handshake, as well as connected devices. Old links stay revoked after a restart.
+- Fresh pairing links replace stored keys and retry state. Opening a link while Pimi is running uses the new link and asks for the host password when needed.
+- Relay: unauthenticated retries no longer use up the new-host registration limit.
+
 ## 0.17.64 - 2026-11-15
 
 - Relay security: the old NaCl box mode is gone; every relay session uses Noise NK with replay protection. Older apps must update to connect over the relay.

@@ -1,6 +1,6 @@
 {
   "name": "@pimi/client",
-  "version": "0.17.64",
+  "version": "0.17.65",
   "private": true,
   "description": "Pimi client SDK package",
   "license": "PolyForm-Noncommercial-1.0.0",
@@ -45,8 +45,8 @@
     "typecheck:examples": "tsgo -p tsconfig.examples.json --noEmit"
   },
   "dependencies": {
-    "@pimi/protocol": "0.17.64",
-    "@pimi/relay": "0.17.64",
+    "@pimi/protocol": "0.17.65",
+    "@pimi/relay": "0.17.65",
     "ws": "8.22.2",
     "zod": "4.6.7"
   },
