@@ -28,6 +28,7 @@ error handling, compatibility with existing callers, and cases the change introd
 not handle. Leave out style, naming, and formatting unless one of them hides a defect.
 
 Lead with the verdict in one sentence, then the findings, most severe first:
+
 - blocker: wrong results, data loss, a security hole, or a crash on a path users will hit.
 - major: wrong behaviour on a realistic but less common path.
 - minor: a real defect with small impact.

@@ -4,12 +4,16 @@ import type { Logger } from "pino";
 import type {
   Automation,
   AutomationAgentNode,
+  AutomationFlow,
+  AutomationGateNode,
+  AutomationGateVerdict,
   AutomationRun,
 } from "@pimi/protocol/automation/types";
 import type { FirstAgentContext } from "@pimi/protocol/messages";
 import type { AgentManager } from "../agent/agent-manager.js";
 import { curateAgentActivity } from "../agent/activity-curator.js";
 import { type BoundCreateAgentCommand, formatProviderModel } from "../agent/create-agent/create.js";
+import type { GateVerdictBoard } from "./gate-verdicts.js";
 import type { PersistedWorkspaceRecord } from "../workspace-registry.js";
 import type { CreatePimiWorktreeWorkflowResult } from "../worktree-session.js";
 
@@ -36,6 +40,16 @@ export interface AutomationEngineDeps {
   // keepDirectory archives the workspace and its agents but leaves the directory alone: no
   // teardown commands, no removal. Pass it unless the run created the worktree.
   archiveWorkspace: (workspaceId: string, options: { keepDirectory: boolean }) => Promise<void>;
+  // Where a gate's judge agent files its verdict; shared with the `submit_verdict` tool.
+  verdicts: GateVerdictBoard;
+}
+
+/** What a run executes: an automation or a saved flow, reduced to what the runner reads. */
+export interface RunSubject {
+  id: string;
+  name: string;
+  cwd: string;
+  flow: AutomationFlow;
 }
 
 export type RunStopReason = "cancelled" | "timed_out" | "permission";
@@ -123,23 +137,22 @@ export async function assertProjectDirectory(cwd: string): Promise<void> {
 export async function openRunWorkspace(
   deps: AutomationEngineDeps,
   input: {
-    automation: Automation;
+    subject: Pick<RunSubject, "cwd">;
     title: string;
     kind: AutomationAgentNode["workspace"];
     prompt: string;
   },
 ): Promise<RunWorkspace> {
-  const { automation } = input;
-  await assertProjectDirectory(automation.project.cwd);
+  await assertProjectDirectory(input.subject.cwd);
   if (input.kind === "worktree") {
     const { workspace } = await deps.createWorktreeWorkspace({
-      cwd: automation.project.cwd,
+      cwd: input.subject.cwd,
       firstAgentContext: { prompt: input.prompt },
     });
     return { workspaceId: workspace.workspaceId, cwd: workspace.cwd, createdWorktree: true };
   }
   const workspace = await deps.createDirectoryWorkspace({
-    cwd: automation.project.cwd,
+    cwd: input.subject.cwd,
     title: input.title,
   });
   return { workspaceId: workspace.workspaceId, cwd: workspace.cwd, createdWorktree: false };
@@ -162,50 +175,54 @@ async function waitForPermissionPrompt(
   }
 }
 
-// Runs one agent node in the run's workspace: starts an unattended agent with the step's
-// rendered prompt and waits for the turn. Its chat stays in the workspace as the step's report.
-export async function runAgentStep(
+export interface StepAgentInput {
+  /** Names the owner of the run in logs. */
+  subjectId: string;
+  runId: string;
+  nodeId: string;
+  title: string;
+  labels: Record<string, string>;
+  workspace: RunWorkspace;
+  handle: StepHandle;
+  onAgent: (agentId: string, modeId: string | null) => Promise<void>;
+}
+
+type AgentSettings = Pick<
+  AutomationAgentNode,
+  "provider" | "model" | "modeId" | "thinkingOptionId" | "featureValues"
+>;
+
+// A step's agent is created unattended in the run's workspace. A flow's labels make it a child of
+// the chat that ran the flow, which puts it in that chat's subagents track.
+async function createStepAgent(
   deps: AutomationEngineDeps,
-  input: {
-    automation: Automation;
-    run: AutomationRun;
-    node: AutomationAgentNode;
-    prompt: string;
-    workspace: RunWorkspace;
-    handle: StepHandle;
-    onAgent: (agentId: string, modeId: string | null) => Promise<void>;
-  },
-): Promise<{ output: string | null }> {
-  const { automation, run, node, workspace, handle } = input;
-  const title = `${node.title || node.id} · ${runTitle(automation, run)}`;
+  input: StepAgentInput & { agent: AgentSettings; profileId?: string },
+): Promise<string> {
+  const { agent, workspace, handle } = input;
   if (handle.stopReason) {
     throw new RunStoppedError(handle.stopReason);
   }
   const created = await deps.createAgent({
     kind: "mcp",
-    provider: formatProviderModel(node.provider, node.model),
+    provider: formatProviderModel(agent.provider, agent.model),
     // Read when the step starts, so a run uses the profile as it is now.
-    profile: node.profileId,
+    profile: input.profileId,
     config: {
-      provider: node.provider,
+      provider: agent.provider,
       cwd: workspace.cwd,
-      model: node.model,
-      modeId: node.modeId,
-      thinkingOptionId: node.thinkingOptionId,
-      featureValues: node.featureValues,
-      title,
+      model: agent.model,
+      modeId: agent.modeId,
+      thinkingOptionId: agent.thinkingOptionId,
+      featureValues: agent.featureValues,
+      title: input.title,
     },
     cwd: workspace.cwd,
     workspaceId: workspace.workspaceId,
-    title,
-    labels: {
-      "pimi.automation-id": automation.id,
-      "pimi.automation-run": run.id,
-      "pimi.automation-node": node.id,
-    },
-    mode: node.modeId,
-    thinking: node.thinkingOptionId,
-    features: node.featureValues,
+    title: input.title,
+    labels: input.labels,
+    mode: agent.modeId,
+    thinking: agent.thinkingOptionId,
+    features: agent.featureValues,
     unattended: true,
     promptFailure: "return-error",
     notifyOnFinish: false,
@@ -219,6 +236,19 @@ export async function runAgentStep(
   if (handle.stopReason) {
     throw new RunStoppedError(handle.stopReason);
   }
+  return agentId;
+}
+
+// Runs one turn of a step's agent and waits for it. A turn that asks for permission stops the
+// step, because nobody is there to answer.
+async function runStepTurn(
+  deps: AutomationEngineDeps,
+  input: Pick<StepAgentInput, "subjectId" | "runId" | "nodeId" | "handle"> & {
+    agentId: string;
+    prompt: string;
+  },
+): Promise<{ output: string | null }> {
+  const { agentId, handle } = input;
   const permissionWatch = new AbortController();
   void waitForPermissionPrompt(deps.agentManager, agentId, permissionWatch.signal)
     .then(async () => {
@@ -231,8 +261,8 @@ export async function runAgentStep(
     .catch((error: unknown) => {
       if (!permissionWatch.signal.aborted) {
         deps.logger.warn(
-          { err: error, automationId: automation.id, runId: run.id, nodeId: node.id },
-          "Failed to watch automation agent for permission prompts",
+          { err: error, subjectId: input.subjectId, runId: input.runId, nodeId: input.nodeId },
+          "Failed to watch run agent for permission prompts",
         );
       }
     });
@@ -263,4 +293,96 @@ export async function runAgentStep(
       waitResult.lastMessage || result.finalText || curateAgentActivity(result.timeline),
     ),
   };
+}
+
+// Runs one agent node in the run's workspace: starts an unattended agent with the step's
+// rendered prompt and waits for the turn. Its chat stays in the workspace as the step's report.
+// With `resumeAgentId` (a gate sent the run back) the step's existing agent gets `prompt` as its
+// next message instead of a new agent being made.
+export async function runAgentStep(
+  deps: AutomationEngineDeps,
+  input: StepAgentInput & {
+    node: AutomationAgentNode;
+    prompt: string;
+    resumeAgentId?: string;
+  },
+): Promise<{ output: string | null }> {
+  const { handle } = input;
+  let agentId = input.resumeAgentId;
+  if (agentId) {
+    if (handle.stopReason) {
+      throw new RunStoppedError(handle.stopReason);
+    }
+    handle.agentId = agentId;
+  } else {
+    agentId = await createStepAgent(deps, {
+      ...input,
+      agent: input.node,
+      profileId: input.node.profileId,
+    });
+  }
+  return runStepTurn(deps, { ...input, agentId, prompt: input.prompt });
+}
+
+export const SUBMIT_VERDICT_TOOL = "submit_verdict";
+
+export function buildGatePrompt(input: {
+  gate: AutomationGateNode;
+  criteria: string;
+  attempt: number;
+  previous: readonly AutomationGateVerdict[];
+}): string {
+  const lines = [
+    `You are the judge for the check "${input.gate.title || input.gate.id}". Decide whether the work in this directory meets the criteria below. You did not do the work and must not fix it.`,
+    "",
+    "Criteria:",
+    input.criteria.trim(),
+    "",
+    "Inspect the real state of the directory: read files and run commands to check each criterion yourself. Do not trust what any step reported.",
+    `When you have decided, call the ${SUBMIT_VERDICT_TOOL} tool exactly once with pass set to true or false and feedback. When it fails, feedback must say what is wrong and what has to change, in terms the author can act on. Prose is not read: no ${SUBMIT_VERDICT_TOOL} call counts as a fail.`,
+  ];
+  if (input.previous.length > 0) {
+    const earlier = input.previous
+      .map(
+        (verdict, index) => `#${index + 1} ${verdict.pass ? "pass" : "fail"}: ${verdict.feedback}`,
+      )
+      .join(" | ");
+    lines.push("", `This is attempt ${input.attempt}. Earlier verdicts: ${earlier}`);
+  }
+  return lines.join("\n");
+}
+
+// Runs a gate's judge: a fresh agent in the run's directory that inspects the work and files its
+// verdict with the run-scoped `submit_verdict` tool. A turn that ends without a verdict is a fail.
+// Stopping the run (cancelled, timed out) throws; every other way the judge can go wrong is a
+// fail verdict, because a gate that cannot be checked must not let the run through.
+export async function runGateStep(
+  deps: AutomationEngineDeps,
+  input: StepAgentInput & {
+    prompt: string;
+    agent: AgentSettings;
+  },
+): Promise<{ pass: boolean; feedback: string }> {
+  let agentId: string | null = null;
+  try {
+    agentId = await createStepAgent(deps, { ...input, agent: input.agent });
+    deps.verdicts.open(agentId);
+    await runStepTurn(deps, { ...input, agentId });
+  } catch (error) {
+    if (error instanceof RunStoppedError && error.reason !== "permission") {
+      throw error;
+    }
+    if (agentId) {
+      deps.verdicts.discard(agentId);
+    }
+    return {
+      pass: false,
+      feedback: `The judge could not finish: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  const verdict = deps.verdicts.take(agentId);
+  if (!verdict) {
+    return { pass: false, feedback: `The judge ended without calling ${SUBMIT_VERDICT_TOOL}.` };
+  }
+  return verdict;
 }

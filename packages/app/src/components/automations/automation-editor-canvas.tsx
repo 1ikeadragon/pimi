@@ -2,7 +2,15 @@ import { memo, useCallback, useMemo, useRef, useState, type ReactElement } from 
 import { Text, View } from "react-native";
 import Svg, { Path, Polygon } from "react-native-svg";
 import { useTranslation } from "@/i18n/use-translation";
-import { AlertTriangle, Bot, Plus, Split, Zap, type LucideIcon } from "lucide-react-native";
+import {
+  AlertTriangle,
+  Bot,
+  Plus,
+  ShieldCheck,
+  Split,
+  Zap,
+  type LucideIcon,
+} from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type {
   AutomationEdge,
@@ -35,6 +43,7 @@ import {
   type CanvasEdge,
   type CanvasLayout,
   type CanvasNodeBox,
+  type CanvasRetry,
   type HandleBranch,
   type Point,
 } from "@/automations/automation-editor-layout";
@@ -47,9 +56,11 @@ import { useCanvasDragConnect, type CanvasDragLine } from "./automation-canvas-i
 // Module-scope themed icons so menu `leading` props are stable elements.
 const ThemedBot = withUnistyles(Bot);
 const ThemedSplit = withUnistyles(Split);
+const ThemedShield = withUnistyles(ShieldCheck);
 const menuIconProps = (theme: Theme) => ({ size: 14, color: theme.colors.foregroundMuted });
 const agentMenuIcon = <ThemedBot uniProps={menuIconProps} />;
 const checkMenuIcon = <ThemedSplit uniProps={menuIconProps} />;
+const gateMenuIcon = <ThemedShield uniProps={menuIconProps} />;
 
 /*
  * Drawn in the chat flow diagram's style (components/markdown/fence/view/flow.tsx): a card with a
@@ -66,12 +77,13 @@ const HANDLE_SIZE = 22;
 const EDGE_BUTTON_SIZE = 20;
 const TILE_WIDTH = 36;
 
-type NodeKind = "trigger" | "agent" | "condition";
+type NodeKind = "trigger" | "agent" | "condition" | "gate";
 
 const KIND_ICON: Record<NodeKind, LucideIcon> = {
   trigger: Zap,
   agent: Bot,
   condition: Split,
+  gate: ShieldCheck,
 };
 
 export interface CanvasNodeText {
@@ -188,6 +200,13 @@ export function AutomationEditorCanvas(props: AutomationEditorCanvasProps): Reac
             }
           />
         ))}
+        {layout.retries.map((retry) => (
+          <RetryShape
+            key={retry.key}
+            retry={retry}
+            dimmed={lit !== null && !(lit.has(retry.gateId) && lit.has(retry.retryFrom))}
+          />
+        ))}
         {dragPath ? (
           <Path
             d={dragPath}
@@ -250,6 +269,32 @@ export function AutomationEditorCanvas(props: AutomationEditorCanvasProps): Reac
   );
 }
 
+// The way back from a gate to the step it retries: dashed always, in the gate's colour, because
+// it is a possibility, not a link the run takes by default.
+const RetryShape = memo(function RetryShape({
+  retry,
+  dimmed,
+}: {
+  retry: CanvasRetry;
+  dimmed: boolean;
+}): ReactElement {
+  const color = styles.retryStroke.color;
+  const opacity = dimmed ? DIMMED_EDGE : 1;
+  return (
+    <>
+      <Path
+        d={retry.path}
+        stroke={color}
+        strokeOpacity={opacity}
+        strokeWidth={EDGE_WIDTH}
+        strokeDasharray={EDGE_DASH}
+        fill="none"
+      />
+      <Polygon points={retry.arrow} fill={color} fillOpacity={opacity} />
+    </>
+  );
+});
+
 const EdgeShape = memo(function EdgeShape({
   canvasEdge,
   dimmed,
@@ -290,6 +335,8 @@ function useNodeStyles(kind: NodeKind) {
       return { border: styles.borderTrigger, tint: styles.tintTrigger, tile: styles.tileTrigger };
     case "condition":
       return { border: styles.borderCheck, tint: styles.tintCheck, tile: styles.tileCheck };
+    case "gate":
+      return { border: styles.borderGate, tint: styles.tintGate, tile: styles.tileGate };
     default:
       return { border: styles.borderAgent, tint: styles.tintAgent, tile: styles.tileAgent };
   }
@@ -417,6 +464,8 @@ export function problemKey(problem: EditorProblem): string {
       return "loop_member";
     case "missing_provider":
       return "missing_model";
+    case "gate_retry_from":
+      return "gate_retry_from";
     default:
       return problem.code;
   }
@@ -479,6 +528,7 @@ function NodeHandle({
   );
   const addAgent = useCallback(() => onAddAfter("agent", from), [from, onAddAfter]);
   const addCheck = useCallback(() => onAddAfter("condition", from), [from, onAddAfter]);
+  const addGate = useCallback(() => onAddAfter("gate", from), [from, onAddAfter]);
   let branchLabel: string | null = null;
   if (branch === "true") {
     branchLabel = yesLabel;
@@ -528,6 +578,9 @@ function NodeHandle({
             testID="automation-add-check"
           >
             {t("automationEditor.palette.check")}
+          </DropdownMenuItem>
+          <DropdownMenuItem leading={gateMenuIcon} onSelect={addGate} testID="automation-add-gate">
+            {t("automationEditor.palette.gate")}
           </DropdownMenuItem>
           {targets.length > 0 ? (
             <>
@@ -600,6 +653,7 @@ function EdgeButton({
   );
   const insertAgent = useCallback(() => onInsert("agent", edge), [edge, onInsert]);
   const insertCheck = useCallback(() => onInsert("condition", edge), [edge, onInsert]);
+  const insertGate = useCallback(() => onInsert("gate", edge), [edge, onInsert]);
   const remove = useCallback(() => onDisconnect(edge), [edge, onDisconnect]);
   return (
     <DropdownMenu>
@@ -631,6 +685,13 @@ function EdgeButton({
         >
           {t("automationEditor.palette.check")}
         </DropdownMenuItem>
+        <DropdownMenuItem
+          leading={gateMenuIcon}
+          onSelect={insertGate}
+          testID="automation-insert-gate"
+        >
+          {t("automationEditor.palette.gate")}
+        </DropdownMenuItem>
         {removable ? (
           <>
             <DropdownMenuSeparator />
@@ -647,7 +708,8 @@ function EdgeButton({
 export { NODE_HEIGHT, NODE_WIDTH };
 
 const styles = StyleSheet.create((theme) => {
-  const hue = (name: "violet" | "amber" | "sky") => identityForeground(name, theme.colorScheme);
+  const hue = (name: "violet" | "amber" | "sky" | "emerald") =>
+    identityForeground(name, theme.colorScheme);
   return {
     svg: {
       position: "absolute",
@@ -658,6 +720,7 @@ const styles = StyleSheet.create((theme) => {
     yesStroke: { color: theme.colors.statusSuccess },
     noStroke: { color: theme.colors.statusDanger },
     dragStroke: { color: theme.colors.accent },
+    retryStroke: { color: hue("emerald") },
     node: {
       position: "absolute",
       width: NODE_WIDTH,
@@ -677,9 +740,11 @@ const styles = StyleSheet.create((theme) => {
     borderTrigger: { borderColor: hue("sky") },
     borderAgent: { borderColor: hue("violet") },
     borderCheck: { borderColor: hue("amber") },
+    borderGate: { borderColor: hue("emerald") },
     tintTrigger: { backgroundColor: hue("sky") },
     tintAgent: { backgroundColor: hue("violet") },
     tintCheck: { backgroundColor: hue("amber") },
+    tintGate: { backgroundColor: hue("emerald") },
     tile: {
       width: TILE_WIDTH,
       alignItems: "center",
@@ -688,6 +753,7 @@ const styles = StyleSheet.create((theme) => {
     tileTrigger: { backgroundColor: hue("sky") },
     tileAgent: { backgroundColor: hue("violet") },
     tileCheck: { backgroundColor: hue("amber") },
+    tileGate: { backgroundColor: hue("emerald") },
     tileIcon: { color: theme.colors.surface1 },
     nodeBody: {
       flex: 1,

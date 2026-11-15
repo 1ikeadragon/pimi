@@ -16,12 +16,14 @@ import {
   Folder,
   Plus,
   RotateCcw,
+  ShieldCheck,
   Split,
   Trash2,
   Zap,
 } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { AgentProvider } from "@pimi/protocol/agent-types";
+import { MAX_GATE_ATTEMPTS } from "@pimi/protocol/automation/types";
 import type {
   AutomationConditionOperator,
   AutomationEdge,
@@ -64,6 +66,7 @@ import type { EditingTextInputHandle } from "@/components/ui/text-input/types";
 import {
   connectableTargets,
   effectiveStepModel,
+  gateRetryTargets,
   modelLabel,
   modeOptionsFor,
   thinkingOptionsFor,
@@ -74,6 +77,7 @@ import {
   type EditorAgentStep,
   type EditorCheckStep,
   type EditorDefaults,
+  type EditorGateStep,
   type EditorProblem,
   type EditorStep,
   type EditorTriggerKind,
@@ -137,6 +141,16 @@ export function AutomationEditorInspector({
         state={state}
         step={selected}
         providers={providers}
+        runView={runView}
+      />
+    );
+  } else if (selected?.kind === "gate") {
+    body = (
+      <GateStepSection
+        key={selected.id}
+        model={model}
+        state={state}
+        step={selected}
         runView={runView}
       />
     );
@@ -248,15 +262,48 @@ function SettingsSection({
       model.setProject(optionId, { label: display.label ?? "" }),
     [model],
   );
+  const flow = state.kind === "flow";
   return (
     <>
-      <SectionTitle icon={Folder}>{t("automationEditor.inspector.settingsTitle")}</SectionTitle>
+      <SectionTitle icon={Folder}>
+        {flow ? t("flowEditor.settingsTitle") : t("automationEditor.inspector.settingsTitle")}
+      </SectionTitle>
       <ProblemList
         problems={[
           ...(state.problemsByTarget.get("settings") ?? []),
           ...(state.problemsByTarget.get("name") ?? []),
         ]}
       />
+      {flow ? (
+        <>
+          <Field label={t("flowEditor.description")} hint={t("flowEditor.descriptionHint")}>
+            <FormTextInput
+              size={SIZE}
+              testID="flow-description-input"
+              accessibilityLabel={t("flowEditor.description")}
+              initialValue={state.description}
+              onChangeText={model.setDescription}
+              placeholder={t("flowEditor.descriptionPlaceholder")}
+              style={styles.multiline}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </Field>
+          <Field label={t("flowEditor.argumentHint")} hint={t("flowEditor.argumentHintHint")}>
+            <FormTextInput
+              size={SIZE}
+              testID="flow-argument-hint-input"
+              accessibilityLabel={t("flowEditor.argumentHint")}
+              initialValue={state.argumentHint}
+              onChangeText={model.setArgumentHint}
+              placeholder={t("flowEditor.argumentHintPlaceholder")}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </Field>
+        </>
+      ) : null}
       {state.mode === "edit" || state.hosts.length > 1 ? (
         <SelectField
           label={t("automationEditor.inspector.host")}
@@ -274,23 +321,25 @@ function SettingsSection({
           renderOption={renderHostOption}
         />
       ) : null}
-      <SelectField
-        label={t("automationEditor.inspector.project")}
-        value={state.selectedProjectOptionId || null}
-        selectedDisplay={state.projectDisplay}
-        options={state.projectOptions}
-        onChange={handleProject}
-        placeholder={t("automationEditor.inspector.selectProject")}
-        emptyText={t("automationEditor.inspector.noProjects")}
-        disabled={!state.selectedServerId}
-        hint={!state.selectedServerId ? t("automationEditor.inspector.chooseHost") : undefined}
-        searchable
-        searchPlaceholder={t("automationEditor.inspector.searchProjects")}
-        title={t("automationEditor.inspector.selectProject")}
-        size={SIZE}
-        triggerTestID="automation-project-trigger"
-        renderOption={renderProjectOption}
-      />
+      {flow ? null : (
+        <SelectField
+          label={t("automationEditor.inspector.project")}
+          value={state.selectedProjectOptionId || null}
+          selectedDisplay={state.projectDisplay}
+          options={state.projectOptions}
+          onChange={handleProject}
+          placeholder={t("automationEditor.inspector.selectProject")}
+          emptyText={t("automationEditor.inspector.noProjects")}
+          disabled={!state.selectedServerId}
+          hint={!state.selectedServerId ? t("automationEditor.inspector.chooseHost") : undefined}
+          searchable
+          searchPlaceholder={t("automationEditor.inspector.searchProjects")}
+          title={t("automationEditor.inspector.selectProject")}
+          size={SIZE}
+          triggerTestID="automation-project-trigger"
+          renderOption={renderProjectOption}
+        />
+      )}
       <Field
         label={t("automationEditor.inspector.defaultsTitle")}
         hint={t("automationEditor.inspector.defaultsHint")}
@@ -306,17 +355,19 @@ function SettingsSection({
           testIDPrefix="automation-default"
         />
       </Field>
-      <Field label={t("automationEditor.inspector.maxRuns")}>
-        <FormTextInput
-          size={SIZE}
-          testID="automation-max-runs-input"
-          accessibilityLabel={t("automationEditor.inspector.maxRuns")}
-          initialValue={state.maxRuns}
-          onChangeText={model.setMaxRuns}
-          placeholder={t("automationEditor.inspector.unlimited")}
-          keyboardType="number-pad"
-        />
-      </Field>
+      {flow ? null : (
+        <Field label={t("automationEditor.inspector.maxRuns")}>
+          <FormTextInput
+            size={SIZE}
+            testID="automation-max-runs-input"
+            accessibilityLabel={t("automationEditor.inspector.maxRuns")}
+            initialValue={state.maxRuns}
+            onChangeText={model.setMaxRuns}
+            placeholder={t("automationEditor.inspector.unlimited")}
+            keyboardType="number-pad"
+          />
+        </Field>
+      )}
     </>
   );
 }
@@ -680,6 +731,9 @@ function useInsertableReferences(
       ref: stepOutputReference(step.id),
       label: t("automationEditor.inspector.outputOf", { title: step.title || step.id }),
     }));
+    if (state.kind === "flow") {
+      refs.unshift({ ref: "{{input}}", label: t("flowEditor.inputReference") });
+    }
     if (state.triggerKind === "pull_request") {
       for (const field of PULL_REQUEST_TEMPLATE_FIELDS) {
         refs.push({
@@ -918,20 +972,146 @@ function AgentStepSection({
           )}
         </View>
       </Field>
+      {state.kind === "flow" ? null : (
+        <Field
+          label={t("automationEditor.inspector.workspace")}
+          hint={
+            state.projectIsGit === false
+              ? t("automationEditor.inspector.worktreeNeedsGit")
+              : undefined
+          }
+        >
+          <SegmentedControl
+            options={workspaceOptions}
+            value={state.projectIsGit === false ? "project" : step.workspace}
+            onValueChange={handleWorkspace}
+            size={SIZE}
+            testID="automation-workspace"
+          />
+        </Field>
+      )}
+      <LinksSection model={model} state={state} step={step} />
+      <Button
+        variant="ghost"
+        leftIcon={Trash2}
+        onPress={handleDelete}
+        testID="automation-delete-step"
+      >
+        {t("automationEditor.inspector.deleteStep")}
+      </Button>
+    </>
+  );
+}
+
+function GateStepSection({
+  model,
+  state,
+  step,
+  runView,
+}: {
+  model: AutomationEditorModel;
+  state: AutomationEditorState;
+  step: EditorGateStep;
+  runView: InspectorRunView | null;
+}): ReactElement {
+  const { t } = useTranslation();
+  const handleTitle = useCallback(
+    (title: string) => model.updateGateStep(step.id, { title }),
+    [model, step.id],
+  );
+  const handleCriteria = useCallback(
+    (criteria: string) => model.updateGateStep(step.id, { criteria }),
+    [model, step.id],
+  );
+  const handleRetryFrom = useCallback(
+    (retryFrom: string) => model.updateGateStep(step.id, { retryFrom }),
+    [model, step.id],
+  );
+  const handleAttempts = useCallback(
+    (value: string) => model.updateGateStep(step.id, { maxAttempts: Number(value) }),
+    [model, step.id],
+  );
+  const handleDelete = useCallback(() => model.removeStep(step.id), [model, step.id]);
+  const targets = gateRetryTargets(state, step.id);
+  const retryOptions = useMemo<SelectFieldOption<string>[]>(
+    () =>
+      targets.map((target) => ({
+        id: target.id,
+        value: target.id,
+        label: target.title || target.id,
+        testID: `automation-gate-retry-${target.id}`,
+      })),
+    [targets],
+  );
+  const retryDisplay = useMemo<SelectFieldDisplay | null>(() => {
+    const chosen = targets.find((target) => target.id === step.retryFrom);
+    return chosen ? { label: chosen.title || chosen.id } : null;
+  }, [step.retryFrom, targets]);
+  const attemptOptions = useMemo<SegmentedControlOption<string>[]>(
+    () =>
+      Array.from({ length: MAX_GATE_ATTEMPTS }, (_, index) => ({
+        value: String(index + 1),
+        label: String(index + 1),
+        testID: `automation-gate-attempts-${index + 1}`,
+      })),
+    [],
+  );
+  return (
+    <>
+      <SectionTitle icon={ShieldCheck}>{t("automationEditor.inspector.gateTitle")}</SectionTitle>
+      <ProblemList problems={state.problemsByTarget.get(step.id)} />
+      <RunStepPanel stepId={step.id} runView={runView} />
+      <Field label={t("automationEditor.inspector.name")}>
+        <FormTextInput
+          size={SIZE}
+          testID="automation-step-title-input"
+          accessibilityLabel={t("automationEditor.inspector.name")}
+          initialValue={step.title}
+          onChangeText={handleTitle}
+          autoCorrect={false}
+        />
+      </Field>
       <Field
-        label={t("automationEditor.inspector.workspace")}
-        hint={
-          state.projectIsGit === false
-            ? t("automationEditor.inspector.worktreeNeedsGit")
-            : undefined
-        }
+        label={t("automationEditor.inspector.criteria")}
+        hint={t("automationEditor.inspector.criteriaHint")}
+      >
+        <FormTextInput
+          size={SIZE}
+          testID="automation-gate-criteria-input"
+          accessibilityLabel={t("automationEditor.inspector.criteria")}
+          initialValue={step.criteria}
+          onChangeText={handleCriteria}
+          placeholder={t("automationEditor.inspector.criteriaPlaceholder")}
+          style={styles.multiline}
+          multiline
+          numberOfLines={6}
+          textAlignVertical="top"
+        />
+      </Field>
+      <SelectField
+        label={t("automationEditor.inspector.retryFrom")}
+        value={step.retryFrom || null}
+        selectedDisplay={retryDisplay}
+        options={retryOptions}
+        onChange={handleRetryFrom}
+        placeholder={t("automationEditor.inspector.retryFromPlaceholder")}
+        emptyText={t("automationEditor.inspector.retryFromEmpty")}
+        hint={t("automationEditor.inspector.retryFromHint")}
+        searchable={false}
+        title={t("automationEditor.inspector.retryFrom")}
+        size={SIZE}
+        triggerTestID="automation-gate-retry-from"
+      />
+      <Field
+        label={t("automationEditor.inspector.attempts")}
+        hint={t("automationEditor.inspector.attemptsHint")}
       >
         <SegmentedControl
-          options={workspaceOptions}
-          value={state.projectIsGit === false ? "project" : step.workspace}
-          onValueChange={handleWorkspace}
+          options={attemptOptions}
+          value={String(step.maxAttempts)}
+          onValueChange={handleAttempts}
           size={SIZE}
-          testID="automation-workspace"
+          testID="automation-gate-attempts"
         />
       </Field>
       <LinksSection model={model} state={state} step={step} />

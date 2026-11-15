@@ -11,6 +11,7 @@ import {
   Pause,
   Play,
   Settings2,
+  ShieldCheck,
   Sparkles,
   Split,
   Trash2,
@@ -453,7 +454,7 @@ function AutomationEditor({
   );
 }
 
-function useBlockedReason(state: AutomationEditorState): string | null {
+export function useBlockedReason(state: AutomationEditorState): string | null {
   const { t } = useTranslation();
   const firstProblem = state.problems[0];
   return firstProblem
@@ -461,7 +462,7 @@ function useBlockedReason(state: AutomationEditorState): string | null {
     : null;
 }
 
-function UnsavedBar({
+export function UnsavedBar({
   canSave,
   saving,
   onSave,
@@ -497,7 +498,7 @@ function UnsavedBar({
   );
 }
 
-function EditorNotices({ message }: { message: string | null }): ReactElement | null {
+export function EditorNotices({ message }: { message: string | null }): ReactElement | null {
   if (!message) return null;
   return (
     <Text style={styles.errorBar} testID="automation-editor-error">
@@ -549,6 +550,7 @@ function useEditorSnapshot({
   });
   const snapshot = useMemo<AutomationEditorSnapshot>(
     () => ({
+      kind: "automation",
       mode,
       draft: initial.draft,
       source: initial.source,
@@ -561,6 +563,7 @@ function useEditorSnapshot({
       newStepTitles: {
         agent: t("automationEditor.palette.agent"),
         check: t("automationEditor.palette.check"),
+        gate: t("automationEditor.palette.gate"),
       },
     }),
     [hosts, initial, mode, preferences, projectTargets, t],
@@ -611,7 +614,7 @@ function useEditorSave({
   return { saving, handleSave };
 }
 
-function useCanvasHandlers(model: AutomationEditorModel, state: AutomationEditorState) {
+export function useCanvasHandlers(model: AutomationEditorModel, state: AutomationEditorState) {
   const { t } = useTranslation();
   const selectedStepId = state.selection.kind === "step" ? state.selection.id : null;
   // The step just added, so the canvas can pan it into view.
@@ -789,11 +792,14 @@ function useEditorActions({
   };
 }
 
-function inspectorTitle(state: AutomationEditorState, t: (key: string) => string): string {
+export function inspectorTitle(state: AutomationEditorState, t: (key: string) => string): string {
+  if (state.kind === "flow" && state.selection.kind === "none")
+    return t("flowEditor.settingsTitle");
   if (state.selection.kind === "trigger") return t("automationEditor.inspector.triggerTitle");
   if (state.selection.kind === "step") {
     const id = state.selection.id;
     const step = state.steps.find((candidate) => candidate.id === id);
+    if (step?.kind === "gate") return t("automationEditor.inspector.gateTitle");
     return step?.kind === "condition"
       ? t("automationEditor.inspector.checkTitle")
       : t("automationEditor.inspector.stepTitle");
@@ -801,7 +807,7 @@ function inspectorTitle(state: AutomationEditorState, t: (key: string) => string
   return t("automationEditor.inspector.settingsTitle");
 }
 
-function useNodeText(state: AutomationEditorState): ReadonlyMap<string, CanvasNodeText> {
+export function useNodeText(state: AutomationEditorState): ReadonlyMap<string, CanvasNodeText> {
   const { t } = useTranslation();
   return useMemo(() => {
     const map = new Map<string, CanvasNodeText>();
@@ -826,8 +832,20 @@ function useNodeText(state: AutomationEditorState): ReadonlyMap<string, CanvasNo
       default:
         trigger = t("automationEditor.triggerKinds.manual");
     }
-    map.set(TRIGGER_NODE_ID, { title: t("automationEditor.nodes.trigger"), subtitle: trigger });
+    map.set(
+      TRIGGER_NODE_ID,
+      state.kind === "flow"
+        ? { title: t("flowEditor.startNode"), subtitle: t("flowEditor.startNodeHint") }
+        : { title: t("automationEditor.nodes.trigger"), subtitle: trigger },
+    );
     for (const step of state.steps) {
+      if (step.kind === "gate") {
+        map.set(step.id, {
+          title: step.title || step.id,
+          subtitle: t("automationEditor.nodes.gateSubtitle", { count: step.maxAttempts }),
+        });
+        continue;
+      }
       if (step.kind === "condition") {
         const needsValue = step.operator !== "is_empty" && step.operator !== "not_empty";
         map.set(step.id, {
@@ -848,6 +866,7 @@ function useNodeText(state: AutomationEditorState): ReadonlyMap<string, CanvasNo
     state.cron.expression,
     state.defaults,
     state.intervalMs,
+    state.kind,
     state.prRepo,
     state.providerEntries,
     state.steps,
@@ -1201,7 +1220,7 @@ function OverflowMenu(props: {
 // Canvas overlays
 // ---------------------------------------------------------------------------
 
-function Palette({
+export function Palette({
   onAdd,
   onInset,
 }: {
@@ -1217,6 +1236,7 @@ function Palette({
   );
   const addAgent = useCallback(() => onAdd("agent"), [onAdd]);
   const addCheck = useCallback(() => onAdd("condition"), [onAdd]);
+  const addGate = useCallback(() => onAdd("gate"), [onAdd]);
   return (
     <View style={styles.palette} onLayout={handleLayout} testID="automation-palette">
       <Text style={styles.paletteTitle}>{t("automationEditor.palette.title")}</Text>
@@ -1237,6 +1257,15 @@ function Palette({
         testID="automation-palette-check"
       >
         {t("automationEditor.palette.check")}
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        leftIcon={ShieldCheck}
+        onPress={addGate}
+        testID="automation-palette-gate"
+      >
+        {t("automationEditor.palette.gate")}
       </Button>
     </View>
   );
@@ -1325,7 +1354,7 @@ function DescribePanel({
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
+export const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.surfaceWindow,

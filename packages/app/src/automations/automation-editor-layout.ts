@@ -35,12 +35,22 @@ export interface CanvasEdge {
   arrow: string;
 }
 
+/** A gate's way back to the step it retries from, drawn as a dashed arc behind the graph. */
+export interface CanvasRetry {
+  key: string;
+  gateId: string;
+  retryFrom: string;
+  path: string;
+  arrow: string;
+}
+
 export interface CanvasLayout {
   direction: CanvasDirection;
   width: number;
   height: number;
   nodes: Map<string, CanvasNodeBox>;
   edges: CanvasEdge[];
+  retries: CanvasRetry[];
 }
 
 export type HandleBranch = AutomationEdgeBranch | "always";
@@ -134,6 +144,29 @@ function arrowAt(end: Point, direction: CanvasDirection): string {
   return `${end.x},${end.y} ${end.x - 4.5},${end.y - 8} ${end.x + 4.5},${end.y - 8}`;
 }
 
+const RETRY_BEND = 64;
+
+// Leaves the gate on the side the graph does not use for links and re-enters the retry step the
+// same way: under the nodes when the graph flows right, along their left edge when it flows down.
+function retryArc(gate: Point, target: Point, direction: CanvasDirection) {
+  if (direction === "right") {
+    const start = { x: gate.x + NODE_WIDTH / 2, y: gate.y + NODE_HEIGHT };
+    const end = { x: target.x + NODE_WIDTH / 2, y: target.y + NODE_HEIGHT };
+    const drop = RETRY_BEND + Math.abs(start.y - end.y) / 2;
+    return {
+      path: `M ${start.x} ${start.y} C ${start.x} ${start.y + drop}, ${end.x} ${end.y + drop}, ${end.x} ${end.y}`,
+      arrow: `${end.x},${end.y} ${end.x - 4.5},${end.y + 8} ${end.x + 4.5},${end.y + 8}`,
+    };
+  }
+  const start = { x: gate.x, y: gate.y + NODE_HEIGHT / 2 };
+  const end = { x: target.x, y: target.y + NODE_HEIGHT / 2 };
+  const out = RETRY_BEND + Math.abs(start.x - end.x) / 2;
+  return {
+    path: `M ${start.x} ${start.y} C ${start.x - out} ${start.y}, ${end.x - out} ${end.y}, ${end.x} ${end.y}`,
+    arrow: arrowAt(end, "right"),
+  };
+}
+
 export function layoutAutomationGraph(input: {
   steps: readonly EditorStep[];
   edges: readonly AutomationEdge[];
@@ -216,5 +249,18 @@ export function layoutAutomationGraph(input: {
       arrow: arrowAt(end, direction),
     });
   }
-  return { direction, width, height, nodes, edges: canvasEdges };
+  const retries: CanvasRetry[] = [];
+  for (const step of steps) {
+    if (step.kind !== "gate") continue;
+    const gate = nodes.get(step.id);
+    const target = nodes.get(step.retryFrom);
+    if (!gate || !target || step.retryFrom === step.id) continue;
+    retries.push({
+      key: `retry:${step.id}`,
+      gateId: step.id,
+      retryFrom: step.retryFrom,
+      ...retryArc(gate, target, direction),
+    });
+  }
+  return { direction, width, height, nodes, edges: canvasEdges, retries };
 }

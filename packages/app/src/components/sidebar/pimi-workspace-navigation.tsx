@@ -1,6 +1,6 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
 import { useCallback, useEffect, useMemo, type ReactNode } from "react";
-import { router, usePathname } from "expo-router";
+import { router, useGlobalSearchParams, usePathname } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
@@ -16,6 +16,7 @@ import {
   Settings,
   StickyNote,
   SquarePen,
+  Workflow,
   X,
 } from "lucide-react-native";
 import { useTranslation } from "@/i18n/use-translation";
@@ -44,7 +45,7 @@ import {
 import { closePimiReview, openPimiReview, PIMI_REVIEW_ROUTE } from "@/navigation/pimi-review";
 import { openPimiTasks, PIMI_TASKS_ROUTE } from "@/navigation/pimi-tasks";
 import { closePimiUsage, PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
-import { closePimiLibrary, PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
+import { closePimiLibrary, openPimiLibrary, PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
 import { SidebarHeaderRow, type SidebarRowIcon } from "./sidebar-header-row";
 import { UsageIcon } from "@/usage/icon";
 import { UsagePopover } from "@/usage/popover";
@@ -65,6 +66,13 @@ export const PIMI_NAV_RAIL_WIDTH = 52;
 const useWorkspaceActivity = create<Record<PimiActivitySection, boolean>>(() => ({
   review: false,
 }));
+
+// The Flows row is the Library screen opened on its flows section.
+function useFlowsLibraryActive(workspaceSection: unknown): boolean {
+  const pathname = usePathname();
+  const { section } = useGlobalSearchParams<{ section?: string }>();
+  return !workspaceSection && pathname === PIMI_LIBRARY_ROUTE && section === "flows";
+}
 
 function SidebarIcon({
   icon,
@@ -235,6 +243,7 @@ export function PimiWorkspaceNavigation({
   const inUsage = pathname === PIMI_USAGE_ROUTE;
   const inReview = pathname === PIMI_REVIEW_ROUTE;
   const inLibrary = pathname === PIMI_LIBRARY_ROUTE;
+  const flowsActive = useFlowsLibraryActive(section);
   const inAutomations = pathname === buildAutomationsRoute();
   const inHistory = pathname === buildSessionsRoute();
   const inTasks = pathname === PIMI_TASKS_ROUTE;
@@ -288,6 +297,10 @@ export function PimiWorkspaceNavigation({
     onNavigate?.();
     openPimiReview();
   }, [onNavigate]);
+  const showFlows = useCallback(() => {
+    onNavigate?.();
+    openPimiLibrary("flows", inLibrary);
+  }, [inLibrary, onNavigate]);
   const showMemory = useCallback(() => {
     onNavigate?.();
     show?.({ view: "memory" });
@@ -340,6 +353,12 @@ export function PimiWorkspaceNavigation({
       icon: IdCard,
       onPress: showProfiles,
       active: !section && inProfiles,
+    },
+    {
+      label: t("flows.title"),
+      icon: Workflow,
+      onPress: showFlows,
+      active: flowsActive,
     },
     {
       label: "Memory",

@@ -40,6 +40,7 @@ import type {
   FindingStatus,
 } from "@pimi/protocol/attack/types";
 import type { AutomationDefinition, AutomationOrigin } from "@pimi/protocol/automation/types";
+import type { FlowDefinition, FlowOrigin } from "@pimi/protocol/flow/types";
 import type { HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
 import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
@@ -676,6 +677,42 @@ type SubscribeTerminalPayload = SubscribeTerminalResponse["payload"];
 type CloseItemsPayload = CloseItemsResponse["payload"];
 type KillTerminalPayload = KillTerminalResponse["payload"];
 type CaptureTerminalPayload = CaptureTerminalResponse["payload"];
+export type FlowCreatePayload = Extract<
+  SessionOutboundMessage,
+  { type: "flow.create.response" }
+>["payload"];
+export type FlowGetPayload = Extract<
+  SessionOutboundMessage,
+  { type: "flow.get.response" }
+>["payload"];
+export type FlowListPayload = Extract<
+  SessionOutboundMessage,
+  { type: "flow.list.response" }
+>["payload"];
+export type FlowUpdatePayload = Extract<
+  SessionOutboundMessage,
+  { type: "flow.update.response" }
+>["payload"];
+export type FlowDeletePayload = Extract<
+  SessionOutboundMessage,
+  { type: "flow.delete.response" }
+>["payload"];
+export type FlowApprovePayload = Extract<
+  SessionOutboundMessage,
+  { type: "flow.approve.response" }
+>["payload"];
+export type FlowRunGetPayload = Extract<
+  SessionOutboundMessage,
+  { type: "flow.run.get.response" }
+>["payload"];
+export type FlowRunCancelPayload = Extract<
+  SessionOutboundMessage,
+  { type: "flow.run.cancel.response" }
+>["payload"];
+export type FlowRunRetryPayload = Extract<
+  SessionOutboundMessage,
+  { type: "flow.run.retry.response" }
+>["payload"];
 export type AutomationCreatePayload = Extract<
   SessionOutboundMessage,
   { type: "automation.create.response" }
@@ -1393,6 +1430,7 @@ const SHARED_READ_REQUESTS: ReadonlySet<string> = new Set([
   "workspace.script.list.request",
   "automation.list.request",
   "automation.draft.list.request",
+  "flow.list.request",
   "provider.harness_updates.check.request",
 ]);
 
@@ -7251,6 +7289,88 @@ export class DaemonClient {
         labelId: options.labelId,
         assigned: options.assigned,
       },
+    });
+  }
+
+  async flowList(options: { requestId?: string } = {}): Promise<FlowListPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "flow.list.request" },
+    });
+  }
+
+  async flowGet(options: { requestId?: string; flowId: string }): Promise<FlowGetPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "flow.get.request", flowId: options.flowId },
+    });
+  }
+
+  async flowCreate(options: {
+    requestId?: string;
+    definition: FlowDefinition;
+    origin?: FlowOrigin;
+  }): Promise<FlowCreatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "flow.create.request",
+        definition: options.definition,
+        ...(options.origin ? { origin: options.origin } : {}),
+      },
+    });
+  }
+
+  async flowUpdate(options: {
+    requestId?: string;
+    flowId: string;
+    definition: FlowDefinition;
+  }): Promise<FlowUpdatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "flow.update.request",
+        flowId: options.flowId,
+        definition: options.definition,
+      },
+    });
+  }
+
+  async flowDelete(options: { requestId?: string; flowId: string }): Promise<FlowDeletePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "flow.delete.request", flowId: options.flowId },
+    });
+  }
+
+  async flowApprove(options: { requestId?: string; flowId: string }): Promise<FlowApprovePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "flow.approve.request", flowId: options.flowId },
+    });
+  }
+
+  async flowRunGet(options: { requestId?: string; runId: string }): Promise<FlowRunGetPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "flow.run.get.request", runId: options.runId },
+    });
+  }
+
+  async flowRunCancel(options: {
+    requestId?: string;
+    runId: string;
+  }): Promise<FlowRunCancelPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "flow.run.cancel.request", runId: options.runId },
+    });
+  }
+
+  async flowRunRetry(options: { requestId?: string; runId: string }): Promise<FlowRunRetryPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "flow.run.retry.request", runId: options.runId },
     });
   }
 

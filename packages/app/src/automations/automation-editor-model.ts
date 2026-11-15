@@ -11,10 +11,13 @@ import type {
   AutomationEdge,
   AutomationEdgeBranch,
   AutomationFlow,
+  AutomationGateNode,
   AutomationNode,
   AutomationTrigger,
   PullRequestEvent,
 } from "@pimi/protocol/automation/types";
+import type { FlowDefinition } from "@pimi/protocol/flow/types";
+import { validateFlowDefinition } from "@pimi/protocol/flow/validate";
 import {
   MAX_AUTOMATION_NODES,
   stepOutputReference,
@@ -23,6 +26,7 @@ import {
   validateAutomationDefinition,
   type AutomationIssueCode,
 } from "@pimi/protocol/automation/validate";
+import { DEFAULT_GATE_ATTEMPTS } from "@pimi/protocol/automation/types";
 import type { Cadence } from "@pimi/protocol/schedule/cadence";
 import type { FormPreferences } from "@/create-agent-preferences/preferences";
 import {
@@ -49,7 +53,7 @@ import type { AutomationTemplate } from "./automation-templates";
 import { PROJECT_OPTION_PREFIX, type AutomationProjectTarget } from "./automation-project-targets";
 
 /**
- * The automation editor's model: the step graph, the trigger, and the automation's settings. Plain
+ * The automation editor's model (also the flow editor's, with `kind: "flow"`): the step graph, the trigger, and the automation's settings. Plain
  * TypeScript with no React, opened once per editor mount (docs/forms.md). The trigger is not a
  * stored step; on the canvas it feeds every step that has no step before it, which is how the
  * daemon starts a run.
@@ -95,7 +99,20 @@ export interface EditorCheckStep {
   value: string;
 }
 
-export type EditorStep = EditorAgentStep | EditorCheckStep;
+/** A judge gate: a fresh agent checks the work against `criteria` and may send the run back. */
+export interface EditorGateStep {
+  id: string;
+  kind: "gate";
+  title: string;
+  criteria: string;
+  /** The earlier step the run goes back to on a fail; empty until one is chosen. */
+  retryFrom: string;
+  maxAttempts: number;
+}
+
+export type EditorStep = EditorAgentStep | EditorCheckStep | EditorGateStep;
+
+export type EditorKind = "automation" | "flow";
 
 export type EditorSelection = { kind: "none" } | { kind: "trigger" } | { kind: "step"; id: string };
 
@@ -111,7 +128,8 @@ export type EditorProblemCode =
   | "missing_model"
   | "invalid_cron"
   | "loop_member"
-  | "choose_project";
+  | "choose_project"
+  | "missing_description";
 
 /** Where a problem shows: on a step, on the trigger, on the name, or in the settings. */
 export type EditorProblemTarget = "name" | "settings" | typeof TRIGGER_NODE_ID | (string & {});
@@ -128,6 +146,8 @@ export interface EditorProblem {
 /** The user-editable part of the editor, kept across the editor unmounting. */
 export interface AutomationEditorDraft {
   name: string;
+  description: string;
+  argumentHint: string;
   triggerKind: EditorTriggerKind;
   cron: CronCadence;
   intervalMs: number;
@@ -143,6 +163,7 @@ export interface AutomationEditorDraft {
 }
 
 export interface AutomationEditorSnapshot {
+  kind: EditorKind;
   mode: "create" | "edit";
   /** Unsaved edits to reopen on, instead of `source`/`template`. The editor opens dirty. */
   draft?: AutomationEditorDraft;
@@ -152,13 +173,15 @@ export interface AutomationEditorSnapshot {
    */
   source?: Pick<AutomationDefinition, "name" | "project" | "trigger" | "flow" | "limits">;
   template?: AutomationTemplate;
+  /** What a flow editor opens on when editing a stored flow. */
+  flowSource?: Pick<FlowDefinition, "name" | "description" | "argumentHint" | "flow">;
   hosts: readonly AutomationEditorHost[];
   serverId?: string | null;
   projectTargets: readonly AutomationProjectTarget[];
   preferences?: FormPreferences;
   timezone: string;
   /** Translated base titles for new steps; the model numbers them. */
-  newStepTitles: { agent: string; check: string };
+  newStepTitles: { agent: string; check: string; gate: string };
 }
 
 export interface AutomationEditorProjectOption {
@@ -171,8 +194,13 @@ export interface AutomationEditorProjectOption {
 type ProviderResolutionStatus = "pending" | "complete";
 
 export interface AutomationEditorState {
+  kind: EditorKind;
   mode: "create" | "edit";
   name: string;
+  /** Flows only: what the flow is for, shown in the library and to agents. */
+  description: string;
+  /** Flows only: what the input after `/name` should be, such as `<topic>`. */
+  argumentHint: string;
   triggerKind: EditorTriggerKind;
   cron: CronCadence;
   intervalMs: number;
@@ -250,6 +278,12 @@ export interface AutomationEditorModel {
     stepId: string,
     patch: Partial<Pick<EditorCheckStep, "title" | "input" | "operator" | "value">>,
   ) => void;
+  updateGateStep: (
+    stepId: string,
+    patch: Partial<Pick<EditorGateStep, "title" | "criteria" | "retryFrom" | "maxAttempts">>,
+  ) => void;
+  setDescription: (value: string) => void;
+  setArgumentHint: (value: string) => void;
   markSaved: () => void;
   setSubmitError: (value: string | null) => void;
 }
@@ -289,6 +323,15 @@ export function upstreamAgentSteps(
   );
 }
 
+/** The steps a gate can send the run back to: every step that runs before it. */
+export function gateRetryTargets(
+  state: Pick<AutomationEditorState, "steps" | "edges">,
+  gateId: string,
+): EditorStep[] {
+  const upstream = upstreamNodeIds({ nodes: [], edges: state.edges }, gateId);
+  return state.steps.filter((step) => upstream.has(step.id));
+}
+
 /** Steps `from` may link to without making a loop or repeating a link. */
 export function connectableTargets(
   state: Pick<AutomationEditorState, "steps" | "edges">,
@@ -304,6 +347,15 @@ export function connectableTargets(
         (edge) => edge.from === from && edge.to === step.id && edge.branch === branch,
       ),
   );
+}
+
+function copyEdge(edge: AutomationEdge): AutomationEdge {
+  return { ...edge };
+}
+
+/** A gate that went back to a removed step has nowhere to go until another is chosen. */
+function clearRetryFrom(step: EditorStep, removedId: string): EditorStep {
+  return step.kind === "gate" && step.retryFrom === removedId ? { ...step, retryFrom: "" } : step;
 }
 
 function nextStepId(steps: readonly EditorStep[], prefix: string): string {
@@ -370,7 +422,18 @@ function buildFlow(
       nodes.push({ ...step, title: step.title.trim() || step.id });
       continue;
     }
-    const node = buildAgentNode(step, state.defaults, state.projectIsGit, placeholderProvider);
+    if (step.kind === "gate") {
+      const gate: AutomationGateNode = { ...step, title: step.title.trim() || step.id };
+      nodes.push(gate);
+      continue;
+    }
+    // A flow's steps run in the chat's workspace, so they never ask for a worktree.
+    const node = buildAgentNode(
+      state.kind === "flow" ? { ...step, workspace: "project" } : step,
+      state.defaults,
+      state.projectIsGit,
+      placeholderProvider,
+    );
     if (!node) {
       throw new Error(`Choose a model for step ${step.title || step.id}`);
     }
@@ -415,6 +478,17 @@ export function buildAutomationEditorDefinition(
   };
 }
 
+/** The flow to save. Throws when a step has no model; `canSave` is false then. */
+export function buildFlowEditorDefinition(state: AutomationEditorState): FlowDefinition {
+  const argumentHint = state.argumentHint.trim();
+  return {
+    name: state.name.trim(),
+    description: state.description.trim(),
+    ...(argumentHint ? { argumentHint } : {}),
+    flow: buildFlow(state),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Problems
 // ---------------------------------------------------------------------------
@@ -425,6 +499,7 @@ function issueTarget(code: AutomationIssueCode, nodeId: string | undefined): Edi
   }
   switch (code) {
     case "name_required":
+    case "bad_name":
       return "name";
     case "project_required":
       return "settings";
@@ -439,6 +514,9 @@ function resolveProblems(state: AutomationEditorState): EditorProblem[] {
     if (step.kind === "agent" && step.provider === null && state.defaults.provider === null) {
       problems.push({ target: step.id, code: "missing_model", message: "Choose a model" });
     }
+  }
+  if (state.kind === "flow") {
+    return flowProblems(state, problems);
   }
   if (state.triggerKind === "cron") {
     const cronError = validateCron(state.cron.expression.trim());
@@ -465,6 +543,41 @@ function resolveProblems(state: AutomationEditorState): EditorProblem[] {
     }
     if (issue.code === "cycle") {
       // Name every step on or after the loop, so the canvas can mark them.
+      const ordered = new Set(topologicalOrder(flow) ?? []);
+      const order = topologicalOrderPartial(flow);
+      for (const step of state.steps) {
+        if (!ordered.has(step.id) && !order.has(step.id)) {
+          problems.push({ target: step.id, code: "loop_member", message: issue.message });
+        }
+      }
+      continue;
+    }
+    problems.push({
+      target: issueTarget(issue.code, issue.nodeId),
+      code: issue.code,
+      message: issue.message,
+      ...(issue.ref ? { ref: issue.ref } : {}),
+    });
+  }
+  return problems;
+}
+
+function flowProblems(state: AutomationEditorState, problems: EditorProblem[]): EditorProblem[] {
+  if (!state.description.trim()) {
+    problems.push({
+      target: "settings",
+      code: "missing_description",
+      message: "Describe what the flow is for",
+    });
+  }
+  const flow = buildFlow(state, "claude");
+  const issues = validateFlowDefinition({
+    name: state.name,
+    description: state.description,
+    flow,
+  });
+  for (const issue of issues) {
+    if (issue.code === "cycle") {
       const ordered = new Set(topologicalOrder(flow) ?? []);
       const order = topologicalOrderPartial(flow);
       for (const step of state.steps) {
@@ -630,12 +743,16 @@ export function effectiveStepModel(
 // Seeding
 // ---------------------------------------------------------------------------
 
-function firstAgentNode(source: AutomationEditorSnapshot["source"]): AutomationAgentNode | null {
+function sourceOf(snapshot: AutomationEditorSnapshot): { flow: AutomationFlow } | undefined {
+  return snapshot.source ?? snapshot.flowSource;
+}
+
+function firstAgentNode(source: { flow: AutomationFlow } | undefined): AutomationAgentNode | null {
   const node = source?.flow.nodes.find((candidate) => candidate.kind === "agent");
   return node?.kind === "agent" ? node : null;
 }
 
-function seedDefaults(source: AutomationEditorSnapshot["source"]): EditorDefaults {
+function seedDefaults(source: { flow: AutomationFlow } | undefined): EditorDefaults {
   const node = firstAgentNode(source);
   return {
     provider: node?.provider ?? null,
@@ -648,7 +765,7 @@ function seedDefaults(source: AutomationEditorSnapshot["source"]): EditorDefault
 // A step that runs with exactly the defaults inherits them, so changing the default model
 // changes it too.
 function toEditorStep(node: AutomationNode, defaults: EditorDefaults): EditorStep {
-  if (node.kind === "condition") {
+  if (node.kind === "condition" || node.kind === "gate") {
     return { ...node };
   }
   const inherits =
@@ -669,6 +786,12 @@ function toEditorStep(node: AutomationNode, defaults: EditorDefaults): EditorSte
     workspace: node.workspace,
     ...(node.featureValues ? { featureValues: node.featureValues } : {}),
   };
+}
+
+/** The editor's steps for a stored graph, for drawing it where nothing edits it. */
+export function editorStepsFromFlow(flow: AutomationFlow): EditorStep[] {
+  const defaults: EditorDefaults = { provider: null, model: "", modeId: "", thinkingOptionId: "" };
+  return flow.nodes.map((node) => toEditorStep(node, defaults));
 }
 
 function preferredWorkspace(preferences: FormPreferences | null | undefined): EditorWorkspace {
@@ -721,10 +844,11 @@ function seedSteps(
   steps: EditorStep[];
   edges: AutomationEdge[];
 } {
-  if (snapshot.source) {
+  const source = sourceOf(snapshot);
+  if (source) {
     return {
-      steps: snapshot.source.flow.nodes.map((node) => toEditorStep(node, defaults)),
-      edges: snapshot.source.flow.edges.map((edge) => ({ ...edge })),
+      steps: source.flow.nodes.map((node) => toEditorStep(node, defaults)),
+      edges: source.flow.edges.map(copyEdge),
     };
   }
   if (snapshot.template) {
@@ -787,6 +911,8 @@ function seedContent(
 ): Pick<
   AutomationEditorState,
   | "name"
+  | "description"
+  | "argumentHint"
   | "triggerKind"
   | "cron"
   | "intervalMs"
@@ -800,6 +926,8 @@ function seedContent(
   if (draft) {
     return {
       name: draft.name,
+      description: draft.description,
+      argumentHint: draft.argumentHint,
       triggerKind: draft.triggerKind,
       cron: draft.cron,
       intervalMs: draft.intervalMs,
@@ -812,7 +940,9 @@ function seedContent(
   }
   const maxRuns = snapshot.source?.limits?.maxRuns;
   return {
-    name: snapshot.source?.name ?? snapshot.template?.name ?? "",
+    name: snapshot.source?.name ?? snapshot.flowSource?.name ?? snapshot.template?.name ?? "",
+    description: snapshot.flowSource?.description ?? "",
+    argumentHint: snapshot.flowSource?.argumentHint ?? "",
     ...seedTrigger(snapshot.source?.trigger, snapshot.template, snapshot.timezone),
     ...seedSteps(snapshot, seededDefaults),
     maxRuns: maxRuns ? String(maxRuns) : "",
@@ -833,6 +963,7 @@ function seedEditorState(
     selectedServerId && workingDir.trim() ? { serverId: selectedServerId, cwd: workingDir } : null;
   const content = seedContent(snapshot, seededDefaults);
   return {
+    kind: snapshot.kind,
     mode: snapshot.mode,
     ...content,
     selection: { kind: "none" },
@@ -861,6 +992,8 @@ function seedEditorState(
 function draftOf(state: AutomationEditorState): AutomationEditorDraft {
   return {
     name: state.name,
+    description: state.description,
+    argumentHint: state.argumentHint,
     triggerKind: state.triggerKind,
     cron: state.cron,
     intervalMs: state.intervalMs,
@@ -891,7 +1024,7 @@ export function openAutomationEditor(snapshot: AutomationEditorSnapshot): Automa
   let edits = snapshot.draft ? 1 : 0;
   let savedEdits = 0;
   const thinkingDrafts = new Map<string, string>();
-  const seededDefaults = snapshot.draft?.defaults ?? seedDefaults(snapshot.source);
+  const seededDefaults = snapshot.draft?.defaults ?? seedDefaults(sourceOf(snapshot));
   const initialValues = seedInitialValues(seededDefaults);
   const timezone = snapshot.timezone;
 
@@ -899,7 +1032,29 @@ export function openAutomationEditor(snapshot: AutomationEditorSnapshot): Automa
     seedEditorState(snapshot, seededDefaults, projectTargets),
   );
 
-  function derive(next: AutomationEditorState): AutomationEditorState {
+  // A flow has no project, but provider and model lists load per directory: use any project the
+  // host knows, which only supplies those lists.
+  function withFlowProviderScope(next: AutomationEditorState): AutomationEditorState {
+    if (next.kind !== "flow" || next.workingDir || !next.selectedServerId) {
+      return next;
+    }
+    const target = projectTargets.find((candidate) => candidate.serverId === next.selectedServerId);
+    if (!target) {
+      return next;
+    }
+    return {
+      ...next,
+      workingDir: target.cwd,
+      providerResolutionByServerId: {
+        ...next.providerResolutionByServerId,
+        [target.serverId]: "pending",
+      },
+      providerSnapshotRequest: { serverId: target.serverId, cwd: target.cwd },
+    };
+  }
+
+  function derive(unscoped: AutomationEditorState): AutomationEditorState {
+    const next = withFlowProviderScope(unscoped);
     const projectTarget = findProjectTarget(projectTargets, next.selectedServerId, next.workingDir);
     const withProject: AutomationEditorState = {
       ...next,
@@ -1022,6 +1177,16 @@ export function openAutomationEditor(snapshot: AutomationEditorSnapshot): Automa
         thinkingOptionId: "",
         profileId: "",
         workspace: state.projectIsGit === false ? "project" : preferredWorkspace(preferences),
+      };
+    }
+    if (kind === "gate") {
+      return {
+        id: nextStepId(state.steps, "gate"),
+        kind: "gate",
+        title: `${snapshot.newStepTitles.gate} ${state.steps.filter((step) => step.kind === "gate").length + 1}`,
+        criteria: "",
+        retryFrom: fromAgent ?? "",
+        maxAttempts: DEFAULT_GATE_ATTEMPTS,
       };
     }
     const id = nextStepId(state.steps, "check");
@@ -1258,9 +1423,13 @@ export function openAutomationEditor(snapshot: AutomationEditorSnapshot): Automa
         }
         const oldRef = stepOutputReference(edge.from);
         const newRef = stepOutputReference(step.id);
-        return candidate.kind === "agent"
-          ? { ...candidate, prompt: candidate.prompt.split(oldRef).join(newRef) }
-          : { ...candidate, input: candidate.input.split(oldRef).join(newRef) };
+        if (candidate.kind === "agent") {
+          return { ...candidate, prompt: candidate.prompt.split(oldRef).join(newRef) };
+        }
+        if (candidate.kind === "gate") {
+          return { ...candidate, criteria: candidate.criteria.split(oldRef).join(newRef) };
+        }
+        return { ...candidate, input: candidate.input.split(oldRef).join(newRef) };
       });
       edit({
         ...state,
@@ -1280,7 +1449,7 @@ export function openAutomationEditor(snapshot: AutomationEditorSnapshot): Automa
       const edges = state.edges.filter((edge) => edge.from !== stepId && edge.to !== stepId);
       // Removing an agent step from the middle of a chain joins its neighbours. A check's yes and
       // no paths have no single successor, so they are left unlinked.
-      if (removed.kind === "agent") {
+      if (removed.kind !== "condition") {
         for (const into of incoming) {
           for (const out of outgoing) {
             const bridge: AutomationEdge = {
@@ -1303,7 +1472,9 @@ export function openAutomationEditor(snapshot: AutomationEditorSnapshot): Automa
           : state.selection;
       edit({
         ...state,
-        steps: state.steps.filter((step) => step.id !== stepId),
+        steps: state.steps
+          .filter((step) => step.id !== stepId)
+          .map((step) => clearRetryFrom(step, stepId)),
         edges,
         selection,
       });
@@ -1399,6 +1570,18 @@ export function openAutomationEditor(snapshot: AutomationEditorSnapshot): Automa
           step.kind === "condition" ? { ...step, ...patch } : step,
         ),
       });
+    },
+    updateGateStep(stepId, patch) {
+      edit({
+        ...state,
+        steps: mapStep(stepId, (step) => (step.kind === "gate" ? { ...step, ...patch } : step)),
+      });
+    },
+    setDescription(value) {
+      edit({ ...state, description: value });
+    },
+    setArgumentHint(value) {
+      edit({ ...state, argumentHint: value });
     },
     markSaved() {
       savedEdits = edits;

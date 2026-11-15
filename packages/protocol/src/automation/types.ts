@@ -84,9 +84,26 @@ export const AutomationConditionNodeSchema = z.object({
 });
 export type AutomationConditionNode = z.infer<typeof AutomationConditionNodeSchema>;
 
+// A judge gate. A fresh agent in the run's directory inspects the work against `criteria` and
+// must call the run-scoped `submit_verdict` tool; no call counts as a fail. On a fail with
+// attempts left the run re-prompts the steps from `retryFrom` down to the gate with the judge's
+// feedback. The loop is a property of the gate, not an edge: the graph stays acyclic.
+export const MAX_GATE_ATTEMPTS = 5;
+export const DEFAULT_GATE_ATTEMPTS = 3;
+export const AutomationGateNodeSchema = z.object({
+  id: z.string().min(1),
+  kind: z.literal("gate"),
+  title: z.string(),
+  criteria: z.string(),
+  retryFrom: z.string(),
+  maxAttempts: z.number().int().min(1).max(MAX_GATE_ATTEMPTS).default(DEFAULT_GATE_ATTEMPTS),
+});
+export type AutomationGateNode = z.infer<typeof AutomationGateNodeSchema>;
+
 export const AutomationNodeSchema = z.discriminatedUnion("kind", [
   AutomationAgentNodeSchema,
   AutomationConditionNodeSchema,
+  AutomationGateNodeSchema,
 ]);
 export type AutomationNode = z.infer<typeof AutomationNodeSchema>;
 
@@ -217,6 +234,13 @@ export const AutomationRunStepStatusSchema = z.enum([
 ]);
 export type AutomationRunStepStatus = z.infer<typeof AutomationRunStepStatusSchema>;
 
+export const AutomationGateVerdictSchema = z.object({
+  pass: z.boolean(),
+  feedback: z.string(),
+  at: z.string(),
+});
+export type AutomationGateVerdict = z.infer<typeof AutomationGateVerdictSchema>;
+
 export const AutomationRunStepSchema = z.object({
   nodeId: z.string(),
   status: AutomationRunStepStatusSchema,
@@ -234,6 +258,10 @@ export const AutomationRunStepSchema = z.object({
   // Set when a retry copied this step's result from an earlier run instead of running it. That
   // run owns the step's workspace.
   reusedFrom: z.string().optional(),
+  // How many times the step has run in this run; above 1 after a gate sent the run back.
+  attempt: z.number().int().positive().optional(),
+  // A gate's verdicts, oldest first.
+  verdicts: z.array(AutomationGateVerdictSchema).optional(),
 });
 export type AutomationRunStep = z.infer<typeof AutomationRunStepSchema>;
 

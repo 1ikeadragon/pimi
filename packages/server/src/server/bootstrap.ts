@@ -200,6 +200,8 @@ import {
 } from "./workspace-registry.js";
 import { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import { AutomationService } from "./automation/service.js";
+import { GateVerdictBoard } from "./automation/gate-verdicts.js";
+import { FlowService } from "./flow/service.js";
 import { compileAutomation } from "./automation/compile.js";
 import { homedir } from "node:os";
 import { HeartbeatService } from "./heartbeat/service.js";
@@ -1655,7 +1657,9 @@ export async function createPimiDaemon(
       },
     );
   };
+  const gateVerdicts = new GateVerdictBoard();
   const automationService = new AutomationService({
+    verdicts: gateVerdicts,
     pimiHome: config.pimiHome,
     database: pimiDatabase,
     logger,
@@ -1679,6 +1683,19 @@ export async function createPimiDaemon(
       ),
   });
   await automationService.start();
+  const flowService = new FlowService({
+    database: pimiDatabase,
+    logger,
+    agentManager,
+    agentStorage,
+    createAgent,
+    createDirectoryWorkspace: createAutomationDirectoryWorkspaceExternal,
+    createWorktreeWorkspace: createAutomationWorktreeExternal,
+    archiveWorkspace: archiveAutomationWorkspaceExternal,
+    getAgentProfiles: () => daemonConfigStore.get().agentProfiles ?? [],
+    verdicts: gateVerdicts,
+  });
+  await flowService.start();
   const agentRecordExists = async (agentId: string): Promise<boolean> =>
     Boolean(agentManager.getAgent(agentId) ?? (await agentStorage.get(agentId)));
   const labelService = new LabelService({
@@ -1758,6 +1775,7 @@ export async function createPimiDaemon(
 
   agentManager.setAgentArchivedCallback(async (agentId) => {
     try {
+      flowService.cancelForAgent(agentId);
       await heartbeatService.deleteForAgent(agentId);
     } catch (error) {
       logger.warn({ err: error, agentId }, "Failed to delete heartbeats for archived agent");
@@ -1845,6 +1863,7 @@ export async function createPimiDaemon(
     terminalManager,
     getDaemonTcpPort: () => (boundListenTarget?.type === "tcp" ? boundListenTarget.port : null),
     automationService,
+    flowService,
     heartbeatService,
     attackService,
     providerSnapshotManager,
@@ -2206,7 +2225,7 @@ export async function createPimiDaemon(
               },
               projectRegistry,
               workspaceRegistry,
-              { automationService, heartbeatService, attackService, attackScheduler },
+              { automationService, flowService, heartbeatService, attackService, attackScheduler },
               checkoutDiffManager,
               serviceProxy,
               scriptRuntimeStore,
@@ -2371,6 +2390,7 @@ export async function createPimiDaemon(
     await speechService.stop();
     unsubscribeTaskCleanup();
     await automationService.stop().catch(() => undefined);
+    await flowService.stop().catch(() => undefined);
     await heartbeatService.stop().catch(() => undefined);
     await attackScheduler.stop().catch(() => undefined);
     await attackService.stop().catch(() => undefined);

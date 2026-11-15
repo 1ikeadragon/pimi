@@ -80,6 +80,8 @@ import {
   type AutomationService,
 } from "../../automation/service.js";
 import { HeartbeatNotFoundError, type HeartbeatService } from "../../heartbeat/service.js";
+import { FlowNotFoundError, FlowStateError, type FlowService } from "../../flow/service.js";
+import { FlowRunStatusSchema, FlowSchema, type Flow } from "@pimi/protocol/flow/types";
 import {
   AutomationAuditEntrySchema,
   AutomationConditionOperatorSchema,
@@ -175,6 +177,7 @@ export interface PimiToolHostDependencies {
   terminalManager?: TerminalManager | null;
   getDaemonTcpPort?: () => number | null;
   automationService?: AutomationService | null;
+  flowService?: FlowService | null;
   heartbeatService?: HeartbeatService | null;
   attackService?: AttackService | null;
   providerSnapshotManager: ProviderSnapshotManager;
@@ -662,6 +665,16 @@ function registerSpacesTools(
   );
 }
 
+function summarizeFlow(flow: Flow) {
+  const summary = {
+    name: flow.name,
+    description: flow.description,
+    approved: flow.approved,
+    steps: flow.flow.nodes.length,
+  };
+  return flow.argumentHint ? Object.assign(summary, { argumentHint: flow.argumentHint }) : summary;
+}
+
 function onlyForAgents<T extends object>(scope: "agent" | "top-level", fields: T): T | object {
   return scope === "agent" ? fields : {};
 }
@@ -676,6 +689,7 @@ function createToolCatalog(
     terminalManager,
     workspaceScripts,
     automationService,
+    flowService,
     heartbeatService,
     providerSnapshotManager,
     daemonConfigStore,
@@ -995,6 +1009,13 @@ function createToolCatalog(
     return automationService;
   }
 
+  function requireFlowService(): FlowService {
+    if (!flowService) {
+      throw new PimiToolInputError("Flows are not available in this session");
+    }
+    return flowService;
+  }
+
   function requireCallerAgentIdForAutomation(): string {
     if (!callerAgentId) {
       throw new PimiToolInputError("Automation tools require an agent-scoped session");
@@ -1014,6 +1035,8 @@ function createToolCatalog(
         error instanceof AutomationStateError ||
         error instanceof AutomationNotFoundError ||
         error instanceof AutomationRunNotFoundError ||
+        error instanceof FlowNotFoundError ||
+        error instanceof FlowStateError ||
         error instanceof HeartbeatNotFoundError
       ) {
         throw new PimiToolInputError(error.message);
@@ -2885,7 +2908,35 @@ function createToolCatalog(
       workspace: z
         .enum(["project", "worktree"])
         .optional()
-        .describe("project folder or a fresh worktree per run."),
+        .describe(
+          "project folder or a fresh worktree per run. Ignored by flows, which run in the chat's workspace.",
+        ),
+    }),
+    z.object({
+      id: z.string().trim().min(1),
+      kind: z.literal("gate"),
+      title: z.string().optional(),
+      criteria: z
+        .string()
+        .trim()
+        .min(1)
+        .describe(
+          "Plain-language pass condition a judge agent checks by inspecting the real work, for example: results.json exists and has recall >= 0.8. Say what to check and how, with exact files and numbers.",
+        ),
+      retryFrom: z
+        .string()
+        .trim()
+        .min(1)
+        .describe(
+          "Id of an earlier step. When the check fails, the steps from it down to this gate run again with the judge's feedback.",
+        ),
+      maxAttempts: z
+        .number()
+        .int()
+        .min(1)
+        .max(5)
+        .optional()
+        .describe("Times the gate may judge before the run ends Not met. Default 3."),
     }),
     z.object({
       id: z.string().trim().min(1),
@@ -2930,7 +2981,7 @@ function createToolCatalog(
       .min(1)
       .optional()
       .describe(
-        "A graph of steps instead of a single prompt. Agent steps run a new agent; condition steps test text and follow edges whose branch matches.",
+        "A graph of steps instead of a single prompt. Agent steps run a new agent; condition steps test text and follow edges whose branch matches; gate steps have a judge agent check the work and send the run back to an earlier step with feedback when it fails.",
       ),
     edges: z
       .array(AutomationEdgeSchema)
@@ -3024,6 +3075,16 @@ function createToolCatalog(
     }
     return {
       nodes: input.steps.map((step): AutomationNode => {
+        if (step.kind === "gate") {
+          return {
+            id: step.id,
+            kind: "gate",
+            title: step.title?.trim() || step.id,
+            criteria: step.criteria,
+            retryFrom: step.retryFrom,
+            maxAttempts: step.maxAttempts ?? 3,
+          };
+        }
         if (step.kind === "condition") {
           return {
             id: step.id,
@@ -3265,6 +3326,143 @@ function createToolCatalog(
         requireAutomationService().startManualRun(id, callerActor()),
       );
       return { content: [], structuredContent: ensureValidJson(run) };
+    },
+  );
+
+  registerTool(
+    "list_flows",
+    {
+      title: "List flows",
+      description:
+        "List the saved flows on this host: reusable graphs of agent steps and judge gates that you run from a chat with run_flow. Each has a name, what it is for and the hint for its input. A flow with approved false has not been approved by the user and cannot run yet.",
+      inputSchema: {},
+      outputSchema: {
+        flows: z.array(
+          z.object({
+            name: z.string(),
+            description: z.string(),
+            argumentHint: z.string().optional(),
+            approved: z.boolean(),
+            steps: z.number().int(),
+          }),
+        ),
+      },
+    },
+    async () => {
+      const flows = await requireFlowService().list();
+      return {
+        content: [],
+        structuredContent: ensureValidJson({
+          flows: flows.map(summarizeFlow),
+        }),
+      };
+    },
+  );
+
+  registerTool(
+    "run_flow",
+    {
+      title: "Run flow",
+      description:
+        "Run a saved flow by name in this chat's directory. `input` is the text the flow's steps read as {{input}}. Returns at once with the run id while the flow works; its step and judge agents appear as your subagents, and when the run ends the result arrives here as a message: the final step's output, or the last failing feedback when a check never passed (Not met). Do not poll or wait for it; tell the user the flow started and carry on. A flow the user has not approved yet starts only when the user presses Run on its card.",
+      inputSchema: {
+        name: z.string().trim().min(1).describe("The flow's name, as in list_flows."),
+        input: z.string().default("").describe("What the flow should work on."),
+      },
+      outputSchema: { runId: z.string(), status: FlowRunStatusSchema },
+    },
+    async ({ name, input }) => {
+      const run = await runAutomationAction(() =>
+        requireFlowService().startRun({
+          name,
+          input,
+          agentId: requireCallerAgentIdForAutomation(),
+        }),
+      );
+      return {
+        content: [],
+        structuredContent: ensureValidJson({ runId: run.id, status: run.status }),
+      };
+    },
+  );
+
+  registerTool(
+    "save_flow",
+    {
+      title: "Save flow",
+      description:
+        "Save a reusable flow: a graph of agent steps, with judge gates that must pass before later steps run. Flows are run from chat with run_flow and never on a schedule. Step prompts may use {{input}} (what the chat passes when it runs the flow) and {{steps.<id>.output}} of an earlier step. Each step's agent knows nothing of this conversation, so write each prompt as a complete brief. The flow waits for the user's approval, and you cannot approve it: tell the user it is in Library > Flows and that pressing Run on its card approves and starts it. Saving again under the same name replaces your flow and returns it to waiting.",
+      inputSchema: z.object({
+        name: z
+          .string()
+          .trim()
+          .min(1)
+          .describe("Lowercase slug the user types after a slash, such as research-report."),
+        description: z.string().trim().min(1).describe("One line on what the flow is for."),
+        argumentHint: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe("What the input should be, such as <topic>."),
+        prompt: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe("The single agent's brief. Omit when passing steps."),
+        steps: automationFieldsSchema.steps,
+        edges: automationFieldsSchema.edges,
+        provider: automationFieldsSchema.provider,
+        profile: automationFieldsSchema.profile,
+      }),
+      outputSchema: FlowSchema.shape,
+    },
+    async (input) => {
+      const flow = await runAutomationAction(() =>
+        requireFlowService().create({
+          definition: {
+            name: input.name,
+            description: input.description,
+            ...(input.argumentHint ? { argumentHint: input.argumentHint } : {}),
+            flow: buildAutomationFlow(input),
+          },
+          origin: { kind: "agent", agentId: requireCallerAgentIdForAutomation() },
+        }),
+      );
+      return { content: [], structuredContent: ensureValidJson(flow) };
+    },
+  );
+
+  registerTool(
+    "submit_verdict",
+    {
+      title: "Submit verdict",
+      description:
+        "Only for the judge agent of a flow or automation gate. File your verdict on the work you inspected: pass true when every criterion holds, otherwise false with feedback saying what is wrong and what has to change. Call it exactly once. Not calling it counts as a fail.",
+      inputSchema: {
+        pass: z.boolean(),
+        feedback: z
+          .string()
+          .trim()
+          .min(1)
+          .max(4000)
+          .describe("The evidence for the verdict; on a fail, what to fix."),
+      },
+      outputSchema: { recorded: z.boolean() },
+    },
+    async ({ pass, feedback }) => {
+      if (!callerAgentId) {
+        throw new PimiToolInputError("Only a gate's judge agent can submit a verdict");
+      }
+      const outcome = requireFlowService().submitVerdict(callerAgentId, { pass, feedback });
+      if (outcome === "not_a_judge") {
+        throw new PimiToolInputError("Only a gate's judge agent can submit a verdict");
+      }
+      if (outcome === "already_recorded") {
+        throw new PimiToolInputError("Your verdict is already recorded; do not call it again");
+      }
+      return { content: [], structuredContent: ensureValidJson({ recorded: true }) };
     },
   );
 

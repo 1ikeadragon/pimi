@@ -5,7 +5,7 @@ import {
   scoreTextFields,
 } from "@pimi/protocol/search/text-match";
 
-type CommandAutocompleteSource = "provider" | "plugin" | "client";
+type CommandAutocompleteSource = "provider" | "plugin" | "flow" | "client";
 
 interface CommandAutocompleteEntry {
   source: CommandAutocompleteSource;
@@ -21,8 +21,9 @@ interface CommandAutocompleteEntry {
 // the input, and with nothing else to list the menu waits for a search.
 const EMPTY_QUERY_SOURCE_ORDER: Record<CommandAutocompleteSource, number> = {
   provider: 0,
-  plugin: 1,
-  client: 2,
+  flow: 1,
+  plugin: 2,
+  client: 3,
 };
 
 export type SlashCommandPosition = "start" | "inline";

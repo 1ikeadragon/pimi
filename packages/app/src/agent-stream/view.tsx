@@ -47,7 +47,12 @@ import {
   readPimiReviewSuggestion,
 } from "@/components/pimi-task-proposal-card";
 import { getDesktopHost } from "@/desktop/host";
-import { isPimiReviewSuggestionTool, isPimiTaskCreateTool } from "@pimi/protocol/pimi-task";
+import {
+  isPimiFlowRunTool,
+  isPimiReviewSuggestionTool,
+  isPimiTaskCreateTool,
+} from "@pimi/protocol/pimi-task";
+import { FlowRunCard, readFlowRunStart } from "@/flows/flow-run-card";
 import { getStreamItemMessageId, type AgentToolCallData, type StreamItem } from "@/types/stream";
 import type { PendingMessageSubmission } from "@/composer/submission/model";
 import type { TurnPresentation } from "@/timeline/turn-liveness";
@@ -295,6 +300,10 @@ function renderPimiAction(data: AgentToolCallData, serverId: string | undefined,
     if (!serverId) return null;
     const result = readPimiCreatedTask(data.detail.output);
     if (result) return <PimiCreatedTaskCard result={result} serverId={serverId} />;
+  } else if (isPimiFlowRunTool(data.name)) {
+    if (!serverId) return null;
+    const started = readFlowRunStart(data.detail.output);
+    if (started) return <FlowRunCard runId={started.runId} serverId={serverId} />;
   } else if (desktop && isPimiReviewSuggestionTool(data.name)) {
     const suggestion = readPimiReviewSuggestion(data.detail.output);
     if (suggestion && matches(suggestion.source))
