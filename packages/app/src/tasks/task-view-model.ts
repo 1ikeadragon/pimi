@@ -4,20 +4,14 @@ import type { TaskStatus } from "@pimi/protocol/task/types";
 import type { AggregatedTask } from "@/tasks/aggregated-tasks";
 import type { HostLabelIndex } from "@/labels";
 
-export type TaskBucket = "open" | "done";
 export type TaskGroupBy = "status" | "label" | "none";
 export type TaskViewMode = "list" | "board";
 
-export const OPEN_STATUSES: readonly TaskStatus[] = ["todo", "in_progress"];
 export const BOARD_STATUSES: readonly TaskStatus[] = ["todo", "in_progress", "done"];
 export const UNLABELLED_GROUP_ID = "";
 
 export function taskKey(task: { serverId: string; id: string }): string {
   return `${task.serverId}:${task.id}`;
-}
-
-export function bucketOf(task: { status: TaskStatus }): TaskBucket {
-  return task.status === "done" ? "done" : "open";
 }
 
 export interface TaskGroup {
@@ -53,7 +47,6 @@ function compareTasks(a: AggregatedTask, b: AggregatedTask): number {
 export function filterTasks(input: {
   tasks: readonly AggregatedTask[];
   selectedHost: string | null;
-  bucket: TaskBucket | "all";
   labelFilter: readonly string[];
   labelIndex: ReadonlyMap<string, HostLabelIndex>;
 }): AggregatedTask[] {
@@ -61,7 +54,6 @@ export function filterTasks(input: {
   return input.tasks
     .filter((task) => {
       if (input.selectedHost && task.serverId !== input.selectedHost) return false;
-      if (input.bucket !== "all" && bucketOf(task) !== input.bucket) return false;
       if (wanted.size > 0) {
         const ids = taskLabelIds(input.labelIndex, task);
         if (!ids.some((id) => wanted.has(labelFilterValue(task.serverId, id)))) return false;
@@ -74,22 +66,15 @@ export function filterTasks(input: {
 export function groupTasks(input: {
   tasks: readonly AggregatedTask[];
   groupBy: TaskGroupBy;
-  bucket: TaskBucket;
   labelIndex: ReadonlyMap<string, HostLabelIndex>;
 }): TaskGroup[] {
-  const { tasks, groupBy, bucket, labelIndex } = input;
+  const { tasks, groupBy, labelIndex } = input;
   if (groupBy === "none") {
     return tasks.length > 0 ? [{ id: "all", tasks: [...tasks] }] : [];
   }
   if (groupBy === "status") {
-    const statuses: readonly TaskStatus[] = bucket === "done" ? ["done"] : OPEN_STATUSES;
-    return statuses
-      .map((status) => ({
-        id: status,
-        status,
-        tasks: tasks.filter((task) => task.status === status),
-      }))
-      .filter((group) => group.tasks.length > 0);
+    // Every status keeps its section, empty or not, like the board's columns.
+    return boardColumns(tasks);
   }
   // A task with two labels appears under both.
   const byLabel = new Map<string, TaskGroup>();

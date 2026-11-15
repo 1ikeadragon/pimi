@@ -1603,10 +1603,6 @@ export const en = {
       placeholder: "Add a task",
       accessibility: "New task title",
     },
-    filter: {
-      open: "Open",
-      done: "Done",
-    },
     view: {
       list: "List",
       board: "Board",
@@ -1634,9 +1630,7 @@ export const en = {
     empty: {
       title: "No tasks yet",
       description: "Keep a to-do list for your agents' work. Link chats to a task as you go.",
-      open: "Nothing open",
-      done: "Nothing done yet",
-      board: "No tasks",
+      none: "No tasks",
       labelFilter: "No tasks with these labels",
     },
     errors: {
@@ -4850,6 +4844,12 @@ export const en = {
       noOutput: "No output",
       retryFromHere: "Retry from here",
       reused: "Reused from an earlier run",
+    },
+    view: {
+      topDown: "Switch to top-down layout",
+      leftRight: "Switch to left-right layout",
+      hideInspector: "Hide inspector",
+      showInspector: "Show inspector",
     },
     describe: {
       title: "Describe the automation",

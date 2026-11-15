@@ -1,7 +1,8 @@
 import type { ReactElement } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { TaskGroupHeading } from "@/components/tasks/task-group-heading";
+import { useTranslation } from "@/i18n/use-translation";
 import { TaskListItem } from "@/components/tasks/task-item";
 import { settingsStyles } from "@/styles/settings";
 import type { TaskGroup } from "@/tasks/task-view-model";
@@ -17,12 +18,16 @@ export function TasksList({
   directory: TaskChatDirectory;
   showHost: boolean;
 }): ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.groups} testID="tasks-list-groups">
       {groups.map((group) => (
         <View key={group.id} style={styles.group}>
           <TaskGroupHeading group={group} />
           <View style={settingsStyles.card}>
+            {group.tasks.length === 0 ? (
+              <Text style={styles.empty}>{t("tasks.empty.none")}</Text>
+            ) : null}
             {group.tasks.map((task, index) => (
               <TaskListItem
                 key={`${task.serverId}:${task.id}`}
@@ -42,4 +47,9 @@ export function TasksList({
 const styles = StyleSheet.create((theme) => ({
   groups: { gap: theme.spacing[6] },
   group: {},
+  empty: {
+    padding: theme.spacing[3],
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
 }));

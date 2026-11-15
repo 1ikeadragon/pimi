@@ -17,12 +17,7 @@ import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useTranslation } from "@/i18n/use-translation";
 import type { Theme } from "@/styles/theme";
-import {
-  labelFilterValue,
-  type TaskBucket,
-  type TaskGroupBy,
-  type TaskViewMode,
-} from "@/tasks/task-view-model";
+import { labelFilterValue, type TaskGroupBy, type TaskViewMode } from "@/tasks/task-view-model";
 
 const ThemedTags = withUnistyles(Tags);
 const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
@@ -41,8 +36,6 @@ export interface TasksToolbarProps {
   onSelectHost: (serverId: string) => void;
   viewMode: TaskViewMode;
   onViewModeChange: (mode: TaskViewMode) => void;
-  bucket: TaskBucket;
-  onBucketChange: (bucket: TaskBucket) => void;
   groupBy: TaskGroupBy;
   onGroupByChange: (groupBy: TaskGroupBy) => void;
   labelOptions: readonly LabelFilterOption[];
@@ -60,9 +53,9 @@ function renderBoardIcon({ color, size }: { color: string; size: number }): Reac
 }
 
 /**
- * The filter row, Automations' shape: host, open/done, label filter and grouping on the left; the
- * list/board toggle and New task on the right. It wraps on compact widths. Open/done and grouping
- * belong to the list; the board always shows its three columns.
+ * The filter row, Automations' shape: host, label filter and grouping on the left; the
+ * list/board toggle and New task on the right. It wraps on compact widths. Grouping
+ * belongs to the list; the board always shows its three columns.
  */
 export function TasksToolbar(props: TasksToolbarProps): ReactElement {
   const { t } = useTranslation();
@@ -84,13 +77,6 @@ export function TasksToolbar(props: TasksToolbarProps): ReactElement {
     ],
     [t],
   );
-  const bucketOptions = useMemo(
-    () => [
-      { value: "open" as const, label: t("tasks.filter.open"), testID: "tasks-filter-open" },
-      { value: "done" as const, label: t("tasks.filter.done"), testID: "tasks-filter-done" },
-    ],
-    [t],
-  );
   return (
     <View style={styles.row}>
       <View style={styles.controls}>
@@ -100,14 +86,6 @@ export function TasksToolbar(props: TasksToolbarProps): ReactElement {
             selectedHost={props.selectedHost}
             onSelectHost={props.onSelectHost}
             triggerTestID="tasks-host-filter-trigger"
-          />
-        ) : null}
-        {viewMode === "list" ? (
-          <SegmentedControl
-            value={props.bucket}
-            onValueChange={props.onBucketChange}
-            options={bucketOptions}
-            testID="tasks-status-filter"
           />
         ) : null}
         <LabelFilterMenu

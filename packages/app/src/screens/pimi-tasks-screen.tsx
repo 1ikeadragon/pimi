@@ -26,7 +26,7 @@ import { useLabelIndex } from "@/labels";
 import { closePimiTaskSheet, pushNewPimiTask } from "@/navigation/pimi-tasks";
 import { useHostRuntimeConnectionStatuses, useHosts } from "@/runtime/host-runtime";
 import type { Theme } from "@/styles/theme";
-import { boardColumns, filterTasks, groupTasks, type TaskBucket } from "@/tasks/task-view-model";
+import { boardColumns, filterTasks, groupTasks } from "@/tasks/task-view-model";
 import { useTasksViewStore } from "@/tasks/tasks-view-store";
 import { useChatDirectory, type TaskChatDirectory } from "@/tasks/use-chat-directory";
 import { toErrorMessage } from "@/utils/error-messages";
@@ -225,9 +225,8 @@ function buildLabelOptions(
   return options;
 }
 
-function emptyFilterKey(labelFiltered: boolean, bucket: TaskBucket): string {
-  if (labelFiltered) return "tasks.empty.labelFilter";
-  return bucket === "done" ? "tasks.empty.done" : "tasks.empty.open";
+function emptyFilterKey(labelFiltered: boolean): string {
+  return labelFiltered ? "tasks.empty.labelFilter" : "tasks.empty.none";
 }
 
 function TasksBody({
@@ -259,7 +258,6 @@ function TasksBody({
   const groupBy = useTasksViewStore((state) => state.groupBy);
   const setViewMode = useTasksViewStore((state) => state.setViewMode);
   const setGroupBy = useTasksViewStore((state) => state.setGroupBy);
-  const [bucket, setBucket] = useState<TaskBucket>("open");
   const [labelFilter, setLabelFilter] = useState<string[]>([]);
   const showHost = hosts.length > 1;
 
@@ -272,15 +270,14 @@ function TasksBody({
       filterTasks({
         tasks,
         selectedHost: hostFilter,
-        bucket: viewMode === "board" ? "all" : bucket,
         labelFilter,
         labelIndex,
       }),
-    [bucket, hostFilter, labelFilter, labelIndex, tasks, viewMode],
+    [hostFilter, labelFilter, labelIndex, tasks],
   );
   const groups = useMemo(
-    () => groupTasks({ tasks: filtered, groupBy, bucket, labelIndex }),
-    [bucket, filtered, groupBy, labelIndex],
+    () => groupTasks({ tasks: filtered, groupBy, labelIndex }),
+    [filtered, groupBy, labelIndex],
   );
   const columns = useMemo(() => boardColumns(filtered), [filtered]);
 
@@ -308,7 +305,7 @@ function TasksBody({
     if (lastScrollY > 0) scrollRef.current?.scrollTo({ y: lastScrollY, animated: false });
   }, []);
 
-  const showQuickAdd = viewMode === "list" && bucket === "open" && labelFilter.length === 0;
+  const showQuickAdd = viewMode === "list" && labelFilter.length === 0;
   return (
     <View style={styles.body}>
       <TasksToolbar
@@ -317,8 +314,6 @@ function TasksBody({
         onSelectHost={onSelectHost}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        bucket={bucket}
-        onBucketChange={setBucket}
         groupBy={groupBy}
         onGroupByChange={setGroupBy}
         labelOptions={labelOptions}
@@ -366,9 +361,7 @@ function TasksBody({
               <TasksList groups={groups} directory={directory} showHost={showHost} />
             ) : (
               <View style={styles.filterEmpty} testID="tasks-filter-empty">
-                <Text style={styles.emptyTitle}>
-                  {t(emptyFilterKey(labelFilter.length > 0, bucket))}
-                </Text>
+                <Text style={styles.emptyTitle}>{t(emptyFilterKey(labelFilter.length > 0))}</Text>
               </View>
             )}
           </View>

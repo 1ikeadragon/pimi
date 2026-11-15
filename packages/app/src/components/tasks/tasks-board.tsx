@@ -94,7 +94,7 @@ export function TasksBoard({
             <View style={styles.cards}>
               {column.tasks.length === 0 ? (
                 <Text style={styles.empty} pointerEvents="none">
-                  {overStatus === status ? t("tasks.board.dropHere") : t("tasks.empty.board")}
+                  {overStatus === status ? t("tasks.board.dropHere") : t("tasks.empty.none")}
                 </Text>
               ) : (
                 column.tasks.map((task) => (

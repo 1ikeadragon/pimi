@@ -3,12 +3,17 @@ import { Text, View, type LayoutChangeEvent } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "@/i18n/use-translation";
 import {
+  ArrowDown,
+  ArrowRight,
   Bot,
   ChevronLeft,
   Copy,
   History,
   MoreHorizontal,
+  Mic,
   Pause,
+  PanelRightClose,
+  PanelRightOpen,
   Play,
   Settings2,
   Sparkles,
@@ -47,7 +52,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { FormTextInput } from "@/components/ui/form-field";
-import { EditingTextInput } from "@/components/ui/text-input";
+import { EditingTextInput, type EditingTextInputHandle } from "@/components/ui/text-input";
+import { DictationOverlay } from "@/components/dictation-controls";
+import { useToast } from "@/contexts/toast-context";
+import { useDictation } from "@/hooks/use-dictation";
+import { useIsDictationReady } from "@/hooks/use-is-dictation-ready";
+import { resolveVoiceUnavailableMessage } from "@/utils/server-info-capabilities";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useIsCompactFormFactor } from "@/constants/layout";
@@ -68,12 +78,21 @@ import {
   AutomationCanvasViewport,
   type CanvasReveal,
 } from "@/components/automations/automation-canvas-viewport";
-import { useHosts } from "@/runtime/host-runtime";
+import {
+  useHostRuntimeAgentDirectoryStatus,
+  useHostRuntimeClient,
+  useHostRuntimeIsConnected,
+  useHosts,
+} from "@/runtime/host-runtime";
 import {
   clearAutomationEditorDraft,
   draftKeyFor,
   readAutomationEditorDraft,
 } from "@/stores/automation-editor-draft-store";
+import {
+  useAutomationsViewStore,
+  type AutomationCanvasDirection,
+} from "@/stores/automations-view-store";
 import { useSessionStore } from "@/stores/session-store";
 import {
   buildAutomationEditorDefinition,
@@ -349,7 +368,19 @@ function AutomationEditor({
   }, [model]);
   const sheetHeader = useMemo<SheetHeader>(() => ({ title: inspectorTitle(state, t) }), [state, t]);
   const blockedReason = useBlockedReason(state);
-  const direction = compact ? "down" : "right";
+  const savedDirection = useAutomationsViewStore((view) => view.canvasDirection);
+  const setCanvasDirection = useAutomationsViewStore((view) => view.setCanvasDirection);
+  const inspectorHidden = useAutomationsViewStore((view) => view.inspectorHidden);
+  const setInspectorHidden = useAutomationsViewStore((view) => view.setInspectorHidden);
+  const direction = savedDirection ?? (compact ? "down" : "right");
+  const toggleDirection = useCallback(
+    () => setCanvasDirection(direction === "right" ? "down" : "right"),
+    [direction, setCanvasDirection],
+  );
+  const toggleInspector = useCallback(
+    () => setInspectorHidden(!inspectorHidden),
+    [inspectorHidden, setInspectorHidden],
+  );
   const layout = useMemo(
     () => layoutAutomationGraph({ steps: state.steps, edges: state.edges, direction }),
     [direction, state.edges, state.steps],
@@ -377,6 +408,10 @@ function AutomationEditor({
         state={state}
         automation={automation}
         compact={compact}
+        direction={direction}
+        onToggleDirection={toggleDirection}
+        inspectorHidden={inspectorHidden}
+        onToggleInspector={toggleInspector}
         saving={saving}
         blockedReason={blockedReason}
         showRun={showRun}
@@ -436,7 +471,7 @@ function AutomationEditor({
             />
           ) : null}
         </View>
-        {compact ? null : <View style={styles.inspector}>{inspector}</View>}
+        {compact || inspectorHidden ? null : <View style={styles.inspector}>{inspector}</View>}
       </View>
       {compact ? (
         <AdaptiveModalSheet
@@ -890,6 +925,10 @@ function EditorToolbar(props: {
   state: AutomationEditorState;
   automation: AggregatedAutomation | null;
   compact: boolean;
+  direction: AutomationCanvasDirection;
+  onToggleDirection: () => void;
+  inspectorHidden: boolean;
+  onToggleInspector: () => void;
   saving: boolean;
   blockedReason: string | null;
   showRun: boolean;
@@ -943,6 +982,7 @@ function EditorToolbar(props: {
             {t("automationEditor.saveBlocked", { reason: props.blockedReason })}
           </Text>
         ) : null}
+        <ViewToggles {...props} />
         <Button
           size="sm"
           variant="default"
@@ -962,6 +1002,53 @@ function EditorToolbar(props: {
         </Text>
       ) : null}
     </View>
+  );
+}
+
+function ViewToggles({
+  compact,
+  direction,
+  onToggleDirection,
+  inspectorHidden,
+  onToggleInspector,
+}: {
+  compact: boolean;
+  direction: AutomationCanvasDirection;
+  onToggleDirection: () => void;
+  inspectorHidden: boolean;
+  onToggleInspector: () => void;
+}): ReactElement {
+  const { t } = useTranslation();
+  const inspectorState = useMemo(() => ({ selected: inspectorHidden }), [inspectorHidden]);
+  const goingDown = direction === "right";
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="ghost"
+        leftIcon={goingDown ? ArrowDown : ArrowRight}
+        onPress={onToggleDirection}
+        accessibilityLabel={
+          goingDown ? t("automationEditor.view.topDown") : t("automationEditor.view.leftRight")
+        }
+        testID="automation-toggle-direction"
+      />
+      {compact ? null : (
+        <Button
+          size="sm"
+          variant={inspectorHidden ? "secondary" : "ghost"}
+          leftIcon={inspectorHidden ? PanelRightOpen : PanelRightClose}
+          onPress={onToggleInspector}
+          accessibilityLabel={
+            inspectorHidden
+              ? t("automationEditor.view.showInspector")
+              : t("automationEditor.view.hideInspector")
+          }
+          accessibilityState={inspectorState}
+          testID="automation-toggle-inspector"
+        />
+      )}
+    </>
   );
 }
 
@@ -1242,6 +1329,54 @@ function Palette({
   );
 }
 
+function useDescribeDictation(serverId: string | null, onText: (text: string) => void) {
+  const toast = useToast();
+  const id = serverId ?? "";
+  const client = useHostRuntimeClient(id);
+  const isConnected = useHostRuntimeIsConnected(id);
+  const agentDirectoryStatus = useHostRuntimeAgentDirectoryStatus(id);
+  const ready = useIsDictationReady({ serverId: id, isConnected, agentDirectoryStatus });
+  const serverInfo = useSessionStore(
+    useCallback((store) => store.sessions[id]?.serverInfo ?? null, [id]),
+  );
+  const unavailableMessage = ready
+    ? resolveVoiceUnavailableMessage({ serverInfo, mode: "dictation" })
+    : null;
+  const canStart = Boolean(serverId) && ready && !unavailableMessage;
+  const canStartNow = useCallback(() => canStart, [canStart]);
+  const canConfirm = useCallback(() => client?.isConnected ?? false, [client]);
+  const handleError = useCallback((error: Error) => toast.error(error.message), [toast]);
+  const result = useDictation({
+    client,
+    onTranscript: onText,
+    onError: handleError,
+    canStart: canStartNow,
+    canConfirm,
+    enableDuration: true,
+  });
+  const { startDictation, cancelDictation, confirmDictation, retryFailedDictation } = result;
+  const start = useCallback(() => void startDictation(), [startDictation]);
+  const cancel = useCallback(() => void cancelDictation(), [cancelDictation]);
+  const accept = useCallback(() => void confirmDictation(), [confirmDictation]);
+  const retry = useCallback(() => void retryFailedDictation(), [retryFailedDictation]);
+  return {
+    canStart,
+    unavailableMessage,
+    active: result.isRecording || result.isProcessing || result.status === "failed",
+    isRecording: result.isRecording,
+    isProcessing: result.isProcessing,
+    status: result.status,
+    error: result.error,
+    volume: result.volume,
+    duration: result.duration,
+    start,
+    cancel,
+    accept,
+    retry,
+    discard: result.discardFailedDictation,
+  };
+}
+
 function DescribePanel({
   state,
   onClose,
@@ -1254,6 +1389,16 @@ function DescribePanel({
   const { t } = useTranslation();
   const drafts = useAutomationDraftActions();
   const [description, setDescription] = useState("");
+  const inputRef = useRef<EditingTextInputHandle>(null);
+  const handleTranscript = useCallback((text: string) => {
+    const input = inputRef.current;
+    if (!input || !text) return;
+    const current = input.getText();
+    const next = `${current}${current && !/\s$/.test(current) ? " " : ""}${text}`;
+    input.replaceText(next);
+    setDescription(next);
+  }, []);
+  const dictation = useDescribeDictation(state.selectedServerId, handleTranscript);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cwd = state.workingDir.trim();
@@ -1293,6 +1438,7 @@ function DescribePanel({
         size="md"
         testID="automation-describe-input"
         accessibilityLabel={t("automationEditor.describe.title")}
+        ref={inputRef}
         initialValue=""
         onChangeText={setDescription}
         placeholder={t("automationEditor.describe.placeholder")}
@@ -1307,8 +1453,36 @@ function DescribePanel({
         <Text style={styles.muted}>{t("automationEditor.describe.needsProject")}</Text>
       )}
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {dictation.unavailableMessage ? (
+        <Text style={styles.muted}>{dictation.unavailableMessage}</Text>
+      ) : null}
+      {dictation.active ? (
+        <DictationOverlay
+          volume={dictation.volume}
+          duration={dictation.duration}
+          isRecording={dictation.isRecording}
+          isProcessing={dictation.isProcessing}
+          status={dictation.status}
+          errorText={dictation.status === "failed" ? (dictation.error ?? undefined) : undefined}
+          transparent
+          compact
+          onCancel={dictation.cancel}
+          onAccept={dictation.accept}
+          onRetry={dictation.retry}
+          onDiscard={dictation.discard}
+        />
+      ) : null}
       <View style={styles.describeActions}>
-        <Text style={styles.muted}>{t("automationEditor.describe.or")}</Text>
+        <Button
+          size="sm"
+          variant="ghost"
+          leftIcon={Mic}
+          onPress={dictation.start}
+          disabled={!dictation.canStart || dictation.active}
+          accessibilityLabel={t("message.dictation.start")}
+          testID="automation-describe-dictate"
+        />
+        <Text style={styles.describeOr}>{t("automationEditor.describe.or")}</Text>
         <Button
           size="sm"
           variant="default"
@@ -1498,6 +1672,11 @@ const styles = StyleSheet.create((theme) => ({
   },
   describeInput: {
     minHeight: 72,
+  },
+  describeOr: {
+    flex: 1,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
   },
   describeActions: {
     flexDirection: "row",
