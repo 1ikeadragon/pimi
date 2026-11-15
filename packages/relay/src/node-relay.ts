@@ -304,12 +304,14 @@ export function createNodeRelay(options: NodeRelayOptions): NodeRelay {
       return;
     }
     if (parsed.role === "server") {
-      if (!registry.isRegistered(parsed.serverId) && !allowRegistration(ip)) {
+      const auth = registry.authorize(parsed.serverId, req.headers.authorization, () =>
+        allowRegistration(ip),
+      );
+      if (auth === "registration_rate_limited") {
         log("reject_registration_rate", { ip });
         rejectUpgrade(socket, 429, "Too many registrations");
         return;
       }
-      const auth = registry.authorize(parsed.serverId, req.headers.authorization);
       if (auth !== "ok") {
         log("reject_server_auth", { ip, session: tag(parsed.serverId), reason: auth });
         if (auth === "registry_full") rejectUpgrade(socket, 503, "Relay at capacity");

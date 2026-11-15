@@ -22,7 +22,12 @@ const RETENTION_DAYS = 180;
 const DAY_MS = 86_400_000;
 const SAVE_DEBOUNCE_MS = 5_000;
 
-export type ServerAuthResult = "ok" | "missing_token" | "wrong_token" | "registry_full";
+export type ServerAuthResult =
+  | "ok"
+  | "missing_token"
+  | "wrong_token"
+  | "registry_full"
+  | "registration_rate_limited";
 
 interface Entry {
   /** hex SHA-256 of the token */
@@ -37,7 +42,11 @@ interface StoredRegistry {
 }
 
 export interface ServerRegistry {
-  authorize(serverId: string, authorization: string | undefined): ServerAuthResult;
+  authorize(
+    serverId: string,
+    authorization: string | undefined,
+    allowNewRegistration: () => boolean,
+  ): ServerAuthResult;
   isRegistered(serverId: string): boolean;
   flush(): void;
   size(): number;
@@ -80,7 +89,7 @@ export function createServerRegistry(options: {
   }
 
   return {
-    authorize(serverId, authorization) {
+    authorize(serverId, authorization, allowNewRegistration) {
       const token = parseBearer(authorization);
       if (!token) return "missing_token";
       const digest = sha256(token);
@@ -88,6 +97,8 @@ export function createServerRegistry(options: {
       const existing = entries.get(serverId);
       if (!existing) {
         if (entries.size >= options.maxEntries) return "registry_full";
+        // Invalid credentials and existing bindings never spend a new-registration slot.
+        if (!allowNewRegistration()) return "registration_rate_limited";
         entries.set(serverId, { h: digest.toString("hex"), d: today });
         save(); // a new binding is durable before the daemon is admitted
         return "ok";
