@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { CREW_ROLES, CREW_TIER_PROFILE_IDS, type CrewRole } from "@pimi/protocol/agent-labels";
@@ -25,8 +25,8 @@ interface CrewSheetProps {
 }
 
 /**
- * Crew for one chat: the on/off switch, and the model of each crew member. A member's model is
- * its tier profile's provider and model, saved host-wide; a profile without a provider means the
+ * Crew for one chat: the on/off switch, and each member's model and thinking. These settings are
+ * saved in its host-wide tier profile; a profile without a provider means the
  * member runs on the lead's own model.
  */
 export function CrewSheet({
@@ -76,21 +76,29 @@ function CrewTierRows({ serverId }: { serverId: string }) {
   const toast = useToast();
   const snapshot = useProvidersSnapshot(serverId, { cwd: null });
   const { profiles, saveProfiles } = useAgentProfiles(serverId);
+  const [saving, setSaving] = useState(false);
 
   const saveTier = useCallback(
-    (role: CrewRole, choice: PimiModelChoice | null) => {
-      if (!profiles) return;
+    async (role: CrewRole, choice: PimiModelChoice | null) => {
+      if (!profiles || saving) return;
       const id = CREW_TIER_PROFILE_IDS[role];
       const next = profiles.map((profile) =>
         profile.id === id ? withTierModel(profile, choice) : profile,
       );
-      saveProfiles(next).catch((error: unknown) => toast.error(toErrorMessage(error)));
+      setSaving(true);
+      try {
+        await saveProfiles(next);
+      } catch (error) {
+        toast.error(toErrorMessage(error));
+      } finally {
+        setSaving(false);
+      }
     },
-    [profiles, saveProfiles, toast],
+    [profiles, saveProfiles, saving, toast],
   );
 
   return (
-    <View style={styles.tiers}>
+    <View style={styles.tiers} aria-busy={saving}>
       {CREW_ROLES.map((role) => {
         const profile = profiles?.find((entry) => entry.id === CREW_TIER_PROFILE_IDS[role]);
         return (
@@ -100,7 +108,7 @@ function CrewTierRows({ serverId }: { serverId: string }) {
             serverId={serverId}
             snapshot={snapshot}
             profile={profile}
-            profilesLoaded={profiles !== null}
+            disabled={profiles === null || saving}
             onSave={saveTier}
             label={t(`agentControls.crew.roles.${role}.label`)}
             hint={t(`agentControls.crew.roles.${role}.hint`)}
@@ -116,7 +124,7 @@ function CrewTierRow({
   serverId,
   snapshot,
   profile,
-  profilesLoaded,
+  disabled,
   onSave,
   label,
   hint,
@@ -125,7 +133,7 @@ function CrewTierRow({
   serverId: string;
   snapshot: ReturnType<typeof useProvidersSnapshot>;
   profile: AgentProfile | undefined;
-  profilesLoaded: boolean;
+  disabled: boolean;
   onSave: (role: CrewRole, choice: PimiModelChoice | null) => void;
   label: string;
   hint: string;
@@ -137,9 +145,10 @@ function CrewTierRow({
         ? {
             provider: profile.provider,
             ...(profile.model ? { model: profile.model } : {}),
+            ...(profile.thinkingOptionId ? { thinkingOptionId: profile.thinkingOptionId } : {}),
           }
         : null,
-    [profile?.model, profile?.provider],
+    [profile?.model, profile?.provider, profile?.thinkingOptionId],
   );
   const entry = value ? snapshot.entries?.find((item) => item.provider === value.provider) : null;
   const unavailable =
@@ -170,8 +179,7 @@ function CrewTierRow({
           onChange={handleChange}
           onReset={handleReset}
           resetLabel={t("agentControls.crew.sameAsLead")}
-          withoutThinking
-          disabled={!profilesLoaded || !profile}
+          disabled={disabled || !profile}
           testID={`crew-tier-${role}`}
         />
       </View>
@@ -184,16 +192,26 @@ function CrewTierRow({
   );
 }
 
-/** The tier profile with its model replaced; a null choice clears it so the tier follows the lead. */
+/** Updates the tier's launch settings; a null choice follows the lead. */
 function withTierModel(profile: AgentProfile, choice: PimiModelChoice | null): AgentProfile {
   const next: AgentProfile = { ...profile };
-  // Mode, thinking and features belong to the old provider and model.
-  for (const key of ["provider", "model", "modeId", "thinkingOptionId", "featureValues"] as const) {
-    delete next[key];
+  const modelChanged = profile.provider !== choice?.provider || profile.model !== choice?.model;
+  if (!choice || modelChanged) {
+    // Mode, thinking and features belong to the old provider and model.
+    for (const key of [
+      "provider",
+      "model",
+      "modeId",
+      "thinkingOptionId",
+      "featureValues",
+    ] as const) {
+      delete next[key];
+    }
   }
   if (choice) {
     next.provider = choice.provider;
     if (choice.model) next.model = choice.model;
+    if (choice.thinkingOptionId) next.thinkingOptionId = choice.thinkingOptionId;
   }
   if (profile.builtin) next.builtin = { ...profile.builtin, edited: true };
   return next;
