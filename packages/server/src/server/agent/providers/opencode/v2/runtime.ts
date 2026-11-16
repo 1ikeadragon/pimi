@@ -14,7 +14,7 @@ import {
 } from "../../../provider-launch-config.js";
 import type { ManagedProcessRegistry } from "../../../../managed-processes/managed-processes.js";
 import { resolveOpenCodeHomeDir } from "../paths.js";
-import { OpenCodeHttpError } from "../http-error.js";
+import { OpenCodeHelperStartupError, OpenCodeHttpError } from "../http-error.js";
 import { raceProviderRefreshAbort } from "../../../provider-refresh-deadline.js";
 import { resolveExternalOpenCodeServer, type ExternalOpenCodeServer } from "./external-server.js";
 import { selectOpenCodeService, type OpenCodeServiceSelection } from "./service-selection.js";
@@ -204,7 +204,10 @@ export class V2Runtime {
     selection: OpenCodeServiceSelection,
     env?: Record<string, string>,
   ): Promise<Generation> {
-    const pending = this.start(selection, env);
+    const pending = this.start(selection, env).catch((error: unknown) => {
+      if (selection.kind === "owned") throw new OpenCodeHelperStartupError(error);
+      throw error;
+    });
     this.starts.add(pending);
     void pending.then(
       (generation) =>

@@ -30,6 +30,8 @@ import {
   type StructuredGenerationDaemonConfig,
 } from "./structured-generation-providers.js";
 
+import { askPimiProviderFailure, type AskPimiProviderError } from "./pimi-ask-error.js";
+
 const PROVIDER_ATTEMPTS = 2;
 
 // Ask Pimi runs unattended, so the harness's own tools are switched off. Its only tools are
@@ -110,10 +112,11 @@ function unavailableMessage(error: PimiModelUnavailableError): string {
   return `Ask Pimi is set to ${error.model ?? error.provider}, which isn't available (${error.reason}).`;
 }
 
-function reportFailure(logger: Logger): string {
-  // Provider errors can include the transcript. Keep it out of logs and error receipts.
-  logger.warn("Ask Pimi could not complete a command");
-  return "Your provider couldn’t complete that command. Try again.";
+function reportFailure(logger: Logger, error: unknown): string {
+  // Provider errors can include the transcript. Only our canned categories leave the turn.
+  const failure = askPimiProviderFailure(error);
+  logger.warn({ failure: failure?.failure ?? "unknown" }, "Ask Pimi could not complete a command");
+  return failure?.message ?? "Your provider couldn’t complete that command. Try again.";
 }
 
 interface AskPimiOutcome {
@@ -174,6 +177,7 @@ export function createPimiVoiceCommandHandler(options: {
       commands,
       memory: memory.recall(),
     });
+    let lastFailure: AskPimiProviderError | undefined;
     for (const provider of providers.slice(0, PROVIDER_ATTEMPTS)) {
       const providerOptions = harnessOptions(provider.provider);
       if (!providerOptions) continue;
@@ -199,8 +203,9 @@ export function createPimiVoiceCommandHandler(options: {
           onCleanupError: () => options.logger.warn("Ask Pimi session could not close"),
         });
         result = finishTurn(finalText, toolset, provider);
-      } catch {
+      } catch (error) {
         signal.throwIfAborted();
+        lastFailure = askPimiProviderFailure(error) ?? lastFailure;
       }
       // Counts and timing only. The request and the reply stay out of logs.
       options.logger.info(
@@ -227,7 +232,7 @@ export function createPimiVoiceCommandHandler(options: {
         };
       }
     }
-    throw new Error("No provider completed the Ask Pimi turn.");
+    throw lastFailure ?? new Error("No provider completed the Ask Pimi turn.");
   }
 
   return async (req, res) => {
@@ -297,7 +302,7 @@ export function createPimiVoiceCommandHandler(options: {
         res.status(422).json({ error: unavailableMessage(caught) });
         return;
       }
-      const error = reportFailure(options.logger);
+      const error = reportFailure(options.logger, caught);
       if (res.headersSent) {
         send({ type: "error", error });
         res.end();

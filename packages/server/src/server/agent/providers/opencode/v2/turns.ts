@@ -297,6 +297,9 @@ export class SessionTurns {
         provider: "opencode",
         turnId: turn.id,
         error: execution.data.error.message,
+        ...(execution.data.error.status === undefined
+          ? {}
+          : { code: `opencode_http_${execution.data.error.status}` }),
       });
     else
       this.options.emit({

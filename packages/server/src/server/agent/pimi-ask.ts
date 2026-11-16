@@ -1,6 +1,7 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
 import { PIMI_ASK_MESSAGE_LIMIT } from "@pimi/protocol/pimi-task";
 import { renderTemplate } from "../prompts/render.js";
+import { askPimiFailureFromCode, type AskPimiProviderError } from "./pimi-ask-error.js";
 import type { AgentManager } from "./agent-manager.js";
 import type { AgentSessionConfig } from "./agent-sdk-types.js";
 import { PIMI_ASK_MCP_SERVER, type AskPimiToolSessions } from "./pimi-ask-mcp.js";
@@ -107,6 +108,7 @@ export async function runAskPimiTurn(options: {
   const session = options.sessions.start(toolset.tools);
   let agentId: string | undefined;
   let unsubscribe: (() => void) | undefined;
+  let failure: AskPimiProviderError | undefined;
   try {
     const agent = await manager.createAgent(
       {
@@ -137,7 +139,12 @@ export async function runAskPimiTurn(options: {
     const id = agent.id;
     unsubscribe = manager.subscribe(
       (event) => {
-        if (event.type !== "agent_stream" || event.event.type !== "permission_requested") return;
+        if (event.type !== "agent_stream") return;
+        if (event.event.type === "turn_failed") {
+          failure = askPimiFailureFromCode(event.event.code);
+          return;
+        }
+        if (event.event.type !== "permission_requested") return;
         // No one is watching this session, so an unapproved tool is refused at once.
         void manager
           .respondToPermission(id, event.event.request.id, {
@@ -155,7 +162,9 @@ export async function runAskPimiTurn(options: {
         once: true,
       });
     });
-    const run = manager.runAgent(id, options.prompt);
+    const run = manager.runAgent(id, options.prompt).catch((error: unknown) => {
+      throw failure ?? error;
+    });
     // The losing promise must not surface as an unhandled rejection after the race settles.
     run.catch(() => undefined);
     stopped.catch(() => undefined);

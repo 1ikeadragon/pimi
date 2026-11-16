@@ -14,3 +14,10 @@ export class OpenCodeHttpError extends Error {
     );
   }
 }
+
+export class OpenCodeHelperStartupError extends Error {
+  readonly name = "OpenCodeHelperStartupError";
+  constructor(cause: unknown) {
+    super("Pimi could not start its local OpenCode helper", { cause });
+  }
+}
