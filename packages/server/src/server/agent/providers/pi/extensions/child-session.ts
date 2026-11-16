@@ -1,5 +1,4 @@
 import { open } from "node:fs/promises";
-import { limitAgentTimelineItemContent } from "../../../agent-timeline-content.js";
 import type { ProviderSubagentInputEvent } from "../../../provider-subagents/store.js";
 import { PiHistoryMapper } from "../history-mapper.js";
 import type { PiAgentMessage } from "../rpc-types.js";
@@ -39,7 +38,7 @@ async function mapChildLine(
           {
             type: "timeline" as const,
             id,
-            item: limitAgentTimelineItemContent(mapped.item),
+            item: mapped.item,
             ...(entry.timestamp ? { timestamp: entry.timestamp } : {}),
           },
         ]

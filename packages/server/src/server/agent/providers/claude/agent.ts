@@ -73,7 +73,6 @@ import { mapTaskStatus } from "./subagents/task-status.js";
 import type { ProviderSubagentStatus } from "../../provider-subagents/store.js";
 import { foldSubagentObservations, type SubagentObservation } from "./subagents/observation.js";
 import { observeReplayWorkflows } from "./subagents/workflow-replay-source.js";
-import { limitAgentTimelineItemContent } from "../../agent-timeline-content.js";
 import { readClaudeWorkflowResultFile } from "./subagents/workflow-output.js";
 import {
   buildClaudeFeatures,
@@ -6118,11 +6117,9 @@ class ClaudeAgentSession implements AgentSession {
     entry: ClaudeHistoryEntry,
     toolUseCache: Map<string, ToolUseCacheEntry>,
   ): Promise<AgentTimelineItem[]> {
-    return (
-      await convertClaudeHistoryEntry(entry, (content) =>
-        this.mapBlocksToTimeline(content, { toolUseCache }),
-      )
-    ).map(limitAgentTimelineItemContent);
+    return convertClaudeHistoryEntry(entry, (content) =>
+      this.mapBlocksToTimeline(content, { toolUseCache }),
+    );
   }
 
   // Maps Claude content blocks into AgentTimelineItems.

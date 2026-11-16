@@ -495,3 +495,10 @@ Each agent is a single JSON file. Fields relevant to this doc:
 | `lastStatus`                            | `AgentStatus` | `initializing` / `idle` / `running` / `error` / `closed`                           |
 
 See [`docs/data-model.md`](./data-model.md) for the full agent record.
+
+## Timeline content
+
+Keep user messages, annotations, assistant output, and tool bodies whole in the canonical timeline,
+live stream, and provider replay. Fold display previews without changing their source. Paging and
+explicit transport admission handle resource limits; plugin JSON validation and authorization still
+apply. Already-truncated historical records need their original provider source for recovery.

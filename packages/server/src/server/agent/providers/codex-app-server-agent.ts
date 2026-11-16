@@ -109,7 +109,6 @@ import {
 import { materializeProviderImage } from "./prompt-image-file.js";
 import type { ProviderImageOutput } from "../agent-images.js";
 import { normalizeProviderReplayTimestamp } from "../provider-history-timestamps.js";
-import { limitAgentTimelineItemContent } from "../agent-timeline-content.js";
 import {
   formatProviderDiagnostic,
   formatProviderDiagnosticError,
@@ -2290,8 +2289,7 @@ async function projectCodexThreadHistory(
           ? settleHistoricalSubAgentActivity(timelineItem, historicalSubAgentActivity.kind)
           : timelineItem;
       timeline.push({
-        // Cap each item as it is projected so a large history is never held uncapped.
-        item: limitAgentTimelineItemContent(settledTimelineItem),
+        item: settledTimelineItem,
         timestamp: timestamp ?? undefined,
         ...(timelineItem.type === "user_message" && row.turnId !== undefined
           ? { providerTurnId: row.turnId }

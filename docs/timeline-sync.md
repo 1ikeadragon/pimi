@@ -49,16 +49,10 @@ The invariants are:
 > agent establishes the daemon's current tail in one complete-turn request, with older history reachable
 > through backward pagination.
 
-Every item is bounded before it enters either delivery path, because a timeline page is one
-WebSocket message and the daemon closes a socket whose outbound buffer passes 64 MiB. Tool calls get
-64 KiB and other items 256 KiB. Over budget, the largest strings are cut to a shared length with a
-`…[truncated 12.3 MB]` marker, and an oversized `data:` URL is replaced by the marker. Strings up
-to 1 KiB stay whole, so ids and paths survive. Arrays drop their trailing elements without a marker
-element, so typed arrays still match the wire schema. Limiting an item twice gives the same item. The
-budget does not bound wide objects or multi-byte text. The same
-bounded item is used for runtime timeline rows and live stream events. Provider history hydration
-applies the same rule so reopening an agent cannot restore an oversized payload. Fetches apply it
-again to assistant and reasoning rows the projection merges from many chunks.
+Canonical items stay complete across live delivery, storage, provider hydration, and merged fetches.
+Display previews may fold content without modifying the source. Timeline pages use backward pagination
+to keep older rows reachable; transport frame and outbound-buffer limits remain explicit resource
+guards. Do not shorten strings or drop trailing array entries to fit a display budget.
 
 ## Presence is not delivery
 

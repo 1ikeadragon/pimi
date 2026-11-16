@@ -89,7 +89,6 @@ import {
   AGENT_STREAM_COALESCE_DEFAULT_WINDOW_MS,
   AgentStreamCoalescer,
 } from "./agent-stream-coalescer.js";
-import { limitAgentTimelineItemContent } from "./agent-timeline-content.js";
 import {
   AgentRunState,
   type ForegroundTurnWaiter,
@@ -936,12 +935,6 @@ function attachManagedTurnIdentity(
   }
 }
 
-function limitAgentStreamEventContent(event: AgentStreamEvent): AgentStreamEvent {
-  return event.type === "timeline"
-    ? { ...event, item: limitAgentTimelineItemContent(event.item) }
-    : event;
-}
-
 interface WriteLabelsResult {
   record: StoredAgentRecord | null;
   live: boolean;
@@ -1103,7 +1096,7 @@ function buildImportedTimelineRows(entries: readonly ImportedTimelineEntry[]): A
       rows.push({
         seq: rows.length + 1,
         timestamp: entry.timestamp ?? new Date().toISOString(),
-        item: limitAgentTimelineItemContent(item),
+        item,
       });
     }
   }
@@ -4045,7 +4038,6 @@ export class AgentManager {
     item: AgentTimelineItem,
   ): Promise<{ seq: number; epoch: string }> {
     const agent = this.requireAgent(agentId);
-    item = limitAgentTimelineItemContent(item);
     this.touchUpdatedAt(agent);
     const row = this.recordTimeline(agentId, item);
     this.dispatchStream(
@@ -5406,7 +5398,7 @@ export class AgentManager {
       const startupHistory: AgentStreamEvent[] = [];
       if (session.initialTimeline?.length && !managed.historyPrimed) {
         for await (const event of session.streamHistory()) {
-          startupHistory.push(limitAgentStreamEventContent(event));
+          startupHistory.push(event);
         }
       }
 
@@ -5975,8 +5967,7 @@ export class AgentManager {
   } {
     const timeline: Extract<AgentStreamEvent, { type: "timeline" }>[] = [];
     const subagents: Extract<AgentStreamEvent, { type: "provider_subagent" }>[] = [];
-    for (const rawEvent of events) {
-      const event = limitAgentStreamEventContent(rawEvent);
+    for (const event of events) {
       if (event.type === "provider_subagent") {
         subagents.push(event);
         continue;
@@ -6270,8 +6261,7 @@ export class AgentManager {
   ): Promise<void> {
     const historyEvents: Extract<AgentStreamEvent, { type: "timeline" }>[] = [];
     const providerSubagentEvents: Extract<AgentStreamEvent, { type: "provider_subagent" }>[] = [];
-    for await (const rawEvent of agent.session.streamHistory()) {
-      const event = limitAgentStreamEventContent(rawEvent);
+    for await (const event of agent.session.streamHistory()) {
       if (event.type === "timeline") {
         for (const item of projectAgentMessages(withoutCarriedContext(event.item))) {
           historyEvents.push({ ...event, item });
@@ -6352,8 +6342,7 @@ export class AgentManager {
       // Collect the whole replay before touching either store. A stream that fails
       // halfway then leaves the committed timeline as it was, instead of a partial
       // copy the next attempt would append to.
-      for await (const rawEvent of history) {
-        const event = limitAgentStreamEventContent(rawEvent);
+      for await (const event of history) {
         if (event.type === "provider_subagent") {
           historySubagentEvents.push(event);
           continue;
@@ -6474,7 +6463,6 @@ export class AgentManager {
       if (!item) return false;
       event = { ...event, item };
     }
-    event = limitAgentStreamEventContent(event);
     const identified = attachManagedTurnIdentity(agent, event, options?.fromHistory === true);
     event = identified.event;
     const eventTurnId = identified.turnId;
@@ -7282,7 +7270,6 @@ export class AgentManager {
       turnId?: string;
     },
   ): AgentTimelineRow {
-    item = limitAgentTimelineItemContent(item);
     const row = this.timelineStore.append(agentId, item, options);
     this.timelineArchive?.put(agentId, row);
     return row;
@@ -7456,12 +7443,6 @@ export class AgentManager {
       timestamp?: string;
     },
   ): void {
-    if (event.type === "timeline") {
-      event = {
-        ...event,
-        item: limitAgentTimelineItemContent(event.item),
-      };
-    }
     const agent = this.agents.get(agentId);
     this.logger.trace(
       {

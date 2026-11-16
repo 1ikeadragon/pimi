@@ -672,9 +672,9 @@ await pimi.agents.ref(agentId).timeline.append({
 The daemon stamps the runtime `pluginId`; plugin code never supplies it. Reusing the same `id`
 replaces the previous row from that plugin on live clients and fresh timeline fetches. Rows live in
 the daemon's in-memory timeline and survive scroll, refetch, and reconnect, but not a daemon
-restart. A row without an installed renderer shows an unavailable placeholder. Serialized `data`
-must be at most 64 KiB; the daemon rejects a larger append instead of storing a payload that cannot
-be rendered intact.
+restart. A row without an installed renderer shows an unavailable placeholder. The daemon validates
+`data` as JSON and keeps it intact. Timeline paging and the transport's explicit frame limits apply;
+plugin rows do not have a separate content ceiling.
 
 ## Contribute client slash commands
 
