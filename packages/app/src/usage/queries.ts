@@ -1,5 +1,7 @@
 import { useTranslation } from "@/i18n/use-translation";
 import { useCallback, useMemo } from "react";
+import { shallow, useShallow } from "zustand/shallow";
+import { useSessionStore, type Agent } from "@/stores/session-store";
 import {
   skipToken,
   useMutation,
@@ -45,8 +47,35 @@ function usageReportsQueryKey(serverId: string) {
   return [...hostUsageQueryKey(serverId), "reports"] as const;
 }
 
-function agentUsageQueryKey(serverId: string, agentId: string) {
-  return [...hostUsageQueryKey(serverId), "agent", agentId] as const;
+interface AgentUsageScope {
+  provider: string;
+  model: string | null;
+  sessionId: string | null;
+  nativeHandle: string | null;
+}
+
+function agentUsageScope(agent: Agent | undefined): AgentUsageScope | null {
+  if (!agent || agent.status === "closed" || agent.status === "initializing") return null;
+  return {
+    provider: agent.provider,
+    model: agent.runtimeInfo?.model ?? agent.model,
+    sessionId: agent.runtimeInfo?.sessionId ?? agent.persistence?.sessionId ?? null,
+    nativeHandle: agent.persistence?.nativeHandle ?? null,
+  };
+}
+
+function useAgentUsageScope(serverId: string, agentId: string | undefined) {
+  return useSessionStore(
+    useShallow((state) =>
+      agentUsageScope(
+        agentId === undefined ? undefined : state.sessions[serverId]?.agents.get(agentId),
+      ),
+    ),
+  );
+}
+
+function agentUsageQueryKey(serverId: string, agentId: string, scope: AgentUsageScope | null) {
+  return [...hostUsageQueryKey(serverId), "agent", agentId, scope] as const;
 }
 
 function requireClient(serverId: string) {
@@ -255,9 +284,10 @@ export function useUsageHostReports({
  */
 export function useAgentUsage(serverId: string, agentId: string): AgentUsageView {
   const queryClient = useQueryClient();
-  const canReport = useHostReportsUsage(serverId);
+  const scope = useAgentUsageScope(serverId, agentId);
+  const canReport = useHostReportsUsage(serverId) && scope !== null;
   const streamerMode = useStreamerMode();
-  const queryKey = agentUsageQueryKey(serverId, agentId);
+  const queryKey = agentUsageQueryKey(serverId, agentId, scope);
   const query = useFetchQuery({
     queryKey,
     // Consuming the signal cancels the request when the details close, so a reopen sends a new
@@ -312,14 +342,26 @@ export function useReportRefresh(
   agentId?: string,
 ): { refresh: () => void; refreshState: UsageRefresh } {
   const queryClient = useQueryClient();
+  const scope = useAgentUsageScope(serverId, agentId);
+  const queryKey =
+    agentId === undefined
+      ? usageReportsQueryKey(serverId)
+      : agentUsageQueryKey(serverId, agentId, scope);
   const mutation = useMutation({
+    onMutate: () => ({ scope, queryKey }),
     mutationFn: () => getReport(serverId, reportId, true, agentId),
-    onSuccess: (report) => {
-      queryClient.setQueryData<UsageReportEntry[]>(
-        agentId === undefined
-          ? usageReportsQueryKey(serverId)
-          : agentUsageQueryKey(serverId, agentId),
-        (reports) => (reports ? replaceReport(reports, reportId, report) : reports),
+    onSuccess: (report, _variables, context) => {
+      if (!context) return;
+      if (
+        agentId !== undefined &&
+        !shallow(
+          context.scope,
+          agentUsageScope(useSessionStore.getState().sessions[serverId]?.agents.get(agentId)),
+        )
+      )
+        return;
+      queryClient.setQueryData<UsageReportEntry[]>(context.queryKey, (reports) =>
+        reports ? replaceReport(reports, reportId, report) : reports,
       );
     },
   });
