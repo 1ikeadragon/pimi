@@ -460,6 +460,13 @@ export function FlowView({ node }: { node: FlowNode }) {
   return (
     <View ref={container} style={styles.flow} onLayout={measure} testID="chat-view-flow">
       {body}
+      {scene.lanes
+        .filter((lane) => lane.label !== lane.fullLabel)
+        .map((lane) => (
+          <Text key={lane.key} selectable style={styles.detail}>
+            {lane.fullLabel}
+          </Text>
+        ))}
     </View>
   );
 }

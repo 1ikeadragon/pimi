@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { Component, useCallback, useMemo, useState, type ReactNode } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ function pendingTitle(source: string): string | null {
   if (!match) return null;
   try {
     const title: unknown = JSON.parse(match[1]);
-    return typeof title === "string" && title.trim() ? title.trim().slice(0, 120) : null;
+    return typeof title === "string" && title.trim() ? title.trim() : null;
   } catch {
     // An escape the agent has only half written; the title appears with the next token.
     return null;
@@ -114,6 +114,27 @@ export function FailedView({
   );
 }
 
+/** A renderer failure keeps the original visual available instead of breaking the chat. */
+export class VisualRenderBoundary extends Component<
+  { source: string; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? (
+      <FailedView
+        source={this.props.source}
+        message="Couldn’t render this visual. Its complete source is available below."
+      />
+    ) : (
+      this.props.children
+    );
+  }
+}
+
 /** A chart on its own, outside a chat view. */
 export function ChartCard({ chart }: { chart: ChartNode }) {
   return (
@@ -139,12 +160,17 @@ export function ViewFence({
   /** The block is complete and still not a valid view. */
   failed?: boolean;
 }) {
-  const visual = useMemo(() => (view ? { kind: "view" as const, view } : null), [view]);
+  const visual = useMemo(
+    () => (view ? { kind: "view" as const, view, source } : null),
+    [view, source],
+  );
   const openInTab = useOpenChatVisualInTab(visual, view?.title ?? VIEW_TAB_TITLE);
   if (!view) return failed ? <FailedView source={source} /> : <PendingView source={source} />;
   return (
     <VisualCard title={view.title} testID="chat-view" onOpenInTab={openInTab}>
-      <ViewNodeView node={view.root} />
+      <VisualRenderBoundary key={source} source={source}>
+        <ViewNodeView node={view.root} />
+      </VisualRenderBoundary>
     </VisualCard>
   );
 }
@@ -180,7 +206,6 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[2],
   },
   source: {
-    maxHeight: 240,
     backgroundColor: theme.colors.surface2,
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing[3],

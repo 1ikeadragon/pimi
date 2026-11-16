@@ -15,7 +15,7 @@ Find the row that matches the question, then use the layout under its name. All 
 ## Every layout
 
 - When the question is about a codebase, read the code first and use its names for boxes, participants, and messages. For a general question, use the common names and start the title with "Typical".
-- Keep the diagram to what the question asks: up to 8 boxes or 12 messages. Put the mechanism in each box's `detail`, not in more boxes.
+- Keep the diagram to what the question asks, preserving every relevant box and message. Put explanations in each box's `detail`.
 - Draw two blocks only when the question has two parts, such as "how are they organised and what do they send".
 - State the takeaway in the title: "The orchestrator alone talks to the user", not "Agent architecture".
 
@@ -23,7 +23,7 @@ Find the row that matches the question, then use the layout under its name. All 
 
 A flow, `direction` "down", with one lane per role in the order control passes: the caller ("User" or "Orchestrator"), then "Workers", then "Tools" or "Shared state" if the question covers them.
 
-- One box for the orchestrator. One box per kind of worker, up to three; merge more into one box that lists them in `detail`. Do not draw one box per instance of the same worker.
+- One box for the orchestrator and one per kind of worker. Show individual instances when their identity or relationships matter to the question.
 - One edge from the orchestrator to each worker, labelled with what is handed over ("task brief", "file list"). Say what comes back in the worker's `detail`. Add a return edge only when the result goes somewhere other than the caller.
 - A handoff, where control moves and does not come back, is an edge labelled "hands off" with the context that travels in the receiving box's `detail`.
 - Set `kind` "user" on the caller, "agent" on the orchestrator and workers, "tool" on tools, and "data" on shared state.
@@ -31,7 +31,7 @@ A flow, `direction` "down", with one lane per role in the order control passes: 
 
 ## Exchange
 
-A sequence. Participants are the actors in the order the request first reaches them: user, orchestrator or app, each agent, model, tools. Use at most five; merge the tools into one "Tools" participant.
+A sequence. Participants are the actors in the order the request first reaches them: user, orchestrator or app, each agent, model, tools. Keep the distinct participants needed to explain the exchange.
 
 - A message is what is sent: the brief, the question, the tool call, the result. Leave out what an agent thinks or decides; if it matters, make it a message from the agent to itself.
 - Set `reply` on every result that returns to its caller.

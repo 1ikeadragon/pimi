@@ -5,8 +5,8 @@ import type { ChatView } from "@pimi/protocol/chat-view";
 /** A visual written inline in a chat, as its fence parsed it. */
 export type ChatVisual =
   | { kind: "html"; html: ChatHtml }
-  | { kind: "vega"; vega: ChatVega }
-  | { kind: "view"; view: ChatView }
+  | { kind: "vega"; vega: ChatVega; source: string }
+  | { kind: "view"; view: ChatView; source: string }
   | { kind: "mermaid"; source: string }
   | { kind: "flow_run"; runId: string; flowName: string };
 
@@ -40,9 +40,9 @@ function visualText(visual: ChatVisual): string {
     case "mermaid":
       return visual.source;
     case "vega":
-      return JSON.stringify(visual.vega);
+      return visual.source;
     case "view":
-      return JSON.stringify(visual.view);
+      return visual.source;
     case "flow_run":
       return visual.runId;
   }

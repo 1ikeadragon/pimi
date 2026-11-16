@@ -5,76 +5,15 @@ export const PIMI_CHART_FENCE = "pimi-chart";
 export const PIMI_VIEW_FENCE = "pimi-view";
 export type ViewFence = typeof PIMI_CHART_FENCE | typeof PIMI_VIEW_FENCE;
 
-/**
- * Agent output is untrusted. Every cap is enforced before a view reaches a renderer. Fields the
- * catalog does not name are dropped, not rejected: nothing reaches a renderer except what the
- * schemas below define, and one stray key should not turn a whole chart into raw JSON.
- */
-export const VIEW_LIMITS = {
-  /** Roughly twice the largest valid table, so no valid view is rejected for its size. */
-  sourceLength: 32_768,
-  /** A view is one chat block; more nodes than this is a page, not a block. */
-  nodes: 48,
-  /** Bounds parser and renderer recursion. */
-  depth: 5,
-  /** Keeps one layout container readable on a phone. */
-  children: 12,
-  /** One distinguishable colour per series. */
-  series: 8,
-  /** Bars and slices need a readable width and label each. */
-  categoryPoints: 36,
-  /** A line stays legible at about two pixels per point on a phone. */
-  continuousPoints: 120,
-  /** Every scatter point is its own focusable target. */
-  scatterPoints: 360,
-  /** Columns stay readable without scrolling far sideways. */
-  tableColumns: 8,
-  /** A longer table belongs in a file. */
-  tableRows: 50,
-  /** A sparkline is about a hundred pixels wide. */
-  trendPoints: 60,
-  /** One line of heading. */
-  title: 120,
-  /** One line beside a mark, a column or a tile. */
-  label: 64,
-  /** Fits beside a title. */
-  unit: 24,
-  /** A metric value is a figure, not a sentence. */
-  value: 32,
-  /** A short paragraph; longer prose belongs in the reply. */
-  text: 1000,
-  /** One table cell. */
-  cell: 120,
-  /** A flow past this many boxes is two diagrams: an overview and a detail. */
-  flowNodes: 24,
-  /** About two edges per box keeps the lines followable. */
-  flowEdges: 40,
-  /** Each lane is a band of its own; more do not fit a phone. */
-  flowLanes: 6,
-  /** Up to three short lines in a box. */
-  flowLabel: 48,
-  /** A branch condition beside an arrow. */
-  flowEdgeLabel: 24,
-  /** Shown when the reader points at or presses a box. */
-  flowDetail: 240,
-  /** Each participant is a column; more leave a phone under 54 px a column. */
-  sequenceParticipants: 6,
-  /** Messages, notes and groups together. A longer exchange is two diagrams. */
-  sequenceSteps: 30,
-  /** A message wraps under its arrow, so it can be a short sentence. */
-  sequenceLabel: 96,
-  /** One or two lines across the diagram. */
-  sequenceNote: 160,
-} as const;
-
-function text(max: number) {
-  return z.string().trim().min(1).max(max);
+/** Fields outside the visual grammar are ignored; authored nodes and edges are never dropped. */
+function text() {
+  return z.string().trim().min(1);
 }
 
-const idSchema = text(VIEW_LIMITS.label);
-const titleSchema = text(VIEW_LIMITS.title);
-const labelSchema = text(VIEW_LIMITS.label);
-const unitSchema = text(VIEW_LIMITS.unit);
+const idSchema = text();
+const titleSchema = text();
+const labelSchema = text();
+const unitSchema = text();
 const toneSchema = z.enum(["neutral", "positive", "negative", "warning"]);
 /** What a flow box is. It picks the box's icon and colour; a box without one is a plain step. */
 const flowKindSchema = z.enum([
@@ -108,18 +47,17 @@ function isAlignedCategoryData({ labels, series }: CategoryData): boolean {
   );
 }
 
-function categoryData(maxPoints: number) {
+function categoryData() {
   return {
-    labels: z.array(labelSchema).min(1).max(maxPoints),
+    labels: z.array(labelSchema).min(1),
     series: z
       .array(
         z.object({
           name: labelSchema,
-          values: z.array(z.number()).min(1).max(maxPoints),
+          values: z.array(z.number()).min(1),
         }),
       )
-      .min(1)
-      .max(VIEW_LIMITS.series),
+      .min(1),
   };
 }
 
@@ -134,7 +72,7 @@ const barChartSchema = z
   .object({
     ...chartHeading,
     kind: z.literal("bar"),
-    ...categoryData(VIEW_LIMITS.categoryPoints),
+    ...categoryData(),
     stacked: z.boolean().optional(),
     ...axisTitles,
   })
@@ -144,7 +82,7 @@ const lineChartSchema = z
   .object({
     ...chartHeading,
     kind: z.literal("line"),
-    ...categoryData(VIEW_LIMITS.continuousPoints),
+    ...categoryData(),
     ...axisTitles,
   })
   .refine(isAlignedCategoryData);
@@ -153,7 +91,7 @@ const areaChartSchema = z
   .object({
     ...chartHeading,
     kind: z.literal("area"),
-    ...categoryData(VIEW_LIMITS.continuousPoints),
+    ...categoryData(),
     stacked: z.boolean().optional(),
     ...axisTitles,
   })
@@ -163,7 +101,7 @@ const radialChartSchema = z
   .object({
     ...chartHeading,
     kind: z.enum(["pie", "donut"]),
-    ...categoryData(VIEW_LIMITS.categoryPoints),
+    ...categoryData(),
   })
   .refine(isAlignedCategoryData)
   .refine(
@@ -181,19 +119,14 @@ const scatterChartSchema = z
       .array(
         z.object({
           name: labelSchema,
-          points: z
-            .array(z.tuple([z.number(), z.number()]))
-            .min(1)
-            .max(VIEW_LIMITS.continuousPoints),
+          points: z.array(z.tuple([z.number(), z.number()])).min(1),
         }),
       )
-      .min(1)
-      .max(VIEW_LIMITS.series),
+      .min(1),
     ...axisTitles,
   })
   .refine(({ series }) => {
-    const total = series.reduce((count, { points }) => count + points.length, 0);
-    return hasDistinctNames(series) && total <= VIEW_LIMITS.scatterPoints;
+    return hasDistinctNames(series);
   });
 
 const chartSchema = z.discriminatedUnion("kind", [
@@ -207,11 +140,11 @@ const chartSchema = z.discriminatedUnion("kind", [
 const metricSchema = z.object({
   type: z.literal("metric"),
   label: labelSchema,
-  value: text(VIEW_LIMITS.value),
-  delta: text(VIEW_LIMITS.value).optional(),
+  value: text(),
+  delta: text().optional(),
   tone: toneSchema.optional(),
   hint: titleSchema.optional(),
-  trend: z.array(z.number()).min(2).max(VIEW_LIMITS.trendPoints).optional(),
+  trend: z.array(z.number()).min(2).optional(),
 });
 
 const tableSchema = z
@@ -224,17 +157,8 @@ const tableSchema = z
           align: z.enum(["start", "end"]).optional(),
         }),
       )
-      .min(1)
-      .max(VIEW_LIMITS.tableColumns),
-    rows: z
-      .array(
-        z
-          .array(z.union([z.string().trim().max(VIEW_LIMITS.cell), z.number()]))
-          .min(1)
-          .max(VIEW_LIMITS.tableColumns),
-      )
-      .min(1)
-      .max(VIEW_LIMITS.tableRows),
+      .min(1),
+    rows: z.array(z.array(z.union([z.string().trim(), z.number()])).min(1)).min(1),
   })
   .refine(
     ({ columns, rows }) =>
@@ -254,18 +178,18 @@ const progressSchema = z
 
 const textSchema = z.object({
   type: z.literal("text"),
-  content: text(VIEW_LIMITS.text),
+  content: text(),
   tone: toneSchema.optional(),
   emphasis: z.enum(["normal", "strong", "subtle"]).optional(),
 });
 
 const badgeSchema = z.object({
   type: z.literal("badge"),
-  label: text(VIEW_LIMITS.value),
+  label: text(),
   tone: toneSchema.optional(),
 });
 
-const flowTextSchema = text(VIEW_LIMITS.flowLabel);
+const flowTextSchema = text();
 
 interface FlowShape {
   lanes?: { id: string }[];
@@ -294,7 +218,7 @@ function isConnectedFlow({ lanes = [], nodes, edges }: FlowShape): boolean {
 const flowEdgeSchema = z.object({
   from: flowTextSchema,
   to: flowTextSchema,
-  label: text(VIEW_LIMITS.flowEdgeLabel).optional(),
+  label: text().optional(),
 });
 
 const flowSchema = z
@@ -304,76 +228,95 @@ const flowSchema = z
     lanes: z
       .array(z.object({ id: flowTextSchema, label: flowTextSchema }))
       .min(1)
-      .max(VIEW_LIMITS.flowLanes)
       .optional(),
     nodes: z
       .array(
         z.object({
           id: flowTextSchema,
           label: flowTextSchema,
-          detail: text(VIEW_LIMITS.flowDetail).optional(),
+          detail: text().optional(),
           lane: flowTextSchema.optional(),
           kind: flowKindSchema.optional(),
           tone: toneSchema.optional(),
         }),
       )
-      .min(1)
-      .max(VIEW_LIMITS.flowNodes),
-    edges: z.array(flowEdgeSchema).max(VIEW_LIMITS.flowEdges),
+      .min(1),
+    edges: z.array(flowEdgeSchema),
   })
   .refine(isConnectedFlow);
 
 const sequenceMessageSchema = z.object({
   from: flowTextSchema,
   to: flowTextSchema,
-  label: text(VIEW_LIMITS.sequenceLabel),
+  label: text(),
   reply: z.boolean().optional(),
   tone: toneSchema.optional(),
 });
-const sequenceNoteSchema = z.object({ note: text(VIEW_LIMITS.sequenceNote) });
-const sequenceGroupLabel = text(VIEW_LIMITS.flowLabel);
-// Groups nest two deep, enough for the branches of an alternative inside a loop. The levels are
-// written out so the parser's recursion is bounded by the schema, not by the source.
-const sequenceInnerGroupSchema = z.object({
-  group: sequenceGroupLabel,
-  steps: z.array(z.union([sequenceMessageSchema, sequenceNoteSchema])).min(1),
-});
-const sequenceGroupSchema = z.object({
-  group: sequenceGroupLabel,
-  steps: z
-    .array(z.union([sequenceMessageSchema, sequenceNoteSchema, sequenceInnerGroupSchema]))
-    .min(1),
-});
-const sequenceStepSchema = z.union([
+const sequenceNoteSchema = z.object({ note: text() });
+const sequenceGroupLabel = text();
+export type SequenceStep =
+  | z.infer<typeof sequenceMessageSchema>
+  | z.infer<typeof sequenceNoteSchema>
+  | { group: string; steps: SequenceStep[] };
+
+const sequenceStepSchema: z.ZodType<SequenceStep> = z.union([
   sequenceMessageSchema,
   sequenceNoteSchema,
-  sequenceGroupSchema,
+  z.object({ group: sequenceGroupLabel, steps: z.array(z.custom<SequenceStep>()).min(1) }),
 ]);
 
-export type SequenceStep = z.infer<typeof sequenceStepSchema>;
+function parseSequenceSteps(value: unknown): SequenceStep[] | null {
+  if (!Array.isArray(value) || !value.length) return null;
+  const parsed = new Map<object, SequenceStep>();
+  const pending = value.map((node) => ({ node: node as unknown, visited: false }));
+  while (pending.length) {
+    const { node, visited } = pending.pop()!;
+    if (!isRecord(node)) return null;
+    if ("group" in node && !visited) {
+      if (!Array.isArray(node.steps)) return null;
+      pending.push({ node, visited: true });
+      for (const child of node.steps) pending.push({ node: child, visited: false });
+      continue;
+    }
+    const result = sequenceStepSchema.safeParse(
+      "group" in node
+        ? { ...node, steps: (node.steps as object[]).map((child) => parsed.get(child)) }
+        : node,
+    );
+    if (!result.success) return null;
+    parsed.set(node, result.data);
+  }
+  return value.map((node: object) => parsed.get(node)!);
+}
 
-/** Every step in order, with the steps inside groups. */
+/** Every step, including nested groups, without recursive calls. */
 function flattenSequenceSteps(steps: readonly SequenceStep[]): SequenceStep[] {
-  return steps.flatMap((step) =>
-    "steps" in step ? [step, ...flattenSequenceSteps(step.steps)] : [step],
-  );
+  const pending = [...steps];
+  const result: SequenceStep[] = [];
+  while (pending.length) {
+    const step = pending.pop()!;
+    result.push(step);
+    if ("steps" in step) for (const child of step.steps) pending.push(child);
+  }
+  return result;
 }
 
 const sequenceSchema = z
   .object({
     type: z.literal("sequence"),
-    participants: z
-      .array(z.object({ id: flowTextSchema, label: flowTextSchema }))
-      .min(2)
-      .max(VIEW_LIMITS.sequenceParticipants),
-    steps: z.array(sequenceStepSchema).min(1).max(VIEW_LIMITS.sequenceSteps),
+    participants: z.array(z.object({ id: flowTextSchema, label: flowTextSchema })).min(2),
+    steps: z.unknown().transform((value, context) => {
+      const steps = parseSequenceSteps(value);
+      if (steps) return steps;
+      context.addIssue({ code: "custom", message: "Invalid sequence steps" });
+      return z.NEVER;
+    }),
   })
   .refine(({ participants, steps }) => {
     const ids = new Set(participants.map(({ id }) => id));
     const all = flattenSequenceSteps(steps);
     return (
       ids.size === participants.length &&
-      all.length <= VIEW_LIMITS.sequenceSteps &&
       all.every((step) => !("from" in step) || (ids.has(step.from) && ids.has(step.to)))
     );
   });
@@ -412,9 +355,8 @@ interface SectionNode {
 
 export type ViewNode = LeafNode | StackNode | GridNode | SectionNode;
 
-const childrenSchema: z.ZodType<ViewNode[]> = z.lazy(() =>
-  z.array(nodeSchema).min(1).max(VIEW_LIMITS.children),
-);
+// parseNodeTree validates children before their parent, so the schema never recurses.
+const childrenSchema = z.array(z.custom<ViewNode>()).min(1);
 
 const stackSchema = z.object({
   type: z.literal("stack"),
@@ -424,7 +366,7 @@ const stackSchema = z.object({
 
 const gridSchema = z.object({
   type: z.literal("grid"),
-  columns: z.number().int().min(1).max(4).optional(),
+  columns: z.number().int().min(1).optional(),
   children: childrenSchema,
 });
 
@@ -456,24 +398,16 @@ export type FlowKind = z.infer<typeof flowKindSchema>;
 export type SequenceNode = z.infer<typeof sequenceSchema>;
 export type ChatView = z.infer<typeof viewSchema>;
 
-/** Points one series may hold, per chart kind. */
-export const CHART_POINT_LIMITS: Record<ChartKind, number> = {
-  bar: VIEW_LIMITS.categoryPoints,
-  line: VIEW_LIMITS.continuousPoints,
-  area: VIEW_LIMITS.continuousPoints,
-  scatter: VIEW_LIMITS.continuousPoints,
-  pie: VIEW_LIMITS.categoryPoints,
-  donut: VIEW_LIMITS.categoryPoints,
-};
+const CHART_KINDS = ["bar", "line", "area", "scatter", "pie", "donut"] satisfies ChartKind[];
 
 /** The fields of each node as an agent is told them. A new node type cannot compile without an entry. */
 export const VIEW_NODE_FIELDS: Record<ViewNodeType, string> = {
   stack: 'children; optional direction "column" (default) or "row"',
-  grid: `children; optional columns 1-4 (default 2), fewer when narrow`,
+  grid: `children; optional positive columns (default 2), fewer when narrow`,
   section: "title, children",
   metric:
     "label, value (string); optional delta (string), tone, hint, trend (numbers drawn as a sparkline)",
-  chart: `kind (${Object.keys(CHART_POINT_LIMITS).join(", ")}), title, labels, series [{name, values}]; optional unit, xLabel, yLabel, stacked (bar and area). Scatter has no labels: series [{name, points: [[x, y], ...]}]`,
+  chart: `kind (${CHART_KINDS.join(", ")}), title, labels, series [{name, values}]; optional unit, xLabel, yLabel, stacked (bar and area). Scatter has no labels: series [{name, points: [[x, y], ...]}]`,
   table:
     'columns [{label, optional align "start" or "end"}] with distinct labels, rows of strings or numbers, one cell per column',
   progress: "label, value, max; optional tone",
@@ -489,73 +423,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Rejects oversized trees before the recursive schema walks them. */
-function isWithinTreeLimits(root: unknown): boolean {
-  let level: unknown[] = [root];
-  let nodes = 0;
-  for (let depth = 1; level.length > 0; depth++) {
-    nodes += level.length;
-    if (depth > VIEW_LIMITS.depth || nodes > VIEW_LIMITS.nodes) return false;
-    level = level.flatMap((node) =>
-      isRecord(node) && Array.isArray(node.children) ? node.children : [],
-    );
+/** Validate each node once, bottom-up, without a depth budget or recursive schema calls. */
+function parseNodeTree(root: unknown): ViewNode | null {
+  const parsed = new Map<object, ViewNode>();
+  const pending: { node: unknown; visited: boolean }[] = [{ node: root, visited: false }];
+  while (pending.length) {
+    const { node, visited } = pending.pop()!;
+    if (!isRecord(node)) return null;
+    const layout = node.type === "stack" || node.type === "grid" || node.type === "section";
+    if (layout && !visited) {
+      if (!Array.isArray(node.children)) return null;
+      pending.push({ node, visited: true });
+      for (let index = node.children.length - 1; index >= 0; index--) {
+        pending.push({ node: node.children[index], visited: false });
+      }
+      continue;
+    }
+    const candidate = layout
+      ? { ...node, children: (node.children as object[]).map((child) => parsed.get(child)) }
+      : node;
+    const result = nodeSchema.safeParse(candidate);
+    if (!result.success) return null;
+    parsed.set(node, result.data);
   }
-  return true;
-}
-
-function trimmedString(value: unknown): string | null {
-  return typeof value === "string" ? value.trim() : null;
-}
-
-/**
- * Keeps a flow whose boxes are sound when some of its references are not. An edge that names a
- * missing box, loops on its own box, repeats an earlier edge, or is malformed is dropped, and a
- * lane that does not exist or a kind Pimi does not draw is cleared from its box. Boxes themselves
- * are never dropped: a missing box changes what the diagram says, so a bad box fails the flow.
- */
-function salvageFlow(node: Record<string, unknown>): unknown {
-  if (!Array.isArray(node.nodes)) return node;
-  const ids = new Set(node.nodes.map((box) => (isRecord(box) ? trimmedString(box.id) : null)));
-  const lanes = Array.isArray(node.lanes) ? node.lanes : [];
-  const laneIds = new Set(lanes.map((lane) => (isRecord(lane) ? trimmedString(lane.id) : null)));
-  const nodes = node.nodes.map((box) => {
-    if (!isRecord(box)) return box;
-    const badLane = box.lane !== undefined && !laneIds.has(trimmedString(box.lane));
-    const badKind = box.kind !== undefined && !flowKindSchema.safeParse(box.kind).success;
-    if (!badLane && !badKind) return box;
-    return Object.fromEntries(
-      Object.entries(box).filter(
-        ([key]) => !(key === "lane" && badLane) && !(key === "kind" && badKind),
-      ),
-    );
-  });
-  if (!Array.isArray(node.edges)) return { ...node, nodes };
-  const seen = new Set<string>();
-  // The source length cap bounds how many edges this walks.
-  const edges = node.edges.filter((edge) => {
-    const parsed = flowEdgeSchema.safeParse(edge);
-    if (!parsed.success) return false;
-    const { from, to } = parsed.data;
-    const key = edgeKey(from, to);
-    if (from === to || !ids.has(from) || !ids.has(to) || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  return { ...node, nodes, edges };
-}
-
-/**
- * Keeps the valid parts of a layout. An agent that gets one tile or table wrong should still show
- * the rest of its view, so an invalid child is dropped rather than failing the whole block. Runs
- * after the tree limits, so the repeated validation stays bounded.
- */
-function salvageNode(node: unknown): unknown {
-  if (isRecord(node) && node.type === "flow") return salvageFlow(node);
-  if (!isRecord(node) || !Array.isArray(node.children)) return node;
-  const children = node.children
-    .map(salvageNode)
-    .filter((child) => nodeSchema.safeParse(child).success);
-  return { ...node, children };
+  return isRecord(root) ? (parsed.get(root) ?? null) : null;
 }
 
 /**
@@ -572,7 +463,6 @@ function chartDocument(data: Record<string, unknown>): unknown {
 
 /** Returns null for anything that is not a valid view; the caller then shows the source. */
 export function parseChatView(fence: ViewFence, source: string): ChatView | null {
-  if (source.length > VIEW_LIMITS.sourceLength) return null;
   let data: unknown;
   try {
     data = parseBlockJson(source);
@@ -581,8 +471,10 @@ export function parseChatView(fence: ViewFence, source: string): ChatView | null
   }
   if (!isRecord(data)) return null;
   const document = fence === PIMI_CHART_FENCE ? chartDocument(data) : data;
-  if (!isRecord(document) || !isWithinTreeLimits(document.root)) return null;
-  const result = viewSchema.safeParse({ ...document, root: salvageNode(document.root) });
+  if (!isRecord(document)) return null;
+  const root = parseNodeTree(document.root);
+  if (!root) return null;
+  const result = viewSchema.safeParse({ ...document, root });
   if (!result.success) return null;
   if (fence === PIMI_CHART_FENCE && result.data.root.type !== "chart") return null;
   return result.data;

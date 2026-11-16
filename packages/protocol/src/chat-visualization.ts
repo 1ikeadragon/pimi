@@ -1,13 +1,7 @@
 import { PIMI_ARTIFACT_FENCE } from "./chat-artifact.js";
-import { HTML_LIMITS, PIMI_HTML_FENCE, PIMI_HTML_VARIABLES } from "./chat-html.js";
-import { PIMI_VEGA_FENCE, VEGA_LIMITS } from "./chat-vega.js";
-import {
-  PIMI_VIEW_FENCE,
-  VIEW_LIMITS,
-  VIEW_NODE_FIELDS,
-  VIEW_TONES,
-  type ChatView,
-} from "./chat-view.js";
+import { PIMI_HTML_FENCE, PIMI_HTML_VARIABLES } from "./chat-html.js";
+import { PIMI_VEGA_FENCE } from "./chat-vega.js";
+import { PIMI_VIEW_FENCE, VIEW_NODE_FIELDS, VIEW_TONES, type ChatView } from "./chat-view.js";
 
 /**
  * The examples are objects, not strings, so the view examples are checked against the catalog's
@@ -151,7 +145,7 @@ function visualizationBrief(guide: string): string {
   return [
     `Pimi chat draws visuals from fenced blocks: ${PIMI_VEGA_FENCE} for a chart of numbers, ${PIMI_VIEW_FENCE} for metrics, tables, flows, state machines and message sequences, ${PIMI_HTML_FENCE} for something the user operates with sliders or inputs, and mermaid only for a gantt chart.`,
     "Draw when the user asked for a visual or you are about to send a table of numbers. Say one or two numbers in a sentence.",
-    `Before any visual, ${guide}, not a general charting skill: it holds each block's format and limits. A request to visualize, chart, plot, or explore data, or to build an interactive explorer, calculator, or simulator, means a block in the reply, even a large or interactive one (aggregate or sample big data), never a project HTML file unless the user asks for a file to keep.`,
+    `Before any visual, ${guide}, not a general charting skill: it holds each block's format. A request to visualize, chart, plot, or explore data, or to build an interactive explorer, calculator, or simulator, means a block in the reply, even a large or interactive one, never a project HTML file unless the user asks for a file to keep.`,
   ].join("\n");
 }
 
@@ -172,7 +166,7 @@ export const PIMI_VISUALIZATION_TOOL_BRIEF = [
   ...fenced(PIMI_VIEW_FENCE, JSON.stringify(FLOW_EXAMPLE)),
 ].join("\n");
 
-/** Written from the parsers' own constants, so the prompt and the parsers cannot disagree. The guide tool returns it to providers without skills, and the pimi-visualize skill ships it inside SKILL.md. */
+/** Written from the parsers' own formats, so the prompt and the parsers cannot disagree. The guide tool returns it to providers without skills, and the pimi-visualize skill ships it inside SKILL.md. */
 export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   "Pimi chat draws four kinds of visual block. When a reply holds three or more numbers that compare, trend, break down into shares, or relate to each other, draw them when the user asked for a chart or you are about to send a table of them. The chart stands in for a table of the same values: add a table beside it only for columns the chart does not show. Chart the numbers that answer the question, and do not count files or lines only to have something to chart. Choose the block by what is shown, and use the first that fits:",
   `1. A chart of numbers (trend, comparison, ranking, distribution, share, or relationship): a ${PIMI_VEGA_FENCE} block.`,
@@ -188,32 +182,31 @@ export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   "",
   `${PIMI_VEGA_FENCE} holds one Vega-Lite v6 spec as JSON:`,
   ...fenced(PIMI_VEGA_FENCE, JSON.stringify(VEGA_EXAMPLE)),
-  `- Put the rows inline in data.values, one object per row: up to ${VEGA_LIMITS.rows} rows and ${VEGA_LIMITS.sourceLength} characters for the block. Aggregate or sample larger data first.`,
+  "- Put the rows inline in data.values, one object per row. Preserve the requested data; only aggregate or sample when the task calls for it, and disclose that transformation.",
   '- Give raw rows and let the spec do the math with "aggregate", "bin", "stack", or "transform". For a distribution, use mark "bar" with x {"bin": true} and y {"aggregate": "count"}.',
   '- To compare several measures per item, write one row per item and measure, then use "color" with "xOffset" for grouped bars.',
   '- On a line, "color" draws a separate line for each value of its field. To mark some points on one line, such as the failed runs, use "layer": the line, then a "point" mark with a "transform" that filters to those rows.',
-  '- A ranking holds up to 12 bars. Keep the largest and sum the rest into one "Other" row.',
   '- Set "type" on every field. Add "sort": null to keep the row order, such as months.',
   '- Leave out "$schema", "width", "config", colors, and fonts. Pimi fits the width and applies its theme, and tooltips are already on.',
   '- The chart cannot load anything. A "url" or "href" property anywhere in the spec makes the block fail.',
   "",
   `${PIMI_VIEW_FENCE} holds JSON with a title and one root node. Nodes nest, for example metrics above a table:`,
   ...fenced(PIMI_VIEW_FENCE, JSON.stringify(VIEW_EXAMPLE)),
-  'A flow node lays its boxes out for you. Give each box a short id and the name the code uses as its label, put the explanation in detail, set kind to what the box is (it picks the icon and colour), and group boxes into lanes by layer or owner. Label an edge with a short verb for what it does, such as "calls", "writes", or "reads from". A phone fits three boxes side by side: when more than three boxes feed or follow the same box, keep the two that matter and merge the rest into one box that lists them in its detail:',
+  'A flow node lays its boxes out for you. Give each box a short id and the name the code uses as its label, put the explanation in detail, set kind to what the box is (it picks the icon and colour), and group boxes into lanes by layer or owner. Label an edge with a short verb for what it does, such as "calls", "writes", or "reads from". Keep every relevant box and edge; the diagram can scroll:',
   ...fenced(PIMI_VIEW_FENCE, JSON.stringify(FLOW_EXAMPLE)),
   "For a state machine, make each state a box and each transition an edge labelled with its event.",
-  "A sequence node draws the messages between participants in time order, one column per participant. Use it when the order of the exchange is the point, such as a handshake or a request lifecycle, and a flow when the shape of the system is the point. Copy each participant name and message text as the source writes it, with no escaping; a long message wraps. A phone fits five participants:",
+  "A sequence node draws the messages between participants in time order, one column per participant. Use it when the order of the exchange is the point, such as a handshake or a request lifecycle, and a flow when the shape of the system is the point. Copy each participant name and message text as the source writes it, with no escaping; a long message wraps. Keep all participants needed to explain the exchange:",
   ...fenced(PIMI_VIEW_FENCE, JSON.stringify(SEQUENCE_EXAMPLE)),
   'Each node is an object with a "type" and these fields:',
   ...TAUGHT_NODE_FIELDS.map(([type, fields]) => `- ${type}: ${fields}`),
   `A tone is one of ${VIEW_TONES.join(", ")}. Every text field is plain text: no Markdown, HTML, links, images, or colors.`,
-  `Limits: ${VIEW_LIMITS.nodes} nodes, ${VIEW_LIMITS.depth} levels, ${VIEW_LIMITS.children} children per node, ${VIEW_LIMITS.tableColumns} table columns, ${VIEW_LIMITS.tableRows} table rows, ${VIEW_LIMITS.trendPoints} trend points, ${VIEW_LIMITS.title} characters per title, ${VIEW_LIMITS.label} per label, ${VIEW_LIMITS.value} per metric value, ${VIEW_LIMITS.cell} per table cell, ${VIEW_LIMITS.text} per text, ${VIEW_LIMITS.sourceLength} for the block. A flow holds up to ${VIEW_LIMITS.flowNodes} boxes, ${VIEW_LIMITS.flowEdges} edges, and ${VIEW_LIMITS.flowLanes} lanes, with ${VIEW_LIMITS.flowLabel} characters per box label, ${VIEW_LIMITS.flowEdgeLabel} per edge label, and ${VIEW_LIMITS.flowDetail} per detail. Every edge must name two different boxes by id. A sequence holds up to ${VIEW_LIMITS.sequenceParticipants} participants and ${VIEW_LIMITS.sequenceSteps} steps counting every message, note, and group, with ${VIEW_LIMITS.sequenceLabel} characters per message and ${VIEW_LIMITS.sequenceNote} per note; a group can hold groups, one level deep.`,
+  "Every edge must name two different boxes by id. Sequence messages must name existing participants; sequence groups may nest.",
   `To update a ${PIMI_VIEW_FENCE} block within the same reply, send another complete block with the same id.`,
   "",
-  `${PIMI_HTML_FENCE} holds one HTML document or fragment, up to ${HTML_LIMITS.sourceLength} characters. Pimi runs it inline and shows its <title> above it:`,
+  `${PIMI_HTML_FENCE} holds one HTML document or fragment. Pimi runs it inline and shows its <title> above it:`,
   ...fenced(PIMI_HTML_FENCE, HTML_EXAMPLE),
   "- It runs in a sandbox with no network, storage, or navigation. Remote scripts, styles, fonts, images, and fetch all fail, so write the CSS, JavaScript, and data inline.",
   `- Pimi sets the page background, text color, and font. Style everything else with these custom properties so it follows light and dark themes, and never hardcode a page or text color: ${PIMI_HTML_VARIABLES.map((name) => `--pimi-${name}`).join(", ")}.`,
   "- Start every control at a realistic value, so the first render already shows an answer. Lay it out to fit 360 px wide, and let the page take its natural height: no 100vh.",
-  `- Data larger than the limit: aggregate or sample it into the block and say so in the title. Never save HTML to the project to get around the limit. Only when the user asks for a file to keep, save one .html file in the project and show it with a ${PIMI_ARTIFACT_FENCE} block holding {"title":"...","path":"its-path-relative-to-the-working-directory.html"}.`,
+  `- Keep the requested data in the block. Only when the user asks for a file to keep, save one .html file in the project and show it with a ${PIMI_ARTIFACT_FENCE} block holding {"title":"...","path":"its-path-relative-to-the-working-directory.html"}.`,
 ].join("\n");

@@ -1,6 +1,7 @@
-import type { ReactElement } from "react";
-import { Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { useCallback, useMemo, useState, type ReactElement } from "react";
+import { Text, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import type { ViewNode } from "@pimi/protocol/chat-view";
 import { ChartView } from "./chart";
 import { FlowView } from "./flow";
@@ -36,11 +37,21 @@ function StackView({ node }: { node: NodeOf<"stack"> }) {
 }
 
 function GridView({ node }: { node: NodeOf<"grid"> }) {
-  // A cell never narrows below its minimum, so a wide grid wraps to fewer columns on a phone.
-  const cells = [styles.grid1, styles.grid2, styles.grid3, styles.grid4];
+  const [width, setWidth] = useState(0);
+  const measure = useCallback(
+    ({ nativeEvent }: LayoutChangeEvent) => setWidth(nativeEvent.layout.width),
+    [],
+  );
+  const columns = node.columns ?? 2;
+  const gap = styles.row.gap as number;
+  const basis = Math.max(GRID_CELL.minWidth, (width - gap * (columns - 1)) / columns);
+  const cellStyle = useMemo(
+    () => [styles.gridCell, inlineUnistylesStyle({ flexBasis: basis })],
+    [basis],
+  );
   return (
-    <View style={styles.row}>
-      <Children nodes={node.children} cellStyle={cells[(node.columns ?? 2) - 1]} />
+    <View style={styles.row} onLayout={measure}>
+      <Children nodes={node.children} cellStyle={cellStyle} />
     </View>
   );
 }
@@ -96,11 +107,7 @@ const styles = StyleSheet.create((theme) => ({
   row: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing[4] },
   cell: { minWidth: 0 },
   rowCell: { flexGrow: 1, flexShrink: 1, flexBasis: 136, minWidth: 0 },
-  // Each basis leaves room for the gaps between that many cells.
-  grid1: { ...GRID_CELL, flexBasis: "100%" },
-  grid2: { ...GRID_CELL, flexBasis: "40%" },
-  grid3: { ...GRID_CELL, flexBasis: "27%" },
-  grid4: { ...GRID_CELL, flexBasis: "21%" },
+  gridCell: GRID_CELL,
   section: { gap: theme.spacing[2] },
   sectionTitle: {
     color: theme.colors.foregroundMuted,

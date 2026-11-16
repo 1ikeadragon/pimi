@@ -48,32 +48,45 @@ function buildRows(node: SequenceNode): Row[] {
   const columns = new Map(node.participants.map(({ id }, index) => [id, index]));
   const rows: Row[] = [];
   let messages = 0;
-  const walk = (steps: readonly SequenceStep[], depth: number, path: string) => {
-    steps.forEach((step, position) => {
-      const key = `${path}${position}`;
-      if ("steps" in step) {
-        rows.push({ kind: "open", key: `${key}:open`, depth: depth + 1, label: step.group });
-        walk(step.steps, depth + 1, `${key}.`);
+  interface Work {
+    step: SequenceStep;
+    depth: number;
+    key: string;
+    close?: boolean;
+  }
+  let nextKey = 0;
+  const pending: Work[] = node.steps
+    .map((step) => ({ step, depth: 0, key: String(nextKey++) }))
+    .toReversed();
+  while (pending.length) {
+    const { step, depth, key, close } = pending.pop()!;
+    if ("steps" in step) {
+      if (close) {
         rows.push({ kind: "close", key: `${key}:close`, depth: depth + 1 });
-      } else if ("note" in step) {
-        rows.push({ kind: "note", key, depth, text: step.note });
-      } else {
-        messages += 1;
-        rows.push({
-          kind: "message",
-          key,
-          depth,
-          number: messages,
-          from: columns.get(step.from) ?? 0,
-          to: columns.get(step.to) ?? 0,
-          label: step.label,
-          reply: step.reply ?? false,
-          tone: step.tone ?? "neutral",
-        });
+        continue;
       }
-    });
-  };
-  walk(node.steps, 0, "");
+      rows.push({ kind: "open", key: `${key}:open`, depth: depth + 1, label: step.group });
+      pending.push({ step, depth, key, close: true });
+      for (let index = step.steps.length - 1; index >= 0; index--) {
+        pending.push({ step: step.steps[index], depth: depth + 1, key: String(nextKey++) });
+      }
+    } else if ("note" in step) {
+      rows.push({ kind: "note", key, depth, text: step.note });
+    } else {
+      messages += 1;
+      rows.push({
+        kind: "message",
+        key,
+        depth,
+        number: messages,
+        from: columns.get(step.from) ?? 0,
+        to: columns.get(step.to) ?? 0,
+        label: step.label,
+        reply: step.reply ?? false,
+        tone: step.tone ?? "neutral",
+      });
+    }
+  }
   return rows;
 }
 
@@ -302,9 +315,7 @@ export function SequenceView({ node }: { node: SequenceNode }) {
             {node.participants.map((participant) => (
               <View key={participant.id} style={styles.headerCell}>
                 <View style={styles.participant}>
-                  <Text style={styles.participantLabel} numberOfLines={4}>
-                    {participant.label}
-                  </Text>
+                  <Text style={styles.participantLabel}>{participant.label}</Text>
                 </View>
               </View>
             ))}

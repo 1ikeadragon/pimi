@@ -113,9 +113,7 @@ function HeaderCell({
         inlineUnistylesStyle(fit),
       ]}
     >
-      <Text numberOfLines={2} style={styles.headerText}>
-        {label}
-      </Text>
+      <Text style={styles.headerText}>{label}</Text>
       {/* The slot is always reserved so sorting never changes a column's width. */}
       <View style={styles.sortIcon}>
         {direction === "ascending" ? (

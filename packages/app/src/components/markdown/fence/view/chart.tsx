@@ -163,10 +163,7 @@ function LegendToggle({
       ]}
     >
       <Swatch slot={entry.slot} hidden={entry.hidden} />
-      <Text
-        numberOfLines={1}
-        style={[styles.caption, detailed && styles.legendLabel, entry.hidden && styles.off]}
-      >
+      <Text style={[styles.caption, detailed && styles.legendLabel, entry.hidden && styles.off]}>
         {entry.key}
       </Text>
       {detailed ? (

@@ -5,7 +5,6 @@ import { View, loader as createLoader, parse, Error as LogErrors } from "vega";
 import type { Loader } from "vega";
 import { expressionInterpreter } from "vega-interpreter";
 import { compile, type Config, type TopLevelSpec } from "vega-lite";
-import { VEGA_LIMITS } from "@pimi/protocol/chat-vega";
 
 export interface VegaChartInput {
   /** A spec that already passed `parseChatVega`. */
@@ -82,7 +81,7 @@ function fitToColumn(spec: Record<string, unknown>, width: number): TopLevelSpec
   return {
     ...rest,
     width,
-    ...(typeof height === "number" ? { height: Math.min(height, VEGA_LIMITS.height) } : null),
+    ...(typeof height === "number" ? { height: height } : null),
     ...(isRecord(height) ? { height } : null),
     autosize: { type: "fit-x", contains: "padding" },
   } as unknown as TopLevelSpec;
@@ -240,7 +239,6 @@ export function tooltipRows(value: unknown): TooltipRow[] {
   if (!isRecord(value)) return [{ label: "", value: formatValue(value) }];
   return Object.entries(value)
     .filter(([, field]) => field !== null && field !== undefined && field !== "")
-    .slice(0, 12)
     .map(([label, field]) => ({ label, value: formatValue(field) }));
 }
 

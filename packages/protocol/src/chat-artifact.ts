@@ -12,11 +12,10 @@ function isWorkspaceHtmlPath(path: string): boolean {
 }
 
 const artifactSchema = z.object({
-  title: z.string().trim().min(1).max(120),
+  title: z.string().trim().min(1),
   path: z
     .string()
     .trim()
-    .max(1024)
     .transform((path) => path.replace(/^\.\//, ""))
     .refine(isWorkspaceHtmlPath),
 });
@@ -24,7 +23,6 @@ const artifactSchema = z.object({
 export type ChatArtifact = z.infer<typeof artifactSchema>;
 
 export function parseChatArtifact(source: string): ChatArtifact | null {
-  if (source.length > 4096) return null;
   try {
     return artifactSchema.safeParse(JSON.parse(source)).data ?? null;
   } catch {

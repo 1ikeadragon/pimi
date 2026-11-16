@@ -15,8 +15,6 @@ import { decodeUtf8 } from "@/utils/decode-utf8";
 import { OpenInTabButton, useOpenChatVisualInTab } from "./open-in-tab";
 import { FailedView, PendingView } from "./view";
 
-// Full-size artifacts can still use the workspace file panel.
-const MAX_INLINE_ARTIFACT_BYTES = 1024 * 1024;
 // The frame follows its content between these bounds and scrolls inside past the maximum, so one
 // visual can neither collapse to nothing nor take over the conversation.
 const MIN_PREVIEW_HEIGHT = 140;
@@ -70,10 +68,10 @@ function ArtifactPreview({ artifact }: { artifact: ChatArtifact }) {
     let current = true;
     setState({ status: "loading" });
     client
-      .readFile(workspaceRoot, path, undefined, MAX_INLINE_ARTIFACT_BYTES)
+      .readFile(workspaceRoot, path)
       .then((file) => {
         if (!current) return;
-        if (file.kind !== "text" || file.bytes.byteLength > MAX_INLINE_ARTIFACT_BYTES) {
+        if (file.kind !== "text") {
           setState({ status: "error" });
           return;
         }
@@ -108,7 +106,7 @@ const INLINE_HTML_TITLE = "Visual";
 
 /**
  * A `pimi-html` block: the document is the block's own body. `html` is null while the block is
- * still being written, and for a block that ended empty or over the size cap, which `failed` marks.
+ * still being written, and for a block that ended empty, which `failed` marks.
  */
 export function ChatHtmlCard({
   html,
@@ -181,9 +179,7 @@ function VisualFrame({
   return (
     <View ref={frame} style={styles.card} testID="chat-artifact">
       <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
-        </Text>
+        <Text style={styles.title}>{title}</Text>
         <View style={styles.actions}>
           <OpenInTabButton onPress={onOpenInTab} />
           <Button

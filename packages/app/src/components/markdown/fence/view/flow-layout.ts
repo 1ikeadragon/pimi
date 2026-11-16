@@ -23,7 +23,6 @@ const TEXT_WIDTH = 140;
 /** Wraps a box's label to about ten characters a line when the wide layout does not fit. */
 const NARROW_TEXT_WIDTH = 72;
 const MIN_BOX_WIDTH = 64;
-const MAX_LINES = 5;
 /** How many characters a word may run past its line before it is cut. */
 const WORD_OVERHANG = 3;
 const EDGE_LABEL_FONT_SIZE = 11;
@@ -90,6 +89,7 @@ export interface FlowEdge {
 export interface FlowLane {
   key: string;
   label: string;
+  fullLabel: string;
   box: Box;
   labelAt: Point;
   labelAnchor: "start" | "middle";
@@ -156,7 +156,7 @@ function splitWord(word: string, capacity: number): string[] {
   return parts;
 }
 
-export function wrapFlowLabel(text: string, capacity: number, maxLines = MAX_LINES): string[] {
+export function wrapFlowLabel(text: string, capacity: number): string[] {
   const lines: string[] = [];
   let line = "";
   for (const word of text.split(/\s+/).filter(Boolean)) {
@@ -171,11 +171,7 @@ export function wrapFlowLabel(text: string, capacity: number, maxLines = MAX_LIN
     }
   }
   if (line) lines.push(line);
-  if (lines.length <= maxLines) return lines;
-  const kept = lines.slice(0, maxLines);
-  const last = kept[maxLines - 1];
-  kept[maxLines - 1] = `${last.slice(0, Math.max(0, capacity - 1))}…`;
-  return kept;
+  return lines;
 }
 
 function textWidth(text: string, characterWidth: number): number {
@@ -643,6 +639,7 @@ function swimlaneBands(
     if (layout.horizontal) {
       return {
         key: `${band}`,
+        fullLabel: label,
         label: truncate(label, width - BAND_PADDING * 2, CHARACTER_WIDTH),
         box: { x: 0, y: round(start), width: round(width), height: round(size) },
         labelAt: { x: BAND_PADDING, y: round(start + BAND_PADDING + FONT_SIZE - 1) },
@@ -651,6 +648,7 @@ function swimlaneBands(
     }
     return {
       key: `${band}`,
+      fullLabel: label,
       label: truncate(label, size - BAND_PADDING, CHARACTER_WIDTH),
       box: { x: round(start + offset), y: 0, width: round(size), height: round(height) },
       labelAt: { x: round(start + offset + size / 2), y: EDGE_PADDING + FONT_SIZE },
@@ -673,6 +671,7 @@ function stageBands(
     if (layout.horizontal) {
       return {
         key: `${lane}`,
+        fullLabel: label,
         label: truncate(label, size - BAND_PADDING, CHARACTER_WIDTH),
         box: { x: round(start + offset), y: 0, width: round(size), height: round(height) },
         labelAt: { x: round(start + offset + size / 2), y: BAND_PADDING + FONT_SIZE - 1 },
@@ -681,6 +680,7 @@ function stageBands(
     }
     return {
       key: `${lane}`,
+      fullLabel: label,
       label: truncate(label, width - BAND_PADDING * 2, CHARACTER_WIDTH),
       box: { x: 0, y: round(start), width: round(width), height: round(size) },
       labelAt: { x: BAND_PADDING, y: round(start + BAND_PADDING + FONT_SIZE - 1) },

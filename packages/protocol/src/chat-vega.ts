@@ -7,17 +7,6 @@ export const PIMI_VEGA_FENCE = "pimi-vega";
  * Agent output is untrusted, and a chart spec is a program for the renderer: it can name data to
  * fetch and links to follow. Every rule here is enforced before a spec reaches Vega.
  */
-export const VEGA_LIMITS = {
-  /** The whole block. A few hundred rows of a handful of fields fit with room to spare. */
-  sourceLength: 65_536,
-  /** Inline rows across every dataset in the spec. More than this is a file, not a chat block. */
-  rows: 2_000,
-  /** Bounds the walk below. Real specs nest about ten levels. */
-  depth: 32,
-  /** A chart taller than this takes over the conversation. */
-  height: 480,
-} as const;
-
 /** Properties that make Vega load or link to something outside the spec. */
 const EXTERNAL_KEYS: ReadonlySet<string> = new Set(["url", "href"]);
 
@@ -36,69 +25,38 @@ function sequenceRows(sequence: unknown): number | null {
   return Number.isFinite(rows) && rows >= 0 ? rows : null;
 }
 
-function inlineRows(values: unknown): number {
-  if (Array.isArray(values)) return values.length;
-  // CSV or TSV text: one row per line.
-  if (typeof values === "string") return values.split("\n").length;
-  return 1;
-}
-
-/** What one property adds to the walk: rows it holds inline, and a value still to be walked. */
-interface PropertyReading {
-  rows: number;
-  nested?: unknown;
-}
-
-/** Returns null for a property that makes the spec undrawable. */
-function readProperty(key: string, child: unknown): PropertyReading | null {
-  if (EXTERNAL_KEYS.has(key.toLowerCase())) return null;
-  if (key === "data" && isRecord(child) && "values" in child) {
-    // Inline rows are counted but not walked: they are data, and a column may be called `url`.
-    const { values, ...source } = child;
-    return { rows: inlineRows(values), nested: source };
-  }
-  if (key === "datasets" && isRecord(child)) {
-    return { rows: Object.values(child).reduce<number>((sum, rows) => sum + inlineRows(rows), 0) };
-  }
-  if (key === "sequence") {
-    const rows = sequenceRows(child);
-    return rows === null ? null : { rows };
-  }
-  return { rows: 0, nested: child };
-}
-
-/**
- * Walks the whole spec once. It fails on a `url` or `href` property at any depth, which covers
- * data sources, image marks, link channels, lookups and config. Returns the inline row count, or
- * null for a spec that must not be drawn.
- */
-function countRowsIfSelfContained(spec: Record<string, unknown>): number | null {
-  let rows = 0;
-  const pending: { value: unknown; depth: number }[] = [{ value: spec, depth: 1 }];
-  for (let next = pending.pop(); next; next = pending.pop()) {
-    const { value, depth } = next;
-    if (depth > VEGA_LIMITS.depth) return null;
+/** Inspect every spec property without recursion. Inline rows are data, not executable spec. */
+function isSelfContained(spec: Record<string, unknown>): boolean {
+  const pending: unknown[] = [spec];
+  while (pending.length) {
+    const value = pending.pop();
     if (Array.isArray(value)) {
-      for (const item of value) pending.push({ value: item, depth });
+      for (const item of value) pending.push(item);
       continue;
     }
     if (!isRecord(value)) continue;
     for (const [key, child] of Object.entries(value)) {
-      const reading = readProperty(key, child);
-      if (!reading) return null;
-      rows += reading.rows;
-      if (rows > VEGA_LIMITS.rows) return null;
-      pending.push({ value: reading.nested, depth: depth + 1 });
+      if (EXTERNAL_KEYS.has(key.toLowerCase())) return false;
+      if (key === "data" && isRecord(child) && "values" in child) {
+        const { values: _values, ...source } = child;
+        pending.push(source);
+      } else if (key === "datasets" && isRecord(child)) {
+        // Named datasets hold inline data; fields may legitimately be called url or href.
+        continue;
+      } else if (key === "sequence") {
+        // Reject an unbounded generator, rather than replacing or truncating its output.
+        if (sequenceRows(child) === null) return false;
+      } else pending.push(child);
     }
   }
-  return rows;
+  return true;
 }
 
 const specSchema = z
   .record(z.string(), z.unknown())
   // Vega-Lite only. A raw Vega spec is a larger surface with its own loaders and expressions.
   .refine(({ $schema }) => typeof $schema !== "string" || !/\/vega\/v/i.test($schema))
-  .refine((spec) => countRowsIfSelfContained(spec) !== null);
+  .refine(isSelfContained);
 
 export interface ChatVega {
   /** The Vega-Lite spec, without its title. */
@@ -110,12 +68,11 @@ export interface ChatVega {
 
 function titleText(value: unknown): string | undefined {
   const text = Array.isArray(value) ? value.join(" ") : value;
-  return typeof text === "string" && text.trim() ? text.trim().slice(0, 240) : undefined;
+  return typeof text === "string" && text.trim() ? text.trim() : undefined;
 }
 
 /** Returns null for anything that must not be handed to Vega; the caller then shows the source. */
 export function parseChatVega(source: string): ChatVega | null {
-  if (source.length > VEGA_LIMITS.sourceLength) return null;
   let data: unknown;
   try {
     data = parseBlockJson(source);

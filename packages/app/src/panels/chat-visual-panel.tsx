@@ -6,6 +6,7 @@ import { AppWindow } from "lucide-react-native";
 import type { ChatVega } from "@pimi/protocol/chat-vega";
 import { readChatVisual, type ChatVisual } from "@/chat-visuals/store";
 import { MermaidTabView } from "@/components/markdown/fence/mermaid/tab-view";
+import { FailedView, VisualRenderBoundary } from "@/components/markdown/fence/view";
 import { VegaPlot } from "@/components/markdown/fence/vega";
 import { ViewNodeView } from "@/components/markdown/fence/view/registry";
 import { FlowRunGraphView } from "@/flows/flow-run-card";
@@ -70,13 +71,15 @@ function ChatVisualBody({
         </View>
       );
     case "vega":
-      return <VegaTab vega={visual.vega} />;
+      return <VegaTab vega={visual.vega} source={visual.source} />;
     case "view":
       return (
         <View style={styles.fill} testID="chat-visual-panel">
           <ChatVisualViewport>
             <View style={styles.content}>
-              <ViewNodeView node={visual.view.root} />
+              <VisualRenderBoundary key={visual.source} source={visual.source}>
+                <ViewNodeView node={visual.view.root} />
+              </VisualRenderBoundary>
             </View>
           </ChatVisualViewport>
         </View>
@@ -84,10 +87,10 @@ function ChatVisualBody({
   }
 }
 
-function VegaTab({ vega }: { vega: ChatVega }) {
+function VegaTab({ vega, source }: { vega: ChatVega; source: string }) {
   const [failed, setFailed] = useState(false);
   const fail = useCallback(() => setFailed(true), []);
-  if (failed) return <Missing message="Couldn’t draw this chart." />;
+  if (failed) return <FailedView source={source} />;
   return (
     <View style={styles.fill} testID="chat-visual-panel">
       <ChatVisualViewport>

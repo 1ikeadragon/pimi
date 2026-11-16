@@ -72,7 +72,7 @@ function VegaCard({ vega, source }: { vega: ChatVega; source: string }) {
   const [failed, setFailed] = useState(false);
   // The reply is split again on every streamed token, which parses a fresh, equal spec. The card
   // is keyed by its source, so the first one stands for all of them and the chart is drawn once.
-  const [visual] = useState(() => ({ kind: "vega" as const, vega }));
+  const [visual] = useState(() => ({ kind: "vega" as const, vega, source }));
   const fail = useCallback(() => setFailed(true), []);
   const openInTab = useOpenChatVisualInTab(visual, vega.title ?? VEGA_TAB_TITLE);
 
