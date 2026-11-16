@@ -17,7 +17,7 @@ export interface McpPackageSource {
 }
 
 // npm's cache location without spawning npm: the env override, else the platform default. A cache
-// location set only in an .npmrc is not seen, and the version then reads as not run yet.
+// location set only in an .npmrc is not seen; absence here only means no inspected cache match.
 function npmCacheDir(): string {
   const fromEnv = process.env.npm_config_cache ?? process.env.NPM_CONFIG_CACHE;
   if (fromEnv) return fromEnv;
@@ -35,10 +35,11 @@ interface NpxInstall {
   installedAtMs: number;
 }
 
-async function readJson(file: string): Promise<unknown> {
+async function readJson(file: string, unreadable: () => void): Promise<unknown> {
   try {
     return JSON.parse(await fs.readFile(file, "utf8"));
   } catch {
+    unreadable();
     return null;
   }
 }
@@ -46,45 +47,68 @@ async function readJson(file: string): Promise<unknown> {
 // npx installs each package set into `_npx/<hash>/` and records the requested specs in that
 // directory's package.json under `_npx.packages`. Matching on that list, not on the hash, keeps
 // this independent of how npm derives the directory name. When several directories match, the
-// most recently installed one is the one npx used last.
-async function indexNpxCache(): Promise<Map<string, NpxInstall>> {
+// most recently modified readable metadata is shown as one observed cached copy. This does not
+// establish which copy is running, whether it was ever launched, or an installation date.
+interface NpxCacheIndex {
+  installs: Map<string, NpxInstall>;
+  readable: boolean;
+}
+
+async function indexNpxCache(): Promise<NpxCacheIndex> {
   const root = path.join(npmCacheDir(), "_npx");
   const bySpec = new Map<string, NpxInstall>();
+  let readable = true;
   let dirs: string[];
   try {
     dirs = await fs.readdir(root);
-  } catch {
-    return bySpec;
+  } catch (error) {
+    return {
+      installs: bySpec,
+      readable: (error as NodeJS.ErrnoException).code === "ENOENT",
+    };
   }
+  const unreadable = () => {
+    readable = false;
+  };
+  let nextDirectory = 0;
+  // Inspect every entry without opening an unbounded number of files at once.
   await Promise.all(
-    dirs.map(async (dir) => {
-      const manifest = (await readJson(path.join(root, dir, "package.json"))) as {
-        _npx?: { packages?: unknown };
-      } | null;
-      const packages = manifest?._npx?.packages;
-      if (!Array.isArray(packages) || packages.length !== 1 || typeof packages[0] !== "string") {
-        return;
-      }
-      const spec = packages[0];
-      const name = specName(spec);
-      const modules = path.join(root, dir, "node_modules");
-      const installed = (await readJson(path.join(modules, name, "package.json"))) as {
-        version?: unknown;
-      } | null;
-      if (typeof installed?.version !== "string") return;
-      let installedAtMs: number;
-      try {
-        installedAtMs = (await fs.stat(path.join(modules, ".package-lock.json"))).mtimeMs;
-      } catch {
-        return;
-      }
-      const existing = bySpec.get(spec);
-      if (!existing || existing.installedAtMs < installedAtMs) {
-        bySpec.set(spec, { version: installed.version, installedAtMs });
+    Array.from({ length: Math.min(8, dirs.length) }, async () => {
+      while (nextDirectory < dirs.length) {
+        const dir = dirs[nextDirectory++];
+        await inspectDirectory(dir);
       }
     }),
   );
-  return bySpec;
+  return { installs: bySpec, readable };
+
+  async function inspectDirectory(dir: string): Promise<void> {
+    const manifest = (await readJson(path.join(root, dir, "package.json"), unreadable)) as {
+      _npx?: { packages?: unknown };
+    } | null;
+    const packages = manifest?._npx?.packages;
+    if (!Array.isArray(packages) || packages.length !== 1 || typeof packages[0] !== "string") {
+      return;
+    }
+    const spec = packages[0];
+    const name = specName(spec);
+    const modules = path.join(root, dir, "node_modules");
+    const installed = (await readJson(path.join(modules, name, "package.json"), unreadable)) as {
+      version?: unknown;
+    } | null;
+    if (typeof installed?.version !== "string") return;
+    let installedAtMs: number;
+    try {
+      installedAtMs = (await fs.stat(path.join(modules, ".package-lock.json"))).mtimeMs;
+    } catch {
+      unreadable();
+      return;
+    }
+    const existing = bySpec.get(spec);
+    if (!existing || existing.installedAtMs < installedAtMs) {
+      bySpec.set(spec, { version: installed.version, installedAtMs });
+    }
+  }
 }
 
 function specName(spec: string): string {
@@ -111,12 +135,13 @@ function buildEntry(
   input: { id: string; kind: PackageRunEntry["kind"]; label: string; argv: string[] },
   policy: PackagePolicy,
   now: number,
-  npx: Map<string, NpxInstall>,
+  npx: NpxCacheIndex,
 ): PackageRunEntry {
   const result = applyPackagePolicy(input.argv, policy, now);
   const runner = input.argv[0] ?? "";
-  const installedKnown = result.managed && result.runner === "npx";
-  const installed = installedKnown && result.spec ? (npx.get(result.spec) ?? null) : null;
+  const canObserve = result.managed && result.runner === "npx";
+  const installed = canObserve && result.spec ? (npx.installs.get(result.spec) ?? null) : null;
+  const installedKnown = canObserve && (npx.readable || installed !== null);
   return {
     id: input.id,
     kind: input.kind,

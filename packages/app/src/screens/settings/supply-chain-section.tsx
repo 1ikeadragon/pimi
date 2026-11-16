@@ -35,19 +35,23 @@ function formatCutoff(iso: string): string {
 export function SupplyChainSection({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const isConnected = useHostRuntimeIsConnected(serverId);
-  const client = useHostRuntimeClient(serverId);
   const { config, patchConfig } = useDaemonConfig(serverId);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const policy: PackagePolicy = config?.supplyChain ?? DEFAULT_PACKAGE_POLICY;
 
   const save = useCallback(
     (next: PackagePolicy) => {
+      if (saving) return;
       setError(null);
-      patchConfig({ supplyChain: next }).catch((failure: unknown) => {
-        setError(failure instanceof Error ? failure.message : String(failure));
-      });
+      setSaving(true);
+      void patchConfig({ supplyChain: next })
+        .catch((failure: unknown) => {
+          setError(failure instanceof Error ? failure.message : String(failure));
+        })
+        .finally(() => setSaving(false));
     },
-    [patchConfig],
+    [patchConfig, saving],
   );
   const changeMode = useCallback(
     (mode: PackagePolicyMode) => save({ ...policy, mode }),
@@ -72,15 +76,89 @@ export function SupplyChainSection({ serverId }: { serverId: string }) {
 
   const options = useMemo<SegmentedControlOption<PackagePolicyMode>[]>(
     () => [
-      { value: "pinned", label: t("settings.supplyChain.modes.pinned") },
-      { value: "minAge", label: t("settings.supplyChain.modes.minAge") },
-      { value: "latest", label: t("settings.supplyChain.modes.latest") },
+      { value: "pinned", label: t("settings.supplyChain.modes.pinned"), disabled: saving },
+      { value: "minAge", label: t("settings.supplyChain.modes.minAge"), disabled: saving },
+      { value: "latest", label: t("settings.supplyChain.modes.latest"), disabled: saving },
     ],
-    [t],
+    [t, saving],
   );
 
+  if (!isConnected || !config) return null;
+
+  const hint = t(`settings.supplyChain.hints.${policy.mode}`, { count: policy.minAgeDays });
+
+  return (
+    <SettingsSection title={t("settings.supplyChain.title")} testID="host-page-supply-chain">
+      <SettingsCard>
+        <SettingsRow
+          label={t("settings.supplyChain.updates")}
+          hint={hint}
+          settingId="providers.supplyChain"
+        >
+          <SegmentedControl
+            options={options}
+            value={policy.mode}
+            onValueChange={changeMode}
+            accessibilityLabel={t("settings.supplyChain.updates")}
+            testID="supply-chain-mode"
+          />
+        </SettingsRow>
+        {policy.mode === "minAge" ? (
+          <SettingsRow label={t("settings.supplyChain.days")}>
+            <View style={styles.stepper}>
+              <Button
+                variant="outline"
+                onPress={decrease}
+                disabled={saving || policy.minAgeDays <= PACKAGE_POLICY_MIN_AGE_DAYS_MIN}
+                accessibilityLabel={t("settings.supplyChain.fewerDays")}
+                testID="supply-chain-days-decrease"
+              >
+                -
+              </Button>
+              <Text style={styles.stepperValue} testID="supply-chain-days-value">
+                {policy.minAgeDays}
+              </Text>
+              <Button
+                variant="outline"
+                onPress={increase}
+                disabled={saving || policy.minAgeDays >= PACKAGE_POLICY_MIN_AGE_DAYS_MAX}
+                accessibilityLabel={t("settings.supplyChain.moreDays")}
+                testID="supply-chain-days-increase"
+              >
+                +
+              </Button>
+            </View>
+          </SettingsRow>
+        ) : null}
+        <PackageInventory
+          serverId={serverId}
+          policy={policy}
+          providersKey={JSON.stringify(config.providers)}
+        />
+      </SettingsCard>
+      {error ? (
+        <Text accessibilityRole="alert" style={settingsStyles.rowError}>
+          {error}
+        </Text>
+      ) : null}
+      <Text style={styles.footnote}>{t("settings.supplyChain.footnote")}</Text>
+    </SettingsSection>
+  );
+}
+
+function PackageInventory({
+  serverId,
+  policy,
+  providersKey,
+}: {
+  serverId: string;
+  policy: PackagePolicy;
+  providersKey: string;
+}) {
+  const { t } = useTranslation();
+  const client = useHostRuntimeClient(serverId);
+  const isConnected = useHostRuntimeIsConnected(serverId);
   // The daemon applies the policy and reads its npx cache; the app only renders the answer.
-  const providersKey = JSON.stringify(config?.providers ?? {});
   const runs = useFetchQuery({
     dataShape: "value",
     queryKey: ["supply-chain-packages", serverId, policy.mode, policy.minAgeDays, providersKey],
@@ -90,69 +168,56 @@ export function SupplyChainSection({ serverId }: { serverId: string }) {
     retry: false,
   });
   const packages = runs.data ?? [];
-
-  if (!isConnected || !config) return null;
-
-  const hint = t(`settings.supplyChain.hints.${policy.mode}`, { count: policy.minAgeDays });
+  const { refetch } = runs;
+  const refresh = useCallback(() => void refetch(), [refetch]);
+  let packageSummary = String(packages.length);
+  if (runs.isError) packageSummary = t("settings.supplyChain.unavailable");
+  if (runs.isFetching) packageSummary = t("settings.supplyChain.checking");
 
   return (
-    <>
-      <SettingsSection title={t("settings.supplyChain.title")} testID="host-page-supply-chain">
-        <SettingsCard>
-          <SettingsRow
-            label={t("settings.supplyChain.updates")}
-            hint={hint}
-            settingId="providers.supplyChain"
-          >
-            <SegmentedControl
-              options={options}
-              value={policy.mode}
-              onValueChange={changeMode}
-              accessibilityLabel={t("settings.supplyChain.updates")}
-              testID="supply-chain-mode"
-            />
-          </SettingsRow>
-          {policy.mode === "minAge" ? (
-            <SettingsRow label={t("settings.supplyChain.days")}>
-              <View style={styles.stepper}>
-                <Button
-                  variant="outline"
-                  onPress={decrease}
-                  disabled={policy.minAgeDays <= PACKAGE_POLICY_MIN_AGE_DAYS_MIN}
-                  accessibilityLabel={t("settings.supplyChain.fewerDays")}
-                  testID="supply-chain-days-decrease"
-                >
-                  -
-                </Button>
-                <Text style={styles.stepperValue} testID="supply-chain-days-value">
-                  {policy.minAgeDays}
-                </Text>
-                <Button
-                  variant="outline"
-                  onPress={increase}
-                  disabled={policy.minAgeDays >= PACKAGE_POLICY_MIN_AGE_DAYS_MAX}
-                  accessibilityLabel={t("settings.supplyChain.moreDays")}
-                  testID="supply-chain-days-increase"
-                >
-                  +
-                </Button>
-              </View>
-            </SettingsRow>
-          ) : null}
-        </SettingsCard>
-        {error ? <Text style={settingsStyles.rowError}>{error}</Text> : null}
-        <Text style={styles.footnote}>{t("settings.supplyChain.footnote")}</Text>
-      </SettingsSection>
-      {packages.length > 0 ? (
-        <SettingsSection title={t("settings.supplyChain.packages")} testID="supply-chain-packages">
-          <SettingsCard>
-            {packages.map((entry) => (
-              <PackageRow key={entry.id} entry={entry} policy={policy} />
-            ))}
-          </SettingsCard>
-        </SettingsSection>
+    <SettingsCollapsibleRow
+      label={t("settings.supplyChain.packages")}
+      hint={t("settings.supplyChain.packageScope")}
+      summary={packageSummary}
+      testID="supply-chain-packages"
+    >
+      <SettingsRow
+        label={t("settings.supplyChain.inventory")}
+        hint={t("settings.supplyChain.inventoryHint")}
+      >
+        <Button
+          variant="ghost"
+          onPress={refresh}
+          disabled={runs.isFetching}
+          testID="supply-chain-packages-refresh"
+        >
+          {t("settings.supplyChain.refresh")}
+        </Button>
+      </SettingsRow>
+      {runs.isError ? (
+        <SettingsRow
+          label={t("settings.supplyChain.loadFailed")}
+          error={runs.error instanceof Error ? runs.error.message : String(runs.error)}
+          testID="supply-chain-packages-error"
+        />
       ) : null}
-    </>
+      {runs.isPending ? (
+        <SettingsRow
+          label={t("settings.supplyChain.checking")}
+          testID="supply-chain-packages-loading"
+        />
+      ) : null}
+      {!runs.isPending && packages.length === 0 && !runs.isError ? (
+        <SettingsRow
+          label={t("settings.supplyChain.empty")}
+          hint={t("settings.supplyChain.emptyHint")}
+          testID="supply-chain-packages-empty"
+        />
+      ) : null}
+      {!runs.isPending && !runs.isError
+        ? packages.map((entry) => <PackageRow key={entry.id} entry={entry} policy={policy} />)
+        : null}
+    </SettingsCollapsibleRow>
   );
 }
 
@@ -210,6 +275,22 @@ const PackageRow = memo(function PackageRow({
 }) {
   const { t } = useTranslation();
   const used = t(`settings.supplyChain.detail.usedBy.${entry.kind}`, { label: entry.label });
+  const configuredCommand = useMemo(
+    () => (
+      <Text selectable style={styles.command}>
+        {JSON.stringify(entry.configuredCommand)}
+      </Text>
+    ),
+    [entry.configuredCommand],
+  );
+  const effectiveCommand = useMemo(
+    () => (
+      <Text selectable style={styles.command}>
+        {JSON.stringify(entry.effectiveCommand)}
+      </Text>
+    ),
+    [entry.effectiveCommand],
+  );
   return (
     <SettingsCollapsibleRow
       label={entry.name ?? entry.label}
@@ -229,12 +310,23 @@ const PackageRow = memo(function PackageRow({
         label={t("settings.supplyChain.detail.running")}
         hint={installedLine(t, entry)}
       />
+      <SettingsRow label={t("settings.supplyChain.detail.configured")} hint={configuredCommand} />
+      <SettingsRow label={t("settings.supplyChain.detail.effective")} hint={effectiveCommand} />
+      <SettingsRow
+        label={t("settings.supplyChain.detail.evidence")}
+        hint={t("settings.supplyChain.detail.evidenceHint")}
+      />
       <SettingsRow label={t("settings.supplyChain.detail.usedByLabel")} hint={used} />
     </SettingsCollapsibleRow>
   );
 });
 
 const styles = StyleSheet.create((theme) => ({
+  command: {
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamily.mono,
+    fontSize: theme.fontSize.sm,
+  },
   stepper: {
     flexDirection: "row",
     alignItems: "center",
