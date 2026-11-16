@@ -89,16 +89,17 @@ export class V2Runtime {
     if (this.closed) throw new Error("OpenCode runtime is closed");
     input.signal?.throwIfAborted();
     this.assertBridgePort();
-    const selection = await raceProviderRefreshAbort(input.signal, this.selection);
+    // Session-private MCP configuration and environment must never reach a reused service.
+    const dedicated = Boolean(input.env || input.dedicated);
+    const selection: OpenCodeServiceSelection = dedicated
+      ? { kind: "owned" }
+      : await raceProviderRefreshAbort(input.signal, this.selection);
     let pending: Promise<Generation>;
-    if (selection.kind !== "owned") {
-      this.assertSharedConfiguration(input, selection);
-      this.current ??= this.startTracked();
-      pending = this.current;
-    } else if (input.env || input.dedicated) {
-      pending = this.startTracked(input.env);
+    if (dedicated) {
+      pending = this.startTracked(selection, input.env);
     } else {
-      if (!this.current) this.current = this.startTracked();
+      if (selection.kind !== "owned") this.assertSharedConfiguration(selection);
+      this.current ??= this.startTracked(selection);
       pending = this.current;
     }
     let generation: Generation;
@@ -144,10 +145,7 @@ export class V2Runtime {
       throw new Error("PIMI_OPENCODE_BRIDGE_PORT changed; restart Pimi to apply the bridge port");
   }
 
-  private assertSharedConfiguration(
-    input: V2RuntimeAcquireOptions,
-    selection: OpenCodeServiceSelection,
-  ): void {
+  private assertSharedConfiguration(selection: OpenCodeServiceSelection): void {
     const connectionEnv = new Set([
       "PIMI_OPENCODE_SERVER_URL",
       "PIMI_OPENCODE_SERVER_PASSWORD",
@@ -162,7 +160,7 @@ export class V2Runtime {
     const processOverrides = Object.keys(this.options.settings?.env ?? {}).filter(
       (key) => !connectionEnv.has(key),
     );
-    if (input.env || input.dedicated || processOverrides.length) {
+    if (processOverrides.length) {
       throw new Error(
         `Custom OpenCode MCP servers or process environment require an isolated server and cannot be used with a shared OpenCode service${processOverrides.length ? `: ${processOverrides.join(", ")}` : ""}.`,
       );
@@ -202,8 +200,11 @@ export class V2Runtime {
     this.current = null;
   }
 
-  private startTracked(env?: Record<string, string>): Promise<Generation> {
-    const pending = this.start(env);
+  private startTracked(
+    selection: OpenCodeServiceSelection,
+    env?: Record<string, string>,
+  ): Promise<Generation> {
+    const pending = this.start(selection, env);
     this.starts.add(pending);
     void pending.then(
       (generation) =>
@@ -220,8 +221,10 @@ export class V2Runtime {
     return pending;
   }
 
-  private async start(env: Record<string, string> = {}): Promise<Generation> {
-    const selection = await this.selection;
+  private async start(
+    selection: OpenCodeServiceSelection,
+    env: Record<string, string> = {},
+  ): Promise<Generation> {
     if (selection.kind !== "owned") {
       const generation: Generation = {
         ...(await connectSharedService(selection, this.options)),

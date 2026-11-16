@@ -141,11 +141,13 @@ export class OpenCodeV2AgentClient implements AgentClient {
       provider: "opencode",
       cwd,
     };
+    const dedicated = requiresDedicatedV2Server(config, launch);
+    const existing = dedicated
+      ? undefined
+      : this.connections.get(handle.nativeHandle ?? handle.sessionId);
     const connection =
-      this.connections.get(handle.nativeHandle ?? handle.sessionId)?.retain() ??
-      (await this.runtime.acquire(
-        requiresDedicatedV2Server(config, launch) ? { env: launch?.env, dedicated: true } : {},
-      ));
+      existing?.retain() ??
+      (await this.runtime.acquire(dedicated ? { env: launch?.env, dedicated: true } : {}));
     try {
       const info = await connection.client.session.get({
         sessionID: handle.nativeHandle ?? handle.sessionId,

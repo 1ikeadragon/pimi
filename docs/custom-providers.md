@@ -133,7 +133,7 @@ A configured URL takes precedence even when unreachable; Pimi reports the connec
 
 An explicitly configured server needs the bridge installed separately. Connect once and start a session: the setup error gives the local package directory. Copy that directory to the server's OpenCode global `plugins` directory, then retry. For a server on another machine, set `PIMI_OPENCODE_BRIDGE_PORT` in the Pimi OpenCode provider environment before starting Pimi, and set `PIMI_OPENCODE_BRIDGE_URL` to the URL the OpenCode server can use to reach that port. For example, an SSH reverse tunnel can expose the Pimi loopback port on the OpenCode host. The bridge token is exchanged through the OpenCode connection and is not written into the plugin package.
 
-OpenCode's custom MCP registrations are shared by all sessions in a location. Pimi rejects custom MCP servers and per-agent process environment overrides on a reused server rather than applying them to other sessions or ignoring them. Session identity is applied to each session's shell environment. A Pimi-owned helper supports custom process and MCP settings; it is selected when there is no explicit URL or healthy registered service.
+OpenCode's custom MCP registrations are shared by all sessions in a location. Chats with custom MCP servers or per-agent process environment overrides use a private Pimi-owned helper, even when ordinary chats reuse a service. Ask Pimi uses this path for its command tools. It needs a compatible local OpenCode binary; the helper stops when its last session closes. Session identity is applied to each session's shell environment. Provider-wide process environment overrides still cannot be applied to a reused service.
 
 ---
 
