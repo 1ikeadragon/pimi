@@ -15,18 +15,21 @@ function needsDocumentContext(node: Nodes): boolean {
 
 /** The last parsed block and unfinished line are mutable; earlier blocks are closed. */
 export function splitStreamingMarkdown(text: string, streaming: boolean) {
-  if (!streaming) return { head: text, tail: "" };
+  if (!streaming) return { head: text, tail: "", blocks: [text] };
   const completeLines = text.slice(0, text.lastIndexOf("\n") + 1);
   const tree = fromMarkdown(completeLines, {
     extensions: [gfmTable()],
     mdastExtensions: [gfmTableFromMarkdown()],
   });
   let boundary = 0;
+  const blocks: string[] = [];
   for (let index = 0; index < tree.children.length - 1; index++) {
     if (needsDocumentContext(tree.children[index])) break;
     // mdast starts some nodes after their indentation; the next parser needs it too.
     const nextStart = tree.children[index + 1].position!.start.offset!;
-    boundary = text.lastIndexOf("\n", nextStart - 1) + 1;
+    const nextBoundary = text.lastIndexOf("\n", nextStart - 1) + 1;
+    blocks.push(text.slice(boundary, nextBoundary));
+    boundary = nextBoundary;
   }
-  return { head: text.slice(0, boundary), tail: text.slice(boundary) };
+  return { head: text.slice(0, boundary), tail: text.slice(boundary), blocks };
 }

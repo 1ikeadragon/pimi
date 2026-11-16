@@ -609,7 +609,6 @@ export const en = {
     empty: "Start chatting with this agent...",
     scrollToBottom: "Scroll to bottom",
     historyLoadFailed: "Couldn't load agent history",
-    messageCapped: "This message was capped ({{bytes}} bytes).",
     working: {
       stopping: "Stopping",
       waitingApproval: "Waiting for your approval",

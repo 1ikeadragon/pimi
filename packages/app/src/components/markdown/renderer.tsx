@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef, useState, type ComponentProps } from "react";
+import { memo, useContext, useMemo, useRef, useState, type ComponentProps } from "react";
 import { EnrichedMarkdownText, type LinkPressEvent } from "react-native-enriched-markdown";
 import { withUnistyles } from "react-native-unistyles";
 import {
@@ -64,7 +64,7 @@ export interface MarkdownRendererProps extends MarkdownImageContext {
 export const MarkdownRenderer = memo(function MarkdownRenderer(props: MarkdownRendererProps) {
   // Same-reply view identities must share one segment registry across streaming boundaries.
   const streaming =
-    !!props.streaming && !(props.visualizations && PIMI_FENCE_PATTERN.test(props.text));
+    !isWeb && !!props.streaming && !(props.visualizations && PIMI_FENCE_PATTERN.test(props.text));
   // Only completed lines affect block closure. Do not run mdast on every reveal frame.
   const completeLines = streaming ? props.text.slice(0, props.text.lastIndexOf("\n") + 1) : "";
   const boundary = useStreamingBoundary(completeLines);
@@ -129,6 +129,15 @@ const MarkdownPart = memo(function MarkdownPart({
     },
     { commandNames: commandHints?.names, forgeReferencePattern: forgeShorthand?.pattern },
   );
+  // Source adaptation creates an object per update. Keep its equivalent regexes stable so
+  // appending text does not invalidate every completed web block's memo boundary.
+  const recognitionText = linkRecognition.text;
+  const inlineCodeSource = linkRecognition.inlineCode.source;
+  const inlineCodeFlags = linkRecognition.inlineCode.flags;
+  const stableLinkRecognition = useMemo(
+    () => ({ text: recognitionText, inlineCode: new RegExp(inlineCodeSource, inlineCodeFlags) }),
+    [recognitionText, inlineCodeSource, inlineCodeFlags],
+  );
   const [image, setImage] = useState<ImageLightboxSource | null>(null);
   const pressLink = useStableEvent(({ url, sourceType }: LinkPressEvent) => {
     const command = commandHints && matchCommandLink(url, sourceType, commandHints.names);
@@ -192,7 +201,7 @@ const MarkdownPart = memo(function MarkdownPart({
           if (segment.kind === "artifact")
             return <ChatArtifactCard key={key} artifact={segment.artifact} />;
           return (
-            <ThemedMarkdown
+            <MarkdownText
               key={key}
               markdown={segment.source}
               uniProps={pickMarkdownStyle(compact, muted)}
@@ -200,7 +209,7 @@ const MarkdownPart = memo(function MarkdownPart({
               selectable={selectable}
               contextMenuItems={contextMenuItems}
               md4cFlags={MD4C_FLAGS}
-              linkRecognition={linkRecognition}
+              linkRecognition={stableLinkRecognition}
               enableTaskListItemToggle={false}
               enableLinkPreview={false}
               enableBlockContextMenu={false}
@@ -217,3 +226,52 @@ const MarkdownPart = memo(function MarkdownPart({
     </MermaidStreamingContext.Provider>
   );
 });
+
+/** Web selection spans elements; native selection needs one text view per segment. */
+const MarkdownText = memo(function MarkdownText(props: ComponentProps<typeof ThemedMarkdown>) {
+  if (!isWeb) return <ThemedMarkdown {...props} />;
+  return <WebMarkdownBlocks {...props} />;
+});
+
+const MarkdownBlock = memo(ThemedMarkdown);
+
+function WebMarkdownBlocks(props: ComponentProps<typeof ThemedMarkdown>) {
+  const { markdown = "" } = props;
+  const streaming = useContext(MermaidStreamingContext);
+  const closed = useRef({ source: "", blocks: [] as { source: string; offset: number }[] });
+  const completeLines = markdown.slice(0, markdown.lastIndexOf("\n") + 1);
+  const blocks = useMemo(() => {
+    if (!completeLines.startsWith(closed.current.source)) {
+      closed.current = { source: "", blocks: [] };
+    }
+    const next = splitStreamingMarkdown(completeLines.slice(closed.current.source.length), true);
+    if (next.head) {
+      let offset = closed.current.source.length;
+      const additions = next.blocks.map((source) => {
+        const block = { source, offset };
+        offset += source.length;
+        return block;
+      });
+      closed.current = {
+        source: closed.current.source + next.head,
+        blocks: [...closed.current.blocks, ...additions],
+      };
+    }
+    return closed.current.blocks;
+  }, [completeLines]);
+  const tail = markdown.slice(closed.current.source.length);
+  return (
+    <MarkdownBlockStack>
+      {blocks.map((block) => (
+        <MermaidStreamingContext.Provider key={block.offset} value={false}>
+          <MarkdownBlock {...props} markdown={block.source} />
+        </MermaidStreamingContext.Provider>
+      ))}
+      {tail ? (
+        <MermaidStreamingContext.Provider key={closed.current.source.length} value={streaming}>
+          <MarkdownBlock {...props} markdown={tail} />
+        </MermaidStreamingContext.Provider>
+      ) : null}
+    </MarkdownBlockStack>
+  );
+}

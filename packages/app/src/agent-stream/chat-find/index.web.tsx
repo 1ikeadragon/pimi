@@ -38,7 +38,7 @@ const ROOT_STYLE = {
 } as const;
 let nextHighlightId = 0;
 
-/** The message chat find has landed on; its row lifts its render cap so every match shows. */
+/** The message chat find has landed on; its row skips paced reveal so every match shows. */
 function useChatFindSelectedMessageId(): string | null {
   return useContext(SelectedMessage);
 }

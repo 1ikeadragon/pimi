@@ -69,7 +69,6 @@ import {
 import { useTranslation } from "@/i18n/use-translation";
 import { Pressable, StyleProp, Text, View, ViewStyle, type TextStyle } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { capAssistantMessageForRender, getUtf8ByteLength } from "./assistant-message-render-limit";
 import { getTurnDurationLabel } from "./assistant-turn-footer-label";
 import { getCompactionMarkerLabel } from "./message-compaction-label";
 import { ActivityRow, type ActivityRowState } from "./activity-row";
@@ -702,13 +701,6 @@ export const assistantMessageStylesheet = StyleSheet.create((theme) => ({
   containerCompactBottom: {
     paddingBottom: 0,
   },
-  cappedNotice: {
-    marginTop: theme.spacing[3],
-    fontFamily: theme.fontFamily.ui,
-    fontSize: theme.fontSize.base,
-    fontStyle: "italic",
-    color: theme.colors.foregroundMuted,
-  },
   imageFrame: {
     width: "100%",
     minHeight: 160,
@@ -862,17 +854,8 @@ const AssistantMessageBase = memo(function AssistantMessage({
         : undefined,
     [annotate, itemId, t],
   );
-  const renderedMessage = useMemo(
-    () =>
-      renderFullContent ? { text: message, capped: false } : capAssistantMessageForRender(message),
-    [message, renderFullContent],
-  );
-  const revealedText = useRevealedText(renderedMessage.text, phase);
-  const revealedMessage = renderFullContent ? renderedMessage.text : revealedText;
-  const fullMessageByteLength = useMemo(
-    () => (renderedMessage.capped && phase === "complete" ? getUtf8ByteLength(message) : null),
-    [message, phase, renderedMessage.capped],
-  );
+  const revealedText = useRevealedText(message, phase);
+  const revealedMessage = renderFullContent ? message : revealedText;
 
   const assistantContainerStyle = useMemo(
     () => [
@@ -910,20 +893,12 @@ const AssistantMessageBase = memo(function AssistantMessage({
         text={revealedMessage}
         agentCommands
         visualizations
-        streaming={phase !== "complete" || revealedMessage.length < renderedMessage.text.length}
+        streaming={phase !== "complete" || revealedMessage.length < message.length}
         client={client}
         workspaceRoot={workspaceRoot}
         serverId={serverId}
         contextMenuItems={contextMenuItems}
       />
-      {fullMessageByteLength !== null ? (
-        <Text
-          testID="assistant-message-capped-notice"
-          style={assistantMessageStylesheet.cappedNotice}
-        >
-          {t("agentStream.messageCapped", { bytes: fullMessageByteLength })}
-        </Text>
-      ) : null}
     </View>
   );
 });

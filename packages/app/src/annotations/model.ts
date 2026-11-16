@@ -1,5 +1,4 @@
 import { AttachmentMetadataSchema } from "@/attachments/metadata-schema";
-import { ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT } from "@/components/assistant-message-render-limit.shared";
 import type { TFunction } from "i18next";
 import { z } from "zod";
 import {
@@ -10,8 +9,8 @@ import {
   type AnnotationTextSelector,
 } from "@pimi/protocol/messages";
 
-// Keep each annotation field within the existing assistant message display budget.
-export const ANNOTATION_CHARACTER_LIMIT = ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT;
+// Bound user-authored annotation fields independently of chat reply rendering.
+export const ANNOTATION_CHARACTER_LIMIT = 32_000;
 
 const CHIP_LABEL_LENGTH = 40;
 
