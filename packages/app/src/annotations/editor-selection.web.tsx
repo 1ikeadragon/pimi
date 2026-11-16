@@ -9,7 +9,7 @@ import {
   type AnnotationEditorOutcome,
   type AnnotationEditSession,
 } from "./edit-session";
-import { ANNOTATION_CHARACTER_LIMIT, type AnnotationCapture, type AnnotationSource } from "./model";
+import { type AnnotationCapture, type AnnotationSource } from "./model";
 import {
   ANNOTATION_MARK_CLASS,
   ANNOTATION_PULSE_MARK_CLASS,
@@ -458,7 +458,6 @@ export function EditorAnnotationSelection({
           onPress={handleAnnotate}
           onDismiss={dismissToolbar}
           toolbarRef={toolbar}
-          tooLong={surface.selection.capture.quote.length > ANNOTATION_CHARACTER_LIMIT}
           testID="annotation-toolbar-button"
         />
       ) : null}

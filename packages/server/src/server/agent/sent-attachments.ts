@@ -19,8 +19,6 @@ import { agentImageId, isSupportedImageMimeType } from "./agent-images.js";
 
 export const MAX_SENT_IMAGE_BYTES = 5 * 1024 * 1024;
 export const MAX_SENT_IMAGE_BYTES_PER_MESSAGE = 15 * 1024 * 1024;
-export const MAX_SENT_ATTACHMENT_TEXT_CHARS = 32 * 1024;
-export const MAX_SENT_ATTACHMENTS_PER_MESSAGE = 32;
 
 export interface SentAttachmentRecord {
   clientMessageId: string;
@@ -49,20 +47,6 @@ const FILE_SCHEMA = z.object({ version: z.literal(1), records: z.array(RECORD_SC
 
 function isMissingFile(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
-}
-
-function clampAttachment(attachment: AgentAttachment): AgentAttachment {
-  if (attachment.type === "text" && attachment.text.length > MAX_SENT_ATTACHMENT_TEXT_CHARS) {
-    return { ...attachment, text: attachment.text.slice(0, MAX_SENT_ATTACHMENT_TEXT_CHARS) };
-  }
-  if (
-    (attachment.type === "forge_change_request" || attachment.type === "forge_issue") &&
-    attachment.body &&
-    attachment.body.length > MAX_SENT_ATTACHMENT_TEXT_CHARS
-  ) {
-    return { ...attachment, body: attachment.body.slice(0, MAX_SENT_ATTACHMENT_TEXT_CHARS) };
-  }
-  return attachment;
 }
 
 /**
@@ -105,8 +89,7 @@ export function prepareSentAttachments(input: {
   for (const raw of input.attachments) {
     // The history a handoff carries is the chat's own and is never a pill.
     if (raw.type === "text" && raw.contextKind === "chat_history") continue;
-    if (attachments.length >= MAX_SENT_ATTACHMENTS_PER_MESSAGE) break;
-    attachments.push(clampAttachment(raw));
+    attachments.push(raw);
   }
   return { attachments, images, blobs };
 }

@@ -45,7 +45,7 @@ import { Button } from "@/components/ui/button";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/contexts/toast-context";
-import { ANNOTATION_CHARACTER_LIMIT, type NewAnnotation } from "@/annotations/model";
+import type { NewAnnotation } from "@/annotations/model";
 import { AnnotationLimitError } from "@/composer/chips/model";
 import { useDraftStore } from "@/stores/draft-store";
 import { generateMessageId } from "@/types/stream";
@@ -262,7 +262,7 @@ function formatElementAttachment(
   parts.push(`selector: ${selection.selector}`);
 
   if (textPreview) {
-    parts.push(`text: ${JSON.stringify(textPreview)}`);
+    parts.push(`text excerpt: ${JSON.stringify(textPreview)}`);
   }
 
   parts.push(`size: ${selection.boundingRect.width}x${selection.boundingRect.height}`);
@@ -278,7 +278,7 @@ function formatElementAttachment(
   }
 
   if (selection.parentChain.length > 0) {
-    parts.push(`parents: ${selection.parentChain.slice(0, 3).join(" > ")}`);
+    parts.push(`nearest parents (excerpt): ${selection.parentChain.slice(0, 3).join(" > ")}`);
   }
 
   const comment = annotation?.comment.trim();
@@ -289,7 +289,7 @@ function formatElementAttachment(
   return [
     `<browser-element url="${selection.url}">`,
     parts.map((part) => `  ${part}`).join("\n"),
-    `  html: ${html}`,
+    `  html excerpt: ${html}`,
     `</browser-element>`,
   ].join("\n");
 }
@@ -328,12 +328,12 @@ function buildBrowserElementAnnotation(
     id: generateMessageId(),
     source: {
       kind: "browser",
-      url: selection.url.slice(0, 2048),
-      selector: selection.selector.slice(0, 2048),
-      tag: selection.tag.slice(0, 64),
+      url: selection.url,
+      selector: selection.selector,
+      tag: selection.tag,
     },
-    quote: truncateText(formatElementAttachment(selection), ANNOTATION_CHARACTER_LIMIT),
-    note: annotation.comment.trim().slice(0, 8000),
+    quote: formatElementAttachment(selection),
+    note: annotation.comment.trim(),
     ...(screenshot ? { screenshot } : {}),
   };
 }

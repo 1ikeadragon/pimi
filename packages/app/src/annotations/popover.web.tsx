@@ -24,7 +24,6 @@ import { useOverlayRegistration, type KeyboardInputEvent } from "@/keyboard";
 import { getOverlayRoot, useGlobalOverlayLayer } from "@/lib/overlay-root";
 import { SPACING } from "@/styles/theme";
 import type { AnnotationEditorOutcome, AnnotationEditSession } from "./edit-session";
-import { annotationNoteError } from "./model";
 import {
   SELECTION_ACTION_GAP,
   WINDOW_EDGE_GAP,
@@ -113,7 +112,6 @@ export function AnnotationToolbar({
   onPress,
   onDismiss,
   toolbarRef,
-  tooLong,
   testID,
 }: {
   position: SelectionActionPosition;
@@ -121,8 +119,6 @@ export function AnnotationToolbar({
   /** Escape was pressed. */
   onDismiss(): void;
   toolbarRef: RefObject<HTMLDivElement | null>;
-  /** The selection is over the annotation size limit. */
-  tooLong: boolean;
   testID: string;
 }) {
   const layer = useGlobalOverlayLayer("floating", true);
@@ -161,12 +157,11 @@ export function AnnotationToolbar({
           variant="secondary"
           leftIcon={MessageSquarePlus}
           onPress={onPress}
-          disabled={tooLong}
           style={styles.toolbarButton}
-          accessibilityLabel={tooLong ? "Selection is too long to annotate" : "Annotate selection"}
+          accessibilityLabel="Annotate selection"
           testID={testID}
         >
-          {tooLong ? "Shorten selection" : "Annotate"}
+          Annotate
         </Button>
       </div>
     </div>,
@@ -302,7 +297,6 @@ export function AnnotationNoteEditor({
   const noteRef = useRef(note);
   noteRef.current = note;
   const layer = useGlobalOverlayLayer("floating", true);
-  const error = annotationNoteError(note, t);
 
   // The portal is measured before it becomes visible; focus after that layout pass.
   useLayoutEffect(() => {
@@ -325,9 +319,8 @@ export function AnnotationNoteEditor({
   const keepChangedNote = useCallback(() => {
     const current = noteRef.current.trim();
     const changed = current !== savedNote.trim();
-    if (changed && !annotationNoteError(current, t)) session.saveNote(current);
-    return changed;
-  }, [savedNote, session, t]);
+    if (changed) session.saveNote(current);
+  }, [savedNote, session]);
   const keepChangedNoteRef = useRef(keepChangedNote);
   keepChangedNoteRef.current = keepChangedNote;
   // The owning surface can go away under an open editor, as when its tab closes.
@@ -344,10 +337,9 @@ export function AnnotationNoteEditor({
   }, []);
 
   const save = useCallback(() => {
-    if (annotationNoteError(noteRef.current, t)) return;
     keepChangedNote();
     close("saved");
-  }, [close, keepChangedNote, t]);
+  }, [close, keepChangedNote]);
 
   const cancel = useCallback(() => {
     if (session.isNew) session.remove();
@@ -355,23 +347,18 @@ export function AnnotationNoteEditor({
   }, [close, session]);
 
   // Adapted from T3 Code apps/web/src/components/chat/assistantCitationCommentDismissal.ts (MIT, © 2026 T3 Tools Inc.).
-  const dismiss = useCallback(
-    (reason: "outside-press" | "source-gone") => {
-      const unsavable = keepChangedNote() && annotationNoteError(noteRef.current, t) !== null;
-      // A note that cannot be saved stays open so a stray press does not lose it.
-      if (unsavable && reason === "outside-press") return;
-      close("dismissed");
-    },
-    [close, keepChangedNote, t],
-  );
+  const dismiss = useCallback(() => {
+    keepChangedNote();
+    close("dismissed");
+  }, [close, keepChangedNote]);
 
-  useImperativeHandle(handleRef, () => ({ dismiss: () => dismiss("source-gone") }), [dismiss]);
+  useImperativeHandle(handleRef, () => ({ dismiss: () => dismiss() }), [dismiss]);
 
   useLayoutEffect(() => {
     function pressedOutside(event: PointerEvent) {
       const frame = frameRef.current;
       if (!frame || !(event.target instanceof Node) || frame.contains(event.target)) return;
-      dismiss("outside-press");
+      dismiss();
     }
     document.addEventListener("pointerdown", pressedOutside, true);
     return () => document.removeEventListener("pointerdown", pressedOutside, true);
@@ -429,23 +416,12 @@ export function AnnotationNoteEditor({
           placeholder={t("chips.notePlaceholder")}
           testID="annotation-note-input"
         />
-        {error ? (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {error}
-          </Text>
-        ) : null}
         <View style={styles.footer}>
           <Text style={styles.hint}>↵ to save</Text>
           <Button size="sm" variant="ghost" onPress={cancel} testID="annotation-cancel">
             {t("common.actions.cancel")}
           </Button>
-          <Button
-            size="sm"
-            variant="default"
-            onPress={save}
-            disabled={Boolean(error)}
-            testID="annotation-save"
-          >
+          <Button size="sm" variant="default" onPress={save} testID="annotation-save">
             {t("common.actions.save")}
           </Button>
         </View>
@@ -488,11 +464,6 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     paddingHorizontal: theme.spacing[1],
     color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-  },
-  error: {
-    paddingHorizontal: theme.spacing[1],
-    color: theme.colors.destructive,
     fontSize: theme.fontSize.sm,
   },
 }));

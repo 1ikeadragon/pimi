@@ -34,11 +34,7 @@ import {
   removeAnnotation,
   saveAnnotationNote,
 } from "./target";
-import {
-  ANNOTATION_CHARACTER_LIMIT,
-  type AnnotationCapture,
-  type AnnotationTextSelector,
-} from "./model";
+import { type AnnotationCapture, type AnnotationTextSelector } from "./model";
 import {
   isPointNearRect,
   isSelectionRectVisible,
@@ -170,7 +166,7 @@ function selectedMessageText(selection: Selection, root: HTMLElement): SelectedM
 
 function selectionQuote(selection: Selection, message: ChatMessage): string | null {
   const selectedText = selection.toString();
-  if (message.role === "user" || selectedText.length > ANNOTATION_CHARACTER_LIMIT) {
+  if (message.role === "user") {
     return selectedText;
   }
   // Reuse the copy serializer for Markdown boundaries, retaining code whitespace for snapshots.
@@ -466,7 +462,6 @@ export function ChatAnnotationSelection({
           onPress={handleAnnotate}
           onDismiss={dismissToolbar}
           toolbarRef={toolbar}
-          tooLong={surface.selection.capture.quote.length > ANNOTATION_CHARACTER_LIMIT}
           testID="annotation-toolbar-button"
         />
       ) : null}

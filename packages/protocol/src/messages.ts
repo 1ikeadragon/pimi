@@ -1016,9 +1016,9 @@ export const AnnotationSourceSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("browser"),
-    url: z.string().max(2048),
-    selector: z.string().max(2048),
-    tag: z.string().max(64),
+    url: z.string(),
+    selector: z.string(),
+    tag: z.string(),
   }),
 ]);
 
@@ -1043,10 +1043,10 @@ export const AnnotationAttachmentMetadataSchema = z.object({
 
 /** A browser element the user annotated: what its pill shows and the preview opens. */
 export const BrowserElementAttachmentMetadataSchema = z.object({
-  url: z.string().max(2048),
-  selector: z.string().max(2048),
-  tag: z.string().max(64),
-  comment: z.string().max(8000).optional(),
+  url: z.string(),
+  selector: z.string(),
+  tag: z.string(),
+  comment: z.string().optional(),
   /** Index of the element's screenshot among the message's images. */
   screenshotIndex: z.number().int().nonnegative().max(64).optional(),
 });

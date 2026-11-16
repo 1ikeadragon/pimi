@@ -7,11 +7,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useTranslation } from "@/i18n/use-translation";
 import { AnnotationLimitError } from "@/composer/chips/model";
 import { useToast } from "@/contexts/toast-context";
 import { buildDraftStoreKey } from "@/stores/draft-keys";
-import { ANNOTATION_CHARACTER_LIMIT, type AnnotationAttachment } from "./model";
+import type { AnnotationAttachment } from "./model";
 import { AnnotationSheet } from "./sheet";
 import {
   AnnotationTargetUnavailableError,
@@ -40,7 +39,6 @@ export function ChatAnnotateProvider({
   target: { serverId: string; agentId: string } | undefined;
   children: ReactNode;
 }) {
-  const { t } = useTranslation();
   const toast = useToast();
   const [editing, setEditing] = useState<AnnotationAttachment | null>(null);
   const saved = useRef(false);
@@ -57,10 +55,6 @@ export function ChatAnnotateProvider({
   const annotate = useCallback<ChatAnnotate>(
     async ({ messageId, role }, quote) => {
       if (!annotationTarget || !serverId || !agentId || !quote.trim()) return;
-      if (quote.length > ANNOTATION_CHARACTER_LIMIT) {
-        toast.error(t("chips.selectionTooLong"));
-        return;
-      }
       try {
         const attachment = await addAnnotationToChat(annotationTarget, {
           quote,
@@ -79,7 +73,7 @@ export function ChatAnnotateProvider({
         toast.error(error.message);
       }
     },
-    [annotationTarget, serverId, agentId, toast, t],
+    [annotationTarget, serverId, agentId, toast],
   );
 
   const save = useCallback(

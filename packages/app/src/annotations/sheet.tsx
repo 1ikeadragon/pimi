@@ -5,7 +5,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { AdaptiveModalSheet } from "@/components/adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
 import { FormTextInput } from "@/components/ui/form-field";
-import { annotationNoteError, annotationSourceLabel, type AnnotationAttachment } from "./model";
+import { annotationSourceLabel, type AnnotationAttachment } from "./model";
 
 /** The note editor for compact and touch layouts, opened from the annotation's pill. */
 export function AnnotationSheet({
@@ -20,24 +20,22 @@ export function AnnotationSheet({
   const { t } = useTranslation();
   const header = useMemo(() => ({ title: t("chips.sheetTitle") }), [t]);
   const [note, setNote] = useState(attachment.note);
-  const error = annotationNoteError(note, t);
   const save = useCallback(() => {
-    if (annotationNoteError(note, t)) return;
     onSave(note.trim());
     onClose();
-  }, [note, onClose, onSave, t]);
+  }, [note, onClose, onSave]);
   const footer = useMemo(
     () => (
       <View style={styles.actions}>
         <Button variant="secondary" onPress={onClose} testID="annotation-cancel">
           {t("common.actions.cancel")}
         </Button>
-        <Button variant="default" onPress={save} disabled={Boolean(error)} testID="annotation-save">
+        <Button variant="default" onPress={save} testID="annotation-save">
           {t("common.actions.save")}
         </Button>
       </View>
     ),
-    [onClose, save, error, t],
+    [onClose, save, t],
   );
   return (
     <AdaptiveModalSheet
@@ -64,11 +62,6 @@ export function AnnotationSheet({
           style={styles.input}
           testID="annotation-note-input"
         />
-        {error ? (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {error}
-          </Text>
-        ) : null}
       </View>
     </AdaptiveModalSheet>
   );
@@ -117,7 +110,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   input: { minHeight: 100, textAlignVertical: "top" },
   note: { color: theme.colors.foreground, fontSize: theme.fontSize.base },
-  error: { color: theme.colors.destructive, fontSize: theme.fontSize.sm },
   actions: {
     flex: 1,
     flexDirection: "row",

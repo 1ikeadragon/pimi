@@ -9,9 +9,6 @@ import {
   type AnnotationTextSelector,
 } from "@pimi/protocol/messages";
 
-// Bound user-authored annotation fields independently of chat reply rendering.
-export const ANNOTATION_CHARACTER_LIMIT = 32_000;
-
 const CHIP_LABEL_LENGTH = 40;
 
 export const AnnotationAttachmentSchema = z.strictObject({
@@ -20,8 +17,8 @@ export const AnnotationAttachmentSchema = z.strictObject({
   /** Which chip character in the draft text stands for this annotation; see `composer/chips`. */
   slot: z.number().int().min(0).max(31),
   source: AnnotationSourceSchema,
-  quote: z.string().max(ANNOTATION_CHARACTER_LIMIT),
-  note: z.string().max(ANNOTATION_CHARACTER_LIMIT),
+  quote: z.string(),
+  note: z.string(),
   // Absent on drafts saved before chat quotes were re-anchored, and on file annotations.
   selector: AnnotationTextSelectorSchema.optional(),
   /** A browser element's cropped screenshot, sent to the agent as an image beside the element. */
@@ -98,12 +95,6 @@ export function annotationAccessibilityLabel(
   const source = annotationSourceLabel(annotation.source, t);
   const note = annotation.note.trim();
   return note ? t("chips.annotationWithNote", { source, note }) : t("chips.annotation", { source });
-}
-
-export function annotationNoteError(note: string, t: TFunction): string | null {
-  return note.length > ANNOTATION_CHARACTER_LIMIT
-    ? t("chips.noteTooLong", { limit: ANNOTATION_CHARACTER_LIMIT.toLocaleString() })
-    : null;
 }
 
 /**
