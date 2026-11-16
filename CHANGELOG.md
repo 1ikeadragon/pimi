@@ -2,6 +2,13 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.66 - 2026-11-16
+
+- OpenCode: Ask Pimi can run commands while other chats use a shared server. Provider startup, authentication and usage-limit failures have clearer messages.
+- OpenCode: chat quotas can use account budgets from usage plugins.
+- New agent tabs, imported sessions and restored chats no longer become subagents automatically. Explicit subagent links stay intact.
+- Long assistant replies render in full, with links and visuals beyond the former cutoff. Completed Markdown blocks stay stable while text streams.
+
 ## 0.17.65 - 2026-11-16
 
 - Crew: choose a thinking level for each member when its model supports it.

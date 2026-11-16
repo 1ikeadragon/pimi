@@ -54,4 +54,6 @@ for (const name of readdirSync(buildOut)) {
   copyFileSync(path.join(buildOut, name), path.join(outDir, name));
   copied.push(name);
 }
-console.log(`build-win-helper: wrote ${path.relative(process.cwd(), outDir)} (${copied.join(", ")})`);
+console.log(
+  `build-win-helper: wrote ${path.relative(process.cwd(), outDir)} (${copied.join(", ")})`,
+);
