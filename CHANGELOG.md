@@ -4,10 +4,13 @@
 
 ## 0.17.66 - 2026-11-16
 
-- OpenCode: Ask Pimi can run commands while other chats use a shared server. Provider startup, authentication and usage-limit failures have clearer messages.
-- OpenCode: chat quotas can use account budgets from usage plugins.
-- New agent tabs, imported sessions and restored chats no longer become subagents automatically. Explicit subagent links stay intact.
-- Long assistant replies render in full, with links and visuals beyond the former cutoff. Completed Markdown blocks stay stable while text streams.
+- OpenCode: Ask Pimi can use its tools while other chats share a server. Startup, sign-in and usage-limit errors are clearer.
+- OpenCode: chat budgets follow the active provider and model, including after a switch.
+- New agent tabs, imports and restored chats stay independent unless explicitly linked as subagents.
+- Chat replies, visuals, annotations and attachments keep their full content. Completed Markdown blocks stay stable while replies stream.
+- Ask Pimi keeps full requests and replies, handles chat-opening intent through the agent, and confirms task saves only after they succeed.
+- Settings > Providers: expand the Supply chain package inventory to see configured commands, applied rules and observed cache versions. Cache evidence is labelled separately from installation or verification.
+- Plugins can append to saved chats after a restart without opening the chat first.
 
 ## 0.17.65 - 2026-11-16
 
