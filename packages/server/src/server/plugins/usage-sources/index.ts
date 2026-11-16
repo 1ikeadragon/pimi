@@ -40,6 +40,21 @@ export interface ListUsageReportsOptions {
   onReport?: (report: UsageReportEntry) => void;
 }
 
+type UsageSessionIdentity = Pick<AgentUsageSession, "sessionKey" | "provider" | "model">;
+
+function sameUsageSession(
+  left: UsageSessionIdentity | null | undefined,
+  right: UsageSessionIdentity | null | undefined,
+): boolean {
+  return Boolean(
+    left &&
+    right &&
+    left.sessionKey === right.sessionKey &&
+    left.provider === right.provider &&
+    left.model === right.model,
+  );
+}
+
 interface AgentReports {
   provider: string;
   model?: string;
@@ -89,6 +104,8 @@ export class UsageSourceRegistry {
     if (options.agentId !== undefined && options.reportIds !== undefined)
       throw new Error("agentId and reportIds cannot be combined");
     this.pruneAgents();
+    const agentId = options.agentId;
+    const session = agentId === undefined ? undefined : this.agents.usageSession(agentId);
     let ids: string[];
     let reports = this.known;
     if (options.agentId !== undefined) {
@@ -101,18 +118,24 @@ export class UsageSourceRegistry {
       this.mergeKnown();
       ids = [...this.known.keys()];
     }
-    return Promise.all(
+    const entries = await Promise.all(
       [...new Set(ids)].flatMap((id) => {
         const known = reports.get(id);
         if (!known) return [];
         return [
           this.fetchId(id, known, options.forceRefresh).then((entry) => {
+            if (
+              agentId !== undefined &&
+              !sameUsageSession(session, this.agents.usageSession(agentId))
+            )
+              return null;
             options.onReport?.(entry);
             return entry;
           }),
         ];
       }),
     );
+    return entries.filter((entry): entry is UsageReportEntry => entry !== null);
   }
 
   /** The account labels each source can identify for a launch environment; fetches no usage. */
@@ -137,19 +160,15 @@ export class UsageSourceRegistry {
       return [];
     }
     const previous = this.byAgent.get(agentId);
-    const sameScope =
-      previous?.sessionKey === session.sessionKey &&
-      previous.provider === session.provider &&
-      previous.model === session.model;
-    if (sameScope) return [...previous.reports.keys()];
+    if (previous && sameUsageSession(previous, session)) return [...previous.reports.keys()];
     const reports = await this.discover({
       kind: "session",
       provider: session.provider,
       model: session.model,
       env: session.env,
     });
-    // A query that finishes after a resume must not publish the previous launch's mapping.
-    if (this.agents.usageSession(agentId)?.sessionKey !== session.sessionKey) return [];
+    // Resume, provider switching, and in-session model changes all replace the quota scope.
+    if (!sameUsageSession(session, this.agents.usageSession(agentId))) return [];
     this.byAgent.set(agentId, {
       sessionKey: session.sessionKey,
       provider: session.provider,
