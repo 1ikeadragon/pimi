@@ -28,9 +28,12 @@ import { selectOpenCodeService } from "./v2/service-selection.js";
 const MINIMUM_V2: readonly [number, number] = [0, 10];
 const VERSION_PATTERN = /^(?:opencode\s+)?v?(\d+)\.(\d+)\.(\d+)(?:[-+][\w.-]+)?$/i;
 
-export function openCodeMajorVersion(output: string): 1 | 2 {
+export function openCodeMajorVersion(output: string, command = "opencode"): 1 | 2 {
   const version = output.trim().match(VERSION_PATTERN);
-  if (!version) return 1;
+  if (!version)
+    throw new Error(
+      `The configured OpenCode command (${JSON.stringify(command)}) did not report a recognized version. Check its configuration in Settings → Providers; it must support --version.`,
+    );
   if (version[1] === "1") return 1;
   if (version[1] === "2") {
     const [minimumMinor, minimumPatch] = MINIMUM_V2;
@@ -89,25 +92,23 @@ export class OpenCodeRuntimeClient implements AgentClient {
           selection,
         });
       }
+      const launch = await resolveProviderLaunch({
+        commandConfig: this.settings?.command,
+        defaultBinary: "opencode",
+      });
       let output: string;
       try {
-        const launch = await resolveProviderLaunch({
-          commandConfig: this.settings?.command,
-          defaultBinary: "opencode",
-        });
         const result = await execCommand(launch.command, [...launch.args, "--version"], {
           ...createProviderEnvSpec({ runtimeSettings: this.settings }),
           timeout: 5_000,
         });
         output = result.stdout;
       } catch {
-        // Version discovery is additive: legacy wrappers need not support --version.
-        this.selected = null;
-        this.legacySelected = true;
-        return this.legacy;
+        throw new Error(
+          `The configured OpenCode command (${JSON.stringify(launch.command)}) could not report its version. Check that it is installed and supports --version in Settings → Providers.`,
+        );
       }
-      if (!VERSION_PATTERN.test(output.trim())) this.selected = null;
-      if (openCodeMajorVersion(output) === 1) {
+      if (openCodeMajorVersion(output, launch.command) === 1) {
         this.legacySelected = true;
         return this.legacy;
       }
