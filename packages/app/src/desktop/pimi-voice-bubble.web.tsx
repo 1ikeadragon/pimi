@@ -3,6 +3,7 @@ import { router, usePathname } from "expo-router";
 import { CircleAlert, Mic, Square, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, Text, View, type ViewStyle } from "react-native";
+import { MarkdownRenderer } from "@/components/markdown/renderer";
 import { PimiMascot } from "@/components/icons/pimi-mascot";
 import { StyleSheet } from "react-native-unistyles";
 import { categoryOf, type CommandCenterContribution } from "@/command-center/contributions";
@@ -40,11 +41,7 @@ import {
   PIMI_USAGE_ROUTE,
 } from "@/navigation/pimi-usage";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
-import {
-  buildDraftStoreKey,
-  buildNewWorkspaceDraftKey,
-  generateDraftId,
-} from "@/stores/draft-keys";
+import { buildNewWorkspaceDraftKey, generateDraftId } from "@/stores/draft-keys";
 import { useDraftStore } from "@/stores/draft-store";
 import {
   navigateToWorkspace,
@@ -60,8 +57,6 @@ import {
 } from "@/utils/host-routes";
 import { getVoiceReadinessState } from "@/utils/server-info-capabilities";
 import {
-  isExplicitVoiceChatRequest,
-  PIMI_VOICE_COMMAND_LIMIT,
   type PimiVoiceBubbleState,
   PimiVoiceNavigation,
   type PimiDestination,
@@ -278,18 +273,19 @@ function openVoiceView(
 
 // A spoken title is enough to save the task; without one there is nothing to save, so the Tasks
 // list opens for the user to add it.
-function addVoiceTask(
+async function addVoiceTask(
   command: Extract<PimiVoiceNavigation, { action: "new-task" }>,
   client: DaemonClient | null,
   localServerId: string,
-): string {
+): Promise<string> {
   const { description } = command;
   const title = command.title ?? description?.slice(0, TASK_TITLE_MAX_LENGTH).trim();
   if (title && client) {
-    void client
-      .taskCreate({ task: { title, ...(description ? { description } : {}) } })
-      .then((created) => openPimiTasks(localServerId, created.task.id));
-    return "Adding a task";
+    const created = await client.taskCreate({
+      task: { title, ...(description ? { description } : {}) },
+    });
+    openPimiTasks(localServerId, created.task.id);
+    return "Task created";
   }
   openPimiTasks(localServerId);
   return "Opening Tasks";
@@ -301,14 +297,12 @@ function applyVoiceCommand(
     host,
     localServerId,
     client,
-    selection,
     pathname,
     agentId,
   }: {
     host: DesktopHostBridge;
     localServerId: string;
     client: DaemonClient | null;
-    selection: ReturnType<typeof useActiveWorkspaceSelection>;
     pathname: string;
     agentId?: string;
   },
@@ -342,16 +336,12 @@ function applyVoiceCommand(
       return addVoiceTask(command, client, localServerId);
     case "new-chat": {
       const draftId = generateDraftId();
-      const draftKey = selection
-        ? buildDraftStoreKey({ serverId: selection.serverId, agentId: "", draftId })
-        : buildNewWorkspaceDraftKey(draftId);
+      const draftKey = buildNewWorkspaceDraftKey(draftId);
       if (command.text) useDraftStore.getState().editDraftText({ draftKey, text: command.text });
       host.dismissPimiWorkspace?.();
-      if (selection) {
-        navigateToWorkspace({ ...selection, target: { kind: "draft", draftId } });
-      } else {
-        router.navigate(buildNewWorkspaceRoute({ serverId: localServerId, draftId }));
-      }
+      router.navigate(
+        buildNewWorkspaceRoute({ serverId: localServerId, draftId, chooseProject: true }),
+      );
       return "Opening chat draft";
     }
   }
@@ -408,9 +398,9 @@ function VoiceReceipt({
                 {receipt.state === "error" ? (
                   <DensityIcon icon={CircleAlert} size="sm" color="statusDanger" />
                 ) : null}
-                <Text selectable style={styles.reply}>
-                  {receipt.message}
-                </Text>
+                <View style={styles.replyBody}>
+                  <MarkdownRenderer text={receipt.message} compact />
+                </View>
               </View>
             )}
           </View>
@@ -552,23 +542,34 @@ function DesktopVoiceBubble({
       setReceiptId(recordId);
       const agentId =
         useSessionStore.getState().sessions[localServerId]?.focusedAgentId ?? undefined;
-      const navigationContext = { host, localServerId, client, selection, pathname, agentId };
+      const navigationContext = { host, localServerId, client, pathname, agentId };
       if (command) {
         const parsed = PimiVoiceNavigation.safeParse(command);
-        try {
-          if (parsed.success) complete(applyVoiceCommand(parsed.data, navigationContext) ?? "Done");
-          else complete("Try a shorter command.", true);
-        } catch {
-          complete("Couldn’t finish that command.", true);
-        }
+        commandRunning.current = true;
+        setProgress(WORKING);
+        void (async () => {
+          try {
+            if (!parsed.success) {
+              complete("Couldn’t understand that command.", true);
+              return;
+            }
+            complete((await applyVoiceCommand(parsed.data, navigationContext)) ?? "Done");
+          } catch (error) {
+            complete(
+              error instanceof Error ? error.message : "Couldn’t finish that command.",
+              true,
+            );
+          } finally {
+            commandRunning.current = false;
+            setProgress("");
+          }
+        })();
         return;
       }
-      const wantsChat = isExplicitVoiceChatRequest(transcript);
       // Settings and slash commands are for the palette; the voice agent is offered commands only.
       const commands = contributions
         .filter((entry) => categoryOf(entry) === "command")
-        .filter(({ id }) => wantsChat || !id.endsWith("tab:new-agent"))
-        .slice(0, PIMI_VOICE_COMMAND_LIMIT);
+        .filter(({ id }) => !id.endsWith("tab:new-agent"));
       commandRunning.current = true;
       setProgress("");
       void (async () => {
@@ -577,7 +578,7 @@ function DesktopVoiceBubble({
             transcript,
             agentId,
             workspaceId: selection?.serverId === localServerId ? selection.workspaceId : undefined,
-            commands: commands.map((entry) => commandTitle(entry).slice(0, 160)),
+            commands: commands.map(commandTitle),
           });
           if (result.ignored) {
             // Background speech asked for nothing. Keep it in history and show no receipt.
@@ -587,7 +588,7 @@ function DesktopVoiceBubble({
           }
           const applyEffect = async (effect: PimiVoiceEffect) => {
             if (effect.destination) showVoiceDestination(host, effect.destination, localServerId);
-            if (effect.chat && wantsChat) {
+            if (effect.chat) {
               host.dismissPimiWorkspace?.();
               const { serverId, workspaceId, agentId: id } = effect.chat;
               navigateToWorkspace({
@@ -596,10 +597,7 @@ function DesktopVoiceBubble({
                 target: { kind: "agent", agentId: id },
               });
             }
-            const target =
-              effect.navigation?.action === "new-chat" && !wantsChat
-                ? undefined
-                : effect.navigation;
+            const target = effect.navigation;
             if (target?.action === "registered-commands") {
               return runRegisteredCommands(target.indexes, commands, () => currentCommands.current);
             }
@@ -613,7 +611,7 @@ function DesktopVoiceBubble({
           }
           complete([result.message, ...notes].filter(Boolean).join(" · ") || "Done", result.failed);
         } catch (error) {
-          const message = error instanceof Error ? error.message.split("Error: ").at(-1) : "";
+          const message = error instanceof Error ? error.message : "";
           complete(message || "Couldn’t finish that command.", true);
         } finally {
           commandRunning.current = false;
@@ -650,7 +648,7 @@ function DesktopVoiceBubble({
       bridge.publish({
         visible,
         active: visible && active,
-        status: visible ? status.slice(0, 240) : "",
+        status: visible ? status : "",
         level: visible ? workspaceLevel : 0,
         receipt: visible ? receipt : undefined,
       }),
@@ -743,7 +741,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: theme.spacing[2],
     boxShadow: BUBBLE_SHADOW,
   },
-  reply: { color: theme.colors.foreground, fontSize: theme.fontSize.base, flexShrink: 1 },
+  replyBody: { flex: 1, minWidth: 0 },
   typingBubble: {
     flexDirection: "row",
     alignItems: "center",

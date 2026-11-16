@@ -1,5 +1,4 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-import { PIMI_ASK_MESSAGE_LIMIT } from "@pimi/protocol/pimi-task";
 import { renderTemplate } from "../prompts/render.js";
 import { askPimiFailureFromCode, type AskPimiProviderError } from "./pimi-ask-error.js";
 import type { AgentManager } from "./agent-manager.js";
@@ -75,19 +74,6 @@ export function buildAskPimiPrompt(options: {
   }
   lines.push(`Spoken request: ${JSON.stringify(options.transcript)}`);
   return lines.join("\n");
-}
-
-export function askPimiReply(finalText: string): string {
-  const plain = finalText
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/(\*\*|__|`)/g, "")
-    .replace(/^\s*(?:[-*•]|#{1,6})\s+/gm, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (plain.length <= PIMI_ASK_MESSAGE_LIMIT) return plain;
-  const cut = plain.slice(0, PIMI_ASK_MESSAGE_LIMIT - 1);
-  const sentence = cut.lastIndexOf(". ");
-  return sentence > PIMI_ASK_MESSAGE_LIMIT / 2 ? cut.slice(0, sentence + 1) : `${cut}…`;
 }
 
 /**

@@ -32,8 +32,8 @@ export const PimiSpacesDestination = z.object({
   view: z.literal("spaces"),
   action: z
     .discriminatedUnion("kind", [
-      z.object({ kind: z.literal("draft"), text: z.string().max(4096).optional() }),
-      z.object({ kind: z.literal("search"), query: z.string().trim().min(1).max(160) }),
+      z.object({ kind: z.literal("draft"), text: z.string().optional() }),
+      z.object({ kind: z.literal("search"), query: z.string().trim().min(1) }),
       z.object({ kind: z.literal("saved") }),
       z.object({ kind: z.enum(["open", "remove"]), id: z.uuid() }),
     ])
@@ -59,12 +59,11 @@ export type PimiWorkspaceSection = "memory" | "spaces";
 export type PimiActivitySection = "review";
 
 export const PIMI_VOICE_COMMAND_ROUTE = "/api/pimi/voice-command";
-export const PIMI_VOICE_COMMAND_LIMIT = 128;
 export const PimiVoiceCommandInput = z.strictObject({
-  transcript: z.string().trim().min(1).max(4096),
+  transcript: z.string().trim().min(1),
   agentId: z.string().min(1).max(256).optional(),
   workspaceId: z.string().min(1).max(256).optional(),
-  commands: z.array(z.string().min(1).max(160)).max(PIMI_VOICE_COMMAND_LIMIT).optional(),
+  commands: z.array(z.string().min(1)).optional(),
 });
 export type PimiVoiceCommandInput = z.infer<typeof PimiVoiceCommandInput>;
 
@@ -84,8 +83,8 @@ export const PimiVoiceView = z.enum([
 ]);
 export type PimiVoiceView = z.infer<typeof PimiVoiceView>;
 
-const voiceNote = z.string().trim().min(1).max(4096);
-const voiceTarget = z.string().trim().min(1).max(160);
+const voiceNote = z.string().trim().min(1);
+const voiceTarget = z.string().trim().min(1);
 export const PimiVoiceUsageTab = z.enum(["overview", "sessions", "limits", "recap"]);
 export const PimiVoiceNavigation = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("show"), view: PimiVoiceView }),
@@ -117,16 +116,7 @@ export const PimiVoiceNavigation = z.discriminatedUnion("action", [
   }),
   z.strictObject({
     action: z.literal("registered-commands"),
-    indexes: z
-      .array(
-        z
-          .number()
-          .int()
-          .min(0)
-          .max(PIMI_VOICE_COMMAND_LIMIT - 1),
-      )
-      .min(1)
-      .max(3),
+    indexes: z.array(z.number().int().min(0)).min(1).max(3),
   }),
 ]);
 export type PimiVoiceNavigation = z.infer<typeof PimiVoiceNavigation>;
@@ -152,10 +142,9 @@ export const PimiAskAction = z.discriminatedUnion("action", [
 ]);
 export type PimiAskAction = z.infer<typeof PimiAskAction>;
 export const PIMI_ASK_ACTION_LIMIT = 3;
-export const PIMI_ASK_MESSAGE_LIMIT = 1200;
 
 export const PimiAskResult = z.strictObject({
-  message: z.string().max(PIMI_ASK_MESSAGE_LIMIT),
+  message: z.string(),
   actions: z.array(PimiAskAction).max(PIMI_ASK_ACTION_LIMIT),
   // Speech that asked for nothing. The app dismisses it without an error.
   ignored: z.literal(true).optional(),
@@ -167,25 +156,11 @@ export type PimiAskResult = z.infer<typeof PimiAskResult>;
 // an error.
 export const PIMI_ASK_STREAM_TYPE = "application/x-ndjson";
 export const PimiAskEvent = z.discriminatedUnion("type", [
-  z.strictObject({ type: z.literal("status"), text: z.string().min(1).max(80) }),
+  z.strictObject({ type: z.literal("status"), text: z.string().min(1) }),
   z.strictObject({ type: z.literal("result"), result: PimiAskResult }),
-  z.strictObject({ type: z.literal("error"), error: z.string().min(1).max(240) }),
+  z.strictObject({ type: z.literal("error"), error: z.string().min(1) }),
 ]);
 export type PimiAskEvent = z.infer<typeof PimiAskEvent>;
-
-export function isExplicitVoiceChatRequest(transcript: string): boolean {
-  const chat =
-    "(?:(?:a|another|any)\\s+)?(?:(?:brand[- ]new|new|fresh|separate)\\s+)?(?:chats?|conversations?|threads?)\\b";
-  const declined = new RegExp(
-    `\\b(?:don.t|do not|never|without)\\s+(?:(?:actually|just)\\s+)?(?:open(?:ing)?|start(?:ing)?|creat(?:e|ing)|launch(?:ing)?|begin(?:ning)?|mak(?:e|ing)|spin(?:ning)? up)\\s+(?:me\\s+)?${chat}`,
-    "i",
-  );
-  if (declined.test(transcript)) return false;
-  return new RegExp(
-    `(?:^|[,;.!?]|\\b(?:and|then)\\b)\\s*(?:(?:hey pimi|pimi|ok(?:ay)?|please|can you|could you|would you|i (?:want|need) you to|i.d like you to|um|uh|just|actually)[\\s,]+)*(?:open|start|create|launch|begin|make|spin up)\\s+(?:me\\s+)?${chat}`,
-    "i",
-  ).test(transcript);
-}
 
 export interface PimiVoiceEffect {
   destination?: PimiVoiceDestination;
@@ -299,12 +274,12 @@ export function isPimiSpaceEmbed(url: URL): boolean {
 export const PimiVoiceBubbleState = z.strictObject({
   visible: z.boolean(),
   active: z.boolean(),
-  status: z.string().max(240),
+  status: z.string(),
   level: z.number().min(0).max(1),
   receipt: z
     .strictObject({
-      transcript: z.string().max(4096),
-      message: z.string().max(1600),
+      transcript: z.string(),
+      message: z.string(),
       state: z.enum(["working", "finished", "error"]),
     })
     .optional(),

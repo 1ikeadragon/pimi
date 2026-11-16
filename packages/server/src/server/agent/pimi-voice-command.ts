@@ -14,13 +14,7 @@ import type { AgentManager } from "./agent-manager.js";
 import type { StructuredGenerationProvider } from "./agent-response-loop.js";
 import type { AgentSessionConfig, ProviderSnapshotEntry } from "./agent-sdk-types.js";
 import type { ProviderSnapshotManager } from "./provider-snapshot-manager.js";
-import {
-  ASK_PIMI_NOTHING,
-  AskPimiMemory,
-  askPimiReply,
-  buildAskPimiPrompt,
-  runAskPimiTurn,
-} from "./pimi-ask.js";
+import { ASK_PIMI_NOTHING, AskPimiMemory, buildAskPimiPrompt, runAskPimiTurn } from "./pimi-ask.js";
 import type { AskPimiToolSessions } from "./pimi-ask-mcp.js";
 import { createAskPimiToolset, type AskPimiToolset } from "./pimi-ask-tools.js";
 import type { PimiToolCatalog } from "./tools/types.js";
@@ -129,7 +123,7 @@ function finishTurn(
   toolset: AskPimiToolset,
   provider: StructuredGenerationProvider,
 ): PimiAskResult | null {
-  const reply = askPimiReply(finalText);
+  const reply = finalText.trim();
   const acted = toolset.actions.length > 0 || toolset.saved.length > 0;
   const nothing = new RegExp(`^\\W*${ASK_PIMI_NOTHING}\\W*$`, "i").test(reply);
   // Small models often answer background speech with silence instead of the marker.
@@ -184,7 +178,6 @@ export function createPimiVoiceCommandHandler(options: {
       const toolset = createAskPimiToolset({
         catalog: options.createToolCatalog(provider.provider),
         spaces: options.spaces,
-        transcript: input.transcript,
         commands,
         resolveProject: options.resolveProject,
         onStatus,

@@ -6,10 +6,9 @@ import { createValidatedPersistStorage } from "@/storage/validated-persist-stora
 import { generateDraftId } from "@/stores/draft-keys";
 
 const MAX_HISTORY = 20;
-export const MAX_VOICE_RECEIPT_LENGTH = 1600;
 
 const outcomeSchema = z.strictObject({
-  message: z.string().max(MAX_VOICE_RECEIPT_LENGTH),
+  message: z.string(),
   failed: z.boolean(),
 });
 const historySchema = z.strictObject({
@@ -18,7 +17,7 @@ const historySchema = z.strictObject({
       z.strictObject({
         id: z.string(),
         at: z.number().int().nonnegative(),
-        transcript: z.string().max(4096),
+        transcript: z.string(),
         outcome: outcomeSchema.optional(),
       }),
     )
@@ -39,7 +38,7 @@ export const usePimiVoiceHistory = create<VoiceHistoryStore>()(
       entries: [],
       record: (transcript) => {
         const id = generateDraftId();
-        const entry = { id, at: Date.now(), transcript: transcript.trim().slice(0, 4096) };
+        const entry = { id, at: Date.now(), transcript: transcript.trim() };
         set(({ entries }) => ({ entries: [entry, ...entries].slice(0, MAX_HISTORY) }));
         return id;
       },
@@ -51,7 +50,7 @@ export const usePimiVoiceHistory = create<VoiceHistoryStore>()(
                   ...entry,
                   outcome: {
                     ...outcome,
-                    message: outcome.message.slice(0, MAX_VOICE_RECEIPT_LENGTH),
+                    message: outcome.message,
                   },
                 }
               : entry,

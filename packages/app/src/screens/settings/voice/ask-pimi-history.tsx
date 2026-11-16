@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { MarkdownRenderer } from "@/components/markdown/renderer";
 import { SettingsCard, SettingsSection } from "@/components/settings";
 import { Button } from "@/components/ui/button";
 import { usePimiVoiceHistory } from "@/desktop/pimi-voice-history";
@@ -35,9 +36,13 @@ export function AskPimiHistory() {
               <Text selectable style={styles.transcript}>
                 {entry.transcript}
               </Text>
-              <Text selectable style={entry.outcome?.failed ? styles.error : styles.time}>
-                {entry.outcome?.message || "Transcript received"}
-              </Text>
+              {entry.outcome?.failed ? (
+                <Text selectable style={styles.error}>
+                  {entry.outcome.message}
+                </Text>
+              ) : (
+                <MarkdownRenderer text={entry.outcome?.message || "Transcript received"} compact />
+              )}
             </View>
           ))
         ) : (
