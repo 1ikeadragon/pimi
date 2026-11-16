@@ -1160,8 +1160,6 @@ interface ChatMember {
   createdAt: number;
 }
 
-const NO_CHAT_CLAIM = (): void => undefined;
-
 /**
  * How long an archived internal agent stays readable by id. Storage plays this
  * role for public agents; internal agents never reach it, and a one-shot helper
@@ -1240,9 +1238,6 @@ export class AgentManager {
   private readonly isAutoNamingEnabled?: () => boolean;
   private readonly resolveChatRecordTitle?: (workspaceId: string) => Promise<string | null>;
   private readonly createChatWorkspace?: AgentManagerOptions["createChatWorkspace"];
-  // Workspaces whose first agent is still being created. A second creation waits for it, so two
-  // agents started together cannot both become the chat.
-  private readonly chatRootClaims = new Map<string, Promise<void>>();
   private logger: Logger;
   private readonly rescueTimeouts: Required<AgentManagerRescueTimeouts>;
   private readonly beforeSteerUnavailableFallback?: AgentManagerOptions["beforeSteerUnavailableFallback"];
@@ -2011,7 +2006,8 @@ export class AgentManager {
 
   /**
    * A workspace is one chat: a root agent and the subagents below it. The root is the agent with
-   * no parent, or with a parent in another workspace. Returns the oldest one that is not archived.
+   * no parent, or with a parent in another workspace. Several independent agent tabs may share a
+   * workspace; this returns the oldest other root when an explicit detach needs its own chat.
    */
   private async findChatRoot(workspaceId: string, exceptAgentId?: string): Promise<string | null> {
     const members = await this.listChatMembers(workspaceId);
@@ -2030,51 +2026,6 @@ export class AgentManager {
       if (!root || member.createdAt < root.createdAt) root = member;
     }
     return root?.id ?? null;
-  }
-
-  /**
-   * Decides what a new agent is to the chat it is placed in. A subagent of an agent in that chat
-   * stays one. Anything else becomes the chat when the workspace has none, and otherwise joins it
-   * as a subagent of the chat. `settle` must be called once the agent is registered or has failed.
-   */
-  private async claimChatPlacement(input: {
-    agentId: string;
-    workspaceId: string | undefined;
-    labels: Record<string, string> | undefined;
-    hidden: boolean;
-  }): Promise<{ labels: Record<string, string> | undefined; settle: () => void }> {
-    const { workspaceId, labels } = input;
-    const unclaimed = { labels, settle: NO_CHAT_CLAIM };
-    if (!workspaceId || input.hidden) return unclaimed;
-    const parent = await this.resolveParentWorkspace(labels);
-    if (
-      parent.parented &&
-      (parent.workspaceId === "unknown" || parent.workspaceId === workspaceId)
-    ) {
-      return unclaimed;
-    }
-    for (let pending = this.chatRootClaims.get(workspaceId); pending; ) {
-      await pending;
-      pending = this.chatRootClaims.get(workspaceId);
-    }
-    let resolveClaim: () => void = NO_CHAT_CLAIM;
-    const claim = new Promise<void>((done) => {
-      resolveClaim = done;
-    });
-    this.chatRootClaims.set(workspaceId, claim);
-    const settle = (): void => {
-      if (this.chatRootClaims.get(workspaceId) === claim) this.chatRootClaims.delete(workspaceId);
-      resolveClaim();
-    };
-    try {
-      const chatAgentId = await this.findChatRoot(workspaceId, input.agentId);
-      if (!chatAgentId) return { labels, settle };
-      settle();
-      return { labels: { ...labels, [PARENT_AGENT_ID_LABEL]: chatAgentId }, settle: NO_CHAT_CLAIM };
-    } catch (error) {
-      settle();
-      throw error;
-    }
   }
 
   /**
@@ -2170,18 +2121,7 @@ export class AgentManager {
     }
     // A chat created in Crew mode opens with the lead instructions in its system prompt.
     if (config.crew) config = { ...config, crewTold: true };
-    const placement = await this.claimChatPlacement({
-      agentId: resolvedAgentId,
-      workspaceId: options.workspaceId,
-      labels: options.labels,
-      hidden: config.internal === true || options.background === true,
-    });
-    options = { ...options, labels: placement.labels };
-    try {
-      return await this.createPlacedAgent(config, resolvedAgentId, options, withoutAppTools);
-    } finally {
-      placement.settle();
-    }
+    return this.createPlacedAgent(config, resolvedAgentId, options, withoutAppTools);
   }
 
   private async createPlacedAgent(
@@ -2416,20 +2356,7 @@ export class AgentManager {
     this.assertAcceptingAgentRegistrations();
     const resolvedAgentId = validateAgentId(this.idFactory(), "importProviderSession");
     this.requireEnabledProvider(input.provider);
-    const placement = await this.claimChatPlacement({
-      agentId: resolvedAgentId,
-      workspaceId: input.workspaceId,
-      labels: input.labels,
-      hidden: false,
-    });
-    try {
-      return await this.importPlacedProviderSession(
-        { ...input, labels: placement.labels },
-        resolvedAgentId,
-      );
-    } finally {
-      placement.settle();
-    }
+    return this.importPlacedProviderSession(input, resolvedAgentId);
   }
 
   private async importPlacedProviderSession(
@@ -3917,27 +3844,14 @@ export class AgentManager {
     if (this.agents.has(agentId)) await this.closeAgentRuntime(agentId);
     await this.syncNativeArchiveState(record.provider, record.persistence, "restore");
 
-    let nextRecord: StoredAgentRecord = {
+    const nextRecord: StoredAgentRecord = {
       ...record,
       ...(updates?.workspaceId ? { workspaceId: updates.workspaceId } : {}),
       ...(updates?.labels ? { labels: applyLabelPatch(record.labels, updates.labels) } : {}),
       archivedAt: null,
       updatedAt: new Date().toISOString(),
     };
-    // The workspace may have gained a chat while this one was archived. Placed there on purpose
-    // (an import into that chat), it joins as a subagent; restored, it gets a workspace of its own.
-    const otherChatAgentId = await this.findOtherChatFor(nextRecord);
-    if (otherChatAgentId && updates?.workspaceId) {
-      nextRecord = {
-        ...nextRecord,
-        labels: { ...nextRecord.labels, [PARENT_AGENT_ID_LABEL]: otherChatAgentId },
-      };
-    }
     await registry.upsert(nextRecord);
-    if (otherChatAgentId && !updates?.workspaceId) {
-      await this.giveOwnChatWorkspace(agentId);
-      nextRecord = (await registry.get(agentId)) ?? nextRecord;
-    }
 
     if (this.getAgent(agentId)) {
       this.notifyAgentState(agentId);
@@ -3946,19 +3860,6 @@ export class AgentManager {
       this.dispatchStoredAgentState(nextRecord);
     }
     return true;
-  }
-
-  /** The chat a root record would share its workspace with, or null when it would not. */
-  private async findOtherChatFor(record: StoredAgentRecord): Promise<string | null> {
-    if (!record.workspaceId || record.internal || record.background) return null;
-    const parent = await this.resolveParentWorkspace(record.labels);
-    if (
-      parent.parented &&
-      (parent.workspaceId === "unknown" || parent.workspaceId === record.workspaceId)
-    ) {
-      return null;
-    }
-    return this.findChatRoot(record.workspaceId, record.id);
   }
 
   async unarchiveSnapshotByHandle(handle: AgentPersistenceHandle): Promise<void> {
