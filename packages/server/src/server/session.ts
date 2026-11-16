@@ -8206,6 +8206,12 @@ export class Session {
   ): Promise<void> {
     const pluginId = parsePluginClientId(this.clientId);
     if (!pluginId) throw new Error("Only plugin sessions can append plugin timeline items");
+    await ensureAgentLoaded(msg.agentId, {
+      agentManager: this.agentManager,
+      agentStorage: this.agentStorage,
+      logger: this.sessionLogger,
+      purpose: "history",
+    });
     const { seq, epoch } = await this.agentManager.appendTimelineItem(msg.agentId, {
       ...msg.item,
       pluginId,
