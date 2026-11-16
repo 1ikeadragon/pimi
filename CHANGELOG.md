@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.67 - 2026-11-17
+
+- Fix Ask Pimi failing to start after a protocol change.
+
 ## 0.17.66 - 2026-11-16
 
 - OpenCode: Ask Pimi can use its tools while other chats share a server. Startup, sign-in and usage-limit errors are clearer.
