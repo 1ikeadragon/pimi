@@ -1,4 +1,4 @@
-import { isExplicitVoiceChatRequest, PimiAskResult } from "@pimi/protocol/pimi-task";
+import { PimiAskResult } from "@pimi/protocol/pimi-task";
 import { RequestError } from "./git.mjs";
 
 async function findTask(pimi, title) {
@@ -126,9 +126,6 @@ async function resolveAction(action, input, services, chatProvider) {
       };
     case "start-chat": {
       // The agent chose only the card. The user's own request is the prompt of the chat.
-      if (!isExplicitVoiceChatRequest(input.transcript)) {
-        throw new RequestError("Ask Pimi to start a chat if you want one.");
-      }
       let reference;
       if (action.card) {
         const { items } = await pimi.spaces({ action: "list" });
@@ -155,9 +152,6 @@ async function resolveAction(action, input, services, chatProvider) {
       return { chat, message: "" };
     }
     case "new-chat":
-      if (!isExplicitVoiceChatRequest(input.transcript)) {
-        throw new RequestError("Ask Pimi to open a new chat if you want one.");
-      }
       return { navigation: action, message: "" };
     case "registered-commands":
       if (action.indexes.some((index) => !input.commands?.[index])) {
