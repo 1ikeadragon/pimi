@@ -2,7 +2,6 @@ import { fromMarkdown } from "mdast-util-from-markdown";
 import { ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT } from "./assistant-message-render-limit.shared";
 import type { CappedAssistantMessage } from "./assistant-message-render-limit.shared";
 export {
-  getUtf8ByteLength,
   ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT,
   type CappedAssistantMessage,
 } from "./assistant-message-render-limit.shared";

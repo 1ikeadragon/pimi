@@ -69,7 +69,9 @@ import {
 import { useTranslation } from "@/i18n/use-translation";
 import { Pressable, StyleProp, Text, View, ViewStyle, type TextStyle } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { capAssistantMessageForRender, getUtf8ByteLength } from "./assistant-message-render-limit";
+import { capAssistantMessageForRender } from "./assistant-message-render-limit";
+import { AssistantMessageCappedNotice } from "./assistant-message-capped-notice";
+import { useCappedMessageExpanded } from "@/agent-stream/capped-message-expansion";
 import { getTurnDurationLabel } from "./assistant-turn-footer-label";
 import { getCompactionMarkerLabel } from "./message-compaction-label";
 import { ActivityRow, type ActivityRowState } from "./activity-row";
@@ -702,13 +704,6 @@ export const assistantMessageStylesheet = StyleSheet.create((theme) => ({
   containerCompactBottom: {
     paddingBottom: 0,
   },
-  cappedNotice: {
-    marginTop: theme.spacing[3],
-    fontFamily: theme.fontFamily.ui,
-    fontSize: theme.fontSize.base,
-    fontStyle: "italic",
-    color: theme.colors.foregroundMuted,
-  },
   imageFrame: {
     width: "100%",
     minHeight: 160,
@@ -862,17 +857,15 @@ const AssistantMessageBase = memo(function AssistantMessage({
         : undefined,
     [annotate, itemId, t],
   );
+  const { expanded, expand } = useCappedMessageExpanded(itemId);
+  const showFullContent = renderFullContent || expanded;
   const renderedMessage = useMemo(
     () =>
-      renderFullContent ? { text: message, capped: false } : capAssistantMessageForRender(message),
-    [message, renderFullContent],
+      showFullContent ? { text: message, capped: false } : capAssistantMessageForRender(message),
+    [message, showFullContent],
   );
   const revealedText = useRevealedText(renderedMessage.text, phase);
-  const revealedMessage = renderFullContent ? renderedMessage.text : revealedText;
-  const fullMessageByteLength = useMemo(
-    () => (renderedMessage.capped && phase === "complete" ? getUtf8ByteLength(message) : null),
-    [message, phase, renderedMessage.capped],
-  );
+  const revealedMessage = showFullContent ? renderedMessage.text : revealedText;
 
   const assistantContainerStyle = useMemo(
     () => [
@@ -916,13 +909,12 @@ const AssistantMessageBase = memo(function AssistantMessage({
         serverId={serverId}
         contextMenuItems={contextMenuItems}
       />
-      {fullMessageByteLength !== null ? (
-        <Text
-          testID="assistant-message-capped-notice"
-          style={assistantMessageStylesheet.cappedNotice}
-        >
-          {t("agentStream.messageCapped", { bytes: fullMessageByteLength })}
-        </Text>
+      {renderedMessage.capped && phase === "complete" ? (
+        <AssistantMessageCappedNotice
+          shownCharacters={renderedMessage.text.length}
+          totalCharacters={message.length}
+          onExpand={expand}
+        />
       ) : null}
     </View>
   );

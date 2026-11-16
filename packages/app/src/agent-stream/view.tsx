@@ -83,6 +83,10 @@ import {
   useAgentToolCallExpansion,
   useExpandedToolCallGroups,
 } from "@/tool-calls/expansion-context";
+import {
+  CappedMessageExpansionContext,
+  useAgentCappedMessageExpansion,
+} from "./capped-message-expansion";
 import { ToolCallSheetProvider } from "@/components/tool-call-sheet";
 import { createStreamPresentation } from "./presentation";
 import { OverviewToolCallGroupView } from "@/tool-calls/detail-level/overview/view";
@@ -429,6 +433,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       new Set(),
     );
     const toolCallExpansion = useAgentToolCallExpansion(agentId);
+    const cappedMessageExpansion = useAgentCappedMessageExpansion(agentId);
     const expandedToolCallGroups = useExpandedToolCallGroups(toolCallExpansion);
     const [expandedTurnHostIds, setExpandedTurnHostIds] = useState<ReadonlySet<string>>(new Set());
 
@@ -1438,32 +1443,34 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           >
             <MessageOuterSpacingProvider disableOuterSpacing>
               <ToolCallExpansionContext.Provider value={toolCallExpansion}>
-                <AssistantForkProviderScope.Provider value={forkProviderScope}>
-                  {streamRenderStrategy.render({
-                    readingRowReplacements: presentation.readingRowReplacements,
-                    agentId,
-                    segments: renderModel.segments,
-                    historyRowRevision,
-                    liveHeadRowRevision: expandedToolCallGroups,
-                    boundary,
-                    renderers,
-                    listEmptyComponent,
-                    viewportRef,
-                    routeBottomAnchorRequest,
-                    isAuthoritativeHistoryReady,
-                    onNearBottomChange: nearBottom.set,
-                    onReadingPositionChange: handleReadingPositionChange,
-                    onNearHistoryStart: loadOlder,
-                    isLoadingOlderHistory: isLoadingOlder,
-                    hasOlderHistory: hasOlder,
-                    olderHistoryProgressKey: progressKey,
-                    scrollEnabled: streamScrollEnabled,
-                    listStyle: stylesheet.list,
-                    baseListContentContainerStyle: stylesheet.listContentContainer,
-                    forwardListContentContainerStyle: stylesheet.forwardListContentContainer,
-                    contentMaxWidth,
-                  })}
-                </AssistantForkProviderScope.Provider>
+                <CappedMessageExpansionContext.Provider value={cappedMessageExpansion}>
+                  <AssistantForkProviderScope.Provider value={forkProviderScope}>
+                    {streamRenderStrategy.render({
+                      readingRowReplacements: presentation.readingRowReplacements,
+                      agentId,
+                      segments: renderModel.segments,
+                      historyRowRevision,
+                      liveHeadRowRevision: expandedToolCallGroups,
+                      boundary,
+                      renderers,
+                      listEmptyComponent,
+                      viewportRef,
+                      routeBottomAnchorRequest,
+                      isAuthoritativeHistoryReady,
+                      onNearBottomChange: nearBottom.set,
+                      onReadingPositionChange: handleReadingPositionChange,
+                      onNearHistoryStart: loadOlder,
+                      isLoadingOlderHistory: isLoadingOlder,
+                      hasOlderHistory: hasOlder,
+                      olderHistoryProgressKey: progressKey,
+                      scrollEnabled: streamScrollEnabled,
+                      listStyle: stylesheet.list,
+                      baseListContentContainerStyle: stylesheet.listContentContainer,
+                      forwardListContentContainerStyle: stylesheet.forwardListContentContainer,
+                      contentMaxWidth,
+                    })}
+                  </AssistantForkProviderScope.Provider>
+                </CappedMessageExpansionContext.Provider>
               </ToolCallExpansionContext.Provider>
             </MessageOuterSpacingProvider>
             <ChatOutlineRail
