@@ -7,6 +7,7 @@ import { waitForLocationReady, awaitPimiPlugin } from "./readiness.js";
 import type { SessionInfo, SessionMessageInfo } from "@opencode/client";
 
 import { setTimeout as delay } from "node:timers/promises";
+import { randomUUID } from "node:crypto";
 import type { Logger } from "pino";
 import type {
   AgentMode,
@@ -17,6 +18,7 @@ import type {
   AgentSession,
   AgentSessionConfig,
   AgentStreamEvent,
+  AgentUsageSession,
   SteerActiveTurnOptions,
   SteerResult,
 } from "../../../agent-sdk-types.js";
@@ -42,6 +44,7 @@ export class OpenCodeV2Session implements AgentSession {
   readonly provider = "opencode";
   readonly capabilities = V2_CAPABILITIES;
   private readonly listeners = new Set<(event: AgentStreamEvent) => void>();
+  private readonly usageSessionKey = randomUUID();
   private readonly timeline = new V2Timeline();
   private readonly abort = new AbortController();
   private readonly permissions: SessionPermissions;
@@ -67,6 +70,7 @@ export class OpenCodeV2Session implements AgentSession {
     private readonly logger: Logger,
     private readonly persist: boolean,
     private readonly requiresPimiPlugin: boolean,
+    private readonly harnessEnvironment: Record<string, string>,
     private readonly unbind?: () => void,
     bindChild?: (id: string) => void,
     private readonly acquire?: () => Promise<V2Connection>,
@@ -130,6 +134,17 @@ export class OpenCodeV2Session implements AgentSession {
           "OpenCode context usage update failed",
         ),
     });
+  }
+  usageSession(): AgentUsageSession | null {
+    if (this.closed) return null;
+    return {
+      provider: this.provider,
+      model: this.info.model
+        ? `${this.info.model.providerID}/${this.info.model.id}`
+        : this.config.model,
+      env: this.harnessEnvironment,
+      sessionKey: this.usageSessionKey,
+    };
   }
   get id() {
     return this.info.id;

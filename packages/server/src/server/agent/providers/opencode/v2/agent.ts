@@ -200,6 +200,10 @@ export class OpenCodeV2AgentClient implements AgentClient {
         if (owner === ownedConnection) this.connections.set(id, next);
       ownedConnection = next;
     };
+    const environment = createProviderEnv({
+      runtimeSettings: this.options.settings,
+      overlays: [launch?.env],
+    });
     const session = new OpenCodeV2Session(
       connection,
       info,
@@ -207,17 +211,14 @@ export class OpenCodeV2AgentClient implements AgentClient {
       this.options.logger,
       persist,
       Boolean(this.options.bridge),
+      environment,
       releaseBindings,
       bindChild,
       acquire,
       moved,
     );
     try {
-      await session.initialize(
-        launch?.env
-          ? createProviderEnv({ runtimeSettings: this.options.settings, overlays: [launch.env] })
-          : undefined,
-      );
+      await session.initialize(launch?.env ? environment : undefined);
       return session;
     } catch (error) {
       await session.close();
