@@ -21,3 +21,18 @@ export class OpenCodeHelperStartupError extends Error {
     super("Pimi could not start its local OpenCode helper", { cause });
   }
 }
+
+export function openCodeHttpFailureCode(status: number | undefined): string | undefined {
+  return status === undefined ? undefined : `opencode_http_${status}`;
+}
+
+// The promise SDK wraps fetch failures in ClientError.cause.
+export function findOpenCodeHttpError(error: unknown): OpenCodeHttpError | undefined {
+  const seen = new Set<Error>();
+  while (error instanceof Error && !seen.has(error)) {
+    if (error instanceof OpenCodeHttpError) return error;
+    seen.add(error);
+    error = error.cause;
+  }
+  return undefined;
+}

@@ -1,10 +1,14 @@
-import { OpenCodeHelperStartupError, OpenCodeHttpError } from "./providers/opencode/http-error.js";
+import {
+  OpenCodeHelperStartupError,
+  findOpenCodeHttpError,
+  openCodeHttpFailureCode,
+} from "./providers/opencode/http-error.js";
 
 type AskPimiFailure = "startup" | "auth" | "access" | "limit";
 
 const messages: Record<AskPimiFailure, string> = {
   startup:
-    "Pimi couldn't start a local OpenCode server. Check that OpenCode 2.0.10 or newer is installed and available to Pimi.",
+    "Pimi couldn't start a local OpenCode server. Check that OpenCode 2.x (2.0.10 or later) is installed and available to Pimi.",
   auth: "OpenCode needs you to sign in again. Check its connection in Settings → Providers, then retry.",
   access:
     "OpenCode denied this request. Check the account's access and usage limits in OpenCode, then retry.",
@@ -37,7 +41,5 @@ export function askPimiFailureFromCode(code: string | undefined): AskPimiProvide
 export function askPimiProviderFailure(error: unknown): AskPimiProviderError | undefined {
   if (error instanceof AskPimiProviderError) return error;
   if (error instanceof OpenCodeHelperStartupError) return new AskPimiProviderError("startup");
-  if (error instanceof OpenCodeHttpError)
-    return askPimiFailureFromCode(`opencode_http_${error.status}`);
-  return undefined;
+  return askPimiFailureFromCode(openCodeHttpFailureCode(findOpenCodeHttpError(error)?.status));
 }

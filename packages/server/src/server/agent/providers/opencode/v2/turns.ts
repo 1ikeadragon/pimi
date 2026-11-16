@@ -1,4 +1,5 @@
 import { structuredOutput } from "./structured-output.js";
+import { findOpenCodeHttpError, openCodeHttpFailureCode } from "../http-error.js";
 import type { OpenCodeEvent, SessionInfo, SessionMessageInfo } from "@opencode/client";
 
 import { randomUUID } from "node:crypto";
@@ -80,7 +81,7 @@ export class SessionTurns {
   get hasStructuredOutput() {
     return Boolean(this.turn?.output);
   }
-  fail(error: Error) {
+  fail(error: unknown) {
     const turn = this.turn;
     if (!turn) return;
     this.release(turn);
@@ -89,6 +90,7 @@ export class SessionTurns {
       provider: "opencode",
       turnId: turn.id,
       error: toDiagnosticErrorMessage(error),
+      code: openCodeHttpFailureCode(findOpenCodeHttpError(error)?.status),
     });
   }
   private release(turn: Turn) {
@@ -151,7 +153,7 @@ export class SessionTurns {
       // Covers a fast execution whose terminal event preceded the admission response.
       this.requestReconciliation();
     } catch (error) {
-      if (this.turn === turn) this.fail(new Error(toDiagnosticErrorMessage(error)));
+      if (this.turn === turn) this.fail(error);
     } finally {
       accept();
     }
@@ -239,7 +241,7 @@ export class SessionTurns {
     try {
       this.finish(turn, snapshot, execution);
     } catch (error) {
-      if (this.turn === turn) this.fail(new Error(toDiagnosticErrorMessage(error)));
+      if (this.turn === turn) this.fail(error);
     }
   }
   private async dispatch(
@@ -297,9 +299,7 @@ export class SessionTurns {
         provider: "opencode",
         turnId: turn.id,
         error: execution.data.error.message,
-        ...(execution.data.error.status === undefined
-          ? {}
-          : { code: `opencode_http_${execution.data.error.status}` }),
+        code: openCodeHttpFailureCode(execution.data.error.status),
       });
     else
       this.options.emit({

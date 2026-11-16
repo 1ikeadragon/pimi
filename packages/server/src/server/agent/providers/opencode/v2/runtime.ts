@@ -17,7 +17,11 @@ import { resolveOpenCodeHomeDir } from "../paths.js";
 import { OpenCodeHelperStartupError, OpenCodeHttpError } from "../http-error.js";
 import { raceProviderRefreshAbort } from "../../../provider-refresh-deadline.js";
 import { resolveExternalOpenCodeServer, type ExternalOpenCodeServer } from "./external-server.js";
-import { selectOpenCodeService, type OpenCodeServiceSelection } from "./service-selection.js";
+import {
+  compatibleVersion,
+  selectOpenCodeService,
+  type OpenCodeServiceSelection,
+} from "./service-selection.js";
 import { bridgeBindings, connectSharedService } from "./shared-service.js";
 import {
   hasManagedBridge,
@@ -355,7 +359,13 @@ export class V2Runtime {
           return response;
         },
       });
-      await client.server.info({ signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())) });
+      const info = await client.server.info({
+        signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
+      });
+      if (!compatibleVersion(info.version))
+        throw new Error(
+          `Unsupported OpenCode version ${info.version}; version 2.0.10 or newer is required`,
+        );
       const generation: Generation = {
         client,
         users: 0,
