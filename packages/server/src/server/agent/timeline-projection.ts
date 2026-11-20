@@ -1,6 +1,7 @@
 import { continuesTimelineTurn, isTimelineTurnTrigger } from "@pimi/protocol/timeline-turn";
 import type { AgentTimelineItem, ToolCallDetail } from "./agent-sdk-types.js";
 import { timelineItemIdentity } from "@pimi/protocol/timeline-identity";
+import { readToolCallStartedAt, withToolCallStartedAt } from "@pimi/protocol/tool-call-timing";
 
 import type { AgentTimelineRow } from "./agent-timeline-store-types.js";
 
@@ -148,15 +149,19 @@ function mergeIdentityMetadata(
 
 function mergeIdentityEntries(existing: WorkingEntry, entry: WorkingEntry): WorkingEntry | null {
   switch (entry.item.type) {
-    case "tool_call":
+    case "tool_call": {
       if (existing.item.type !== "tool_call" || existing.turnId !== entry.turnId) return null;
+      // The merged row takes the newest timestamp; the call's start stays in its metadata.
+      const startedAt = readToolCallStartedAt(existing.item.metadata) ?? existing.timestamp;
+      const item = mergeToolCallItems(existing.item, entry.item);
       return {
         ...existing,
-        item: mergeToolCallItems(existing.item, entry.item),
+        item: { ...item, metadata: withToolCallStartedAt(item.metadata, startedAt) },
         timestamp: entry.timestamp,
         seqEnd: Math.max(existing.seqEnd, entry.seqEnd),
         ...mergeIdentityMetadata(existing, entry, "tool_lifecycle"),
       };
+    }
     case "plugin":
       if (existing.item.type !== "plugin") return null;
       return {

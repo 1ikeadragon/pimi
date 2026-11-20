@@ -98,6 +98,7 @@ interface TerminalEmulatorProps {
   testId?: string;
   xtermTheme?: ITheme;
   scrollbackLines: number;
+  readOnly?: boolean;
   fontFamily?: string;
   fontSize?: number;
   keyboardInset?: number;
@@ -148,6 +149,7 @@ export default function TerminalEmulator({
     cursor: "#e6e6e6",
   },
   scrollbackLines,
+  readOnly = false,
   fontFamily,
   fontSize,
   swipeGesturesEnabled = false,
@@ -176,6 +178,8 @@ export default function TerminalEmulator({
   const fontFamilyRef = useRef(fontFamily);
   const fontSizeRef = useRef(fontSize);
   const scrollbackLinesRef = useRef(scrollbackLines);
+  const readOnlyRef = useRef(readOnly);
+  readOnlyRef.current = readOnly;
   scrollbackLinesRef.current = scrollbackLines;
   fontFamilyRef.current = fontFamily;
   fontSizeRef.current = fontSize;
@@ -448,6 +452,7 @@ export default function TerminalEmulator({
       theme: mountedThemeRef.current,
       fontFamily: fontFamilyRef.current,
       fontSize: fontSizeRef.current,
+      readOnly: readOnlyRef.current,
     });
     onRendererReadyChangeRef.current?.({ streamKey, isReady: true });
 
@@ -538,9 +543,10 @@ export default function TerminalEmulator({
   }, []);
 
   const handleRootPointerDown = useCallback(() => {
+    if (readOnly) return;
     onFocus?.();
     runtimeRef.current?.focus();
-  }, [onFocus]);
+  }, [onFocus, readOnly]);
 
   const handleRootContextMenu = useCallback(
     (event: ReactMouseEvent) => {

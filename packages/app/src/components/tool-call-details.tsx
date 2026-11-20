@@ -26,6 +26,8 @@ import { HighlightedLines } from "./highlighted-content";
 import { DiffViewer } from "./diff-viewer";
 import { getCodeInsets } from "./code-insets";
 import { isWeb } from "@/constants/platform";
+import { ShellTerminal } from "@/tool-calls/shell/terminal";
+import type { ShellRunState } from "@/tool-calls/shell/status";
 
 const ScrollView = isWeb ? RNScrollView : GHScrollView;
 
@@ -33,6 +35,10 @@ const ScrollView = isWeb ? RNScrollView : GHScrollView;
 
 interface ToolCallDetailsContentProps {
   toolName?: string;
+  /** Names the call the details belong to; a shell call's terminal is keyed by it. */
+  callKey: string;
+  /** The call's lifecycle, which a shell call's terminal shows. */
+  runState: ShellRunState;
   detail?: ToolCallDetail;
   errorText?: string;
   maxHeight?: number;
@@ -46,7 +52,6 @@ interface ToolCallDetailsContentProps {
 interface DetailStyles {
   sectionFillStyle: StyleProp<ViewStyle>;
   surfaceFillStyle: StyleProp<ViewStyle>;
-  codeVerticalScrollStyle: StyleProp<ViewStyle>;
   scrollAreaFillStyle: StyleProp<ViewStyle>;
   scrollAreaStyle: StyleProp<ViewStyle>;
   fullBleedContainerStyle: StyleProp<ViewStyle>;
@@ -78,14 +83,6 @@ function useDetailStyles(
     () => [styles.codeSurface, shouldFill && styles.fillHeight],
     [shouldFill],
   );
-  const codeVerticalScrollStyle = useMemo(
-    () => [
-      styles.codeVerticalScroll,
-      resolvedMaxHeight !== undefined && inlineUnistylesStyle({ maxHeight: resolvedMaxHeight }),
-      shouldFill && styles.fillHeight,
-    ],
-    [resolvedMaxHeight, shouldFill],
-  );
   const scrollAreaFillStyle = useMemo(
     () => [
       styles.scrollArea,
@@ -113,7 +110,6 @@ function useDetailStyles(
   return {
     sectionFillStyle,
     surfaceFillStyle,
-    codeVerticalScrollStyle,
     scrollAreaFillStyle,
     scrollAreaStyle,
     fullBleedContainerStyle,
@@ -136,43 +132,6 @@ function useDiffLines(detail: ToolCallDetail | undefined): DiffLine[] | undefine
 // The one surface every code-like detail sits on: no border, no nested boxes.
 function CodeSurface({ ds, children }: { ds: DetailStyles; children: ReactNode }) {
   return <View style={ds.surfaceFillStyle}>{children}</View>;
-}
-
-interface ShellDetailProps {
-  command: string;
-  output: string | null | undefined;
-  ds: DetailStyles;
-}
-
-function ShellDetailSection({ command, output, ds }: ShellDetailProps) {
-  const normalizedCommand = command.replace(/\n+$/, "");
-  const commandOutput = (output ?? "").replace(/^\n+/, "");
-  const hasOutput = commandOutput.length > 0;
-  return (
-    <CodeSurface ds={ds}>
-      <ScrollView
-        style={ds.codeVerticalScrollStyle}
-        contentContainerStyle={styles.codeVerticalContent}
-        nestedScrollEnabled
-        showsVerticalScrollIndicator
-      >
-        <ScrollView
-          horizontal
-          nestedScrollEnabled
-          showsHorizontalScrollIndicator
-          contentContainerStyle={styles.codeHorizontalContent}
-        >
-          <View style={styles.codeLine} dataSet={CODE_SURFACE_DATASET}>
-            <Text selectable style={styles.scrollText}>
-              <Text style={styles.shellPrompt}>$ </Text>
-              {normalizedCommand}
-              {hasOutput ? `\n\n${commandOutput}` : ""}
-            </Text>
-          </View>
-        </ScrollView>
-      </ScrollView>
-    </CodeSurface>
-  );
 }
 
 interface EditDetailProps {
@@ -416,17 +375,36 @@ function buildPimiUnknownSections(
   return sections.map((section) => <PimiDetailSection key={section.title} section={section} />);
 }
 
-function buildDetailSections(
-  toolName: string | undefined,
-  detail: ToolCallDetail | undefined,
-  diffLines: DiffLine[] | undefined,
-  ds: DetailStyles,
-  t: TFunction,
-): ReactNode[] {
+interface DetailSectionsInput {
+  toolName: string | undefined;
+  callKey: string;
+  runState: ShellRunState;
+  detail: ToolCallDetail | undefined;
+  diffLines: DiffLine[] | undefined;
+  ds: DetailStyles;
+  t: TFunction;
+}
+
+function buildDetailSections({
+  toolName,
+  callKey,
+  runState,
+  detail,
+  diffLines,
+  ds,
+  t,
+}: DetailSectionsInput): ReactNode[] {
   if (!detail) return [];
   if (detail.type === "shell") {
     return [
-      <ShellDetailSection key="shell" command={detail.command} output={detail.output} ds={ds} />,
+      <ShellTerminal
+        key={callKey}
+        streamKey={callKey}
+        command={detail.command}
+        output={detail.output}
+        state={runState}
+        fill={ds.shouldFill}
+      />,
     ];
   }
   if (detail.type === "worktree_setup" || detail.type === "sub_agent") return [];
@@ -505,6 +483,8 @@ function LoadingSkeleton({ containerStyle }: { containerStyle: StyleProp<ViewSty
 
 export function ToolCallDetailsContent({
   toolName,
+  callKey,
+  runState,
   detail,
   errorText,
   maxHeight,
@@ -518,7 +498,15 @@ export function ToolCallDetailsContent({
   const ds = useDetailStyles(detail, resolvedMaxHeight, fillAvailableHeight);
   const diffLines = useDiffLines(detail);
 
-  const sections: ReactNode[] = buildDetailSections(toolName, detail, diffLines, ds, t);
+  const sections: ReactNode[] = buildDetailSections({
+    toolName,
+    callKey,
+    runState,
+    detail,
+    diffLines,
+    ds,
+    t,
+  });
 
   if (errorText) {
     sections.push(<ErrorSection key="error" errorText={errorText} ds={ds} />);
@@ -646,19 +634,6 @@ const styles = StyleSheet.create((theme) => {
       lineHeight: Math.round(theme.fontSize.base * 1.5),
       overflowWrap: "anywhere",
     },
-    codeVerticalScroll: {},
-    codeVerticalContent: {
-      flexGrow: 1,
-      paddingBottom: insets.extraBottom,
-    },
-    codeHorizontalContent: {
-      paddingRight: insets.extraRight,
-    },
-    codeLine: {
-      minWidth: "100%",
-      paddingHorizontal: insets.padding,
-      paddingVertical: insets.padding,
-    },
     scrollArea: {},
     scrollContent: {
       padding: insets.padding,
@@ -674,9 +649,6 @@ const styles = StyleSheet.create((theme) => {
             overflowWrap: "normal",
           }
         : null),
-    },
-    shellPrompt: {
-      color: theme.colors.foregroundMuted,
     },
     errorText: {
       color: theme.colors.statusDanger,

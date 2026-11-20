@@ -3163,6 +3163,7 @@ export const en = {
     failed: "Failed",
     stopped: "Stopped",
     exitCode: "exit {{code}}",
+    exitCode: "exit {{code}}",
     verbs: {
       read: { done: "Read", running: "Reading" },
       search: { done: "Searched", running: "Searching" },

@@ -10,6 +10,7 @@ import type {
   ToolCallDetail,
 } from "@pimi/protocol/agent-types";
 import { timelineItemIdentity } from "@pimi/protocol/timeline-identity";
+import { readToolCallStartedAt, withToolCallStartedAt } from "@pimi/protocol/tool-call-timing";
 import type { AgentAttachment, AgentStreamEventPayload } from "@pimi/protocol/messages";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { extractTaskEntriesFromToolCall } from "../utils/tool-call-parsers";
@@ -1215,7 +1216,11 @@ export function mergeAgentToolCallItem(
     mergedStatus === "failed"
       ? (data.error ?? existing.payload.data.error ?? { message: "Tool call failed" })
       : null;
-  const mergedMetadata = mergeToolCallMetadata(existing.payload.data.metadata, data.metadata);
+  // The item's timestamp moves to each update; the call's start stays in its metadata.
+  const mergedMetadata = withToolCallStartedAt(
+    mergeToolCallMetadata(existing.payload.data.metadata, data.metadata),
+    readToolCallStartedAt(existing.payload.data.metadata) ?? existing.timestamp.toISOString(),
+  );
   const mergedDetail = mergeToolCallDetail(existing.payload.data.detail, data.detail);
 
   return {
@@ -1933,6 +1938,30 @@ function shouldFlushHead(input: {
   return false;
 }
 
+/** A running shell call's output so far replaces the output it showed. */
+function applyToolCallOutput(
+  items: StreamItem[],
+  event: Extract<AgentStreamEventPayload, { type: "tool_call_output" }>,
+): StreamItem[] {
+  const index = items.findLastIndex(
+    (item) => isAgentToolCallItem(item) && item.payload.data.callId === event.callId,
+  );
+  const item = items[index];
+  if (!item || !isAgentToolCallItem(item)) return items;
+  const data = item.payload.data;
+  if (data.status !== "running" || data.detail.type !== "shell") return items;
+  if (data.detail.output === event.output) return items;
+  const next = [...items];
+  next[index] = {
+    ...item,
+    payload: {
+      ...item.payload,
+      data: { ...data, detail: { ...data.detail, output: event.output } },
+    },
+  };
+  return next;
+}
+
 export interface ApplyStreamEventResult {
   tail: StreamItem[];
   head: StreamItem[];
@@ -2049,6 +2078,16 @@ export function applyStreamEvent(params: {
     unmatchedInsert: params.unmatchedUserMessageInsert,
   });
   if (canonicalUserResult) return canonicalUserResult;
+  if (event.type === "tool_call_output") {
+    const nextTail = applyToolCallOutput(tail, event);
+    const nextHead = applyToolCallOutput(head, event);
+    return {
+      tail: nextTail,
+      head: nextHead,
+      changedTail: nextTail !== tail,
+      changedHead: nextHead !== head,
+    };
+  }
   const source = params.source ?? "live";
   let nextTail = tail;
   let nextHead = head;

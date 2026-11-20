@@ -34,6 +34,8 @@ export interface TerminalEmulatorProps {
   testId?: string;
   xtermTheme?: ITheme;
   scrollbackLines: number;
+  /** Shows output only: no keyboard, no focus on tap, no input callbacks. */
+  readOnly?: boolean;
   fontFamily?: string;
   fontSize?: number;
   keyboardInset?: number;

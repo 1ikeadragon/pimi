@@ -930,6 +930,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               error={data.error}
               status={data.status}
               detail={data.detail}
+              timestamp={item.timestamp.getTime()}
               cwd={context.cwd}
               serverId={resolvedServerId}
               agentId={agentId}
@@ -1946,7 +1947,12 @@ function PermissionRequestCard({
       ) : null}
 
       {!isPlanRequest ? (
-        <ToolCallDetailsContent detail={resolvedToolCallDetail} maxHeight={200} />
+        <ToolCallDetailsContent
+          callKey={`permission:${request.id}`}
+          runState="completed"
+          detail={resolvedToolCallDetail}
+          maxHeight={200}
+        />
       ) : null}
 
       {footer}

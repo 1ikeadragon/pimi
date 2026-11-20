@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { ToolCallTimelineItem } from "../../agent-sdk-types.js";
+import type { ToolCallDetail, ToolCallTimelineItem } from "../../agent-sdk-types.js";
 import { normalizeToolCallStatus } from "../tool-call-mapper-utils.js";
 import { deriveOpencodeToolDetail } from "./tool-call-detail-parser.js";
 
@@ -26,6 +26,16 @@ const OpencodeRawToolCallSchema = z
   })
   .passthrough();
 
+// OpenCode reports a shell command's exit code in `metadata.exit`.
+function withShellExitCode(
+  detail: ToolCallDetail,
+  metadata: Record<string, unknown> | undefined,
+): ToolCallDetail {
+  const exit = metadata?.exit;
+  if (detail.type !== "shell" || detail.exitCode !== undefined) return detail;
+  return typeof exit === "number" && Number.isFinite(exit) ? { ...detail, exitCode: exit } : detail;
+}
+
 export function mapOpencodeToolCall(params: OpencodeToolCallParams): ToolCallTimelineItem | null {
   const parsed = OpencodeRawToolCallSchema.safeParse(params);
   if (!parsed.success) {
@@ -43,7 +53,10 @@ export function mapOpencodeToolCall(params: OpencodeToolCallParams): ToolCallTim
   const error = raw.error ?? null;
   const rawStatus = typeof raw.status === "string" ? raw.status : undefined;
   const status = normalizeToolCallStatus(rawStatus, error, output);
-  const detail = deriveOpencodeToolDetail(name, input, output, raw.metadata);
+  const detail = withShellExitCode(
+    deriveOpencodeToolDetail(name, input, output, raw.metadata),
+    raw.metadata,
+  );
 
   if (status === "failed") {
     return {

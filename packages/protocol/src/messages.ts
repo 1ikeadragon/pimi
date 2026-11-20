@@ -1275,6 +1275,13 @@ export const AgentStreamEventPayloadSchema = z.discriminatedUnion("type", [
     usage: AgentUsageSchema.optional(),
   }),
   z.object({
+    type: z.literal("tool_call_output"),
+    provider: AgentProviderSchema,
+    callId: z.string(),
+    output: z.string(),
+    turnId: z.string().optional(),
+  }),
+  z.object({
     type: z.literal("turn_failed"),
     provider: AgentProviderSchema,
     turnId: z.string().optional(),

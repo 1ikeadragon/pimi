@@ -39,6 +39,7 @@ import { commands } from "./commands.js";
 import { messages } from "./history.js";
 import { SessionPermissions } from "./permissions.js";
 import { SessionUsage } from "./usage.js";
+import { ShellOutputTail } from "./shell-tail.js";
 
 export class OpenCodeV2Session implements AgentSession {
   readonly provider = "opencode";
@@ -51,6 +52,7 @@ export class OpenCodeV2Session implements AgentSession {
   private readonly turns: SessionTurns;
   private readonly children: SessionChildren;
   private readonly usage: SessionUsage;
+  private readonly shellTail: ShellOutputTail;
   private stream: Promise<void> | null = null;
   private streamAbort = new AbortController();
   private exited = false;
@@ -122,6 +124,24 @@ export class OpenCodeV2Session implements AgentSession {
               "The user answered with a message instead of approving. Their message follows.",
           });
       },
+    });
+    this.shellTail = new ShellOutputTail({
+      client: () => this.client,
+      cwd: config.cwd,
+      signal: this.abort.signal,
+      publish: ({ callId, output }) =>
+        this.emit({
+          type: "tool_call_output",
+          provider: "opencode",
+          callId,
+          output,
+          ...(this.turns.id ? { turnId: this.turns.id } : {}),
+        }),
+      reportError: (error) =>
+        this.logger.warn(
+          { error: toDiagnosticErrorMessage(error) },
+          "OpenCode shell output tail failed",
+        ),
     });
     this.usage = new SessionUsage({
       client: () => this.client,
@@ -546,6 +566,10 @@ export class OpenCodeV2Session implements AgentSession {
       if (streamed) this.emitTimeline(streamed);
       return;
     }
+    if (event.type === "session.tool.progress")
+      this.shellTail.progress(event.data.id, event.data.metadata);
+    else if (event.type === "session.tool.success" || event.type === "session.tool.failed")
+      this.shellTail.finished(event.data.id);
     this.permissions.observe(event);
     this.usage.observe(event);
     this.turns.observe(event);

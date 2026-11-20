@@ -74,8 +74,9 @@ import { getCompactionMarkerLabel } from "./message-compaction-label";
 import { ActivityRow, type ActivityRowState } from "./activity-row";
 import { PlanCard } from "./plan-card";
 import { ToolCallDetailsContent } from "./tool-call-details";
-import { useToolCallSheet } from "./tool-call-sheet";
+import { useToolCallSheet, type ToolCallSheetData } from "./tool-call-sheet";
 import { readToolBodyOmitted } from "@pimi/protocol/tool-call-body";
+import { useShellRowStatus, type ShellRunState } from "@/tool-calls/shell/status";
 import {
   prefetchToolCallBody,
   useToolCallBody,
@@ -1232,6 +1233,8 @@ interface ToolCallProps {
   error?: unknown;
   status: "executing" | "running" | "completed" | "failed" | "canceled";
   detail?: ToolCallDetail;
+  /** The row's newest update, in ms; a finished call ended then. */
+  timestamp?: number;
   cwd?: string;
   metadata?: Record<string, unknown>;
   isLastInSequence?: boolean;
@@ -1250,6 +1253,10 @@ interface ToolCallProps {
   turnId?: string;
   /** The call belongs to the newest turn, so its body is likely to be opened. */
   prefetchBody?: boolean;
+}
+
+function toShellRunState(status: ToolCallProps["status"]): ShellRunState {
+  return status === "executing" ? "running" : status;
 }
 
 function toActivityRowState(status: ToolCallProps["status"]): ActivityRowState {
@@ -1275,6 +1282,7 @@ const ToolCallBase = memo(function ToolCall({
   error,
   status,
   detail,
+  timestamp,
   cwd,
   metadata,
   isLastInSequence = false,
@@ -1293,7 +1301,7 @@ const ToolCallBase = memo(function ToolCall({
   prefetchBody = false,
 }: ToolCallProps) {
   const { t } = useTranslation();
-  const { openToolCall } = useToolCallSheet();
+  const { openToolCall, updateToolCall } = useToolCallSheet();
   const { expanded: isExpanded, toggle: toggleExpanded } = useToolCallExpanded({
     callId: itemId,
     defaultExpanded: defaultExpanded ?? false,
@@ -1361,36 +1369,49 @@ const ToolCallBase = memo(function ToolCall({
     return () => onOpenFilePath(openFilePath);
   }, [presentation.openFilePath, onOpenFilePath]);
 
+  const runState = toShellRunState(status);
+  const sheetData = useMemo<ToolCallSheetData>(
+    () => ({
+      callKey: itemId,
+      runState,
+      toolName,
+      displayName: presentation.displayName,
+      summary: presentation.summary,
+      detail: presentation.detail,
+      errorText: presentation.errorText,
+      icon: presentation.icon,
+      showLoadingSkeleton: presentation.isLoadingDetails,
+      ...(bodyOmitted > 0 && bodySource ? { bodySource, bodyOmitted } : {}),
+    }),
+    [
+      itemId,
+      runState,
+      toolName,
+      presentation.detail,
+      presentation.displayName,
+      presentation.summary,
+      presentation.errorText,
+      presentation.icon,
+      presentation.isLoadingDetails,
+      bodyOmitted,
+      bodySource,
+    ],
+  );
+
   const handleToggle = useCallback(() => {
     if (!shouldRenderInline) {
-      openToolCall({
-        toolName,
-        displayName: presentation.displayName,
-        summary: presentation.summary,
-        detail: presentation.detail,
-        errorText: presentation.errorText,
-        icon: presentation.icon,
-        showLoadingSkeleton: presentation.isLoadingDetails,
-        ...(bodyOmitted > 0 && bodySource ? { bodySource, bodyOmitted } : {}),
-      });
+      openToolCall(sheetData);
     } else {
       hold(toggleExpanded);
     }
-  }, [
-    hold,
-    shouldRenderInline,
-    toggleExpanded,
-    openToolCall,
-    toolName,
-    presentation.detail,
-    presentation.displayName,
-    presentation.summary,
-    presentation.errorText,
-    presentation.icon,
-    presentation.isLoadingDetails,
-    bodyOmitted,
-    bodySource,
-  ]);
+  }, [hold, shouldRenderInline, toggleExpanded, openToolCall, sheetData]);
+
+  // A shell call's sheet tails the command: hand it each update. The sheet ignores calls it is
+  // not showing.
+  const isShell = presentation.detail?.type === "shell";
+  useEffect(() => {
+    if (isShell && !shouldRenderInline) updateToolCall(sheetData);
+  }, [isShell, shouldRenderInline, updateToolCall, sheetData]);
 
   useEffect(() => {
     if (!onInlineDetailsHoverChange || !shouldRenderInline || isExpanded) {
@@ -1425,6 +1446,8 @@ const ToolCallBase = memo(function ToolCall({
     return (
       <ToolCallDetailsContent
         toolName={toolName}
+        callKey={itemId}
+        runState={runState}
         detail={body.detail === effectiveDetail ? presentation.detail : body.detail}
         errorText={presentation.errorText}
         maxHeight={maxDetailHeight}
@@ -1436,6 +1459,8 @@ const ToolCallBase = memo(function ToolCall({
   }, [
     shouldRenderInline,
     toolName,
+    itemId,
+    runState,
     body.detail,
     body.status,
     body.retry,
@@ -1445,6 +1470,13 @@ const ToolCallBase = memo(function ToolCall({
     presentation.isLoadingDetails,
     maxDetailHeight,
   ]);
+
+  const shellStatus = useShellRowStatus({
+    detail: presentation.detail,
+    state: runState,
+    timestamp,
+    metadata,
+  });
 
   if (presentation.isPlan && effectiveDetail?.type === "plan") {
     return (
@@ -1465,6 +1497,7 @@ const ToolCallBase = memo(function ToolCall({
       target={presentation.target}
       targetMono={presentation.targetMono}
       diffStat={presentation.diffStat}
+      status={shellStatus}
       state={toActivityRowState(status)}
       isExpanded={shouldRenderInline && isExpanded}
       onToggle={presentation.canOpenDetails ? handleToggle : undefined}
@@ -1507,6 +1540,7 @@ function areToolCallPropsEqual(previous: ToolCallProps, next: ToolCallProps) {
   if (previous.error !== next.error) return false;
   if (previous.status !== next.status) return false;
   if (previous.detail !== next.detail) return false;
+  if (previous.timestamp !== next.timestamp) return false;
   if (previous.cwd !== next.cwd) return false;
   if (previous.metadata !== next.metadata) return false;
   if (previous.isLastInSequence !== next.isLastInSequence) return false;

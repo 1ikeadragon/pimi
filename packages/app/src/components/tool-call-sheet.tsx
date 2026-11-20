@@ -15,10 +15,14 @@ import {
 import type { ToolCallIconComponent } from "@/utils/tool-call-icon";
 import { ToolCallDetailsContent } from "./tool-call-details";
 import { useToolCallBody, type ToolBodySource } from "@/tool-calls/use-tool-call-body";
+import type { ShellRunState } from "@/tool-calls/shell/status";
 
 // ----- Types -----
 
 export interface ToolCallSheetData {
+  /** The timeline row the sheet shows; updates for other rows are ignored. */
+  callKey: string;
+  runState: ShellRunState;
   toolName: string;
   displayName: string;
   summary?: string;
@@ -34,6 +38,8 @@ export interface ToolCallSheetData {
 
 interface ToolCallSheetContextValue {
   openToolCall: (data: ToolCallSheetData) => void;
+  /** Replaces the open sheet's data when it shows the same call. */
+  updateToolCall: (data: ToolCallSheetData) => void;
   closeToolCall: () => void;
 }
 
@@ -100,6 +106,10 @@ export function ToolCallSheetProvider({ children }: ToolCallSheetProviderProps) 
     setIsSheetOpen(true);
   }, []);
 
+  const updateToolCall = useCallback((data: ToolCallSheetData) => {
+    setSheetData((current) => (current?.callKey === data.callKey ? data : current));
+  }, []);
+
   const closeToolCall = useCallback(() => {
     setIsSheetOpen(false);
   }, []);
@@ -119,8 +129,8 @@ export function ToolCallSheetProvider({ children }: ToolCallSheetProviderProps) 
   }, [handleSheetDismiss]);
 
   const contextValue = useMemo(
-    () => ({ openToolCall, closeToolCall }),
-    [openToolCall, closeToolCall],
+    () => ({ openToolCall, updateToolCall, closeToolCall }),
+    [openToolCall, updateToolCall, closeToolCall],
   );
 
   return (
@@ -153,6 +163,8 @@ interface ToolCallSheetContentProps {
 function ToolCallSheetContent({ data, onClose }: ToolCallSheetContentProps) {
   const { t } = useTranslation();
   const {
+    callKey,
+    runState,
     toolName,
     displayName,
     detail,
@@ -162,6 +174,19 @@ function ToolCallSheetContent({ data, onClose }: ToolCallSheetContentProps) {
     bodySource,
   } = data;
   const body = useToolCallBody(bodySource ?? null, data.bodyOmitted ?? 0, detail);
+  const details = (
+    <ToolCallDetailsContent
+      toolName={toolName}
+      callKey={callKey}
+      runState={runState}
+      detail={body.detail}
+      errorText={errorText}
+      fillAvailableHeight
+      showLoadingSkeleton={showLoadingSkeleton}
+      bodyStatus={body.status}
+      onRetryBody={body.retry}
+    />
+  );
 
   return (
     <View style={styles.container}>
@@ -183,20 +208,17 @@ function ToolCallSheetContent({ data, onClose }: ToolCallSheetContentProps) {
         />
       </View>
 
-      {/* Content */}
-      <BottomSheetScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.body}>
-          <ToolCallDetailsContent
-            toolName={toolName}
-            detail={body.detail}
-            errorText={errorText}
-            fillAvailableHeight
-            showLoadingSkeleton={showLoadingSkeleton}
-            bodyStatus={body.status}
-            onRetryBody={body.retry}
-          />
-        </View>
-      </BottomSheetScrollView>
+      {/* A shell call's terminal scrolls itself and fills the sheet. */}
+      {body.detail?.type === "shell" ? (
+        <View style={[styles.content, styles.body]}>{details}</View>
+      ) : (
+        <BottomSheetScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+        >
+          <View style={styles.body}>{details}</View>
+        </BottomSheetScrollView>
+      )}
     </View>
   );
 }

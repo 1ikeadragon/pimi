@@ -58,6 +58,8 @@ export interface TerminalEmulatorRuntimeMountInput {
   theme: ITheme;
   fontFamily?: string;
   fontSize?: number;
+  /** Shows output only: keys and pastes never reach `onInput`. */
+  readOnly?: boolean;
 }
 
 export interface TerminalEmulatorRuntimeCallbacks {
@@ -535,6 +537,7 @@ export class TerminalEmulatorRuntime {
       convertEol: false,
       cursorBlink: true,
       cursorStyle: "bar",
+      disableStdin: input.readOnly ?? false,
       fontFamily: resolveTerminalFontFamily(input.fontFamily),
       fontSize: resolveTerminalFontSize(input.fontSize),
       // OSC 8 hyperlinks; without a handler xterm prompts and calls window.open().

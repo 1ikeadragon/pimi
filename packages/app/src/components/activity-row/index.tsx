@@ -39,6 +39,8 @@ export interface ActivityRowProps {
   /** Short text after the label, such as a task count. */
   meta?: string;
   diffStat?: { additions: number; deletions: number };
+  /** Replaces the trailing text, the failed and stopped labels included. */
+  status?: ReactNode;
   state?: ActivityRowState;
   isExpanded: boolean;
   /** The details are rows on their own rail, so they start at the glyph column. */
@@ -217,6 +219,7 @@ export const ActivityRow = memo(function ActivityRow({
   targetMono,
   meta,
   diffStat,
+  status,
   state = "idle",
   isExpanded,
   nested,
@@ -287,7 +290,8 @@ export const ActivityRow = memo(function ActivityRow({
             running={running}
             shimmer={running && panelActive && !reduceMotion}
           />
-          <TrailingMeta diffStat={diffStat} text={trailing} failed={failed} />
+          <TrailingMeta diffStat={diffStat} text={status ? undefined : trailing} failed={failed} />
+          {status ? <View style={styles.meta}>{status}</View> : null}
           {isInteractive ? <RowChevron visible={showChevron} expanded={isExpanded} /> : null}
         </PressHighlight>
         {onOpenFile ? <OpenFileButton visible={isHovered} onOpenFile={onOpenFile} /> : null}

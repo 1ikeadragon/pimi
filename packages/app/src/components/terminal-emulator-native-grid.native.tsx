@@ -93,6 +93,7 @@ function NativeTerminalEmulator({
   testId = "terminal-surface",
   xtermTheme = DEFAULT_XTERM_THEME,
   scrollbackLines,
+  readOnly = false,
   fontFamily,
   fontSize,
   keyboardInset = 0,
@@ -516,9 +517,10 @@ function NativeTerminalEmulator({
 
   const focusTerminalFromTap = useCallback(() => {
     clearSelection();
+    if (readOnly) return;
     inputRef.current?.focus();
     claimActiveTerminalSizeForAction("focus");
-  }, [claimActiveTerminalSizeForAction, clearSelection]);
+  }, [claimActiveTerminalSizeForAction, clearSelection, readOnly]);
 
   useEffect(() => {
     if (resizeRequestToken <= 0) return;
@@ -751,13 +753,15 @@ function NativeTerminalEmulator({
             </View>
           ))}
         </View>
-        <TerminalInput
-          ref={inputRef}
-          isKeyboardVisible={isKeyboardVisible}
-          onFocus={handleTerminalFocus}
-          onInput={handleTerminalInput}
-          onTerminalKey={handleNativeTerminalKey}
-        />
+        {readOnly ? null : (
+          <TerminalInput
+            ref={inputRef}
+            isKeyboardVisible={isKeyboardVisible}
+            onFocus={handleTerminalFocus}
+            onInput={handleTerminalInput}
+            onTerminalKey={handleNativeTerminalKey}
+          />
+        )}
       </View>
       {isScrolled ? (
         <Pressable

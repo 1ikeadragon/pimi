@@ -428,6 +428,17 @@ export type AgentStreamEvent =
   | { type: "turn_started"; provider: AgentProvider; turnId?: string }
   | { type: "turn_completed"; provider: AgentProvider; usage?: AgentUsage; turnId?: string }
   | { type: "usage_updated"; provider: AgentProvider; usage: AgentUsage; turnId?: string }
+  /**
+   * What a running shell tool call has printed so far, newest part when long. Sent live and not
+   * stored: the finished call carries the whole output.
+   */
+  | {
+      type: "tool_call_output";
+      provider: AgentProvider;
+      callId: string;
+      output: string;
+      turnId?: string;
+    }
   | {
       type: "mode_changed";
       provider: AgentProvider;
