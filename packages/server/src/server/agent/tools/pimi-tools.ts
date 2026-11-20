@@ -1508,7 +1508,7 @@ function createToolCatalog(
     {
       title: "Pimi visualization guide",
       description:
-        "Return the formats and limits of Pimi's chart, view and html blocks. Call it before drawing any visual.",
+        "Return the formats of the blocks Pimi chat renders inline: pimi-vega, pimi-view, pimi-html and mermaid.",
       inputSchema: {},
     },
     async () => ({ content: [{ type: "text", text: PIMI_VISUALIZATION_INSTRUCTIONS }] }),
