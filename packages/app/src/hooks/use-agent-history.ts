@@ -209,11 +209,6 @@ export function useAgentHistory(options: {
   const { t } = useTranslation();
   const daemons = useHosts();
   const runtime = getHostRuntimeStore();
-  const runtimeVersion = useSyncExternalStore(
-    (onStoreChange) => runtime.subscribeAll(onStoreChange),
-    () => runtime.getVersion(),
-    () => runtime.getVersion(),
-  );
   const serverId = useMemo(() => {
     const value = options.serverId;
     return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
@@ -223,18 +218,34 @@ export function useAgentHistory(options: {
   // one whose sessions will be missing from the answer. Both come out of here,
   // because dropping the unreachable ones silently is what lets the list — and
   // worse, "No sessions match" — overstate what was actually searched.
+  const watchedServerIds = useMemo(
+    () => (serverId ? [serverId] : daemons.map((daemon) => daemon.serverId)),
+    [daemons, serverId],
+  );
+  // The snapshot is the connected host ids themselves, joined so React compares by value.
+  // A version counter read only for reactivity is dropped by the React Compiler, which left
+  // a host that connected after mount stuck as unreachable.
+  const readConnectedServerIds = () =>
+    watchedServerIds
+      .filter(
+        (id) => runtime.getClient(id) !== null && isHostRuntimeConnected(runtime.getSnapshot(id)),
+      )
+      .join("\n");
+  const connectedServerIds = useSyncExternalStore(
+    (onStoreChange) => runtime.subscribeAll(onStoreChange),
+    readConnectedServerIds,
+    readConnectedServerIds,
+  );
   const { targetHosts, unreachableHosts } = useMemo(() => {
-    void runtimeVersion;
+    const connected = new Set(connectedServerIds.split("\n"));
     const serverLabelById = new Map(daemons.map((daemon) => [daemon.serverId, daemon.label]));
-    const serverIds = serverId ? [serverId] : daemons.map((daemon) => daemon.serverId);
     const hosts: AgentHistoryHost[] = [];
     const unreachable: AgentHistoryHostError[] = [];
 
-    for (const targetServerId of serverIds) {
-      const snapshot = runtime.getSnapshot(targetServerId);
+    for (const targetServerId of watchedServerIds) {
       const client = runtime.getClient(targetServerId);
       const serverName = serverLabelById.get(targetServerId) ?? targetServerId;
-      if (!client || !isHostRuntimeConnected(snapshot)) {
+      if (!client || !connected.has(targetServerId)) {
         unreachable.push({ serverId: targetServerId, serverName });
         continue;
       }
@@ -242,7 +253,7 @@ export function useAgentHistory(options: {
     }
 
     return { targetHosts: hosts, unreachableHosts: unreachable };
-  }, [daemons, runtime, runtimeVersion, serverId]);
+  }, [daemons, runtime, connectedServerIds, watchedServerIds]);
   const targetServerIds = useMemo(() => targetHosts.map((host) => host.serverId), [targetHosts]);
   const search = options.search?.trim() ?? "";
   const queryKey = useMemo(

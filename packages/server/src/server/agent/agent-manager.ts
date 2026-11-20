@@ -6476,9 +6476,13 @@ export class AgentManager {
       return false;
     }
 
-    // Only update timestamp for live events, not history replay
+    // Only update timestamp for live events, not history replay. A usage report is not activity:
+    // Codex sends one as soon as a resumed thread attaches, and stamping it made merely opening
+    // a chat move it to the top of the sidebar as "now".
     if (!options?.fromHistory) {
-      this.touchUpdatedAt(agent);
+      if (event.type !== "usage_updated") {
+        this.touchUpdatedAt(agent);
+      }
       if (this.agentStreamCoalescer.handle(agent.id, event)) {
         this.traceCoalescerBuffered(agent, event, eventTurnId);
         return false;
