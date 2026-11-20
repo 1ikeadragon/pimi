@@ -3001,7 +3001,8 @@ export class Session {
       case "archive_agent_request":
         return this.handleArchiveAgentRequest(msg.agentId, msg.requestId);
       case "close_items_request":
-        return this.handleCloseItemsRequest(msg);
+        this.handleCloseItemsRequest(msg);
+        return;
       case "update_agent_request":
         return this.handleUpdateAgentRequest(msg.agentId, msg.name, msg.labels, msg.requestId);
       case "project.rename.request":
@@ -3662,23 +3663,7 @@ export class Session {
     }
   }
 
-  private async handleCloseItemsRequest(msg: CloseItemsRequest): Promise<void> {
-    const archiveResults = await Promise.allSettled(
-      msg.agentIds.map((agentId) => this.archiveAgentForClose(agentId)),
-    );
-    const agents = [];
-    for (let i = 0; i < archiveResults.length; i += 1) {
-      const result = archiveResults[i];
-      if (result.status === "fulfilled") {
-        agents.push(result.value);
-      } else {
-        this.sessionLogger.warn(
-          { err: result.reason, agentId: msg.agentIds[i], requestId: msg.requestId },
-          "Failed to archive agent during close_items batch",
-        );
-      }
-    }
-
+  private handleCloseItemsRequest(msg: CloseItemsRequest): void {
     const terminals = [];
     for (const terminalId of msg.terminalIds) {
       try {
@@ -3698,7 +3683,6 @@ export class Session {
     this.emit({
       type: "close_items_response",
       payload: {
-        agents,
         terminals,
         requestId: msg.requestId,
       },

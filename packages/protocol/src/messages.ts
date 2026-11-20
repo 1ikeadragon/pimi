@@ -1497,7 +1497,6 @@ export const ArchiveAgentRequestMessageSchema = z.object({
 
 export const CloseItemsRequestMessageSchema = z.object({
   type: z.literal("close_items_request"),
-  agentIds: z.array(z.string()).default([]),
   terminalIds: z.array(z.string()).default([]),
   requestId: z.string(),
 });
@@ -5878,11 +5877,6 @@ export const AgentArchivedMessageSchema = z.object({
   }),
 });
 
-const CloseItemsAgentResultSchema = z.object({
-  agentId: z.string(),
-  archivedAt: z.string(),
-});
-
 const CloseItemsTerminalResultSchema = z.object({
   terminalId: z.string(),
   success: z.boolean(),
@@ -5891,7 +5885,6 @@ const CloseItemsTerminalResultSchema = z.object({
 export const CloseItemsResponseSchema = z.object({
   type: z.literal("close_items_response"),
   payload: z.object({
-    agents: z.array(CloseItemsAgentResultSchema),
     terminals: z.array(CloseItemsTerminalResultSchema),
     requestId: z.string(),
   }),

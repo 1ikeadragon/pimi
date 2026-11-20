@@ -6962,14 +6962,13 @@ export class DaemonClient {
   }
 
   async closeItems(
-    input: { agentIds?: string[]; terminalIds?: string[] },
+    input: { terminalIds: string[] },
     requestId?: string,
   ): Promise<CloseItemsPayload> {
     const resolvedRequestId = this.createRequestId(requestId);
     const message = SessionInboundMessageSchema.parse({
       type: "close_items_request",
-      agentIds: input.agentIds ?? [],
-      terminalIds: input.terminalIds ?? [],
+      terminalIds: input.terminalIds,
       requestId: resolvedRequestId,
     });
     return this.sendCorrelatedRequest({

@@ -224,11 +224,6 @@ export function clearArchiveAgentPending(input: IsAgentArchivingInput): void {
   });
 }
 
-export interface ArchivedAgentCloseResult {
-  agentId: string;
-  archivedAt: string;
-}
-
 interface ArchivedAgentListCacheSnapshot {
   sidebarAgentsList: AgentsListQueryData | undefined;
   allAgents: AgentsListQueryData | undefined;
@@ -312,49 +307,14 @@ function markAgentArchivedInStore(input: ArchiveAgentInput & { archivedAt: strin
   );
 }
 
-interface ApplyArchivedAgentCloseResultsInput {
-  queryClient: QueryClient;
-  serverId: string;
-  results: ArchivedAgentCloseResult[];
-  invalidateQueries?: boolean;
-}
-
-export function applyArchivedAgentCloseResults(input: ApplyArchivedAgentCloseResultsInput): void {
-  if (input.results.length === 0) {
-    return;
-  }
-
-  for (const result of input.results) {
-    markAgentArchivedInStore({
-      serverId: input.serverId,
-      agentId: result.agentId,
-      archivedAt: result.archivedAt,
-    });
-    removeAgentFromCachedLists(input.queryClient, {
-      serverId: input.serverId,
-      agentId: result.agentId,
-    });
-    markAgentArchivedInHistoryCache(input.queryClient, {
-      serverId: input.serverId,
-      agentId: result.agentId,
-      archivedAt: result.archivedAt,
-    });
-  }
-
-  if (input.invalidateQueries ?? true) {
-    void input.queryClient.invalidateQueries({
-      queryKey: ["sidebarAgentsList", input.serverId],
-    });
-    void input.queryClient.invalidateQueries({
-      queryKey: ["allAgents", input.serverId],
-    });
-    void input.queryClient.invalidateQueries({
-      queryKey: agentHistoryQueryKey(input.serverId),
-    });
-    void input.queryClient.invalidateQueries({
-      queryKey: allAgentHistoryQueryRootKey(),
-    });
-  }
+/** Shows the archive before the daemon confirms it; the mutation rolls back on failure. */
+function applyAgentArchivedLocally(
+  queryClient: QueryClient,
+  input: ArchiveAgentInput & { archivedAt: string },
+): void {
+  markAgentArchivedInStore(input);
+  removeAgentFromCachedLists(queryClient, input);
+  markAgentArchivedInHistoryCache(queryClient, input);
 }
 
 function useArchiveAgentPendingQuery() {
@@ -401,12 +361,7 @@ export function useArchiveAgent() {
       };
       const archivedAt = new Date().toISOString();
 
-      applyArchivedAgentCloseResults({
-        queryClient,
-        serverId: input.serverId,
-        results: [{ agentId: input.agentId, archivedAt }],
-        invalidateQueries: false,
-      });
+      applyAgentArchivedLocally(queryClient, { ...input, archivedAt });
       setAgentArchiving({
         queryClient,
         serverId: input.serverId,
