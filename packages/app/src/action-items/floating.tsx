@@ -2,6 +2,7 @@ import { ChevronsDownUp, ListChecks, Pin } from "lucide-react-native";
 import { useCallback, useEffect, useRef, type ReactElement } from "react";
 import { Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import type { ActionItem } from "@pimi/protocol/action-items/types";
 import { Enter } from "@/action-items/enter";
 import { useActionItemsPreferences } from "@/action-items/preferences";
 import { useActionItems } from "@/action-items/use-action-items";
@@ -66,12 +67,17 @@ export function ActionItemsFloating({
   const enabled = !isCompact && config?.metadataGeneration.actionItems !== false;
   const model = useActionItems({ serverId, agentId, active: enabled && paneActive && !isDocked });
   const state = model.state?.agentId === agentId ? model.state : null;
-  const hasItems = (state?.items.length ?? 0) > 0;
-  const openCount = state?.items.filter((item) => !item.done).length ?? 0;
+  const hasItems = state !== null && state.items.length > 0;
 
-  // A note that mounts with items appears in place. One whose first item arrives enters.
-  const mountedEmpty = useRef<boolean | null>(null);
-  if (state && mountedEmpty.current === null) mountedEmpty.current = !hasItems;
+  // A note over a chat that already has items appears in place. One whose first item arrives
+  // while the chat is on screen enters.
+  const sawEmpty = useRef(false);
+  if (state && !hasItems) sawEmpty.current = true;
+  const showsCard = [enabled, !isDocked, hasItems, !collapsed].every(Boolean);
+  useEffect(() => {
+    // Collapsing and expanding afterwards must not replay the entrance.
+    if (showsCard) sawEmpty.current = false;
+  }, [showsCard]);
 
   // The pinned preference docks the list once per chat pane; hiding the sidebar afterwards
   // floats it again without fighting the user.
@@ -95,30 +101,14 @@ export function ActionItemsFloating({
     [],
   );
 
-  if (!enabled || isDocked || !state || !hasItems || (prefersDocked && !appliedDock.current)) {
-    return null;
-  }
-
-  if (collapsed) {
-    return (
-      <View style={styles.anchor} pointerEvents="box-none">
-        <PressHighlight
-          style={pillStyle}
-          onPress={handleExpand}
-          accessibilityRole="button"
-          accessibilityLabel={t("actionItems.pillLabel", { count: openCount })}
-          testID="action-items-pill"
-        >
-          <ThemedListChecks size={14} uniProps={mutedMapping} />
-          <Text style={styles.pillText}>{openCount}</Text>
-        </PressHighlight>
-      </View>
-    );
-  }
+  if (!state || !hasItems || !enabled || isDocked) return null;
+  // Pinned and not docked yet: the effect above is about to dock it.
+  if (prefersDocked && !appliedDock.current) return null;
+  if (collapsed) return <Pill items={state.items} onPress={handleExpand} />;
 
   return (
     <View style={styles.anchor} pointerEvents="box-none">
-      <Enter kind="card" animate={mountedEmpty.current === true} style={enterStyle}>
+      <Enter kind="card" animate={sawEmpty.current} style={enterStyle}>
         <View style={styles.card} testID="action-items-floating">
           <View style={styles.header}>
             <Text style={styles.title} numberOfLines={1}>
@@ -144,6 +134,31 @@ export function ActionItemsFloating({
           <ActionItemsContent serverId={serverId} agentId={agentId} model={model} variant="card" />
         </View>
       </Enter>
+    </View>
+  );
+}
+
+function Pill({
+  items,
+  onPress,
+}: {
+  items: readonly ActionItem[];
+  onPress: () => void;
+}): ReactElement {
+  const { t } = useTranslation();
+  const openCount = items.filter((item) => !item.done).length;
+  return (
+    <View style={styles.anchor} pointerEvents="box-none">
+      <PressHighlight
+        style={pillStyle}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={t("actionItems.pillLabel", { count: openCount })}
+        testID="action-items-pill"
+      >
+        <ThemedListChecks size={14} uniProps={mutedMapping} />
+        <Text style={styles.pillText}>{openCount}</Text>
+      </PressHighlight>
     </View>
   );
 }

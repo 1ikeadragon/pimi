@@ -1633,8 +1633,8 @@ export const en = {
     costUnderCent: "under $0.01",
     usage_one: "{{count}} update, {{tokens}} tokens",
     usage_other: "{{count}} updates, {{tokens}} tokens",
-    usageWithCost_one: "{{count}} update, {{tokens}} tokens, {{cost}}",
-    usageWithCost_other: "{{count}} updates, {{tokens}} tokens, {{cost}}",
+    usageWithCost_one: "{{count}} update, {{cost}}",
+    usageWithCost_other: "{{count}} updates, {{cost}}",
   },
   tasks: {
     title: "Tasks",
