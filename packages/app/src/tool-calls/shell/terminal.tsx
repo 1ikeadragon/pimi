@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import TerminalEmulator, { type TerminalEmulatorHandle } from "@/components/terminal-emulator";
@@ -15,6 +15,8 @@ interface ShellTerminalProps {
   state: ShellRunState;
   /** Fill the parent (sheet) instead of sizing to the output (inline). */
   fill: boolean;
+  /** Caps the inline height; longer transcripts scroll inside the view. */
+  maxHeight: number | undefined;
 }
 
 const ThemedTerminalEmulator = withUnistyles(TerminalEmulator, (theme) => ({
@@ -46,10 +48,26 @@ function buildTranscript(command: string, output: string | undefined): string {
   return toTerminalText(`${HIDE_CURSOR}${DIM}$${RESET} ${trimmedCommand}\n${trimmedOutput}`);
 }
 
-function countRows(text: string): number {
-  let rows = 1;
-  for (let index = 0; index < text.length; index += 1) {
-    if (text.charCodeAt(index) === 10) rows += 1;
+// eslint-disable-next-line no-control-regex
+const ANSI_SEQUENCE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-_])/g;
+const TAB_WIDTH = 8;
+
+// Rows the transcript takes once xterm soft-wraps it at `cols`. A lone carriage return rewrites
+// its line in place, so a line is as wide as its widest segment. Wide (CJK, emoji) glyphs count
+// as one cell.
+function countWrappedRows(command: string, output: string | undefined, cols: number): number {
+  const text = `$ ${command.replace(/\n+$/, "")}\n${(output ?? "").replace(/^\n+/, "")}`;
+  let rows = 0;
+  for (const line of text.replace(ANSI_SEQUENCE, "").split(/\r?\n/)) {
+    let width = 0;
+    let lineWidth = 0;
+    for (let index = 0; index < line.length; index += 1) {
+      const code = line.charCodeAt(index);
+      if (code === 13) width = 0;
+      else width = code === 9 ? (Math.floor(width / TAB_WIDTH) + 1) * TAB_WIDTH : width + 1;
+      if (width > lineWidth) lineWidth = width;
+    }
+    rows += Math.max(1, Math.ceil(lineWidth / cols));
   }
   return rows;
 }
@@ -58,12 +76,23 @@ function countRows(text: string): number {
  * A command's output in a read-only terminal, ANSI colors included. Mounted only while a shell
  * row is open. While the command runs, each update appends what is new, so the view tails it.
  */
-export function ShellTerminal({ streamKey, command, output, state, fill }: ShellTerminalProps) {
+export function ShellTerminal({
+  streamKey,
+  command,
+  output,
+  state,
+  fill,
+  maxHeight,
+}: ShellTerminalProps) {
   const { settings } = useAppSettings();
   const emulatorRef = useRef<TerminalEmulatorHandle>(null);
   const writtenRef = useRef("");
+  // Columns come from xterm's fit; until the first fit, a line counts as one row.
+  const [cols, setCols] = useState<number | null>(null);
+  const handleResize = useCallback((input: { cols: number }) => setCols(input.cols), []);
 
   const transcript = useMemo(() => buildTranscript(command, output), [command, output]);
+  const isRunning = state === "running";
 
   useEffect(() => {
     const emulator = emulatorRef.current;
@@ -76,15 +105,27 @@ export function ShellTerminal({ streamKey, command, output, state, fill }: Shell
       emulator.writeOutput(encoder.encode(transcript));
     }
     writtenRef.current = transcript;
-  }, [transcript]);
+    // A running command tails its output; a finished one opens on the command.
+    if (!isRunning) emulator.scrollToTop?.();
+  }, [transcript, isRunning]);
 
   const fontSize = settings.codeFontSize;
   const fontFamily = settings.monoFontFamily.trim() || undefined;
-  const rows =
-    state === "running"
-      ? INLINE_MAX_ROWS
-      : Math.min(INLINE_MAX_ROWS, Math.max(INLINE_MIN_ROWS, countRows(transcript)));
-  const inlineHeight = Math.ceil(rows * fontSize * ROW_HEIGHT_FACTOR) + TERMINAL_PADDING * 2;
+  const rows = useMemo(
+    () =>
+      isRunning
+        ? INLINE_MAX_ROWS
+        : Math.min(
+            INLINE_MAX_ROWS,
+            Math.max(
+              INLINE_MIN_ROWS,
+              countWrappedRows(command, output, cols ?? Number.POSITIVE_INFINITY),
+            ),
+          ),
+    [isRunning, command, output, cols],
+  );
+  const contentHeight = Math.ceil(rows * fontSize * ROW_HEIGHT_FACTOR) + TERMINAL_PADDING * 2;
+  const inlineHeight = maxHeight === undefined ? contentHeight : Math.min(contentHeight, maxHeight);
   const containerStyle = useMemo(
     () => [styles.container, fill ? styles.fill : inlineUnistylesStyle({ height: inlineHeight })],
     [fill, inlineHeight],
@@ -101,6 +142,7 @@ export function ShellTerminal({ streamKey, command, output, state, fill }: Shell
         scrollbackLines={settings.terminalScrollbackLines}
         fontFamily={fontFamily}
         fontSize={fontSize}
+        onResize={handleResize}
       />
     </View>
   );

@@ -1985,6 +1985,7 @@ function PermissionRequestCard({
         <ToolCallDetailsContent
           callKey={`permission:${request.id}`}
           runState="completed"
+          shellCommandOnly
           detail={resolvedToolCallDetail}
           maxHeight={200}
         />

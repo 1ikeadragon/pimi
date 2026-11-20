@@ -106,6 +106,7 @@ const WorkspaceLayoutStorageSchema: z.ZodType<WorkspaceLayout> = z.strictObject(
 });
 export const WorkspaceLayoutPersistedStateSchema = z.strictObject({
   pinnedAgentIdsByWorkspace: z.record(z.string(), z.array(z.string())).optional(),
+  hiddenAgentIdsByWorkspace: z.record(z.string(), z.array(z.string())).optional(),
   layoutByWorkspace: z.record(z.string(), WorkspaceLayoutStorageSchema),
   workbenchByWorkspace: z
     .record(

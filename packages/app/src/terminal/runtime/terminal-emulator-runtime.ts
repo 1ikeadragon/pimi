@@ -872,6 +872,17 @@ export class TerminalEmulatorRuntime {
     this.processOutputQueue();
   }
 
+  /** Scrolls to the first line once every write queued before this call has been parsed. */
+  scrollToTop(): void {
+    this.outputOperations.push({
+      type: "write",
+      data: EMPTY_TERMINAL_OUTPUT,
+      suppressInput: false,
+      onCommitted: () => this.terminal?.scrollToTop(),
+    });
+    this.processOutputQueue();
+  }
+
   clear(input?: { onCommitted?: () => void }): void {
     this.outputOperations.push({
       type: "clear",

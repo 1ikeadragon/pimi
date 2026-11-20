@@ -39,6 +39,8 @@ interface ToolCallDetailsContentProps {
   callKey: string;
   /** The call's lifecycle, which a shell call's terminal shows. */
   runState: ShellRunState;
+  /** A permission prompt has no run to show: the shell command renders as selectable text. */
+  shellCommandOnly?: boolean;
   detail?: ToolCallDetail;
   errorText?: string;
   maxHeight?: number;
@@ -213,6 +215,24 @@ function FetchDetailSection({ url, result, ds }: FetchDetailProps) {
 }
 
 // Prose (thinking text, plain tool output): no surface.
+function ShellCommandSection({ command, ds }: { command: string; ds: DetailStyles }) {
+  return (
+    <CodeSurface ds={ds}>
+      <ScrollView
+        style={ds.scrollAreaStyle}
+        contentContainerStyle={styles.scrollContent}
+        nestedScrollEnabled
+        showsVerticalScrollIndicator
+      >
+        <Text selectable style={styles.shellCommandText} dataSet={CODE_SURFACE_DATASET}>
+          <Text style={styles.shellPrompt}>$ </Text>
+          {command.replace(/\n+$/, "")}
+        </Text>
+      </ScrollView>
+    </CodeSurface>
+  );
+}
+
 function ScrollablePlainTextSection({ text, ds }: { text: string; ds: DetailStyles }) {
   return (
     <View style={styles.section}>
@@ -379,6 +399,7 @@ interface DetailSectionsInput {
   toolName: string | undefined;
   callKey: string;
   runState: ShellRunState;
+  shellCommandOnly: boolean;
   detail: ToolCallDetail | undefined;
   diffLines: DiffLine[] | undefined;
   ds: DetailStyles;
@@ -389,6 +410,7 @@ function buildDetailSections({
   toolName,
   callKey,
   runState,
+  shellCommandOnly,
   detail,
   diffLines,
   ds,
@@ -396,6 +418,9 @@ function buildDetailSections({
 }: DetailSectionsInput): ReactNode[] {
   if (!detail) return [];
   if (detail.type === "shell") {
+    if (shellCommandOnly) {
+      return [<ShellCommandSection key="shell-command" command={detail.command} ds={ds} />];
+    }
     return [
       <ShellTerminal
         key={callKey}
@@ -404,6 +429,7 @@ function buildDetailSections({
         output={detail.output}
         state={runState}
         fill={ds.shouldFill}
+        maxHeight={ds.resolvedMaxHeight}
       />,
     ];
   }
@@ -485,6 +511,7 @@ export function ToolCallDetailsContent({
   toolName,
   callKey,
   runState,
+  shellCommandOnly = false,
   detail,
   errorText,
   maxHeight,
@@ -502,6 +529,7 @@ export function ToolCallDetailsContent({
     toolName,
     callKey,
     runState,
+    shellCommandOnly,
     detail,
     diffLines,
     ds,
@@ -649,6 +677,16 @@ const styles = StyleSheet.create((theme) => {
             overflowWrap: "normal",
           }
         : null),
+    },
+    shellCommandText: {
+      fontFamily: theme.fontFamily.mono,
+      fontSize: theme.fontSize.code,
+      color: theme.colors.foreground,
+      lineHeight: 18,
+      ...(isWeb ? { whiteSpace: "pre-wrap", overflowWrap: "anywhere" } : null),
+    },
+    shellPrompt: {
+      color: theme.colors.foregroundMuted,
     },
     errorText: {
       color: theme.colors.statusDanger,

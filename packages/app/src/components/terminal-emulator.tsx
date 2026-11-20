@@ -43,6 +43,8 @@ export interface TerminalEmulatorHandle {
   paste: (text: string) => void;
   copySelection: (clipboard: TerminalClipboardWriter) => Promise<string>;
   clear: () => void;
+  /** Scrolls to the first line after pending output. The native grid does not offer it. */
+  scrollToTop?: () => void;
   claimSize: () => void;
   showKeyboard: () => void;
   blur: () => void;
@@ -288,6 +290,9 @@ export default function TerminalEmulator({
       copySelection: async () => "",
       clear: () => {
         runtimeRef.current?.clear();
+      },
+      scrollToTop: () => {
+        runtimeRef.current?.scrollToTop();
       },
       claimSize: () => {
         runtimeRef.current?.resize({ forceRefresh: true, shouldClaim: true });

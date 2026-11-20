@@ -1068,10 +1068,23 @@ function createExplorerSidebarPane(
   return targetPaneId ? splitPaneEmpty(workspaceKey, { targetPaneId, position: "right" }) : null;
 }
 
+function serializeAgentIdSets(byWorkspace: Record<string, Set<string>>) {
+  return Object.fromEntries(
+    Object.entries(byWorkspace).map(([key, agentIds]) => [key, Array.from(agentIds)]),
+  );
+}
+
+function restoreAgentIdSets(byWorkspace: Record<string, string[]> | undefined) {
+  return Object.fromEntries(
+    Object.entries(byWorkspace ?? {}).map(([key, agentIds]) => [key, new Set(agentIds)]),
+  );
+}
+
 const PERSISTED_SLICES = [
   "layoutByWorkspace",
   "workbenchByWorkspace",
   "pinnedAgentIdsByWorkspace",
+  "hiddenAgentIdsByWorkspace",
   "splitSizesByWorkspace",
   "explorerSidebarWidthByWorkspace",
   "explorerSidebarPaneIdByWorkspace",
@@ -1101,12 +1114,8 @@ function createPersistedStateProjection() {
     const state: WorkspaceLayoutPersistedState = {
       layoutByWorkspace,
       workbenchByWorkspace: source.workbenchByWorkspace,
-      pinnedAgentIdsByWorkspace: Object.fromEntries(
-        Object.entries(source.pinnedAgentIdsByWorkspace).map(([key, agentIds]) => [
-          key,
-          Array.from(agentIds),
-        ]),
-      ),
+      pinnedAgentIdsByWorkspace: serializeAgentIdSets(source.pinnedAgentIdsByWorkspace),
+      hiddenAgentIdsByWorkspace: serializeAgentIdSets(source.hiddenAgentIdsByWorkspace),
       splitSizesByWorkspace: source.splitSizesByWorkspace,
       explorerSidebarWidthByWorkspace: source.explorerSidebarWidthByWorkspace,
       explorerPaneIdByWorkspace: source.explorerSidebarPaneIdByWorkspace,
@@ -1953,6 +1962,16 @@ export function createWorkspaceLayoutStore(
                 );
               }
             }
+            let hiddenAgentIdsByWorkspace = state.hiddenAgentIdsByWorkspace;
+            for (const agentId of state.hiddenAgentIdsByWorkspace[normalizedWorkspaceKey] ?? []) {
+              if (!nextState.hiddenAgentIds?.has(agentId)) {
+                hiddenAgentIdsByWorkspace = removeAgentIdFromWorkspaceSet(
+                  hiddenAgentIdsByWorkspace,
+                  normalizedWorkspaceKey,
+                  agentId,
+                );
+              }
+            }
             const sheets = getSheets(state, normalizedWorkspaceKey);
             const fittingSheets = sheets.filter(
               (sheet) => !sheetAgentNoLongerFits(normalizedWorkspaceKey, sheet, snapshot),
@@ -1962,6 +1981,7 @@ export function createWorkspaceLayoutStore(
               state.layoutByWorkspace[normalizedWorkspaceKey] &&
               nextLayout === rawLayout &&
               pinnedAgentIdsByWorkspace === state.pinnedAgentIdsByWorkspace &&
+              hiddenAgentIdsByWorkspace === state.hiddenAgentIdsByWorkspace &&
               !sheetAgentGone
             ) {
               return state;
@@ -1970,6 +1990,7 @@ export function createWorkspaceLayoutStore(
             return {
               ...(sheetAgentGone ? withSheets(state, normalizedWorkspaceKey, fittingSheets) : {}),
               pinnedAgentIdsByWorkspace,
+              hiddenAgentIdsByWorkspace,
               layoutByWorkspace: {
                 ...state.layoutByWorkspace,
                 [normalizedWorkspaceKey]: nextLayout,
@@ -2577,12 +2598,8 @@ export function createWorkspaceLayoutStore(
             ...currentState,
             layoutByWorkspace,
             workbenchByWorkspace: result.data.workbenchByWorkspace ?? {},
-            pinnedAgentIdsByWorkspace: Object.fromEntries(
-              Object.entries(result.data.pinnedAgentIdsByWorkspace ?? {}).map(([key, agentIds]) => [
-                key,
-                new Set(agentIds),
-              ]),
-            ),
+            pinnedAgentIdsByWorkspace: restoreAgentIdSets(result.data.pinnedAgentIdsByWorkspace),
+            hiddenAgentIdsByWorkspace: restoreAgentIdSets(result.data.hiddenAgentIdsByWorkspace),
             splitSizesByWorkspace: result.data.splitSizesByWorkspace ?? {},
             explorerSidebarWidthByWorkspace: result.data.explorerSidebarWidthByWorkspace ?? {},
             explorerSidebarPaneIdByWorkspace,

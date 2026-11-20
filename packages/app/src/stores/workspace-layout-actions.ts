@@ -2456,8 +2456,13 @@ export function reconcileWorkspaceTabs(
   const originalFocusedTabId =
     findPaneById(nextLayout.root, nextLayout.focusedPaneId)?.focusedTabId ?? null;
   let reconciledFocusedTabId = originalFocusedTabId;
-  const hiddenAgentIds = new Set(state.hiddenAgentIds ?? []);
   const activeAgentIds = normalizeStringSet(snapshot.activeAgentIds);
+  // A closed tab stays closed across restarts; the id goes once its agent is archived or gone.
+  const hiddenAgentIds = new Set(
+    [...(state.hiddenAgentIds ?? [])].filter(
+      (agentId) => !snapshot.agentsHydrated || activeAgentIds.has(agentId),
+    ),
+  );
   const autoOpenAgentIds = normalizeStringSet(snapshot.autoOpenAgentIds);
   const foreignAgentIds = normalizeStringSet(snapshot.foreignAgentIds ?? []);
   // Explicit opens survive absent directory entries, but not known foreign ownership.
@@ -2555,5 +2560,6 @@ export function reconcileWorkspaceTabs(
     ...state,
     layout: nextLayout,
     pinnedAgentIds,
+    hiddenAgentIds,
   };
 }
