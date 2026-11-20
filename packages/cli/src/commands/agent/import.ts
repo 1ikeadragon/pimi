@@ -11,6 +11,7 @@ export function addImportOptions(cmd: Command): Command {
     .argument("<id>", "Provider session/thread ID to import")
     .requiredOption("--provider <provider>", "Agent provider id")
     .option("--cwd <path>", "Working directory for providers that require it")
+    .option("--chat <id>", "Import into this chat (default: a new chat)")
     .option(
       "--label <key=value>",
       "Add label(s) to the agent (can be used multiple times)",
@@ -22,6 +23,7 @@ export function addImportOptions(cmd: Command): Command {
 export interface AgentImportOptions extends CommandOptions {
   provider?: string;
   cwd?: string;
+  chat?: string;
   label?: string[];
   host?: string;
 }
@@ -112,6 +114,14 @@ export async function runImportCommand(
   const cwd = resolveImportCwd(options.cwd, process.cwd());
 
   const labels = parseImportLabels(options.label);
+  const chatId = options.chat?.trim();
+  if (options.chat !== undefined && !chatId) {
+    throw {
+      code: "INVALID_CHAT",
+      message: "--chat cannot be empty",
+      details: "Provide a chat ID or omit --chat to import into a new chat",
+    } satisfies CommandError;
+  }
   const client = await connectToDaemon({ target: options.daemonTarget });
 
   try {
@@ -119,6 +129,7 @@ export async function runImportCommand(
       providerId: provider,
       providerHandleId: sessionId,
       cwd,
+      ...(chatId ? { workspaceId: chatId } : {}),
       ...(Object.keys(labels).length > 0 ? { labels } : {}),
     });
 

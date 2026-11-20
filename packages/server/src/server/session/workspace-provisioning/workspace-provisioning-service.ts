@@ -156,29 +156,16 @@ export function createWorkspaceProvisioningService(deps: {
       };
     }
 
-    const [projectsBeforeImport, workspacesBeforeImport] = await Promise.all([
-      projectRegistry.list(),
-      // Import rollback must distinguish restored records from newly allocated workspaces.
-      workspaceRegistry.listAll(),
-    ]);
-    const workspace = await findOrCreateWorkspaceForDirectory(input.cwd);
-    const createdWorkspace = workspacesBeforeImport.some(
-      (candidate) => candidate.workspaceId === workspace.workspaceId,
-    )
-      ? null
-      : workspace;
+    // An import without a chat gets a chat of its own, never a shared one at the same directory.
+    const projectsBeforeImport = await projectRegistry.list();
+    const workspace = await createWorkspaceForDirectory(input.cwd);
     const previousProject =
       projectsBeforeImport.find((project) => project.projectId === workspace.projectId) ?? null;
 
     try {
-      return {
-        value: await operation(workspace),
-        createdWorkspace,
-      };
+      return { value: await operation(workspace), createdWorkspace: workspace };
     } catch (error) {
-      if (createdWorkspace) {
-        await rollbackFailedImportWorkspace(createdWorkspace, previousProject);
-      }
+      await rollbackFailedImportWorkspace(workspace, previousProject);
       throw error;
     }
   }
