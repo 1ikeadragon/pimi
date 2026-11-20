@@ -25,6 +25,7 @@ import {
 import { getCompactSheetSafeAreaPadding } from "@/components/adaptive-modal-sheet-layout";
 import { ScrollView } from "@/components/ui/scroll-view";
 import { isWeb } from "@/constants/platform";
+import { motionCss, motionDuration, SURFACE_ENTER_SCALE } from "@/styles/motion";
 import { useKeyboardVisibility } from "@/hooks/use-keyboard-visibility";
 import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AdaptiveTextInput } from "@/components/adaptive-text-input";
@@ -231,28 +232,33 @@ const styles = StyleSheet.create((theme) => ({
   },
 }));
 
-const WEB_EXIT_DURATION_MS = 160;
-const WEB_ENTER_DURATION_MS = 160;
 const WEB_ENTER_ANIMATION_NAME = "pimi-modal-enter";
 
-// The desktop card fades in; the dim lands at once, so the screen behind is never seen undimmed
-// while the dialog arrives. A CSS animation runs from the card's first paint, so a dialog that opens
-// on its own, like first-run setup, never pops in. Closing fades the whole overlay. With reduced
-// motion the keyframes are never defined, so the card appears at once.
+// The desktop card rises out of a slight scale while it fades in; the dim lands at once, so the
+// screen behind is never seen undimmed while the dialog arrives. A CSS animation runs from the
+// card's first paint, so a dialog that opens on its own, like first-run setup, never pops in.
+// Closing fades the whole overlay. Reduced motion keeps the fade and drops the scale.
 function ensureWebEnterKeyframes() {
   if (!isWeb || typeof document === "undefined") return;
   if (document.getElementById(WEB_ENTER_ANIMATION_NAME)) return;
   const style = document.createElement("style");
   style.id = WEB_ENTER_ANIMATION_NAME;
-  style.textContent = `@media (prefers-reduced-motion: no-preference) { @keyframes ${WEB_ENTER_ANIMATION_NAME} { from { opacity: 0; } to { opacity: 1; } } }`;
+  style.textContent = `
+@keyframes ${WEB_ENTER_ANIMATION_NAME} {
+  from { opacity: 0; transform: scale(${SURFACE_ENTER_SCALE}); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes ${WEB_ENTER_ANIMATION_NAME} { from { opacity: 0; } to { opacity: 1; } }
+}`;
   document.head.appendChild(style);
 }
 ensureWebEnterKeyframes();
 // The CSS animation props are not part of ViewStyle without the generated expo-env.d.ts.
 const WEB_ENTER_STYLE = {
   animationName: WEB_ENTER_ANIMATION_NAME,
-  animationDuration: `${WEB_ENTER_DURATION_MS}ms`,
-  animationTimingFunction: "ease-out",
+  animationDuration: `${motionDuration.modalEnter}ms`,
+  animationTimingFunction: motionCss.out,
 } as unknown as ViewStyle;
 
 /** The compact sheet's surface: Gorhom's `backgroundComponent` for every bottom sheet. */
@@ -694,9 +700,9 @@ export function AdaptiveModalSheet({
       isWeb && {
         zIndex: modalLayer,
         opacity: isWebClosing ? 0 : 1,
-        transitionDuration: `${WEB_EXIT_DURATION_MS}ms`,
+        transitionDuration: `${motionDuration.modalExit}ms`,
         transitionProperty: "opacity",
-        transitionTimingFunction: "ease",
+        transitionTimingFunction: motionCss.out,
       },
     ],
     [isWebClosing, modalLayer],
@@ -732,7 +738,7 @@ export function AdaptiveModalSheet({
       setShouldRenderWeb(false);
       setIsWebClosing(false);
       onDismiss?.();
-    }, WEB_EXIT_DURATION_MS);
+    }, motionDuration.modalExit);
     return () => window.clearTimeout(timeout);
   }, [visible, isMobile, onDismiss, shouldRenderWeb]);
 

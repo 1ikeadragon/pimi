@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useState,
   type ReactElement,
@@ -23,8 +22,13 @@ import {
 } from "react-native";
 import { Keyframe, runOnJS } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
-import { FloatingScrollView, FloatingSurface } from "@/components/ui/floating";
+import {
+  FloatingScrollView,
+  FloatingSurface,
+  useWebSurfaceEntering,
+} from "@/components/ui/floating";
 import { isWeb } from "@/constants/platform";
+import { motionDuration, motionEasing, SURFACE_ENTER_SCALE } from "@/styles/motion";
 import type { KeyboardFocusScope } from "@/keyboard/actions";
 import { getOverlayRoot, OverlayLayerProvider, useOverlayLayer } from "@/lib/overlay-root";
 import {
@@ -39,49 +43,18 @@ import {
 } from "../anchor";
 
 const SCROLL_CONTENT_STYLE = { flexGrow: 1 } as const;
-const CONTENT_ENTERING_DURATION_MS = 150;
-
 const contentEntering = new Keyframe({
-  0: { opacity: 0, transform: [{ scale: 0.97 }] },
-  100: { opacity: 1, transform: [{ scale: 1 }] },
-}).duration(CONTENT_ENTERING_DURATION_MS);
+  0: { opacity: 0, transform: [{ scale: SURFACE_ENTER_SCALE }] },
+  100: { opacity: 1, transform: [{ scale: 1 }], easing: motionEasing.out },
+}).duration(motionDuration.popoverEnter);
 
-/** `contentEntering` for the browser's own animation engine. Both default to linear easing. */
-const WEB_CONTENT_ENTERING_KEYFRAMES: PropertyIndexedKeyframes = {
-  opacity: [0, 1],
-  transform: ["scale(0.97)", "scale(1)"],
-};
-
-/** Web plays the same keyframes itself; see `useWebContentEntering`. */
+/** Web plays the same motion itself; see `useWebSurfaceEntering`. */
 const nativeContentEntering = isWeb ? undefined : contentEntering;
 
 const contentExiting = new Keyframe({
   0: { opacity: 1, transform: [{ scale: 1 }] },
-  100: { opacity: 0, transform: [{ scale: 0.97 }] },
-}).duration(100);
-
-/**
- * On web the surface enters through the Web Animations API rather than Reanimated. Reanimated's
- * web path snapshots an element's rect when a custom keyframe ends and, when it cleans the keyframe
- * up 750ms after the start, writes that rect back as inline top/left/width/height. A surface that
- * moved or resized in between — content that grew once its data arrived — snapped back to the old
- * rect and stayed there, clipped or hanging past its anchor. A Web Animation leaves no inline style.
- */
-function useWebContentEntering({
-  placed,
-  surfaceNativeID,
-}: {
-  placed: boolean;
-  surfaceNativeID: string;
-}): void {
-  useLayoutEffect(() => {
-    if (!isWeb || !placed || typeof document === "undefined") return undefined;
-    const animation = document
-      .getElementById(surfaceNativeID)
-      ?.animate(WEB_CONTENT_ENTERING_KEYFRAMES, CONTENT_ENTERING_DURATION_MS);
-    return () => animation?.cancel();
-  }, [placed, surfaceNativeID]);
-}
+  100: { opacity: 0, transform: [{ scale: SURFACE_ENTER_SCALE }], easing: motionEasing.out },
+}).duration(motionDuration.popoverExit);
 
 /**
  * Resolves where an anchored surface sits: measures the anchor, measures the content, and runs
@@ -267,7 +240,7 @@ export function AnchoredSurface({
   // final position; web starts its own animation on placement.
   const placed = position !== null;
 
-  useWebContentEntering({ placed, surfaceNativeID });
+  useWebSurfaceEntering({ placed, surfaceNativeID, durationMs: motionDuration.popoverEnter });
 
   useEffect(() => {
     if (!isWeb || !open || !placed || typeof document === "undefined") return undefined;

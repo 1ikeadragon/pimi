@@ -8,6 +8,8 @@ import {
   TOUCH_ICON_SIZE,
   type SizingValue,
 } from "@/components/ui/control-geometry";
+import { isWeb } from "@/constants/platform";
+import { PRESS_CLASS_NAME, PRESS_SCALE } from "@/styles/motion";
 import { ICON_SIZE } from "@/styles/theme";
 
 export { extraMutedIconColorMapping, mutedIconColorMapping } from "@/components/ui/icon-color";
@@ -86,6 +88,7 @@ export function iconButtonChromeStyle({
     round ? styles.round : null,
     style,
     highlighted ? styles.highlighted : null,
+    state?.pressed && isWeb ? styles.pressedWeb : null,
     disabled ? styles.disabled : null,
   ];
 }
@@ -117,6 +120,7 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 0,
     outlineWidth: 0,
     outlineColor: "transparent",
+    _web: { _classNames: PRESS_CLASS_NAME },
   },
   small: {
     width: ICON_BUTTON_SIZES.small.pointer,
@@ -128,6 +132,7 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 0,
     outlineWidth: 0,
     outlineColor: "transparent",
+    _web: { _classNames: PRESS_CLASS_NAME },
   },
   smallTouch: {
     width: ICON_BUTTON_SIZES.small.touch,
@@ -139,12 +144,16 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 0,
     outlineWidth: 0,
     outlineColor: "transparent",
+    _web: { _classNames: PRESS_CLASS_NAME },
   },
   round: {
     borderRadius: theme.borderRadius.full,
   },
   highlighted: {
     backgroundColor: theme.colors.interactionHighlight,
+  },
+  pressedWeb: {
+    transform: [{ scale: PRESS_SCALE }],
   },
   disabled: {
     opacity: theme.opacity[50],

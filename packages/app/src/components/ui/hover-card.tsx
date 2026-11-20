@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -16,15 +17,17 @@ import { FadeIn, FadeOut } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 import { Portal } from "@gorhom/portal";
 import { OverlayLayerProvider, useOverlayLayer } from "@/lib/overlay-root";
-import { FloatingSurface } from "@/components/ui/floating";
+import { FloatingSurface, useWebSurfaceEntering } from "@/components/ui/floating";
 import {
   measureFloatingPanelPortalHost,
   useFloatingPanelPortalHostName,
 } from "@/components/ui/floating-panel-portal";
 import { isWeb } from "@/constants/platform";
 import { useHoverSafeZone } from "@/hooks/use-hover-safe-zone";
+import { motionDuration } from "@/styles/motion";
 import {
   computePosition,
+  getTransformOrigin,
   measureElement,
   type Alignment,
   type Placement,
@@ -330,7 +333,8 @@ function HoverCardSurface({
   const portalHostName = useFloatingPanelPortalHostName();
   const [anchor, setAnchor] = useState<{ triggerRect: Rect; hostRect: Rect } | null>(null);
   const [contentSize, setContentSize] = useState<Size | null>(null);
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [position, setPosition] = useState<HoverCardPosition | null>(null);
+  const surfaceNativeID = useId();
 
   useEffect(() => {
     if (!triggerRef.current) return;
@@ -350,7 +354,7 @@ function HoverCardSurface({
   useEffect(() => {
     if (!anchor || !contentSize) return;
     const { width, height } = Dimensions.get("window");
-    const { x, y } = computePosition({
+    const { x, y, actualPlacement } = computePosition({
       triggerRect: anchor.triggerRect,
       contentSize,
       displayArea: { x: 0, y: 0, width, height },
@@ -359,13 +363,16 @@ function HoverCardSurface({
       alignment,
       offset,
     });
-    setPosition({ x: x - anchor.hostRect.x, y: y - anchor.hostRect.y });
+    setPosition({ x: x - anchor.hostRect.x, y: y - anchor.hostRect.y, placement: actualPlacement });
   }, [alignment, anchor, contentSize, offset, placement]);
 
   const handleLayout = useCallback(
     (event: { nativeEvent: { layout: { width: number; height: number } } }) => {
       const { width, height } = event.nativeEvent.layout;
-      setContentSize({ width, height });
+      setContentSize((current) => {
+        if (current && current.width === width && current.height === height) return current;
+        return { width, height };
+      });
     },
     [],
   );
@@ -375,18 +382,24 @@ function HoverCardSurface({
       position: "absolute" as const,
       top: position?.y ?? -9999,
       left: position?.x ?? -9999,
+      transformOrigin: getTransformOrigin(position?.placement ?? placement, alignment),
     }),
-    [position?.x, position?.y],
+    [position?.x, position?.y, position?.placement, placement, alignment],
   );
+  // Measured off-screen first, then remounted in place so the enter plays where it is seen.
+  const placed = position !== null;
+  useWebSurfaceEntering({ placed, surfaceNativeID, durationMs: motionDuration.popoverEnter });
   const surfaceStyle = useMemo(() => [styles.surface, style], [style]);
 
   return (
     <Portal hostName={portalHostName}>
       <View pointerEvents="box-none" style={[styles.portalOverlay, { zIndex: layer }]}>
         <FloatingSurface
+          key={placed ? "placed" : "measuring"}
           ref={contentRef}
-          entering={FadeIn.duration(80)}
-          exiting={FadeOut.duration(80)}
+          nativeID={surfaceNativeID}
+          entering={placed && !isWeb ? nativeHoverCardEntering : undefined}
+          exiting={placed ? hoverCardExiting : undefined}
           collapsable={false}
           onLayout={handleLayout}
           role={role}
@@ -401,6 +414,15 @@ function HoverCardSurface({
     </Portal>
   );
 }
+
+interface HoverCardPosition {
+  x: number;
+  y: number;
+  placement: Placement;
+}
+
+const nativeHoverCardEntering = FadeIn.duration(motionDuration.popoverEnter);
+const hoverCardExiting = FadeOut.duration(motionDuration.popoverExit);
 
 const styles = StyleSheet.create((theme) => ({
   portalOverlay: {

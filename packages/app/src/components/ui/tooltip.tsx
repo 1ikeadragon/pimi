@@ -7,6 +7,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -26,10 +27,11 @@ import {
 import { FadeIn, FadeOut } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
-import { FloatingSurface } from "@/components/ui/floating";
+import { FloatingSurface, useWebSurfaceEntering } from "@/components/ui/floating";
 import { useRetainedPanelActiveWhile } from "@/components/retained-panel";
 import { isNative, isWeb } from "@/constants/platform";
 import { getOverlayRoot, OVERLAY_Z } from "@/lib/overlay-root";
+import { motionDuration } from "@/styles/motion";
 
 type Side = "top" | "bottom" | "left" | "right";
 type Align = "start" | "center" | "end";
@@ -43,6 +45,22 @@ interface Rect {
 
 type TooltipTriggerElement = View | HTMLElement;
 
+interface TooltipPosition {
+  x: number;
+  y: number;
+  side: Side;
+}
+
+/** The surface grows out of the edge facing its trigger. */
+const TRANSFORM_ORIGIN_BY_SIDE: Record<Side, [string | number, string | number, number]> = {
+  top: ["50%", "100%", 0],
+  bottom: ["50%", 0, 0],
+  left: ["100%", "50%", 0],
+  right: [0, "50%", 0],
+};
+const nativeTooltipEntering = FadeIn.duration(motionDuration.tooltip);
+const tooltipExiting = FadeOut.duration(80);
+
 interface TooltipContextValue {
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -50,6 +68,18 @@ interface TooltipContextValue {
   enabled: boolean;
   openOnPress: boolean;
   delayDuration: number;
+  /** Opened during a handoff from a neighbouring tooltip: shows at once, without its enter. */
+  entersInstantly: boolean;
+  setEntersInstantly: (instant: boolean) => void;
+}
+
+// Once one tooltip has been shown, moving to a neighbouring trigger shows the next one at once:
+// the user is scanning a toolbar, and waiting out the delay again on every glyph reads as lag.
+const TOOLTIP_HANDOFF_MS = 300;
+let tooltipHandoffUntil = 0;
+
+function isTooltipHandoff(): boolean {
+  return Date.now() < tooltipHandoffUntil;
 }
 
 const TooltipContext = createContext<TooltipContextValue | null>(null);
@@ -256,6 +286,7 @@ export function Tooltip({
     onOpenChange,
   });
 
+  const [entersInstantly, setEntersInstantly] = useState(false);
   const isCompact = useIsCompactFormFactor();
   // Only an open tooltip needs to know its panel went inactive; a closed one cannot be hovered.
   const active = useRetainedPanelActiveWhile(isOpen);
@@ -276,8 +307,10 @@ export function Tooltip({
       enabled,
       openOnPress: opensOnPress,
       delayDuration,
+      entersInstantly,
+      setEntersInstantly,
     }),
-    [isOpen, setIsOpen, enabled, opensOnPress, delayDuration],
+    [isOpen, setIsOpen, enabled, opensOnPress, delayDuration, entersInstantly],
   );
 
   return <TooltipContext.Provider value={value}>{children}</TooltipContext.Provider>;
@@ -317,11 +350,14 @@ export function TooltipTrigger({
   const scheduleOpen = useCallback(() => {
     if (!ctx.enabled || disabled) return;
     clearOpenTimer();
-    if (ctx.delayDuration <= 0) {
+    const handoff = isTooltipHandoff();
+    if (ctx.delayDuration <= 0 || handoff) {
+      ctx.setEntersInstantly(handoff);
       ctx.setOpen(true);
       return;
     }
     openTimerRef.current = setTimeout(() => {
+      ctx.setEntersInstantly(false);
       ctx.setOpen(true);
       openTimerRef.current = null;
     }, ctx.delayDuration);
@@ -329,6 +365,7 @@ export function TooltipTrigger({
 
   const close = useCallback(() => {
     clearOpenTimer();
+    if (ctx.open) tooltipHandoffUntil = Date.now() + TOOLTIP_HANDOFF_MS;
     ctx.setOpen(false);
   }, [clearOpenTimer, ctx]);
 
@@ -364,6 +401,7 @@ export function TooltipTrigger({
       if (!ctx.enabled || disabled) return;
       if (!shouldOpenOnFocus()) return;
       clearOpenTimer();
+      ctx.setEntersInstantly(false);
       ctx.setOpen(true);
     },
     [clearOpenTimer, ctx, disabled, onFocus],
@@ -385,6 +423,7 @@ export function TooltipTrigger({
       }
       if (ctx.openOnPress) {
         clearOpenTimer();
+        ctx.setEntersInstantly(false);
         ctx.setOpen(true);
         return;
       }
@@ -476,7 +515,8 @@ export function TooltipContent({
   const ctx = useTooltipContext("TooltipContent");
   const [triggerRect, setTriggerRect] = useState<Rect | null>(null);
   const [contentSize, setContentSize] = useState<{ width: number; height: number } | null>(null);
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [position, setPosition] = useState<TooltipPosition | null>(null);
+  const surfaceNativeID = useId();
 
   useEffect(() => {
     if (!ctx.open || !ctx.enabled || !ctx.triggerRef.current) {
@@ -510,13 +550,16 @@ export function TooltipContent({
       align,
       offset,
     });
-    setPosition({ x: result.x, y: result.y });
+    setPosition({ x: result.x, y: result.y, side: result.actualSide });
   }, [triggerRect, contentSize, side, align, offset]);
 
   const handleLayout = useCallback(
     (event: { nativeEvent: { layout: { width: number; height: number } } }) => {
       const { width, height } = event.nativeEvent.layout;
-      setContentSize({ width, height });
+      setContentSize((current) => {
+        if (current && current.width === width && current.height === height) return current;
+        return { width, height };
+      });
     },
     [],
   );
@@ -528,10 +571,18 @@ export function TooltipContent({
         top: position?.y ?? -9999,
         left: position?.x ?? -9999,
         maxWidth,
+        transformOrigin: TRANSFORM_ORIGIN_BY_SIDE[position?.side ?? side],
       },
     ],
-    [maxWidth, position?.x, position?.y],
+    [maxWidth, position?.x, position?.y, position?.side, side],
   );
+  // The tooltip measures off-screen first, then remounts in place so its enter plays where it is
+  // seen. A handoff from a neighbouring tooltip skips the enter.
+  const placed = position !== null;
+  const enterDurationMs = ctx.entersInstantly ? 0 : motionDuration.tooltip;
+  useWebSurfaceEntering({ placed, surfaceNativeID, durationMs: enterDurationMs });
+  const playsNativeEnter = placed && !isWeb && enterDurationMs > 0;
+  const nativeEntering = playsNativeEnter ? nativeTooltipEntering : undefined;
   const contentStyle = useMemo(() => [styles.content, style], [style]);
 
   const handleDismiss = useCallback(() => ctx.setOpen(false), [ctx]);
@@ -545,9 +596,10 @@ export function TooltipContent({
     return createPortal(
       <View pointerEvents="none" style={styles.portalOverlay}>
         <FloatingSurface
+          key={placed ? "placed" : "measuring"}
+          nativeID={surfaceNativeID}
           pointerEvents="none"
-          entering={FadeIn.duration(80)}
-          exiting={FadeOut.duration(80)}
+          exiting={placed ? tooltipExiting : undefined}
           collapsable={false}
           role="tooltip"
           testID={testID}
@@ -572,9 +624,10 @@ export function TooltipContent({
     >
       <Pressable testID="tooltip-dismiss" style={styles.overlay} onPress={handleDismiss}>
         <FloatingSurface
+          key={placed ? "placed" : "measuring"}
           pointerEvents="none"
-          entering={FadeIn.duration(80)}
-          exiting={FadeOut.duration(80)}
+          entering={nativeEntering}
+          exiting={placed ? tooltipExiting : undefined}
           collapsable={false}
           role="tooltip"
           testID={testID}

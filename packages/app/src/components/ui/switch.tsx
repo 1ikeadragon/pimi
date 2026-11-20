@@ -5,9 +5,10 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import Animated, {
-  Easing,
   interpolateColor,
+  ReduceMotion,
   useAnimatedStyle,
   useDerivedValue,
   withTiming,
@@ -16,6 +17,8 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { switchGeometryForLayout, type SwitchGeometry } from "@/components/ui/control-geometry";
 import { useContainedControlSize } from "@/components/ui/control-size";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { isNative } from "@/constants/platform";
+import { motionDuration, motionEasing } from "@/styles/motion";
 import type { Theme } from "@/styles/theme";
 
 interface SwitchProps {
@@ -27,7 +30,11 @@ interface SwitchProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const TIMING = { duration: 180, easing: Easing.inOut(Easing.ease) };
+const TIMING = {
+  duration: motionDuration.toggle,
+  easing: motionEasing.out,
+  reduceMotion: ReduceMotion.System,
+};
 
 interface SwitchTrackProps {
   value: boolean;
@@ -110,6 +117,7 @@ export function Switch({
     (event: GestureResponderEvent) => {
       event.stopPropagation();
       if (disabled) return;
+      if (isNative) void Haptics.selectionAsync().catch(() => {});
       onValueChange?.(!value);
     },
     [disabled, onValueChange, value],

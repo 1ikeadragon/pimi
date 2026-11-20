@@ -229,7 +229,21 @@ Changing state must not move the layout. A row that grows when its badge arrives
 
 ---
 
-## 12. List rows
+## 12. Motion
+
+Motion tokens live in `packages/app/src/styles/motion.ts`: one curve, `out`, for anything entering, leaving, or answering a press; the durations, `PRESS_SCALE`, and `SURFACE_ENTER_SCALE`. A new animation uses them. A hand-written curve, a built-in `ease-in`/`ease-out`, or Reanimated's default linear easing is wrong.
+
+Animate only what is occasional. Keyboard-driven actions, tab switches, scrolling, list navigation, and anything in the chat timeline do not animate: they happen hundreds of times a day and motion turns into lag. Press feedback and hover fills are the exception because they stay under the press duration and are felt rather than watched.
+
+- Press: web pressables scale to `PRESS_SCALE` from their pressed style and opt into `PRESS_CLASS_NAME`, which eases the scale and the hover fill and draws the keyboard focus ring. `<Button>` and the icon-button chrome already do. Native `<Button>` dims; rows flash through `<PressHighlight>`.
+- Floating surfaces (menus, tooltips, hover cards) enter from `SURFACE_ENTER_SCALE` at the `transformOrigin` facing their anchor, and only once placed: a surface that animates while it is still off-screen being measured is over before anyone sees it. On web they enter through `useWebSurfaceEntering` (`packages/app/src/components/ui/floating.tsx`); its comment has the Reanimated web keyframe gotcha it avoids. Once a tooltip has shown, a neighbouring one opens at once with no enter.
+- Exits run faster than enters and leave the way the surface came: a toast drops in under the header and leaves upward.
+- Reduced motion keeps the fades and drops scale and travel. Web checks `prefers-reduced-motion`; native layout animations follow the system setting.
+- Native value changes on a switch or segmented control fire one selection haptic in the same frame as the visual.
+
+---
+
+## 13. List rows
 
 The row anatomy is a content column with an optional trailing slot. Inside a card the row is `settingsStyles.row`. Inside a sidebar list the row carries its own padding and `borderRadius.lg` per item (`packages/app/src/components/sidebar-workspace-list.tsx:2614-2625`).
 
@@ -245,7 +259,7 @@ Selected state on rows in a desktop list+detail uses `surfaceSidebarHover` as th
 
 ---
 
-## 13. Status pills and badges
+## 14. Status pills and badges
 
 There is exactly one token per status signal — `statusSuccess`, `statusDanger`, `statusWarning`, `statusMerged` — and every status surface uses it: PR state icons, CI check icons and pies, diff stats, file-change icons, status pills, usage bars. A surface does not get a quieter or louder variant because of where it sits. If a dense list feels loud, that is a density or weight problem; fix the density, not the color. The tokens are generated, not hand-picked — see the rule in `packages/app/src/styles/theme.ts` and regenerate rather than nudging one value. The level is set by the densest consumer, the sidebar workspace list.
 
@@ -261,7 +275,7 @@ New status pills use `<StatusBadge>`. Identity, shortcut, and interactive link b
 
 ---
 
-## 14. Forbidden
+## 15. Forbidden
 
 - `fontWeight.medium` on row titles, body text, badge text, or `<SidebarCallout>` titles. Medium is reserved for the structural-label tier described in §3 — section labels, modal/sheet titles, dense metadata emphasis, and tight action labels. Anything else is `normal`. `<ScreenTitle>` is responsive `400/300` and is never overridden.
 - `<Pressable>` wrapping `<Text>` to make a button. `<Button>` exists.
@@ -283,7 +297,7 @@ New status pills use `<StatusBadge>`. Identity, shortcut, and interactive link b
 
 ---
 
-## 15. Canonical surfaces by pattern
+## 16. Canonical surfaces by pattern
 
 | Pattern                                             | Reference                                                                                                                                                                                                                                                                                                |
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

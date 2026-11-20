@@ -152,6 +152,7 @@ import { ICON_STROKE_WIDTH } from "@/styles/theme";
 import { useThemeStep } from "@/appearance/theme-picker";
 import { useSessionStore } from "@/stores/session-store";
 import { WorkspaceLayoutModePublisher } from "@/workspace-tabs/layout-mode-publisher";
+import { installWebMotionStyles } from "@/styles/install-web-motion-styles";
 import { installWebScrollbarStyles } from "@/styles/install-web-scrollbar-styles";
 import type { HostProfile } from "@/types/host-connection";
 import {
@@ -1225,6 +1226,7 @@ const PIMI_BACKDROP = { "pimi-backdrop": "" };
 
 export default function RootLayout() {
   useEffect(() => installWebScrollbarStyles(), []);
+  useEffect(() => installWebMotionStyles(), []);
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState !== "active") {

@@ -1,8 +1,8 @@
 import { useCallback, useMemo, type ReactNode } from "react";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import type { StyleProp, TextStyle, ViewStyle } from "react-native";
+import * as Haptics from "expo-haptics";
 import Animated, {
-  Easing,
   ReduceMotion,
   useAnimatedStyle,
   useDerivedValue,
@@ -15,6 +15,8 @@ import {
   type ControlSize,
 } from "@/components/ui/control-geometry";
 import { useContainedControlSize } from "@/components/ui/control-size";
+import { isNative } from "@/constants/platform";
+import { motionDuration, motionEasing } from "@/styles/motion";
 import type { Theme } from "@/styles/theme";
 
 type SegmentedControlIconRenderer = (props: { color: string; size: number }) => ReactNode;
@@ -41,8 +43,8 @@ interface SegmentedControlProps<T extends string> {
 }
 
 const THUMB_TIMING = {
-  duration: 155,
-  easing: Easing.out(Easing.cubic),
+  duration: motionDuration.toggle,
+  easing: motionEasing.out,
   reduceMotion: ReduceMotion.System,
 };
 
@@ -162,6 +164,7 @@ function SegmentItem<T extends string>({
   );
   const handlePress = useCallback(() => {
     if (!option.disabled && option.value !== currentValue) {
+      if (isNative) void Haptics.selectionAsync().catch(() => {});
       onValueChange(option.value);
     }
   }, [option.disabled, option.value, currentValue, onValueChange]);

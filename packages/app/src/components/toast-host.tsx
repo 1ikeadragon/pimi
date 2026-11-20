@@ -12,10 +12,11 @@ import {
   ToastAndroid,
   View,
 } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, { FadeInUp, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
+import { motionDuration, motionEasing } from "@/styles/motion";
 import { useTranslation } from "@/i18n/use-translation";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
@@ -64,8 +65,9 @@ type ToastViewportPlacement = "app-shell" | "panel";
 const DEFAULT_DURATION_MS = 2200;
 const noopDismiss: DismissToast = () => {};
 const TOAST_MAX_WIDTH = 480;
-const toastEntering = FadeIn.duration(140);
-const toastExiting = FadeOut.duration(140);
+// Toasts hang under the header, so they drop in from above and leave the way they came.
+const toastEntering = FadeInUp.duration(motionDuration.toastEnter).easing(motionEasing.out);
+const toastExiting = FadeOutUp.duration(motionDuration.toastExit).easing(motionEasing.out);
 const ThemedCheckCircle = withUnistyles(CheckCircle2);
 const ThemedInfo = withUnistyles(Info);
 const ThemedWarning = withUnistyles(AlertTriangle);

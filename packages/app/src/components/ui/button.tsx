@@ -25,6 +25,8 @@ import {
   type ControlSize,
 } from "@/components/ui/control-geometry";
 import type { Theme } from "@/styles/theme";
+import { PRESS_CLASS_NAME, PRESS_SCALE } from "@/styles/motion";
+import { isNative } from "@/constants/platform";
 
 type ButtonVariant = "default" | "secondary" | "outline" | "ghost" | "destructive";
 
@@ -97,6 +99,7 @@ const styles = StyleSheet.create((theme) => {
       borderRadius: theme.borderRadius.lg,
       borderWidth: 1,
       borderColor: "transparent",
+      _web: { _classNames: PRESS_CLASS_NAME },
     },
     md: {
       ...geometry.buttonMd,
@@ -129,6 +132,9 @@ const styles = StyleSheet.create((theme) => {
     pressed: {
       opacity: 0.85,
     },
+    pressedWeb: {
+      transform: [{ scale: PRESS_SCALE }],
+    },
     disabled: {
       opacity: theme.opacity[50],
     },
@@ -154,6 +160,11 @@ const styles = StyleSheet.create((theme) => {
     },
   };
 });
+
+// Web answers a press with a scale that PRESS_CLASS_NAME eases; native dims.
+function resolvePressedStyle(): ViewStyle {
+  return isNative ? styles.pressed : styles.pressedWeb;
+}
 
 export function Button({
   children,
@@ -214,7 +225,7 @@ export function Button({
       sizeStyle,
       isIconOnly ? iconOnlyStyle : null,
       variantStyle,
-      pressed ? styles.pressed : null,
+      pressed ? resolvePressedStyle() : null,
       isDisabled ? styles.disabled : null,
       style,
     ],
