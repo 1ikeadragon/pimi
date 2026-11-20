@@ -929,13 +929,10 @@ function createToolCatalog(
     };
   };
 
-  const workspaceBackgroundIntent = (background: boolean | undefined) => {
-    const caller = resolveCallerAgent();
-    return {
-      background: inheritWorkspaceBackground(background, caller),
-      callerWorkspaceId: caller?.workspaceId,
-    };
-  };
+  // A chat the tools create is a top-level record: it never records the caller's chat as parent.
+  const workspaceBackgroundIntent = (background: boolean | undefined) => ({
+    background: inheritWorkspaceBackground(background, resolveCallerAgent()),
+  });
 
   const resolveInheritedProviderConfig = (
     selectedProvider: string,
@@ -1572,7 +1569,6 @@ function createToolCatalog(
   }
   interface ChatIntent {
     background?: boolean;
-    callerWorkspaceId?: string;
   }
 
   async function resolveChatProject(project: string | undefined): Promise<ChatProject> {
@@ -1811,8 +1807,7 @@ function createToolCatalog(
       // Everything an agent needs is resolved before the chat exists, so a bad request leaves
       // no empty chat behind.
       const agentStart = await prepareChatAgent(args);
-      // An independent chat is a top-level record: it neither inherits the caller's visibility
-      // nor records the caller as its parent.
+      // A chat with its own agent does not inherit the caller's visibility either.
       const intent = starts ? { background: false } : workspaceBackgroundIntent(args.background);
       const recordTitle = args.title;
       const workspace =
