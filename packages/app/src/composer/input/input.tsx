@@ -88,6 +88,7 @@ import { useComposerKeyboardScope } from "@/composer/keyboard-scope";
 import { RenderProfile } from "@/utils/render-profiler";
 import { useComposerHeight } from "./height";
 import { ComposerInputPresentation } from "./presentation";
+import { useComposerSurfaceFocus } from "./surface-focus";
 import { resolveComposerInputMode, type ComposerInputMode } from "@/composer/input-mode";
 import type { NativePastedFile } from "@/composer/native-pasted-image";
 import type { EditingTextInputHandle as ComposerTextInputHandle } from "@/components/ui/text-input";
@@ -1354,6 +1355,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       webTextareaRef.current = element;
       setWebTextArea(element);
     }, []);
+    useComposerSurfaceFocus(inputWrapperRef, textInputRef, webTextArea);
     // Only mouse-driven UIs restore editing focus on navigation. Touch users return
     // to the conversation; replaying old focus would reopen their software keyboard.
     // Read pointer capability when restoring, without making a pointer change itself

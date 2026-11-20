@@ -20,6 +20,7 @@ Chip characters never leave the client. `prepareComposerSubmission` (`composer/a
 - Replace text by diff, never wholesale: a full replace drops undo history and the chip DOM, closing open hover cards and note editors.
 - `reset()` and draft switches swap the `EditorState`, or Cmd+Z brings back a sent message.
 - The editor's keydown handler sits above CodeMirror's keymap (`Prec.highest`), or Enter inserts a line before the composer sees it. It keeps the `isComposing` check, because Japanese and Chinese input confirm with Enter.
+- CodeMirror handles presses on its content line only, and gives `.cm-scroller` `tabIndex = -1`. A press below the line focused the scroller, the next key went nowhere, and the scroller matched the global `*:focus-visible` ring. `composer/input/surface-focus.web.ts` claims every press on the composer box that no control takes and focuses the editor with the caret at the end.
 - Chip widgets `preventDefault` on `mousedown` so a stray click does not move focus out of the editor. Tab still reaches a chip.
 - CodeMirror's own paste and drop handlers insert the text of dropped files. The editor claims them so `composer/attachments/drop.ts` and the paste-image effect keep ownership.
 - Chips render through `createPortal` into widget spans, so they get unistyles, i18n and plugin providers. Do not call `useUnistyles()`; the editor theme uses CSS variables.
