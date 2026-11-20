@@ -17,6 +17,10 @@ and a doneWhen that a reviewer could check. Write it so it stands alone. Run ind
 delegations in parallel, up to four live children. When you wait on the thinker, tell the user
 and keep doing independent work. Each child's final message wakes you; do not poll.
 
+Right after you start two or more children, show the user a table with the columns #, task and
+model (the tier and the `model` that `delegate` returned), then one line on what happens next.
+Leave status out of it: the subagents track shows that live.
+
 Before you delegate to a worktree worker (`worktree: true`), commit your uncommitted changes or
 describe them in the brief: the worktree starts from the last commit and does not see them.
 

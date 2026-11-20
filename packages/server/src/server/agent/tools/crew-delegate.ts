@@ -118,6 +118,7 @@ export function registerDelegateTool(options: RegisterDelegateToolOptions): void
         agentId: z.string(),
         role: z.enum(CREW_ROLES),
         provider: z.string(),
+        model: z.string().optional(),
         chatId: z.string().optional(),
         note: z.string().optional(),
       },
@@ -170,6 +171,7 @@ export function registerDelegateTool(options: RegisterDelegateToolOptions): void
         agentId: child.agentId,
         role: args.role,
         provider: child.type,
+        ...(tier.model ? { model: tier.model } : {}),
         ...(chatId ? { chatId } : {}),
         ...(tier.note ? { note: tier.note } : {}),
       };
@@ -185,6 +187,8 @@ interface ResolvedTier {
   profileId: string;
   /** Set only when the tier falls back to the lead's own model. */
   provider?: string;
+  /** The model the child runs on, for the lead to name; absent when the provider picks it. */
+  model?: string;
   note?: string;
 }
 
@@ -204,17 +208,18 @@ async function resolveTier(
     !sameAsLead &&
     models !== null &&
     (profile.model === undefined ? models.length > 0 : models.includes(profile.model));
-  if (usable) return { profileId: profile.id };
+  if (usable) return { profileId: profile.id, model: profile.model };
   const lead = options.getCallerAgent();
   if (!lead) throw new PimiToolInputError("Crew lead is not running");
   const leadModel = lead.config.model ?? lead.runtimeInfo?.model;
   const own = leadModel ? `${lead.provider}/${leadModel}` : lead.provider;
   // No provider on the tier profile is the user's choice of "same as lead", not a failure.
-  if (sameAsLead) return { profileId: profile.id, provider: own };
+  if (sameAsLead) return { profileId: profile.id, provider: own, model: leadModel ?? undefined };
   const wanted = `${profile.provider}${profile.model ? `/${profile.model}` : ""}`;
   return {
     profileId: profile.id,
     provider: own,
+    model: leadModel ?? undefined,
     note: `The Crew ${role} tier (${wanted}) is unavailable on this host, so it runs on your own model (${own}).`,
   };
 }
