@@ -74,6 +74,7 @@ import { WorkspaceActions } from "@/git/workspace-actions";
 import { WorkspaceOpenInEditorButton } from "@/workspace/open-in-editor/button";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import { ActionItemsHeaderButton } from "@/action-items/header-button";
+import { useActionItemsTabSync } from "@/action-items/tab-sync";
 import { WorkspaceScriptsButton, useWorkspaceScriptActions } from "@/screens/workspace/scripts";
 import { ImportSessionSheet } from "@/components/import-session-sheet";
 import { useNavigateToImportedAgent } from "@/hooks/use-import-session";
@@ -1249,6 +1250,7 @@ function WorkspaceScreenContent({
       }),
     [normalizedServerId, normalizedWorkspaceId],
   );
+  useActionItemsTabSync(normalizedServerId, persistenceKey);
   const workbenchMode = usePimiWorkbenchMode(persistenceKey);
   const editorMode = workbenchMode === "editor";
   const openTab = useWorkspaceLayoutStore((state) => state.openTab);

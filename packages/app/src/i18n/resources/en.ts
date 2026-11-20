@@ -3754,7 +3754,7 @@ export const en = {
         "Generate titles and new worktree branch names from the first prompt. Names you edit are kept.",
       actionItems: "Action items",
       actionItemsHint:
-        "Keep a list of what each chat is checking. A model reads the new messages after each turn of a chat you are working in",
+        "Keep a list of what each chat is checking. After each turn of a chat you are working in, the chat's own provider reads the new messages with its small model. A model you choose for Action items is used instead",
       automatic: "Automatic",
       preferred: "Manual",
       automaticHint: "Pimi picks a fast available model",

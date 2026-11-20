@@ -182,6 +182,10 @@ interface WorkspaceLayoutStore {
   sidePaneIdByWorkspace: Record<string, string | null>;
   /** Workspaces where PR detection already added its tab once; a closed tab never returns. */
   pullRequestTabAutoOpenedByWorkspace: Record<string, true>;
+  /** Workspaces whose host has Action items off: the Actions tab is never added. Not persisted. */
+  actionItemsOffByWorkspace: Record<string, true>;
+  /** Published from the host's config; turning it off removes the Actions tab. */
+  setActionItemsEnabled: (workspaceKey: string, enabled: boolean) => void;
   /**
    * The one entry point for showing a target. On compact layouts a target whose panel declares
    * `compactSheet` opens in a sheet; the returned tab id is the sheet tab's id.
@@ -1312,6 +1316,31 @@ export function createWorkspaceLayoutStore(
         explorerSidebarPaneIdByWorkspace: {},
         sidePaneIdByWorkspace: {},
         pullRequestTabAutoOpenedByWorkspace: {},
+        actionItemsOffByWorkspace: {},
+        setActionItemsEnabled: (workspaceKey, enabled) => {
+          const wasOff = get().actionItemsOffByWorkspace[workspaceKey] === true;
+          if (enabled) {
+            if (!wasOff) return;
+            set((state) => {
+              const { [workspaceKey]: _on, ...rest } = state.actionItemsOffByWorkspace;
+              return { actionItemsOffByWorkspace: rest };
+            });
+            return;
+          }
+          if (!wasOff) {
+            set((state) => ({
+              actionItemsOffByWorkspace: {
+                ...state.actionItemsOffByWorkspace,
+                [workspaceKey]: true,
+              },
+            }));
+          }
+          const tabId = buildDeterministicWorkspaceTabId({ kind: "action_items" });
+          const root = get().layoutByWorkspace[workspaceKey]?.root;
+          if (root && collectAllTabs(root).some((tab) => tab.tabId === tabId)) {
+            get().closeTab(workspaceKey, tabId);
+          }
+        },
         openTab: (input) => {
           const normalizedWorkspaceKey = trimNonEmpty(input.workspaceKey);
           const normalizedTarget = normalizeWorkspaceTabTarget(input.target);
@@ -1521,11 +1550,13 @@ export function createWorkspaceLayoutStore(
           const paneId = get().ensureExplorerSidebar(workspaceKey);
           if (!paneId || get().layoutMode === "compact") return paneId;
           // A layout saved before Action items existed gets the tab, in front, the first time
-          // its Explorer is shown. The tab has no close button, so this runs once per layout.
+          // its Explorer is shown. The tab has no close button, so this runs once per layout,
+          // and again after the host turns Action items back on.
           const root = get().layoutByWorkspace[workspaceKey]?.root;
           const pane = root ? findPaneById(root, paneId) : null;
           const tabId = buildDeterministicWorkspaceTabId({ kind: "action_items" });
-          if (pane && !pane.tabIds.includes(tabId)) {
+          const actionItemsOff = get().actionItemsOffByWorkspace[workspaceKey] === true;
+          if (pane && !pane.tabIds.includes(tabId) && !actionItemsOff) {
             get().openTab({
               workspaceKey,
               target: { kind: "action_items" },

@@ -1748,23 +1748,6 @@ export async function createPimiDaemon(
   });
   onCheckoutPullRequestChanged = () => taskService.notifyPullRequestsChanged();
   await taskService.start();
-  const actionItemsService = new ActionItemsService({
-    database: pimiDatabase,
-    logger,
-    agentManager,
-    isEnabled: () => daemonConfigStore.get().metadataGeneration.actionItems !== false,
-    generate: ({ agent, items, messages }) =>
-      generateActionItemChanges({
-        manager: agentManager,
-        agent,
-        providerSnapshotManager,
-        daemonConfig: daemonConfigStore.get(),
-        logger,
-        items,
-        messages,
-      }),
-  });
-  await actionItemsService.start();
   // A deleted chat leaves no label assignments or task links behind.
   const unsubscribeTaskCleanup = agentManager.subscribe(
     (event) => {
@@ -1805,6 +1788,25 @@ export async function createPimiDaemon(
     agentStorage,
   });
   await heartbeatService.start();
+  const actionItemsService = new ActionItemsService({
+    database: pimiDatabase,
+    logger,
+    agentManager,
+    agentStorage,
+    hasHeartbeat: async (agentId) => (await heartbeatService.list(agentId)).length > 0,
+    isEnabled: () => daemonConfigStore.get().metadataGeneration.actionItems !== false,
+    generate: ({ agent, items, messages }) =>
+      generateActionItemChanges({
+        manager: agentManager,
+        agent,
+        providerSnapshotManager,
+        daemonConfig: daemonConfigStore.get(),
+        logger,
+        items,
+        messages,
+      }),
+  });
+  await actionItemsService.start();
 
   agentManager.setAgentArchivedCallback(async (agentId) => {
     try {

@@ -29,6 +29,19 @@ export class StructuredAgentResponseError extends Error {
   }
 }
 
+/**
+ * An error as it may be logged. A schema failure keeps only its fixed message: the model's reply
+ * and a JSON parse error's snippet of it can quote the prompt, which may hold chat text.
+ */
+export function loggableError(error: unknown): unknown {
+  if (!(error instanceof StructuredAgentResponseError)) return error;
+  return {
+    name: error.name,
+    message: error.message,
+    validationErrorCount: error.validationErrors.length,
+  };
+}
+
 export interface StructuredGenerationProvider {
   provider: AgentProvider;
   model?: string;
@@ -528,7 +541,12 @@ export async function generateStructuredAgentResponseWithFallback<T>(
         error: errorMessage(error),
       });
       logger?.warn(
-        { err: error, provider: candidate.provider, model: candidate.model, schemaName },
+        {
+          err: loggableError(error),
+          provider: candidate.provider,
+          model: candidate.model,
+          schemaName,
+        },
         "Structured generation: provider failed",
       );
     }

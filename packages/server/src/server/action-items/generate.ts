@@ -10,7 +10,7 @@ import type { AgentManager, ManagedAgent } from "../agent/agent-manager.js";
 import { generateStructuredAgentResponseWithFallback } from "../agent/agent-response-loop.js";
 import type { ProviderSnapshotManager } from "../agent/provider-snapshot-manager.js";
 import {
-  resolvePimiModel,
+  resolveChatProviderPimiModel,
   type StructuredGenerationDaemonConfig,
 } from "../agent/structured-generation-providers.js";
 
@@ -22,6 +22,8 @@ export interface ChatMessage {
 // The model sees every open item and only the newest done ones: enough to avoid re-adding a
 // finished check without the prompt growing with the chat.
 const DONE_ITEMS_SHOWN = 15;
+// A small model answers in seconds; a stuck call must not hold the chat's next update.
+const TURN_TIMEOUT_MS = 90_000;
 
 const ChangesSchema = z.object({
   add: z.array(z.object({ text: z.string().min(1), done: z.boolean() })),
@@ -51,6 +53,7 @@ function addUsage(total: ActionItemsUsage, usage: AgentUsage): ActionItemsUsage 
 }
 
 // One model call: the current list plus the messages since the last call. Never the whole chat.
+// Null when the chat's provider has no small model and none was chosen for action items.
 export async function generateActionItemChanges(input: {
   manager: AgentManager;
   agent: ManagedAgent;
@@ -59,19 +62,17 @@ export async function generateActionItemChanges(input: {
   logger: Logger;
   items: readonly ActionItem[];
   messages: readonly ChatMessage[];
-}): Promise<ActionItemChanges> {
+}): Promise<ActionItemChanges | null> {
   const { agent } = input;
-  const { providers, pinned } = await resolvePimiModel({
+  const resolved = await resolveChatProviderPimiModel({
     feature: "actionItems",
     cwd: agent.cwd,
     providerSnapshotManager: input.providerSnapshotManager,
     daemonConfig: input.daemonConfig,
-    currentSelection: {
-      provider: agent.provider,
-      model: agent.runtimeInfo?.model ?? agent.config.model,
-      thinkingOptionId: agent.runtimeInfo?.thinkingOptionId ?? agent.config.thinkingOptionId,
-    },
+    provider: agent.provider,
   });
+  if (!resolved) return null;
+  const { providers, pinned } = resolved;
   const open = input.items.filter((item) => !item.done);
   const done = input.items.filter((item) => item.done).slice(-DONE_ITEMS_SHOWN);
   const shown = [...open, ...done];
@@ -112,6 +113,7 @@ export async function generateActionItemChanges(input: {
     pinned,
     feature: "actionItems",
     maxRetries: 1,
+    turnTimeoutMs: TURN_TIMEOUT_MS,
     persistSession: false,
     logger: input.logger,
     agentConfigOverrides: { title: "Action items", internal: true, bare: true },

@@ -11,13 +11,15 @@ import {
 } from "@pimi/protocol/action-items/types";
 import { PARENT_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
 import type { AgentManager, ManagedAgent } from "../agent/agent-manager.js";
+import { loggableError } from "../agent/agent-response-loop.js";
+import type { AgentStorage } from "../agent/agent-storage.js";
 import type { PimiDatabase } from "../db/pimi-db.js";
 import { SqlRecordStore } from "../db/sql-record-store.js";
 import type { ActionItemChanges, ChatMessage } from "./generate.js";
 
 export class ActionItemsError extends Error {
   constructor(
-    readonly code: "action_item_not_found" | "action_items_disabled",
+    readonly code: "action_item_not_found" | "action_items_disabled" | "action_items_unavailable",
     message: string,
   ) {
     super(message);
@@ -37,6 +39,29 @@ const MESSAGE_HEAD_CHARS = 4000;
 const MESSAGE_TAIL_CHARS = 2000;
 
 const EMPTY_USAGE: ActionItemsUsage = { runs: 0, inputTokens: 0, outputTokens: 0 };
+
+// Set by automation/service.ts on every agent an automation run creates.
+const AUTOMATION_RUN_LABEL = "pimi.automation-run";
+
+const NO_SMALL_MODEL =
+  "This chat's provider has no small model. Choose a model for Action items in Settings.";
+
+interface ChatKind {
+  background?: boolean | undefined;
+  internal?: boolean | undefined;
+  labels: Record<string, string>;
+}
+
+// A top-level chat the user talks to: not a subagent, background agent, Pimi helper or automation
+// step. Heartbeats are checked separately, since they attach to a chat after it exists.
+function isUserChat(agent: ChatKind): boolean {
+  return (
+    !agent.background &&
+    !agent.internal &&
+    !agent.labels[PARENT_AGENT_ID_LABEL] &&
+    !agent.labels[AUTOMATION_RUN_LABEL]
+  );
+}
 
 function clip(text: string): string {
   const trimmed = text.trim();
@@ -82,26 +107,32 @@ export interface ActionItemsServiceOptions {
   database: PimiDatabase;
   logger: Logger;
   agentManager: AgentManager;
+  agentStorage: Pick<AgentStorage, "get">;
+  hasHeartbeat: (agentId: string) => Promise<boolean>;
   isEnabled: () => boolean;
+  /** Null when no model may read this chat. */
   generate: (input: {
     agent: ManagedAgent;
     items: readonly ActionItem[];
     messages: readonly ChatMessage[];
-  }) => Promise<ActionItemChanges>;
+  }) => Promise<ActionItemChanges | null>;
 }
 
 /**
  * Per-chat action items: `action_items` rows in pimi.db, keyed by agent id. A chat is read by a
  * Pimi model once per turn it finishes while the daemon runs, unless the user paused it, and each
  * call gets the current list plus the messages after the stored cursor. A chat that never
- * finishes a turn is never read, so opening old chats costs nothing. Subagents and background
- * agents are skipped. The service only reads the timeline; nothing is written to the chat or
- * sent to its agent.
+ * finishes a turn is never read, so opening old chats costs nothing. Only top-level chats the user
+ * talks to are read: subagents, background agents, automation steps and chats with a heartbeat
+ * are skipped. The service only reads the timeline; nothing is written to the chat or sent to its
+ * agent.
  */
 export class ActionItemsService {
   private readonly store: SqlRecordStore<StoredActionItems>;
   private readonly logger: Logger;
   private readonly agentManager: AgentManager;
+  private readonly agentStorage: Pick<AgentStorage, "get">;
+  private readonly hasHeartbeat: (agentId: string) => Promise<boolean>;
   private readonly isEnabled: () => boolean;
   private readonly generate: ActionItemsServiceOptions["generate"];
   private readonly listeners = new Set<(state: ActionItemsState) => void>();
@@ -110,11 +141,16 @@ export class ActionItemsService {
   private readonly timers = new Map<string, NodeJS.Timeout>();
   private readonly running = new Set<string>();
   private readonly rerun = new Set<string>();
+  // Deleted chats, so a model call or edit that finishes after the delete never writes a new row.
+  // Agent ids are never reused; the set grows by one id per chat deleted while the daemon runs.
+  private readonly removed = new Set<string>();
   private unsubscribe: (() => void) | null = null;
 
   constructor(options: ActionItemsServiceOptions) {
     this.logger = options.logger.child({ module: "action-items" });
     this.agentManager = options.agentManager;
+    this.agentStorage = options.agentStorage;
+    this.hasHeartbeat = options.hasHeartbeat;
     this.isEnabled = options.isEnabled;
     this.generate = options.generate;
     this.store = new SqlRecordStore({
@@ -134,7 +170,7 @@ export class ActionItemsService {
       (event) => {
         if (event.type === "agent_stream") {
           if (event.event.type === "turn_completed" && this.shouldRead(event.agentId)) {
-            this.schedule(event.agentId);
+            void this.scheduleUnlessHeartbeat(event.agentId);
           }
           return;
         }
@@ -144,10 +180,40 @@ export class ActionItemsService {
     );
   }
 
+  // Checked as the turn ends: the heartbeat lookup reads the database before its first await, so a
+  // one-time heartbeat that sent this turn is still there. It is deleted once the turn ends.
+  private async scheduleUnlessHeartbeat(agentId: string): Promise<void> {
+    try {
+      if (!(await this.hasHeartbeat(agentId))) this.schedule(agentId);
+    } catch (error) {
+      this.logger.warn({ err: error, agentId }, "Action items heartbeat check failed");
+    }
+  }
+
   private shouldRead(agentId: string): boolean {
     if (this.paused.has(agentId) || !this.isEnabled()) return false;
     const agent = this.agentManager.getAgent(agentId);
-    return Boolean(agent && !agent.background && !agent.labels[PARENT_AGENT_ID_LABEL]);
+    return Boolean(agent && isUserChat(agent));
+  }
+
+  // Edits are for chats that exist and that action items read; an unloaded chat is found on disk.
+  private async requireUserChat(agentId: string): Promise<void> {
+    const agent =
+      this.agentManager.getAgent(agentId) ?? (await this.agentStorage.get(agentId)) ?? null;
+    if (!agent || this.removed.has(agentId) || !isUserChat(agent)) {
+      throw new ActionItemsError(
+        "action_items_unavailable",
+        "Action items are only kept for your own top-level chats.",
+      );
+    }
+  }
+
+  private async create(
+    agentId: string,
+    tracking: StoredActionItems["tracking"],
+  ): Promise<StoredActionItems | null> {
+    if (this.removed.has(agentId)) return null;
+    return this.store.put({ id: agentId, tracking, items: [], usage: EMPTY_USAGE });
   }
 
   stop(): void {
@@ -170,13 +236,11 @@ export class ActionItemsService {
     if (!this.isEnabled()) {
       throw new ActionItemsError("action_items_disabled", "Action items are turned off.");
     }
+    await this.requireUserChat(agentId);
     if (edit.kind === "set_tracking") return this.setTracking(agentId, edit.tracking);
     const existing = await this.store.get(agentId);
-    if (!existing) {
-      if (edit.kind !== "add") {
-        throw new ActionItemsError("action_item_not_found", "That item no longer exists.");
-      }
-      await this.store.put({ id: agentId, tracking: "on", items: [], usage: EMPTY_USAGE });
+    if (!existing && (edit.kind !== "add" || !(await this.create(agentId, "on")))) {
+      throw new ActionItemsError("action_item_not_found", "That item no longer exists.");
     }
     const next = await this.store.update(agentId, (record) => ({
       ...record,
@@ -186,18 +250,12 @@ export class ActionItemsService {
   }
 
   private async setTracking(agentId: string, tracking: boolean): Promise<ActionItemsState> {
+    const value = tracking ? ("on" as const) : ("off" as const);
     const existing = await this.store.get(agentId);
     const next = existing
-      ? await this.store.update(agentId, (record) => ({
-          ...record,
-          tracking: tracking ? ("on" as const) : ("off" as const),
-        }))
-      : await this.store.put({
-          id: agentId,
-          tracking: tracking ? "on" : "off",
-          items: [],
-          usage: EMPTY_USAGE,
-        });
+      ? await this.store.update(agentId, (record) => ({ ...record, tracking: value }))
+      : await this.create(agentId, value);
+    if (!next) throw new ActionItemsError("action_items_unavailable", "That chat was deleted.");
     if (tracking) {
       this.paused.delete(agentId);
       this.schedule(agentId, 0);
@@ -209,6 +267,7 @@ export class ActionItemsService {
   }
 
   private async remove(agentId: string): Promise<void> {
+    this.removed.add(agentId);
     this.paused.delete(agentId);
     this.cancelTimer(agentId);
     try {
@@ -268,7 +327,7 @@ export class ActionItemsService {
     try {
       await this.catchUp(agentId);
     } catch (error) {
-      this.logger.warn({ err: error, agentId }, "Action items update failed");
+      this.logger.warn({ err: loggableError(error), agentId }, "Action items update failed");
       const message = error instanceof Error ? error.message : String(error);
       await this.store
         .update(agentId, (record) => ({ ...record, error: message.slice(0, 500) }))
@@ -283,14 +342,13 @@ export class ActionItemsService {
   private async catchUp(agentId: string): Promise<void> {
     for (;;) {
       if (!this.isEnabled()) return;
-      const record =
-        (await this.store.get(agentId)) ??
-        (await this.store.put({ id: agentId, tracking: "on", items: [], usage: EMPTY_USAGE }));
-      if (record.tracking !== "on") return;
       const agent = this.agentManager.getAgent(agentId);
       // An unloaded chat has no new turns. A running one is read when its turn ends, so a reply
-      // is never read half-streamed.
-      if (!agent || agent.lifecycle === "running") return;
+      // is never read half-streamed. Nothing is stored for a chat that is not read.
+      if (!agent || agent.lifecycle === "running" || !isUserChat(agent)) return;
+      if (await this.hasHeartbeat(agentId)) return;
+      const record = (await this.store.get(agentId)) ?? (await this.create(agentId, "on"));
+      if (!record || record.tracking !== "on") return;
       const batch = this.readBatch(agentId, record.cursor);
       if (!batch) return;
       if (batch.messages.length === 0) {
@@ -300,6 +358,10 @@ export class ActionItemsService {
       }
       this.publish(agentId, record);
       const changes = await this.generate({ agent, items: record.items, messages: batch.messages });
+      if (!changes) {
+        await this.store.update(agentId, (current) => ({ ...current, error: NO_SMALL_MODEL }));
+        return;
+      }
       // Applied to the record as it is now, so an edit made during the call survives.
       await this.store.update(agentId, (current) => {
         const { error: _cleared, ...rest } = current;

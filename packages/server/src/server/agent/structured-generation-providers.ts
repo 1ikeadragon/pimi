@@ -105,6 +105,43 @@ export async function resolvePimiModel(
   return { providers: pinned ? providers : await withLowestEffort(options, providers), pinned };
 }
 
+/**
+ * For a feature that reads a chat's text: the text stays on the chat's own provider. A per-feature
+ * override is used as is (the user chose where the text goes). Otherwise the provider's models from
+ * the Manual list, else its small built-in default at the lowest effort. Null when the provider has
+ * neither; the chat's own model is never used.
+ */
+export async function resolveChatProviderPimiModel(
+  options: Omit<ResolveStructuredGenerationProvidersOptions, "currentSelection"> & {
+    provider: AgentProvider;
+  },
+): Promise<ResolvedPimiModels | null> {
+  const override = options.daemonConfig?.metadataGeneration?.features?.[options.feature];
+  if (override) {
+    return { providers: [await resolveFeatureOverride(options, override)], pinned: true };
+  }
+  const entries = await options.providerSnapshotManager.listProviders({
+    cwd: options.cwd,
+    wait: true,
+  });
+  const entry = entries.find((item) => item.provider === options.provider && item.enabled);
+  if (!entry) return null;
+  const entriesByProvider = new Map([[entry.provider, entry]]);
+  const configured = readConfiguredProviders(options.daemonConfig).flatMap((candidate) => {
+    if (candidate.provider.trim() !== options.provider) return [];
+    const resolved = resolveConfiguredCandidate(candidate, [entry], entriesByProvider);
+    return resolved ? [resolved] : [];
+  });
+  if (configured.length > 0) return { providers: dedupeProviders(configured), pinned: true };
+  for (const identifier of DEFAULT_STRUCTURED_GENERATION_PROVIDERS) {
+    const resolved = resolveByModelSubstring([entry], identifier);
+    if (resolved) {
+      return { providers: await withLowestEffort(options, [resolved]), pinned: false };
+    }
+  }
+  return null;
+}
+
 const LOWEST_EFFORT_IDS = ["none", "off", "minimal", "low"];
 
 async function withLowestEffort(

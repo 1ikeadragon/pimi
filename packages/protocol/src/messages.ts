@@ -348,7 +348,7 @@ const MutableMetadataGenerationConfigSchema = z
     providers: z.array(MutableStructuredGenerationProviderSchema).default([]),
     features: MutablePimiModelFeaturesSchema.optional(),
     autoNaming: z.boolean(),
-    // Off hides the Action items panel and stops every model call it makes.
+    // Off removes the Actions tab, header button and floating note, and stops every model call.
     actionItems: z.boolean(),
   })
   .passthrough();
