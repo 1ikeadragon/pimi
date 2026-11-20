@@ -859,6 +859,7 @@ const ToolCallDetailPayloadSchema: z.ZodType<ToolCallDetail, unknown> = z.discri
       command: z.string(),
       cwd: z.string().optional(),
       output: z.string().optional(),
+      outputOffset: z.number().int().nonnegative().optional(),
       exitCode: z.number().nullable().optional(),
     }),
     z.object({
@@ -1269,7 +1270,9 @@ export const AgentStreamEventPayloadSchema = z.discriminatedUnion("type", [
     type: z.literal("tool_call_output"),
     provider: AgentProviderSchema,
     callId: z.string(),
+    offset: z.number().int().nonnegative(),
     output: z.string(),
+    reset: z.literal(true).optional(),
     turnId: z.string().optional(),
   }),
   z.object({

@@ -427,6 +427,7 @@ function buildDetailSections({
         streamKey={callKey}
         command={detail.command}
         output={detail.output}
+        outputOffset={detail.outputOffset}
         state={runState}
         fill={ds.shouldFill}
         maxHeight={ds.resolvedMaxHeight}

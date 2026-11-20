@@ -12,6 +12,8 @@ interface ShellTerminalProps {
   streamKey: string;
   command: string;
   output: string | undefined;
+  /** Where `output` starts in the command's whole output, when its beginning is left out. */
+  outputOffset: number | undefined;
   state: ShellRunState;
   /** Fill the parent (sheet) instead of sizing to the output (inline). */
   fill: boolean;
@@ -48,6 +50,40 @@ function buildTranscript(command: string, output: string | undefined): string {
   return toTerminalText(`${HIDE_CURSOR}${DIM}$${RESET} ${trimmedCommand}\n${trimmedOutput}`);
 }
 
+// What the view holds of the output: the newest part, enough to tell whether an update follows on.
+const WRITTEN_WINDOW_CHARS = 64 * 1024;
+
+interface WrittenOutput {
+  command: string;
+  /** Where `text` starts in the whole output. */
+  start: number;
+  text: string;
+  /** Output other than leading newlines has been written. */
+  started: boolean;
+}
+
+// The part of `output` (starting at `start`) past what the view holds, or null when the view
+// holds something `output` does not continue.
+function outputPastWritten(
+  written: WrittenOutput,
+  command: string,
+  output: string,
+  start: number,
+): string | null {
+  const end = written.start + written.text.length;
+  if (command !== written.command || start > end || start + output.length < end) return null;
+  const from = Math.max(start, written.start);
+  if (output.slice(from - start, end - start) !== written.text.slice(from - written.start)) {
+    return null;
+  }
+  return output.slice(end - start);
+}
+
+function keepWritten(input: { command: string; start: number; text: string; started: boolean }) {
+  const drop = Math.max(0, input.text.length - WRITTEN_WINDOW_CHARS);
+  return { ...input, start: input.start + drop, text: input.text.slice(drop) };
+}
+
 // eslint-disable-next-line no-control-regex
 const ANSI_SEQUENCE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-_])/g;
 const TAB_WIDTH = 8;
@@ -80,34 +116,51 @@ export function ShellTerminal({
   streamKey,
   command,
   output,
+  outputOffset,
   state,
   fill,
   maxHeight,
 }: ShellTerminalProps) {
   const { settings } = useAppSettings();
   const emulatorRef = useRef<TerminalEmulatorHandle>(null);
-  const writtenRef = useRef("");
+  const writtenRef = useRef<WrittenOutput | null>(null);
   // Columns come from xterm's fit; until the first fit, a line counts as one row.
   const [cols, setCols] = useState<number | null>(null);
   const handleResize = useCallback((input: { cols: number }) => setCols(input.cols), []);
 
-  const transcript = useMemo(() => buildTranscript(command, output), [command, output]);
   const isRunning = state === "running";
 
+  // Live output arrives as the newest part of the whole output; only what follows what the view
+  // holds is written, so the view keeps its scrollback and position while the command runs.
   useEffect(() => {
     const emulator = emulatorRef.current;
     if (!emulator) return;
+    const text = output ?? "";
+    const start = outputOffset ?? 0;
     const written = writtenRef.current;
-    if (transcript.startsWith(written)) {
-      emulator.writeOutput(encoder.encode(transcript.slice(written.length)));
+    const past = written ? outputPastWritten(written, command, text, start) : null;
+    if (written && past !== null) {
+      const shown = written.started ? past : past.replace(/^\n+/, "");
+      if (shown.length > 0) emulator.writeOutput(encoder.encode(toTerminalText(shown)));
+      writtenRef.current = keepWritten({
+        command,
+        start: written.start,
+        text: written.text + past,
+        started: written.started || shown.length > 0,
+      });
     } else {
       emulator.clear();
-      emulator.writeOutput(encoder.encode(transcript));
+      emulator.writeOutput(encoder.encode(buildTranscript(command, text)));
+      writtenRef.current = keepWritten({
+        command,
+        start,
+        text,
+        started: /[^\n]/.test(text),
+      });
     }
-    writtenRef.current = transcript;
     // A running command tails its output; a finished one opens on the command.
     if (!isRunning) emulator.scrollToTop?.();
-  }, [transcript, isRunning]);
+  }, [command, output, outputOffset, isRunning]);
 
   const fontSize = settings.codeFontSize;
   const fontFamily = settings.monoFontFamily.trim() || undefined;

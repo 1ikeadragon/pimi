@@ -129,12 +129,12 @@ export class OpenCodeV2Session implements AgentSession {
       client: () => this.client,
       cwd: config.cwd,
       signal: this.abort.signal,
-      publish: ({ callId, output }) =>
+      publish: ({ callId, ...update }) =>
         this.emit({
           type: "tool_call_output",
           provider: "opencode",
           callId,
-          output,
+          ...update,
           ...(this.turns.id ? { turnId: this.turns.id } : {}),
         }),
       reportError: (error) =>
@@ -317,6 +317,12 @@ export class OpenCodeV2Session implements AgentSession {
     }
   }
   private emit(event: AgentStreamEvent) {
+    if (
+      event.type === "turn_completed" ||
+      event.type === "turn_failed" ||
+      event.type === "turn_canceled"
+    )
+      this.shellTail.stopAll();
     for (const listener of this.listeners) listener(event);
   }
   private emitTimeline(event: AgentStreamEvent) {

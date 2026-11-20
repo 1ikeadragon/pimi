@@ -1171,6 +1171,17 @@ export function mergeToolCallDetail(
     };
   }
 
+  // An output from the call itself is whole: the live output's offset no longer applies.
+  if (
+    existing.type === "shell" &&
+    incoming.type === "shell" &&
+    existing.outputOffset !== undefined &&
+    incoming.output !== undefined
+  ) {
+    const { outputOffset: _liveOffset, ...rest } = existing;
+    return { ...rest, ...incoming };
+  }
+
   if (existing.type === incoming.type) {
     if (hasSameIncomingFields(existing, incoming)) {
       return existing;
@@ -1938,7 +1949,13 @@ function shouldFlushHead(input: {
   return false;
 }
 
-/** A running shell call's output so far replaces the output it showed. */
+// What a running shell call keeps of its live output: enough for a view opened mid-command.
+const LIVE_SHELL_OUTPUT_MAX_CHARS = 64 * 1024;
+
+/**
+ * A running shell call's new output extends the output it shows, or starts it over on a reset or
+ * when it does not follow on. `outputOffset` places the kept output in the whole output.
+ */
 function applyToolCallOutput(
   items: StreamItem[],
   event: Extract<AgentStreamEventPayload, { type: "tool_call_output" }>,
@@ -1950,13 +1967,22 @@ function applyToolCallOutput(
   if (!item || !isAgentToolCallItem(item)) return items;
   const data = item.payload.data;
   if (data.status !== "running" || data.detail.type !== "shell") return items;
-  if (data.detail.output === event.output) return items;
+  const shown = data.detail.output ?? "";
+  const shownOffset = data.detail.outputOffset ?? 0;
+  const follows = !event.reset && event.offset === shownOffset + shown.length;
+  if (follows && event.output.length === 0) return items;
+  let output = follows ? shown + event.output : event.output;
+  let outputOffset = follows ? shownOffset : event.offset;
+  if (output.length > LIVE_SHELL_OUTPUT_MAX_CHARS) {
+    outputOffset += output.length - LIVE_SHELL_OUTPUT_MAX_CHARS;
+    output = output.slice(-LIVE_SHELL_OUTPUT_MAX_CHARS);
+  }
   const next = [...items];
   next[index] = {
     ...item,
     payload: {
       ...item.payload,
-      data: { ...data, detail: { ...data.detail, output: event.output } },
+      data: { ...data, detail: { ...data.detail, output, outputOffset } },
     },
   };
   return next;

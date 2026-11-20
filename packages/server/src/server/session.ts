@@ -178,6 +178,7 @@ import {
   type AgentRunOptions,
   type AgentSessionConfig,
   type AgentSlashCommand,
+  type AgentStreamEvent,
   type ToolCallDetail,
 } from "./agent/agent-sdk-types.js";
 import type { StoredAgentRecord } from "./agent/agent-storage.js";
@@ -437,6 +438,12 @@ type WorkspaceUpdatePayload = Extract<
   SessionOutboundMessage,
   { type: "workspace_update" }
 >["payload"];
+interface TimelineSubscription {
+  owner: OwnedSubscription;
+  agentIds: Set<string>;
+  /** How far into each running shell call's output this subscriber has been sent, by agent. */
+  shellOutputEnds: Map<string, Map<string, number>>;
+}
 interface WorkspaceUpdatesSubscriptionState {
   subscriptionId: string;
   owner: OwnedSubscription;
@@ -774,10 +781,7 @@ export class Session {
   private registryMutationQueue: Promise<void> = Promise.resolve();
   private projectUpdateQueue: Promise<void> = Promise.resolve();
   private isCleanedUp = false;
-  private readonly timelineSubscriptions = new Map<
-    string,
-    { owner: OwnedSubscription; agentIds: Set<string> }
-  >();
+  private readonly timelineSubscriptions = new Map<string, TimelineSubscription>();
   private readonly clientSources = new Map<object, ClientSourceMetadata>();
   private unsubscribeTerminalWorkspaceContributionEvents: (() => void) | null = null;
   private readonly agentUpdates: AgentUpdatesService;
@@ -1334,7 +1338,11 @@ export class Session {
       this.timelineSubscriptions.delete(id);
       this.refreshObservationProducers();
     });
-    this.timelineSubscriptions.set(owner.id, { owner, agentIds: new Set(agentIds) });
+    this.timelineSubscriptions.set(owner.id, {
+      owner,
+      agentIds: new Set(agentIds),
+      shellOutputEnds: new Map(),
+    });
     this.refreshObservationProducers();
     return owner;
   }
@@ -1360,9 +1368,61 @@ export class Session {
       type: "agent_stream",
       payload: this.buildAgentStreamPayload(event, serializedEvent),
     };
+    const turnEnded =
+      serializedEvent.type === "turn_completed" ||
+      serializedEvent.type === "turn_failed" ||
+      serializedEvent.type === "turn_canceled";
     for (const subscription of this.timelineSubscriptions.values()) {
-      if (subscription.agentIds.has(event.agentId)) subscription.owner.emit(message);
+      if (!subscription.agentIds.has(event.agentId)) continue;
+      if (event.event.type === "tool_call_output" && serializedEvent.type === "tool_call_output") {
+        subscription.owner.emit(
+          this.placeShellOutput({
+            subscription,
+            agentId: event.agentId,
+            update: event.event,
+            message,
+          }),
+        );
+        continue;
+      }
+      if (turnEnded) subscription.shellOutputEnds.delete(event.agentId);
+      subscription.owner.emit(message);
     }
+  }
+
+  /**
+   * Shell output streams as deltas. A subscription that has not seen the call's output up to the
+   * delta (it subscribed mid-command, or reloaded the timeline) gets the newest output as a reset.
+   */
+  private placeShellOutput(input: {
+    subscription: TimelineSubscription;
+    agentId: string;
+    update: Extract<AgentStreamEvent, { type: "tool_call_output" }>;
+    message: Extract<SessionOutboundMessage, { type: "agent_stream" }>;
+  }): SessionOutboundMessage {
+    const { subscription, agentId, update, message } = input;
+    let ends = subscription.shellOutputEnds.get(agentId);
+    if (!ends) {
+      ends = new Map();
+      subscription.shellOutputEnds.set(agentId, ends);
+    }
+    const end = ends.get(update.callId) ?? 0;
+    ends.set(update.callId, update.offset + update.output.length);
+    if (update.reset || update.offset === end) return message;
+    const event = message.payload.event;
+    if (event.type !== "tool_call_output") return message;
+    return {
+      ...message,
+      payload: {
+        ...message.payload,
+        event: {
+          ...event,
+          offset: update.snapshot.offset,
+          output: update.snapshot.output,
+          reset: true,
+        },
+      },
+    };
   }
 
   emitProjectUpdate(update: ProjectUpdate): Promise<void> {
@@ -5088,6 +5148,8 @@ export class Session {
     const { epoch } = this.agentManager.fetchTimeline(agentId, { limit: 0 });
     for (const subscription of this.timelineSubscriptions.values()) {
       if (!subscription.agentIds.has(agentId)) continue;
+      // The client reloads the timeline, dropping the live shell output it had.
+      subscription.shellOutputEnds.delete(agentId);
       subscription.owner.emit({
         type: "agent.timeline.replacement",
         payload: { agentId, epoch },

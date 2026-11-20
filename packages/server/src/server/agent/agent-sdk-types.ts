@@ -256,6 +256,8 @@ export type ToolCallDetail =
       command: string;
       cwd?: string;
       output?: string;
+      /** How far into the command's whole output `output` starts, when its beginning is left out. */
+      outputOffset?: number;
       exitCode?: number | null;
     }
   | {
@@ -423,22 +425,34 @@ export type AgentTimelineItem =
   | CompactionTimelineItem
   | PluginTimelineItem;
 
+/** A running shell call's output from `offset` on, in characters of its whole output. */
+export interface ShellOutputUpdate {
+  offset: number;
+  output: string;
+  /** `output` does not follow the previous update, so a client starts over from it. */
+  reset?: true;
+  /**
+   * The newest output (at most 64KB) and where it starts. Daemon-only: a client that starts
+   * watching mid-command gets this, as a reset, instead of a delta it cannot place.
+   */
+  snapshot: { offset: number; output: string };
+}
+
 export type AgentStreamEvent =
   | { type: "thread_started"; sessionId: string; provider: AgentProvider }
   | { type: "turn_started"; provider: AgentProvider; turnId?: string }
   | { type: "turn_completed"; provider: AgentProvider; usage?: AgentUsage; turnId?: string }
   | { type: "usage_updated"; provider: AgentProvider; usage: AgentUsage; turnId?: string }
   /**
-   * What a running shell tool call has printed so far, newest part when long. Sent live and not
-   * stored: the finished call carries the whole output.
+   * New output of a running shell tool call. Sent live and not stored: the finished call carries
+   * the whole output.
    */
-  | {
+  | ({
       type: "tool_call_output";
       provider: AgentProvider;
       callId: string;
-      output: string;
       turnId?: string;
-    }
+    } & ShellOutputUpdate)
   | {
       type: "mode_changed";
       provider: AgentProvider;

@@ -271,6 +271,8 @@ export type ToolCallDetail =
       command: string;
       cwd?: string;
       output?: string;
+      /** How far into the command's whole output `output` starts, when its beginning is left out. */
+      outputOffset?: number;
       exitCode?: number | null;
     }
   | {
@@ -514,14 +516,17 @@ export type AgentStreamEvent =
   | { type: "turn_completed"; provider: AgentProvider; usage?: AgentUsage; turnId?: string }
   | { type: "usage_updated"; provider: AgentProvider; usage: AgentUsage; turnId?: string }
   /**
-   * What a running shell tool call has printed so far, newest part when long. Sent live and not
-   * stored: the finished call carries the whole output.
+   * New output of a running shell tool call: `output` starts at `offset` characters into the
+   * command's whole output. `reset` means it does not follow what the client has, so the client
+   * starts over from it. Sent live and not stored: the finished call carries the whole output.
    */
   | {
       type: "tool_call_output";
       provider: AgentProvider;
       callId: string;
+      offset: number;
       output: string;
+      reset?: true;
       turnId?: string;
     }
   | {
