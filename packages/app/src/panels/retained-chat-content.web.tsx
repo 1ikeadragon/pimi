@@ -10,8 +10,17 @@ import { useRetainedPanelActive } from "@/components/retained-panel";
 export function RetainedChatContent({ children }: { children: ReactNode }) {
   const active = useRetainedPanelActive();
   const [frozen, setFrozen] = useState(!active);
-  // First let visibility-gated queries and animations receive active=false.
-  // The following commit freezes every chat subscriber while the model keeps streaming.
-  useEffect(() => setFrozen(!active), [active]);
+  // First let every subscriber commit its active=false render: a pane re-render can hand this
+  // component the inactive state a commit before the store notifies the rest, and freezing in
+  // that batch would discard their renders, leaving an open tooltip's portal on screen. Sync
+  // renders flush before the next task, so freezing in a task runs after all of them.
+  useEffect(() => {
+    if (active) {
+      setFrozen(false);
+      return undefined;
+    }
+    const timer = setTimeout(() => setFrozen(true), 0);
+    return () => clearTimeout(timer);
+  }, [active]);
   return <Freeze freeze={!active && frozen}>{children}</Freeze>;
 }

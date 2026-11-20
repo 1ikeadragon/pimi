@@ -14,6 +14,7 @@ import { formatFileLinkTooltipPath } from "./tooltip-path";
 import type { InlinePathTarget } from "./parse";
 import {
   useAssistantFileLinkResolverContext,
+  type AssistantFileLinkResolverConfig,
   type AssistantFileLinkResolverContextValue,
 } from "./provider";
 import {
@@ -34,6 +35,8 @@ export interface UseFileLinkResult {
 
 export interface AssistantFileLinkActions {
   open(source: AssistantFileLinkSource, disposition: OpenFileDisposition): void;
+  /** Present only where the chat can open paths in IDE Mode. */
+  openInIde: ((source: AssistantFileLinkSource) => void) | null;
   canOpen(source: AssistantFileLinkSource): boolean;
   canResolveFile(source: AssistantFileLinkSource): boolean;
 }
@@ -106,7 +109,7 @@ export function useFileLink(source: AssistantFileLinkSource): UseFileLinkResult 
     (nextSource: AssistantFileLinkSource, disposition: OpenFileDisposition) => {
       openAssistantFileLink({
         source: nextSource,
-        disposition,
+        deliver: (config, target) => config.onOpenWorkspaceFile?.(target, disposition),
         context,
         queryClient,
         formatNoFileFoundMessage: (token) => t("common.errors.noFileFound", { token }),
@@ -156,11 +159,23 @@ export function useAssistantFileLinkActions(): AssistantFileLinkActions {
   const context = useAssistantFileLinkResolverContext();
   const actionLink = useFileLink(ACTION_LINK_SOURCE);
 
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const open = useStableEvent(
     (source: AssistantFileLinkSource, disposition: OpenFileDisposition) => {
       actionLink.open(source, disposition);
     },
   );
+  const openInIde = useStableEvent((source: AssistantFileLinkSource) => {
+    openAssistantFileLink({
+      source,
+      deliver: (config, target) => config.onOpenInIde?.(target),
+      context,
+      queryClient,
+      formatNoFileFoundMessage: (token) => t("common.errors.noFileFound", { token }),
+    });
+  });
+  const canOpenInIde = Boolean(context.configRef.current.onOpenInIde);
   const canOpen = useCallback(
     (source: AssistantFileLinkSource) =>
       canOpenAssistantFileLink(source, context.configRef.current),
@@ -172,12 +187,20 @@ export function useAssistantFileLinkActions(): AssistantFileLinkActions {
     [context.configRef],
   );
 
-  return useMemo(() => ({ open, canOpen, canResolveFile }), [open, canOpen, canResolveFile]);
+  return useMemo(
+    () => ({ open, openInIde: canOpenInIde ? openInIde : null, canOpen, canResolveFile }),
+    [open, openInIde, canOpenInIde, canOpen, canResolveFile],
+  );
 }
+
+type DeliverFileTarget = (
+  config: AssistantFileLinkResolverConfig,
+  target: InlinePathTarget,
+) => void;
 
 function openAssistantFileLink(input: {
   source: AssistantFileLinkSource;
-  disposition: OpenFileDisposition;
+  deliver: DeliverFileTarget;
   context: AssistantFileLinkResolverContextValue;
   queryClient: ReturnType<typeof useQueryClient>;
   formatNoFileFoundMessage: (token: string) => string;
@@ -191,7 +214,7 @@ function openAssistantFileLink(input: {
   if (capturedResolution.kind === "resolved") {
     void dispatchResolvedLink({
       resolution: capturedResolution,
-      disposition: input.disposition,
+      deliver: input.deliver,
       capturedServerId: capturedConfig.serverId,
       capturedWorkspaceRoot: capturedConfig.workspaceRoot,
       context: input.context,
@@ -222,7 +245,7 @@ function openAssistantFileLink(input: {
       });
       await dispatchFileTarget({
         target,
-        disposition: input.disposition,
+        deliver: input.deliver,
         capturedServerId: capturedConfig.serverId,
         capturedWorkspaceRoot: capturedConfig.workspaceRoot,
         context: input.context,
@@ -285,7 +308,7 @@ function assistantFileLinkQueryKey(input: {
 
 async function dispatchResolvedLink(input: {
   resolution: Extract<AssistantFileLinkResolution, { kind: "resolved" }>;
-  disposition: OpenFileDisposition;
+  deliver: DeliverFileTarget;
   capturedServerId?: string;
   capturedWorkspaceRoot?: string;
   context: AssistantFileLinkResolverContextValue;
@@ -294,7 +317,7 @@ async function dispatchResolvedLink(input: {
   if (value.kind === "file") {
     await dispatchFileTarget({
       target: value.target,
-      disposition: input.disposition,
+      deliver: input.deliver,
       capturedServerId: input.capturedServerId,
       capturedWorkspaceRoot: input.capturedWorkspaceRoot,
       context: input.context,
@@ -313,7 +336,7 @@ async function dispatchResolvedLink(input: {
 
 async function dispatchFileTarget(input: {
   target: InlinePathTarget;
-  disposition: OpenFileDisposition;
+  deliver: DeliverFileTarget;
   capturedServerId?: string;
   capturedWorkspaceRoot?: string;
   context: AssistantFileLinkResolverContextValue;
@@ -325,7 +348,7 @@ async function dispatchFileTarget(input: {
   ) {
     return;
   }
-  current.onOpenWorkspaceFile?.(input.target, input.disposition);
+  input.deliver(current, input.target);
 }
 
 async function dispatchExternalUrl(input: {

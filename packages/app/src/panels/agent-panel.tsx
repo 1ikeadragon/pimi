@@ -22,6 +22,7 @@ import { shallow, useShallow } from "zustand/shallow";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useAgentStreamTail } from "@/agent-stream/use-agent-stream-tail";
 import { AgentStreamView, type AgentStreamViewHandle } from "@/agent-stream/view";
+import { ActionItemsFloating } from "@/action-items/floating";
 import { ArchivedAgentCallout } from "@/components/archived-agent-callout";
 import { useProviderIcon } from "@/components/provider-icons";
 import { ComposerDock } from "@/composer/dock";
@@ -1228,6 +1229,9 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
           parentAgentId={parentPillAgentId}
         />
       ) : null}
+      {draft ? null : (
+        <ActionItemsFloating serverId={serverId} workspaceId={workspaceId} agentId={agentId} />
+      )}
     </View>
   );
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
@@ -69,6 +69,16 @@ export function FileHtmlPreview({
     [document],
   );
 
+  // The OS kills a WebView's content process under memory pressure, most often while the app is
+  // in the background. On Android every WebView in the app shares that one renderer, so a crash in
+  // any page takes them all down too. A WebView whose renderer is gone stays blank for good, so it
+  // is replaced with a fresh one, whose initial load the latch above must let through again.
+  const [generation, setGeneration] = useState(0);
+  const replaceWebView = useCallback(() => {
+    loadedDocumentRef.current = null;
+    setGeneration((value) => value + 1);
+  }, []);
+
   // The page is untrusted. Its messages are parsed as data and only a height is read.
   const receive = useCallback(
     (event: WebViewMessageEvent) => {
@@ -86,6 +96,7 @@ export function FileHtmlPreview({
 
   return (
     <WebView
+      key={generation}
       testID={testID}
       accessibilityLabel={title}
       style={embed ? styles.embedded : styles.webview}
@@ -93,6 +104,8 @@ export function FileHtmlPreview({
       source={source}
       originWhitelist={ORIGIN_WHITELIST}
       onShouldStartLoadWithRequest={allowOnlyInitialDocument}
+      onRenderProcessGone={replaceWebView}
+      onContentProcessDidTerminate={replaceWebView}
       setSupportMultipleWindows={false}
       javaScriptCanOpenWindowsAutomatically={false}
       domStorageEnabled={false}

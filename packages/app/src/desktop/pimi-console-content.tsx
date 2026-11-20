@@ -33,6 +33,7 @@ import {
 } from "@/utils/desktop-window";
 import { isWeb } from "@/constants/platform";
 import { getDesktopHost, usesPimiMacTitlebar } from "./host";
+import { IdeOpenFolderButton } from "./ide-open-folder";
 import { PimiNavigationHistory } from "./pimi-navigation-history";
 import { PimiDraftEditorAction, usePimiWorkbench } from "./use-pimi-workbench";
 
@@ -126,7 +127,10 @@ function PimiWorkbenchToggle({ covered }: { covered: boolean }) {
     <WindowChromeRegion corners="top-right">
       <WindowChromeSafeArea placement="inline" style={styles.workbenchActions}>
         {!covered && mode === "editor" && activeWorkspaceKey ? (
-          <WorkbenchChatButton workspaceKey={activeWorkspaceKey} />
+          <>
+            <IdeOpenFolderButton />
+            <WorkbenchChatButton workspaceKey={activeWorkspaceKey} />
+          </>
         ) : null}
         <SegmentedControl
           options={options}

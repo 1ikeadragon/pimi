@@ -25,6 +25,8 @@ export interface AssistantFileLinkResolverConfig {
   relativePathBase?: string;
   onOpenWebUrl?: (url: string) => void;
   onOpenWorkspaceFile?: (target: InlinePathTarget, disposition: OpenFileDisposition) => void;
+  /** Opens a path in IDE Mode; absent where the window has no IDE Mode. */
+  onOpenInIde?: (target: InlinePathTarget) => void;
   toast?: ToastApi | null;
 }
 
@@ -58,6 +60,7 @@ export function AssistantFileLinkResolverProvider({
   workspaceRoot,
   relativePathBase,
   onOpenWorkspaceFile,
+  onOpenInIde,
   onOpenWebUrl,
   toast,
   children,
@@ -70,6 +73,7 @@ export function AssistantFileLinkResolverProvider({
     workspaceRoot,
     relativePathBase,
     onOpenWorkspaceFile,
+    onOpenInIde,
     onOpenWebUrl: openWebUrl,
     toast,
   });
@@ -79,6 +83,7 @@ export function AssistantFileLinkResolverProvider({
     workspaceRoot,
     relativePathBase,
     onOpenWorkspaceFile,
+    onOpenInIde,
     onOpenWebUrl: openWebUrl,
     toast,
   };

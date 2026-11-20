@@ -9,6 +9,7 @@ import {
   type ActionItemsUsage,
   type StoredActionItems,
 } from "@pimi/protocol/action-items/types";
+import { PARENT_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
 import type { AgentManager, ManagedAgent } from "../agent/agent-manager.js";
 import type { PimiDatabase } from "../db/pimi-db.js";
 import { SqlRecordStore } from "../db/sql-record-store.js";
@@ -91,9 +92,11 @@ export interface ActionItemsServiceOptions {
 
 /**
  * Per-chat action items: `action_items` rows in pimi.db, keyed by agent id. A chat is read by a
- * Pimi model only after someone opens its panel (`tracking: "on"`), then once per finished turn,
- * and each call gets the current list plus the messages after the stored cursor. The service
- * only reads the timeline; nothing is written to the chat or sent to its agent.
+ * Pimi model once per turn it finishes while the daemon runs, unless the user paused it, and each
+ * call gets the current list plus the messages after the stored cursor. A chat that never
+ * finishes a turn is never read, so opening old chats costs nothing. Subagents and background
+ * agents are skipped. The service only reads the timeline; nothing is written to the chat or
+ * sent to its agent.
  */
 export class ActionItemsService {
   private readonly store: SqlRecordStore<StoredActionItems>;
@@ -102,8 +105,8 @@ export class ActionItemsService {
   private readonly isEnabled: () => boolean;
   private readonly generate: ActionItemsServiceOptions["generate"];
   private readonly listeners = new Set<(state: ActionItemsState) => void>();
-  // Agent ids with `tracking: "on"`, so a turn ending in any other chat costs one Set lookup.
-  private readonly tracked = new Set<string>();
+  // Agent ids the user paused, so their turn ends cost one Set lookup and no read.
+  private readonly paused = new Set<string>();
   private readonly timers = new Map<string, NodeJS.Timeout>();
   private readonly running = new Set<string>();
   private readonly rerun = new Set<string>();
@@ -125,12 +128,12 @@ export class ActionItemsService {
 
   async start(): Promise<void> {
     for (const record of await this.store.list()) {
-      if (record.tracking === "on") this.tracked.add(record.id);
+      if (record.tracking === "off") this.paused.add(record.id);
     }
     this.unsubscribe = this.agentManager.subscribe(
       (event) => {
         if (event.type === "agent_stream") {
-          if (event.event.type === "turn_completed" && this.tracked.has(event.agentId)) {
+          if (event.event.type === "turn_completed" && this.shouldRead(event.agentId)) {
             this.schedule(event.agentId);
           }
           return;
@@ -139,6 +142,12 @@ export class ActionItemsService {
       },
       { replayState: false },
     );
+  }
+
+  private shouldRead(agentId: string): boolean {
+    if (this.paused.has(agentId) || !this.isEnabled()) return false;
+    const agent = this.agentManager.getAgent(agentId);
+    return Boolean(agent && !agent.background && !agent.labels[PARENT_AGENT_ID_LABEL]);
   }
 
   stop(): void {
@@ -163,12 +172,11 @@ export class ActionItemsService {
     }
     if (edit.kind === "set_tracking") return this.setTracking(agentId, edit.tracking);
     const existing = await this.store.get(agentId);
-    // Adding to a chat nobody tracks yet keeps the list by hand: the model stays off.
     if (!existing) {
       if (edit.kind !== "add") {
         throw new ActionItemsError("action_item_not_found", "That item no longer exists.");
       }
-      await this.store.put({ id: agentId, tracking: "off", items: [], usage: EMPTY_USAGE });
+      await this.store.put({ id: agentId, tracking: "on", items: [], usage: EMPTY_USAGE });
     }
     const next = await this.store.update(agentId, (record) => ({
       ...record,
@@ -191,17 +199,17 @@ export class ActionItemsService {
           usage: EMPTY_USAGE,
         });
     if (tracking) {
-      this.tracked.add(agentId);
+      this.paused.delete(agentId);
       this.schedule(agentId, 0);
     } else {
-      this.tracked.delete(agentId);
+      this.paused.add(agentId);
       this.cancelTimer(agentId);
     }
     return this.publish(agentId, next);
   }
 
   private async remove(agentId: string): Promise<void> {
-    this.tracked.delete(agentId);
+    this.paused.delete(agentId);
     this.cancelTimer(agentId);
     try {
       await this.store.delete(agentId);
@@ -268,14 +276,17 @@ export class ActionItemsService {
     } finally {
       this.running.delete(agentId);
       this.publish(agentId, await this.store.get(agentId).catch(() => null));
-      if (this.rerun.delete(agentId) && this.tracked.has(agentId)) this.schedule(agentId);
+      if (this.rerun.delete(agentId) && this.shouldRead(agentId)) this.schedule(agentId);
     }
   }
 
   private async catchUp(agentId: string): Promise<void> {
     for (;;) {
-      const record = await this.store.get(agentId);
-      if (!record || record.tracking !== "on" || !this.isEnabled()) return;
+      if (!this.isEnabled()) return;
+      const record =
+        (await this.store.get(agentId)) ??
+        (await this.store.put({ id: agentId, tracking: "on", items: [], usage: EMPTY_USAGE }));
+      if (record.tracking !== "on") return;
       const agent = this.agentManager.getAgent(agentId);
       // An unloaded chat has no new turns. A running one is read when its turn ends, so a reply
       // is never read half-streamed.

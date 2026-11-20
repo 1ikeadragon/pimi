@@ -33,20 +33,23 @@ export async function resolveInlinePathOpen(input: PathOpenInput): Promise<PathO
       ? { kind: "outsideDirectory", directoryPath: input.directory }
       : { kind: "directory", directoryPath: input.directory };
   }
-  if (
-    input.lineStart !== undefined ||
-    isAbsolutePath(input.file) ||
-    !input.workspaceRoot.trim() ||
-    !input.client
-  ) {
+  if (input.lineStart !== undefined || !input.client) {
+    return { kind: "file" };
+  }
+  // A path outside the workspace arrives absolute; the host lists it as its own root.
+  const outside = isAbsolutePath(input.file);
+  if (!outside && !input.workspaceRoot.trim()) {
     return { kind: "file" };
   }
   try {
-    await input.client.listDirectory(input.workspaceRoot, input.file);
+    if (outside) await input.client.listDirectory(input.file, ".");
+    else await input.client.listDirectory(input.workspaceRoot, input.file);
   } catch {
     return { kind: "file" };
   }
-  return { kind: "directory", directoryPath: input.file };
+  return outside
+    ? { kind: "outsideDirectory", directoryPath: input.file }
+    : { kind: "directory", directoryPath: input.file };
 }
 
 export function createInlinePathOpener(input: {

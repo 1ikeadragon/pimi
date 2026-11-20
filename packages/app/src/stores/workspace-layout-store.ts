@@ -1511,6 +1511,19 @@ export function createWorkspaceLayoutStore(
         showExplorerSidebar: (workspaceKey) => {
           const paneId = get().ensureExplorerSidebar(workspaceKey);
           if (!paneId || get().layoutMode === "compact") return paneId;
+          // A layout saved before Action items existed gets the tab, in front, the first time
+          // its Explorer is shown. The tab has no close button, so this runs once per layout.
+          const root = get().layoutByWorkspace[workspaceKey]?.root;
+          const pane = root ? findPaneById(root, paneId) : null;
+          const tabId = buildDeterministicWorkspaceTabId({ kind: "action_items" });
+          if (pane && !pane.tabIds.includes(tabId)) {
+            get().openTab({
+              workspaceKey,
+              target: { kind: "action_items" },
+              intent: "reveal",
+              placement: { mode: "pane", paneId },
+            });
+          }
           set((state) => {
             const layout = state.layoutByWorkspace[workspaceKey];
             const next = setPaneHiddenInLayout({ layout, paneId, hidden: false });

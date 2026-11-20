@@ -125,7 +125,7 @@ const manifests = {
   action_items: {
     kind: "action_items",
     supportedHosts: ["explorer"],
-    showCloseButton: true,
+    showCloseButton: false,
     singleton: true,
     compactSheet: null,
     resourceKey: () => "action_items",

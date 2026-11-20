@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { i18n } from "@/i18n/i18next";
 import { useTranslation } from "@/i18n/use-translation";
 import { useSessionStore, type AgentFileExplorerState } from "@/stores/session-store";
 import { usePanelStore } from "@/stores/panel-store";
@@ -47,6 +48,57 @@ export function buildWorkspaceExplorerStateKey(scope: FileExplorerWorkspaceScope
     return null;
   }
   return `root:${normalizedWorkspaceRoot}`;
+}
+
+/**
+ * Expands Files down to a directory and selects it, for any workspace: the explorer state lives in
+ * the session store, so the workspace need not be mounted yet.
+ */
+export async function revealWorkspaceDirectory(
+  input: { serverId: string; directoryPath: string } & FileExplorerWorkspaceScope,
+): Promise<void> {
+  const stateKey = buildWorkspaceExplorerStateKey(input);
+  const root = normalizeWorkspaceValue(input.workspaceRoot);
+  if (!stateKey || !root) return;
+  const updateState = (
+    updater: (prev: AgentFileExplorerState) => AgentFileExplorerState,
+  ): AgentFileExplorerState | null => {
+    let updated: AgentFileExplorerState | null = null;
+    useSessionStore.getState().setFileExplorer(input.serverId, (prev) => {
+      const next = new Map(prev);
+      updated = updater(next.get(stateKey) ?? createExplorerState());
+      next.set(stateKey, updated);
+      return next;
+    });
+    return updated;
+  };
+  const panel = usePanelStore.getState();
+  await revealExplorerDirectory({
+    directoryPath: input.directoryPath,
+    requestDirectoryListing: (path) =>
+      loadExplorerDirectory({
+        path,
+        updateState,
+        fallbackError: i18n.t("workspace.fileExplorer.errors.failedToListDirectory"),
+        listDirectory: async () => {
+          const client = useSessionStore.getState().sessions[input.serverId]?.client;
+          if (!client) throw new Error(i18n.t("workspace.terminal.hostDisconnected"));
+          return client.listDirectory(root, path);
+        },
+      }),
+    showHiddenFiles: () => {
+      if (!panel.explorerShowHiddenFiles) panel.toggleExplorerShowHiddenFiles();
+    },
+    expandPaths: (paths) =>
+      usePanelStore
+        .getState()
+        .setExpandedPathsForWorkspace(stateKey, (current) =>
+          Array.from(new Set([...current, ...paths])),
+        ),
+  });
+  if (input.directoryPath !== ".") {
+    updateState((state) => ({ ...state, selectedEntryPath: input.directoryPath }));
+  }
 }
 
 export function useFileExplorerActions(params: { serverId: string } & FileExplorerWorkspaceScope) {
@@ -113,24 +165,9 @@ export function useFileExplorerActions(params: { serverId: string } & FileExplor
   );
 
   const revealDirectory = useCallback(
-    async (directoryPath: string) => {
-      if (!workspaceStateKey) return;
-      await revealExplorerDirectory({
-        directoryPath,
-        requestDirectoryListing,
-        showHiddenFiles: () => {
-          const panel = usePanelStore.getState();
-          if (!panel.explorerShowHiddenFiles) panel.toggleExplorerShowHiddenFiles();
-        },
-        expandPaths: (paths) =>
-          usePanelStore
-            .getState()
-            .setExpandedPathsForWorkspace(workspaceStateKey, (current) =>
-              Array.from(new Set([...current, ...paths])),
-            ),
-      });
-    },
-    [requestDirectoryListing, workspaceStateKey],
+    (directoryPath: string) =>
+      revealWorkspaceDirectory({ serverId, workspaceId, workspaceRoot, directoryPath }),
+    [serverId, workspaceId, workspaceRoot],
   );
 
   const requestFileDownloadToken = useCallback(

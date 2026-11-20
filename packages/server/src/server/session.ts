@@ -229,7 +229,6 @@ import type { AttackService } from "./attack/service.js";
 import type { AttackScheduler } from "./attack/schedules.js";
 import { ProviderCatalogSession } from "./session/provider/provider-catalog-session.js";
 import { UsageSession } from "./session/usage/usage-session.js";
-import type { RecapService } from "./recap/service.js";
 import type { UsageReader } from "./usage/aggregate.js";
 import type { UsageScanner } from "./usage/scanner.js";
 import type { ChatSearchIndexResponse } from "@pimi/protocol/chat-search";
@@ -522,7 +521,6 @@ export interface SessionOptions {
   workspaceAutoName: WorkspaceAutoName;
   daemonConfigStore: DaemonConfigStore;
   usageLedger?: { reader: UsageReader; scanner: UsageScanner };
-  recap?: RecapService;
   pushNotifier?: PushNotifier;
   pluginRuntime?: {
     wait: import("./plugins/lifecycle/index.js").PluginLifecycle["wait"];
@@ -871,7 +869,6 @@ export class Session {
       daemonConfigStore,
       pluginRuntime,
       usageLedger,
-      recap,
       orchestrationSkills,
       stt,
       sttLanguage,
@@ -1065,7 +1062,6 @@ export class Session {
       runtime: pluginRuntime,
       providerAccountScopes: () => providerSnapshotManager.listProviderAccountScopes(),
       ledger: usageLedger,
-      recap,
       logger: this.sessionLogger,
     });
     this.workspaceSearchSession = new WorkspaceSearchSession({
@@ -3352,10 +3348,6 @@ export class Session {
         return this.usageSession.handleGetAgentTree(msg);
       case "usage.rescan.request":
         return this.usageSession.handleRescan(msg);
-      case "recap.get.request":
-        return this.usageSession.handleRecapGet(msg);
-      case "recap.narrative.generate.request":
-        return this.usageSession.handleRecapNarrative(msg);
       default:
         return undefined;
     }

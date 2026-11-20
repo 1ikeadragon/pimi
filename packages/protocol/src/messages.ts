@@ -85,12 +85,6 @@ import {
   LabelUpdateSchema,
 } from "./label-rpc-schemas.js";
 import {
-  RecapGetRequestSchema,
-  RecapGetResponseSchema,
-  RecapNarrativeGenerateRequestSchema,
-  RecapNarrativeGenerateResponseSchema,
-} from "./recap.js";
-import {
   TaskCreateRequestSchema,
   TaskCreateResponseSchema,
   TaskDeleteRequestSchema,
@@ -317,7 +311,6 @@ export const PIMI_MODEL_FEATURE_KEYS = [
   "askPimi",
   "handoff",
   "actionItems",
-  "recap",
 ] as const;
 
 // One optional model per Pimi model call site. A missing key means "same as the default".
@@ -332,7 +325,6 @@ const MutablePimiModelFeaturesSchema = z
     askPimi: MutableStructuredGenerationProviderSchema.optional(),
     handoff: MutableStructuredGenerationProviderSchema.optional(),
     actionItems: MutableStructuredGenerationProviderSchema.optional(),
-    recap: MutableStructuredGenerationProviderSchema.optional(),
   })
   .strict();
 
@@ -348,7 +340,6 @@ const MutablePimiModelFeaturesPatchSchema = z
     askPimi: MutableStructuredGenerationProviderSchema.nullable().optional(),
     handoff: MutableStructuredGenerationProviderSchema.nullable().optional(),
     actionItems: MutableStructuredGenerationProviderSchema.nullable().optional(),
-    recap: MutableStructuredGenerationProviderSchema.nullable().optional(),
   })
   .strict();
 
@@ -3930,8 +3921,6 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   UsageGetBreakdownRequestMessageSchema,
   UsageGetAgentTreeRequestMessageSchema,
   UsageRescanRequestMessageSchema,
-  RecapGetRequestSchema,
-  RecapNarrativeGenerateRequestSchema,
   WorkspaceSearchRunRequestSchema,
   WorkspaceSearchCancelRequestSchema,
   WorkspaceSearchReplaceRequestSchema,
@@ -8010,8 +7999,6 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   UsageGetBreakdownResponseMessageSchema,
   UsageGetAgentTreeResponseMessageSchema,
   UsageRescanResponseMessageSchema,
-  RecapGetResponseSchema,
-  RecapNarrativeGenerateResponseSchema,
   WorkspaceSearchRunUpdateMessageSchema,
   WorkspaceSearchRunResponseMessageSchema,
   WorkspaceSearchCancelResponseMessageSchema,

@@ -205,7 +205,6 @@ const AgentMetadataGenerationSchema = z
         askPimi: StructuredGenerationProviderConfigSchema.optional(),
         handoff: StructuredGenerationProviderConfigSchema.optional(),
         actionItems: StructuredGenerationProviderConfigSchema.optional(),
-        recap: StructuredGenerationProviderConfigSchema.optional(),
       })
       .strict()
       .optional(),

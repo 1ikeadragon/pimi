@@ -146,7 +146,6 @@ import { TaskService } from "./task/service.js";
 import { ActionItemsService } from "./action-items/service.js";
 import { generateActionItemChanges } from "./action-items/generate.js";
 import { describeTask } from "./task/describe.js";
-import { RecapService } from "./recap/service.js";
 import { toTaskPullRequest } from "./task/pull-request.js";
 import { createGitHubService, runGitHubCli } from "../services/github-service.js";
 import { createPimiWorktree as createRegisteredPimiWorktree } from "./pimi-worktree-service.js";
@@ -1766,22 +1765,6 @@ export async function createPimiDaemon(
       }),
   });
   await actionItemsService.start();
-  const recapService = new RecapService({
-    sources: {
-      pimiDatabase,
-      timelineDatabase,
-      flushTimeline: () => timelineArchive.flush(),
-      loadProjects: (cwds) => usageLedger.reader.loadProjects(cwds),
-      listTasks: () => taskService.list(),
-    },
-    narrative: {
-      manager: agentManager,
-      providerSnapshotManager,
-      daemonConfig: () => daemonConfigStore.get(),
-      logger,
-    },
-    logger,
-  });
   // A deleted chat leaves no label assignments or task links behind.
   const unsubscribeTaskCleanup = agentManager.subscribe(
     (event) => {
@@ -2329,7 +2312,6 @@ export async function createPimiDaemon(
               finishSubscriptions,
               usageLedger,
               actionItemsService,
-              recapService,
             );
             pluginRuntime.bindPimiSessionHost(wsServer);
             await pluginRuntime.start();

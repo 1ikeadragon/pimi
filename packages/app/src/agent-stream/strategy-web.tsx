@@ -755,8 +755,8 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
     if (!shouldAnchor) readingAnchor.reset();
     const correctedTop = readingAnchor.reconcile(
       container.scrollTop,
+      container.clientHeight,
       rows,
-      false,
       props.readingRowReplacements,
     );
     if (!shouldAnchor) {

@@ -32,8 +32,8 @@ export const ActionItemsUsageSchema = z.object({
 export type ActionItemsUsage = z.infer<typeof ActionItemsUsageSchema>;
 
 /**
- * `unset`: nobody has opened the panel for this chat, so no model reads it.
- * `on`: the daemon reads new messages after each turn. `off`: the user stopped it; items stay.
+ * `unset`: the chat has not finished a turn since action items existed, so nothing has read it.
+ * `on`: the daemon reads new messages after each turn. `off`: the user paused it; items stay.
  */
 export const ActionItemsTrackingSchema = z.enum(["unset", "on", "off"]);
 export type ActionItemsTracking = z.infer<typeof ActionItemsTrackingSchema>;

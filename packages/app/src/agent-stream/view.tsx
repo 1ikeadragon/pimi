@@ -47,6 +47,7 @@ import {
   readPimiReviewSuggestion,
 } from "@/components/pimi-task-proposal-card";
 import { getDesktopHost } from "@/desktop/host";
+import { isIdeModeAvailable, toHostPath, useOpenInIde } from "@/desktop/open-in-ide";
 import {
   isPimiFlowRunTool,
   isPimiReviewSuggestionTool,
@@ -486,8 +487,26 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       : agentHistoryPagination;
 
     const isActive = useRetainedPanelActive();
+    const openInIde = useOpenInIde();
+    // A directory, or a file at a line, opens in IDE Mode in the chat that holds it, which may be
+    // another worktree's chat. Returns false where the window has no IDE Mode.
+    const openPathInIde = useStableEvent(
+      (path: string, lines?: Pick<WorkspaceFileLocation, "lineStart" | "lineEnd">) => {
+        const hostPath = toHostPath(path, workspaceRoot);
+        if (!hostPath || !isIdeModeAvailable()) return false;
+        openInIde({
+          serverId: resolvedServerId,
+          path: hostPath,
+          lineStart: lines?.lineStart,
+          lineEnd: lines?.lineEnd,
+          originWorkspaceId: context.workspaceId,
+        });
+        return true;
+      },
+    );
     const openInlineFile = useStableEvent(
       (location: WorkspaceFileLocation, disposition: OpenFileDisposition) => {
+        if (location.lineStart !== undefined && openPathInIde(location.path, location)) return;
         if (onOpenWorkspaceFile) {
           onOpenWorkspaceFile({ location, disposition });
         } else if (context.workspaceId) {
@@ -500,6 +519,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       },
     );
     const openInlineDirectory = useStableEvent((directoryPath: string) => {
+      if (openPathInIde(directoryPath)) return;
       void revealDirectory(directoryPath);
       openExplorerSidebarView({
         isCompact: isMobile,
@@ -510,7 +530,13 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         view: "files",
       });
     });
-    const openInlineOutsideDirectory = useOpenOutsideWorkspaceFolder(resolvedServerId);
+    const openOutsideFolder = useOpenOutsideWorkspaceFolder(resolvedServerId);
+    const openInlineOutsideDirectory = useStableEvent((directoryPath: string) => {
+      if (!openPathInIde(directoryPath)) openOutsideFolder(directoryPath);
+    });
+    const handleInlinePathOpenInIde = useStableEvent((target: InlinePathTarget) => {
+      openPathInIde(target.path, target);
+    });
     const inlinePathOpener = useMemo(
       () =>
         createInlinePathOpener({
@@ -857,6 +883,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             serverId={resolvedServerId}
             workspaceRoot={workspaceRoot}
             onOpenWorkspaceFile={handleInlinePathPress}
+            onOpenInIde={isIdeModeAvailable() ? handleInlinePathOpenInIde : undefined}
             toast={toast}
           >
             <ChatFindExpansion messageId={getStreamItemMessageId(item)}>
@@ -878,7 +905,15 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           </AssistantFileLinkResolverProvider>
         );
       },
-      [agentId, client, handleInlinePathPress, resolvedServerId, toast, workspaceRoot],
+      [
+        agentId,
+        client,
+        handleInlinePathOpenInIde,
+        handleInlinePathPress,
+        resolvedServerId,
+        toast,
+        workspaceRoot,
+      ],
     );
 
     const renderThoughtItem = useCallback(

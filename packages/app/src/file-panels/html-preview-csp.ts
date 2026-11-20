@@ -59,6 +59,12 @@ export interface HtmlPreviewEmbed {
 
 export const HTML_PREVIEW_HEIGHT_MESSAGE = "pimiPreviewHeight";
 
+// A native WebView lays out a document that declares no viewport at a 980px desktop width and
+// shrinks it to the frame, so an embedded visual would render at a third of its size, report a
+// height in those desktop pixels, and leave its card mostly empty. The document's own viewport
+// tag, parsed later, still wins.
+const EMBED_VIEWPORT = `<meta name="viewport" content="width=device-width,initial-scale=1">`;
+
 // The values are theme tokens, but they are written into a style element, so anything that
 // could close a declaration or the element is dropped rather than trusted.
 const UNSAFE_CSS_VALUE = /[<>{};]/;
@@ -70,7 +76,7 @@ function embedStyle({ colorScheme, variables }: HtmlPreviewEmbed): string {
     .filter(([name, value]) => /^[a-z][a-z0-9-]*$/.test(name) && !UNSAFE_CSS_VALUE.test(value))
     .map(([name, value]) => `--pimi-${name}:${value}`)
     .join(";");
-  return `<style>:root{color-scheme:${colorScheme};${declarations}}:where(html){background:var(--pimi-bg);color:var(--pimi-fg);font-family:var(--pimi-font)}:where(body){margin:0;padding:16px}</style>`;
+  return `${EMBED_VIEWPORT}<style>:root{color-scheme:${colorScheme};${declarations}}:where(html){background:var(--pimi-bg);color:var(--pimi-fg);font-family:var(--pimi-font)}:where(body){margin:0;padding:16px}</style>`;
 }
 
 // The one thing an embedded document tells its host is how tall its content is. The root

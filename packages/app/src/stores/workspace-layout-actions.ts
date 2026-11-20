@@ -1258,7 +1258,8 @@ export function createDefaultLayout(): WorkspaceLayout {
 
 function createDefaultExplorerSidebarTabs(): WorkspaceTab[] {
   const createdAt = Date.now();
-  const targets = [{ kind: "files" }, { kind: "changes_tree" }] as const;
+  // Action items leads, so it is the tab in front when the Explorer first opens.
+  const targets = [{ kind: "action_items" }, { kind: "files" }, { kind: "changes_tree" }] as const;
   return targets.map((target) => ({
     tabId: buildDeterministicWorkspaceTabId(target),
     target,
