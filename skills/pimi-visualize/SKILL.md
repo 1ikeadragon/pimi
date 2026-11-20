@@ -9,7 +9,8 @@ Pimi chat renders these fenced code blocks inline in a reply. Use whichever show
 
 pimi-vega: one Vega-Lite v6 spec as JSON.
 - Rows go inline in data.values. Nothing can load: a "url" or "href" property anywhere in the spec fails the block, and so does a raw Vega spec.
-- Pimi fits the width, applies its light or dark theme, shows tooltips, and shows the spec's title above the chart.
+- Pimi fits the width, shows tooltips, and shows the spec's title above the chart.
+- Pimi applies its theme's series palette, axis colors, and fonts for light and dark. Omit colors, fonts, and config: a fixed color is drawn as written in both themes.
 
 pimi-view: JSON {"title", "root", optional "id"} where root is a node. Each node is an object with a "type" and these fields:
 - stack: children; optional direction "column" (default) or "row"
@@ -27,11 +28,13 @@ A later block with the same id replaces the earlier one in the same reply.
 
 pimi-html: one HTML document or fragment, run in a sandboxed frame.
 - No network, storage, or navigation: remote scripts, styles, fonts, images, and fetch fail. Put the CSS, JavaScript, and data in the block.
-- Pimi sets the page background, text color, and font for its light and dark themes and provides these custom properties: --pimi-bg, --pimi-surface, --pimi-fg, --pimi-muted, --pimi-border, --pimi-accent, --pimi-accent-fg, --pimi-font, --pimi-mono.
+- Pimi sets the page background, text color, and font for its light and dark themes. Use these custom properties, not fixed colors: --pimi-bg, --pimi-surface, --pimi-fg, --pimi-muted, --pimi-border, --pimi-accent, --pimi-accent-fg, --pimi-font, --pimi-mono.
 - The frame is the reply's width, about 360 px on a phone. It follows the content's height up to 640 px, then scrolls, so 100vh has no meaning.
 - The <title> is shown above the frame. Three backticks inside the block end it.
 - pimi-artifact holds {"title", "path"} and runs a saved .html file the same way, with the path relative to the working directory.
 
-mermaid: a Mermaid diagram, scaled down to fit the reply's width.
+mermaid: a Mermaid diagram, scaled down to fit the reply's width. Node and edge labels do not wrap.
+
+Chat Markdown does not render math. Write formulas in Unicode, not LaTeX.
 
 <!-- formats:end -->
