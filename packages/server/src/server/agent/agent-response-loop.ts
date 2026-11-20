@@ -1,6 +1,6 @@
 import { z } from "zod";
 import Ajv, { type ErrorObject, type Options as AjvOptions } from "ajv";
-import type { AgentProvider, AgentSessionConfig } from "./agent-sdk-types.js";
+import type { AgentProvider, AgentSessionConfig, AgentUsage } from "./agent-sdk-types.js";
 import type { AgentManager } from "./agent-manager.js";
 import { withTimeout } from "../../utils/promise-timeout.js";
 import {
@@ -81,6 +81,8 @@ export interface StructuredAgentGenerationOptions<T> {
   persistSession?: boolean;
   withoutAppTools?: boolean;
   turnTimeoutMs?: number;
+  /** Called with each model turn's usage, when the provider reports it. A retry is a second turn. */
+  onUsage?: (usage: AgentUsage) => void;
   prompt: string;
   schema: z.ZodType<T> | JsonSchema;
   maxRetries?: number;
@@ -105,6 +107,7 @@ export interface StructuredAgentGenerationWithFallbackOptions<T> {
   maxRetries?: number;
   schemaName?: string;
   turnTimeoutMs?: number;
+  onUsage?: (usage: AgentUsage) => void;
   logger?: StructuredGenerationLogger;
   runner?: <TResult>(options: StructuredAgentGenerationOptions<TResult>) => Promise<TResult>;
 }
@@ -377,6 +380,7 @@ export async function generateStructuredAgentResponse<T>(
     schemaName,
     withoutAppTools,
     turnTimeoutMs,
+    onUsage,
   } = options;
   const agent = await manager.createAgent(agentConfig, agentId, {
     persistSession,
@@ -389,6 +393,7 @@ export async function generateStructuredAgentResponse<T>(
       const result = turnTimeoutMs
         ? await withTimeout(run, turnTimeoutMs, "The model did not reply in time.")
         : await run;
+      if (result.usage) onUsage?.(result.usage);
       if (typeof result.finalText === "string" && result.finalText.length > 0) {
         return result.finalText;
       }
@@ -453,6 +458,7 @@ export async function generateStructuredAgentResponseWithFallback<T>(
     maxRetries,
     schemaName,
     turnTimeoutMs,
+    onUsage,
     logger,
     runner,
   } = options;
@@ -493,6 +499,7 @@ export async function generateStructuredAgentResponseWithFallback<T>(
         schemaName,
         persistSession,
         ...(turnTimeoutMs ? { turnTimeoutMs } : {}),
+        ...(onUsage ? { onUsage } : {}),
         agentConfig: {
           ...agentConfigOverrides,
           provider: candidate.provider,

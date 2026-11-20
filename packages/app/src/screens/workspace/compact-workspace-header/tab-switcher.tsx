@@ -134,6 +134,8 @@ function getFallbackTabOptionDescription(
   if (tab.target.kind === "chat_visual") {
     return "Visual";
   }
+  // An Explorer-only tab; the registered panel names it.
+  if (tab.target.kind === "action_items") return tab.target.kind;
   // Attack mode is desktop only; its tabs never reach the compact switcher.
   if (tab.target.kind === "attack_board" || tab.target.kind === "attack_findings") {
     return tab.target.kind;

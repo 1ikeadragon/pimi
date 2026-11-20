@@ -277,6 +277,7 @@ export function restoreWorkbench(
     if (
       tab.target.kind === "files" ||
       tab.target.kind === "search" ||
+      tab.target.kind === "action_items" ||
       tab.target.kind === "changes_tree"
     )
       return explorerPaneId ?? main?.id;

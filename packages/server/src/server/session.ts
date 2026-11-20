@@ -131,6 +131,8 @@ import {
 } from "./workspace-automation-gate.js";
 import type { LabelService } from "./labels/service.js";
 import type { TaskService } from "./task/service.js";
+import type { ActionItemsService } from "./action-items/service.js";
+import { ActionItemsSession } from "./session/action-items/action-items-session.js";
 import { TaskSession } from "./session/task/task-session.js";
 
 import { AgentManager, AgentRunCancellationError } from "./agent/agent-manager.js";
@@ -227,6 +229,7 @@ import type { AttackService } from "./attack/service.js";
 import type { AttackScheduler } from "./attack/schedules.js";
 import { ProviderCatalogSession } from "./session/provider/provider-catalog-session.js";
 import { UsageSession } from "./session/usage/usage-session.js";
+import type { RecapService } from "./recap/service.js";
 import type { UsageReader } from "./usage/aggregate.js";
 import type { UsageScanner } from "./usage/scanner.js";
 import type { ChatSearchIndexResponse } from "@pimi/protocol/chat-search";
@@ -501,6 +504,7 @@ export interface SessionOptions {
   directorySync?: DirectorySyncService;
   taskService?: TaskService;
   labelService?: LabelService;
+  actionItemsService?: ActionItemsService;
   filesystem?: SessionFileSystem;
   automationService: AutomationService;
   flowService: FlowService;
@@ -518,6 +522,7 @@ export interface SessionOptions {
   workspaceAutoName: WorkspaceAutoName;
   daemonConfigStore: DaemonConfigStore;
   usageLedger?: { reader: UsageReader; scanner: UsageScanner };
+  recap?: RecapService;
   pushNotifier?: PushNotifier;
   pluginRuntime?: {
     wait: import("./plugins/lifecycle/index.js").PluginLifecycle["wait"];
@@ -785,6 +790,9 @@ export class Session {
   private readonly taskSession: TaskSession | null;
   private readonly taskService: TaskService | null;
   private unsubscribeTasks: (() => void) | null = null;
+  private readonly actionItemsService: ActionItemsService | undefined;
+  private readonly actionItemsSession: ActionItemsSession | null;
+  private unsubscribeActionItems: (() => void) | null = null;
   private readonly automationService: AutomationService;
   private readonly eventSubscriptions = new Map<
     string,
@@ -863,6 +871,7 @@ export class Session {
       daemonConfigStore,
       pluginRuntime,
       usageLedger,
+      recap,
       orchestrationSkills,
       stt,
       sttLanguage,
@@ -1026,6 +1035,8 @@ export class Session {
     });
     this.taskService = options.taskService ?? null;
     this.taskSession = this.createTaskSession(options);
+    this.actionItemsService = options.actionItemsService;
+    this.actionItemsSession = this.createActionItemsSession(options);
     this.attackSession = new AttackSession({
       host: { emit: (msg) => this.emit(msg) },
       attackService,
@@ -1054,6 +1065,7 @@ export class Session {
       runtime: pluginRuntime,
       providerAccountScopes: () => providerSnapshotManager.listProviderAccountScopes(),
       ledger: usageLedger,
+      recap,
       logger: this.sessionLogger,
     });
     this.workspaceSearchSession = new WorkspaceSearchSession({
@@ -1158,6 +1170,12 @@ export class Session {
     this.agentUpdates = createAgentUpdatesService({
       includesWorkspace: (agent, backgroundVisibility) =>
         this.agentDirectory.includes(agent, backgroundVisibility),
+      isArchivedChat: async (agent) =>
+        agent.workspaceId != null &&
+        !agent.background &&
+        (await this.agentDirectory.archivedChats([agent.workspaceId])).some(
+          (chat) => chat.id === agent.id,
+        ),
       emit: (message) => this.emit(message),
       enrichAgentPayload: (payload) => this.enrichAgentPayload(payload),
       buildStoredAgentPayload: (record) => this.buildStoredAgentPayload(record),
@@ -1708,6 +1726,15 @@ export class Session {
     });
   }
 
+  private createActionItemsSession(options: SessionOptions): ActionItemsSession | null {
+    if (!options.actionItemsService) return null;
+    return new ActionItemsSession({
+      host: { emit: (msg) => this.emit(msg) },
+      service: options.actionItemsService,
+      logger: this.sessionLogger,
+    });
+  }
+
   private refreshCatalogProducers(): void {
     if (this.wantsEvent("providers_snapshot_update")) this.providerCatalogSession.start();
     else this.providerCatalogSession.dispose();
@@ -1728,6 +1755,15 @@ export class Session {
     else {
       this.unsubscribeTasks?.();
       this.unsubscribeTasks = null;
+    }
+    if (this.wantsEvent("agent.action_items.update"))
+      this.unsubscribeActionItems ??=
+        this.actionItemsService?.onChanged((state) => {
+          this.emit({ type: "agent.action_items.update", payload: state });
+        }) ?? null;
+    else {
+      this.unsubscribeActionItems?.();
+      this.unsubscribeActionItems = null;
     }
     if (this.wantsEvent("status.automation_drafts_changed"))
       this.unsubscribeAutomationDrafts ??= this.automationService.onDraftsChanged(() => {
@@ -2461,6 +2497,7 @@ export class Session {
       this.automationSession.dispatch(msg) ??
       this.flowSession.dispatch(msg) ??
       this.taskSession?.dispatch(msg) ??
+      this.actionItemsSession?.dispatch(msg) ??
       this.attackSession.dispatch(msg) ??
       this.speechModelsSession.dispatch(msg)
     );
@@ -3314,6 +3351,10 @@ export class Session {
         return this.usageSession.handleGetAgentTree(msg);
       case "usage.rescan.request":
         return this.usageSession.handleRescan(msg);
+      case "recap.get.request":
+        return this.usageSession.handleRecapGet(msg);
+      case "recap.narrative.generate.request":
+        return this.usageSession.handleRecapNarrative(msg);
       default:
         return undefined;
     }
@@ -5773,6 +5814,14 @@ export class Session {
           agent.workspaceId != null &&
           activePlacementsByWorkspaceId.has(agent.workspaceId),
       );
+      const workspacesWithAgent = new Set(
+        agents.flatMap((agent) => (agent.background ? [] : [agent.workspaceId])),
+      );
+      agents.push(
+        ...(await this.agentDirectory.archivedChats(
+          [...activePlacementsByWorkspaceId.keys()].filter((id) => !workspacesWithAgent.has(id)),
+        )),
+      );
     }
 
     const placementByWorkspaceId = new Map<string, Promise<ProjectPlacementPayload | null>>();
@@ -5811,7 +5860,8 @@ export class Session {
       candidates,
       limit,
       getPlacement,
-      filter,
+      // The active scope's only archived candidates are the archived chats added above.
+      filter: activePlacementsByWorkspaceId ? { ...filter, includeArchived: true } : filter,
       search,
     });
 
@@ -6492,6 +6542,7 @@ export class Session {
           subscriptionId: owner.id,
           filter: request.filter,
           backgroundVisibility,
+          includeArchivedChats: request.scope === "active",
           syncEnabled: Boolean(request.sync),
           emit: (message) => {
             if (message.type === "agent_update") owner.emit(message);
@@ -9239,6 +9290,8 @@ export class Session {
     this.unsubscribeAutomationDrafts = null;
     this.unsubscribeTasks?.();
     this.unsubscribeTasks = null;
+    this.unsubscribeActionItems?.();
+    this.unsubscribeActionItems = null;
     this.unsubscribeWorkspaceMutations?.();
     this.unsubscribeWorkspaceMutations = null;
     this.agentUpdates.dispose();
@@ -9319,6 +9372,11 @@ function attackEventCategory(message: SessionOutboundMessage): SessionEventSubsc
   }
 }
 
+function featureEventCategory(message: SessionOutboundMessage): SessionEventSubscription | null {
+  if (message.type === "agent.action_items.update") return message.type;
+  return attackEventCategory(message);
+}
+
 function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubscription | null {
   switch (message.type) {
     case "project.update":
@@ -9352,7 +9410,7 @@ function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubs
           return null;
       }
     default:
-      return attackEventCategory(message);
+      return featureEventCategory(message);
   }
 }
 

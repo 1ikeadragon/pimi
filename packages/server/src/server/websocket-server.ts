@@ -129,6 +129,7 @@ import { getDaemonNetworkActivity } from "./network/activity.js";
 import { InboundSocketActivity } from "./network/inbound.js";
 import type { LabelService } from "./labels/service.js";
 import type { TaskService } from "./task/service.js";
+import type { ActionItemsService } from "./action-items/service.js";
 import {
   APPLICATION_SOCKET_LEASE_CHECK_INTERVAL_MS,
   ApplicationSocketLease,
@@ -697,6 +698,8 @@ export class VoiceAssistantWebSocketServer {
     labelService?: LabelService,
     private readonly finishSubscriptions?: SessionOptions["finishSubscriptions"],
     private readonly usageLedger?: SessionOptions["usageLedger"],
+    private readonly actionItemsService?: ActionItemsService,
+    private readonly recap?: SessionOptions["recap"],
   ) {
     this.logger = logger.child({ module: "websocket-server" });
     this.workspaceSetupRuntime = workspaceSetupRuntime;
@@ -1645,6 +1648,7 @@ export class VoiceAssistantWebSocketServer {
       workspaceBaseBranch: this.workspaceBaseBranch,
       taskService: this.taskService ?? undefined,
       labelService: this.labelService ?? undefined,
+      actionItemsService: this.actionItemsService,
       directorySync: this.directorySync,
       automationService: this.automationServices.automationService,
       flowService: this.automationServices.flowService,
@@ -1659,6 +1663,7 @@ export class VoiceAssistantWebSocketServer {
       daemonConfigStore: this.daemonConfigStore,
       pluginRuntime: this.pluginRuntime,
       usageLedger: this.usageLedger,
+      recap: this.recap,
       pushNotifier: this.pushNotifier,
       orchestrationSkills: this.orchestrationSkills,
       mcpBaseUrl: this.mcpBaseUrl,

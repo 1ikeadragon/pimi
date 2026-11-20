@@ -330,9 +330,12 @@ function pickRelayPatch(
 }
 
 function pickMetadataGenerationPatch(metadata: MutableDaemonConfigPatch["metadataGeneration"]) {
-  const { providers, features, autoNaming } = metadata ?? {};
-  return providers !== undefined || features !== undefined || autoNaming !== undefined
-    ? { providers, features, autoNaming }
+  const { providers, features, autoNaming, actionItems } = metadata ?? {};
+  return providers !== undefined ||
+    features !== undefined ||
+    autoNaming !== undefined ||
+    actionItems !== undefined
+    ? { providers, features, autoNaming, actionItems }
     : undefined;
 }
 

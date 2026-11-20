@@ -73,6 +73,7 @@ import { RetainedPanel } from "@/components/retained-panel";
 import { WorkspaceActions } from "@/git/workspace-actions";
 import { WorkspaceOpenInEditorButton } from "@/workspace/open-in-editor/button";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
+import { ActionItemsHeaderButton } from "@/action-items/header-button";
 import { WorkspaceScriptsButton, useWorkspaceScriptActions } from "@/screens/workspace/scripts";
 import { ImportSessionSheet } from "@/components/import-session-sheet";
 import { useNavigateToImportedAgent } from "@/hooks/use-import-session";
@@ -143,7 +144,6 @@ import {
 import { useWorkspace } from "@/stores/session-store-hooks";
 import type { CheckoutStatusPayload } from "@/git/use-status-query";
 import { confirmDialog } from "@/utils/confirm-dialog";
-import { useArchiveAgent } from "@/hooks/use-archive-agent";
 import { useWorkspaceArchiveUndoRunning } from "@/workspace/archive-undo";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { removeResidentBrowserWebview } from "@/desktop/browser/resident-webviews";
@@ -222,7 +222,6 @@ import {
   classifyBulkClosableTabs,
   closeBulkWorkspaceTabs,
 } from "@/screens/workspace/workspace-bulk-close";
-import { resolveCloseAgentTabPolicy } from "@/subagents";
 import {
   getPanelInstanceAttributes,
   useModifiedPanelTabIds,
@@ -1368,8 +1367,6 @@ function WorkspaceScreenContent({
     scripts: workspaceScripts,
     onScriptTerminalStarted: handleScriptTerminalStarted,
   });
-  const { archiveAgent } = useArchiveAgent();
-
   const { checkoutQuery, isCheckoutStatusLoading } = useWorkspaceCheckoutStatus({
     client,
     isConnected,
@@ -1914,29 +1911,14 @@ function WorkspaceScreenContent({
   }, [uiTabs]);
   const bulkCloseConfirmationLabels = useMemo<BulkCloseConfirmationLabels>(
     () => ({
-      newTab: t("workspace.tabs.actions.newTab"),
-      all: ({ agents, terminals: terminalCount, tabs: tabCount }) =>
-        t("workspace.tabs.confirmations.bulk.all", {
-          agents,
-          terminals: terminalCount,
-          tabs: tabCount,
-        }),
-      agentsAndTerminals: ({ agents, terminals: terminalCount }) =>
-        t("workspace.tabs.confirmations.bulk.agentsAndTerminals", {
-          agents,
-          terminals: terminalCount,
-        }),
       terminalsAndTabs: ({ terminals: terminalCount, tabs: tabCount }) =>
         t("workspace.tabs.confirmations.bulk.terminalsAndTabs", {
           terminals: terminalCount,
           tabs: tabCount,
         }),
-      agentsAndTabs: ({ agents, tabs: tabCount }) =>
-        t("workspace.tabs.confirmations.bulk.agentsAndTabs", { agents, tabs: tabCount }),
       terminals: ({ terminals: terminalCount }) =>
         t("workspace.tabs.confirmations.bulk.terminals", { terminals: terminalCount }),
       tabs: ({ tabs: tabCount }) => t("workspace.tabs.confirmations.bulk.tabs", { tabs: tabCount }),
-      agents: ({ agents }) => t("workspace.tabs.confirmations.bulk.agents", { agents }),
     }),
     [t],
   );
@@ -2133,29 +2115,8 @@ function WorkspaceScreenContent({
   const handleCloseAgentTab = useCallback(
     async (input: { tabId: string; agentId: string }) => {
       const { tabId, agentId } = input;
+      // Closing a tab only changes this client's layout. Archive is its own explicit action.
       await closeTab(tabId, async () => {
-        if (!normalizedServerId) {
-          return;
-        }
-
-        const agent =
-          useSessionStore.getState().sessions[normalizedServerId]?.agents?.get(agentId) ?? null;
-        const closePolicy = resolveCloseAgentTabPolicy(agent);
-        const isRunning = agent?.status === "running";
-
-        if (isRunning && closePolicy.kind === "archive-on-close") {
-          const confirmed = await confirmDialog({
-            title: t("workspace.tabs.confirmations.archiveRunningAgentTitle"),
-            message: t("workspace.tabs.confirmations.archiveRunningAgentMessage"),
-            confirmLabel: t("workspace.tabs.confirmations.archive"),
-            cancelLabel: t("workspace.tabs.confirmations.cancel"),
-            destructive: true,
-          });
-          if (!confirmed) {
-            return;
-          }
-        }
-
         setHoveredCloseTabKey((current) => (current === tabId ? null : current));
         if (persistenceKey) {
           closeWorkspaceTabWithCleanup({
@@ -2163,16 +2124,9 @@ function WorkspaceScreenContent({
             target: { kind: "agent", agentId },
           });
         }
-
-        if (closePolicy.kind === "layout-only") {
-          return;
-        }
-
-        // Errors (e.g. timeout) are handled by the mutation's onSettled callback
-        void archiveAgent({ serverId: normalizedServerId, agentId }).catch(() => {});
       });
     },
-    [archiveAgent, closeTab, closeWorkspaceTabWithCleanup, normalizedServerId, persistenceKey, t],
+    [closeTab, closeWorkspaceTabWithCleanup, persistenceKey],
   );
 
   const handleClosePassiveTab = useCallback(
@@ -2403,10 +2357,7 @@ function WorkspaceScreenContent({
         return true;
       }
 
-      const groups = classifyBulkClosableTabs(tabsToClose, (agentId) => {
-        const agent = useSessionStore.getState().sessions[normalizedServerId]?.agents?.get(agentId);
-        return resolveCloseAgentTabPolicy(agent).kind === "layout-only" ? "layout-only" : "archive";
-      });
+      const groups = classifyBulkClosableTabs(tabsToClose);
       const modifiedCount = tabsToClose.filter(
         (tab) =>
           getPanelInstanceAttributes({
@@ -3369,6 +3320,7 @@ function WorkspaceScreenContent({
     () => (
       <View style={styles.headerRight}>
         <PimiReviewButton serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
+        <ActionItemsHeaderButton serverId={normalizedServerId} workspaceKey={persistenceKey} />
         <PluginHeaderButtons serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
         {workspaceDescriptor && workspaceDescriptor.scripts.length > 0 ? (
           <WorkspaceScriptsButton
@@ -3411,6 +3363,7 @@ function WorkspaceScreenContent({
       workspaceDescriptor,
       normalizedServerId,
       normalizedWorkspaceId,
+      persistenceKey,
       workspaceDirectory,
       activeFileLocation,
       liveTerminalIds,

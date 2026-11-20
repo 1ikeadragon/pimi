@@ -163,6 +163,7 @@ function getCloseButtonTestId(tab: WorkspaceTabDescriptor): string {
     tab.target.kind === "files" ||
     tab.target.kind === "search" ||
     tab.target.kind === "pull_request" ||
+    tab.target.kind === "action_items" ||
     tab.target.kind === "attack_board" ||
     tab.target.kind === "attack_findings"
   ) {

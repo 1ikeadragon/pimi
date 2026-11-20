@@ -32,6 +32,8 @@ import {
 import { usePluginWorkspaceMenu } from "@/plugins";
 import { useChatLabelMenu } from "@/labels/chat-label-menu";
 import { useChatTaskMenu } from "@/tasks/use-chat-task-menu";
+import { openExplorerSidebarView } from "@/workspace-tabs/explorer-sidebar";
+import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 
 const ThemedEllipsis = withUnistyles(Ellipsis);
 const ThemedCopy = withUnistyles(Copy);
@@ -295,6 +297,16 @@ export function WorkspaceHeaderMenuMobile({
   const handleOpenAttack = useCallback(() => {
     router.push(buildHostWorkspaceAttackRoute(normalizedServerId, normalizedWorkspaceId) as Href);
   }, [normalizedServerId, normalizedWorkspaceId, router]);
+  const handleOpenActionItems = useCallback(() => {
+    openExplorerSidebarView({
+      isCompact: true,
+      workspaceKey: buildWorkspaceTabPersistenceKey({
+        serverId: normalizedServerId,
+        workspaceId: normalizedWorkspaceId,
+      }),
+      view: "actionItems",
+    });
+  }, [normalizedServerId, normalizedWorkspaceId]);
   const scriptsMenu = useWorkspaceScriptsMenuPages(scripts);
   const pluginMenu = usePluginWorkspaceMenu(normalizedServerId, normalizedWorkspaceId);
   const labelMenu = useChatLabelMenu(normalizedServerId, normalizedWorkspaceId);
@@ -354,6 +366,14 @@ export function WorkspaceHeaderMenuMobile({
             )}
           </DropdownMenuItem>
         ) : null}
+        {config?.metadataGeneration.actionItems === false ? null : (
+          <DropdownMenuItem
+            testID="workspace-header-menu-action-items"
+            onSelect={handleOpenActionItems}
+          >
+            {t("actionItems.label")}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem testID="workspace-header-menu-attack" onSelect={handleOpenAttack}>
           {t("attack.phone.entry")}
         </DropdownMenuItem>

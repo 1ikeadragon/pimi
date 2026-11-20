@@ -19,6 +19,7 @@ export interface PimiModelChoice {
 export interface StructuredGenerationDaemonConfig {
   metadataGeneration?: {
     autoNaming?: boolean;
+    actionItems?: boolean;
     providers?: PimiModelChoice[];
     features?: Partial<Record<PimiModelFeature, PimiModelChoice>>;
   };

@@ -10,6 +10,7 @@ import { filePanelRegistration } from "@/panels/file-panel";
 import { filesPanelRegistration } from "@/panels/files-panel";
 import { registerPanel } from "@/panels/panel-registry";
 import { searchPanelRegistration } from "@/panels/search-panel";
+import { actionItemsPanelRegistration } from "@/panels/action-items-panel";
 import { setupPanelRegistration } from "@/panels/setup-panel";
 import { terminalPanelRegistration } from "@/panels/terminal-panel";
 import { providerSubagentPanelRegistration } from "@/panels/provider-subagent-panel";
@@ -39,6 +40,7 @@ export function ensurePanelsRegistered(): void {
   registerPanel(filesPanelRegistration);
   registerPanel(searchPanelRegistration);
   registerPanel(pullRequestPanelRegistration);
+  registerPanel(actionItemsPanelRegistration);
   registerPanel(commitDiffPanelRegistration);
   registerPanel(workingDiffPanelRegistration);
   registerPanel(changesTreePanelRegistration);

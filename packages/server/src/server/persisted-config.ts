@@ -201,12 +201,16 @@ const AgentMetadataGenerationSchema = z
         commitMessage: StructuredGenerationProviderConfigSchema.optional(),
         pullRequest: StructuredGenerationProviderConfigSchema.optional(),
         automation: StructuredGenerationProviderConfigSchema.optional(),
+        task: StructuredGenerationProviderConfigSchema.optional(),
         askPimi: StructuredGenerationProviderConfigSchema.optional(),
         handoff: StructuredGenerationProviderConfigSchema.optional(),
+        actionItems: StructuredGenerationProviderConfigSchema.optional(),
+        recap: StructuredGenerationProviderConfigSchema.optional(),
       })
       .strict()
       .optional(),
     autoNaming: z.boolean().optional(),
+    actionItems: z.boolean().optional(),
   })
   .strict();
 

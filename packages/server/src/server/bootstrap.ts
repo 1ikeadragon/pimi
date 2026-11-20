@@ -143,7 +143,10 @@ import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
 import { LabelService } from "./labels/service.js";
 import { migrateWorkspaceLabels } from "./labels/migrate.js";
 import { TaskService } from "./task/service.js";
+import { ActionItemsService } from "./action-items/service.js";
+import { generateActionItemChanges } from "./action-items/generate.js";
 import { describeTask } from "./task/describe.js";
+import { RecapService } from "./recap/service.js";
 import { toTaskPullRequest } from "./task/pull-request.js";
 import { createGitHubService, runGitHubCli } from "../services/github-service.js";
 import { createPimiWorktree as createRegisteredPimiWorktree } from "./pimi-worktree-service.js";
@@ -605,6 +608,7 @@ function resolveMetadataGeneration(config: ResolvedDaemonSettings["metadataGener
     providers: config?.providers ?? [],
     ...(config?.features ? { features: config.features } : {}),
     autoNaming: config?.autoNaming !== false,
+    actionItems: config?.actionItems !== false,
   };
 }
 
@@ -1745,6 +1749,39 @@ export async function createPimiDaemon(
   });
   onCheckoutPullRequestChanged = () => taskService.notifyPullRequestsChanged();
   await taskService.start();
+  const actionItemsService = new ActionItemsService({
+    database: pimiDatabase,
+    logger,
+    agentManager,
+    isEnabled: () => daemonConfigStore.get().metadataGeneration.actionItems !== false,
+    generate: ({ agent, items, messages }) =>
+      generateActionItemChanges({
+        manager: agentManager,
+        agent,
+        providerSnapshotManager,
+        daemonConfig: daemonConfigStore.get(),
+        logger,
+        items,
+        messages,
+      }),
+  });
+  await actionItemsService.start();
+  const recapService = new RecapService({
+    sources: {
+      pimiDatabase,
+      timelineDatabase,
+      flushTimeline: () => timelineArchive.flush(),
+      loadProjects: (cwds) => usageLedger.reader.loadProjects(cwds),
+      listTasks: () => taskService.list(),
+    },
+    narrative: {
+      manager: agentManager,
+      providerSnapshotManager,
+      daemonConfig: () => daemonConfigStore.get(),
+      logger,
+    },
+    logger,
+  });
   // A deleted chat leaves no label assignments or task links behind.
   const unsubscribeTaskCleanup = agentManager.subscribe(
     (event) => {
@@ -2291,6 +2328,8 @@ export async function createPimiDaemon(
               labelService,
               finishSubscriptions,
               usageLedger,
+              actionItemsService,
+              recapService,
             );
             pluginRuntime.bindPimiSessionHost(wsServer);
             await pluginRuntime.start();
@@ -2414,6 +2453,7 @@ export async function createPimiDaemon(
     }
     await speechService.stop();
     unsubscribeTaskCleanup();
+    actionItemsService.stop();
     await automationService.stop().catch(() => undefined);
     await flowService.stop().catch(() => undefined);
     await heartbeatService.stop().catch(() => undefined);

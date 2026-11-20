@@ -240,6 +240,13 @@ const perfNow: () => number =
 
 const PROJECT_GITHUB_CLONE_TIMEOUT_MS = 5 * 60 * 1000;
 
+export interface RecapPeriodOptions {
+  startMs: number;
+  endMs: number;
+  timezoneOffsetMinutes: number;
+  requestId?: string;
+}
+
 export interface ImportAgentInput {
   providerId: string;
   providerHandleId: string;
@@ -942,6 +949,10 @@ export type FetchWorkspacesOptions = Omit<FetchWorkspacesRequest, "type" | "requ
 };
 export type FetchWorkspacesEntry = FetchWorkspacesPayload["entries"][number];
 export type FetchWorkspacesPageInfo = FetchWorkspacesPayload["pageInfo"];
+export type ActionItemsStatePayload = Extract<
+  SessionOutboundMessage,
+  { type: "agent.action_items.get.response" }
+>["payload"];
 export type TaskListPayload = Extract<
   SessionOutboundMessage,
   { type: "task.list.response" }
@@ -6217,6 +6228,33 @@ export class DaemonClient {
     });
   }
 
+  async getRecap(options: RecapPeriodOptions) {
+    return this.sendNamespacedCorrelatedSessionRequest<"recap.get.response">({
+      requestId: options.requestId,
+      message: {
+        type: "recap.get.request",
+        startMs: options.startMs,
+        endMs: options.endMs,
+        timezoneOffsetMinutes: options.timezoneOffsetMinutes,
+      },
+      timeout: 60_000,
+    });
+  }
+
+  // The daemon runs a model over the period's chats; a slow provider takes minutes.
+  async generateRecapNarrative(options: RecapPeriodOptions) {
+    return this.sendNamespacedCorrelatedSessionRequest<"recap.narrative.generate.response">({
+      requestId: options.requestId,
+      message: {
+        type: "recap.narrative.generate.request",
+        startMs: options.startMs,
+        endMs: options.endMs,
+        timezoneOffsetMinutes: options.timezoneOffsetMinutes,
+      },
+      timeout: 300_000,
+    });
+  }
+
   async listCommands(options: ListCommandsOptions): Promise<ListCommandsPayload> {
     return this.sendCorrelatedSessionRequest({
       requestId: options.requestId,
@@ -7239,6 +7277,38 @@ export class DaemonClient {
       requestId: options.requestId,
       message: { type: "task.import.request", tasks: options.tasks },
     });
+  }
+
+  getAgentActionItems(options: {
+    agentId: string;
+    requestId?: string;
+  }): Promise<ActionItemsStatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "agent.action_items.get.request", agentId: options.agentId },
+    });
+  }
+
+  editAgentActionItems(options: {
+    agentId: string;
+    edit: Extract<SessionInboundMessage, { type: "agent.action_items.edit.request" }>["edit"];
+    requestId?: string;
+  }): Promise<ActionItemsStatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "agent.action_items.edit.request",
+        agentId: options.agentId,
+        edit: options.edit,
+      },
+    });
+  }
+
+  /** `agent.action_items.update` pushes for every chat on this host. */
+  observeAgentActionItems(
+    options: { signal?: AbortSignal } = {},
+  ): OwnedSubscription<CorrelatedResponsePayload<"session.events.set_subscription.response">> {
+    return this.observeEvents(["agent.action_items.update"], options);
   }
 
   labelList(options: { requestId?: string } = {}): Promise<LabelListPayload> {

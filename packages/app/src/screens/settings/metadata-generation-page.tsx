@@ -28,6 +28,8 @@ const FEATURE_ROWS: readonly PimiModelFeature[] = [
   "task",
   "askPimi",
   "handoff",
+  "actionItems",
+  "recap",
 ];
 
 export function MetadataGenerationPage({ serverId }: { serverId: string }) {
@@ -90,6 +92,10 @@ export function MetadataGenerationPage({ serverId }: { serverId: string }) {
   );
 
   const handleAutoNaming = useCallback((autoNaming: boolean) => void save({ autoNaming }), [save]);
+  const handleActionItems = useCallback(
+    (actionItems: boolean) => void save({ actionItems }),
+    [save],
+  );
 
   const docsLink = useMemo(
     () => ({ href: METADATA_GENERATION_DOCS_URL, label: t("settings.metadataGeneration.docs") }),
@@ -155,6 +161,18 @@ export function MetadataGenerationPage({ serverId }: { serverId: string }) {
               />
             </SettingsRow>
           ) : null}
+          <SettingsRow
+            label={t("settings.metadataGeneration.actionItems")}
+            hint={t("settings.metadataGeneration.actionItemsHint")}
+          >
+            <Switch
+              value={config.metadataGeneration.actionItems}
+              disabled={isSaving}
+              onValueChange={handleActionItems}
+              accessibilityLabel={t("settings.metadataGeneration.actionItems")}
+              testID="metadata-generation-action-items"
+            />
+          </SettingsRow>
         </SettingsCard>
       </SettingsSection>
       <SettingsSection

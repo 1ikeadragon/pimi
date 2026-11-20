@@ -46,6 +46,8 @@ export type WorkspaceTabTarget =
   | { kind: "files" }
   | { kind: "search" }
   | { kind: "pull_request" }
+  // The focused chat's action items; lives in the Explorer.
+  | { kind: "action_items" }
   // Attack mode: the run's control pane and its findings list.
   | { kind: "attack_board" }
   | { kind: "attack_findings" }

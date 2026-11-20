@@ -85,6 +85,12 @@ import {
   LabelUpdateSchema,
 } from "./label-rpc-schemas.js";
 import {
+  RecapGetRequestSchema,
+  RecapGetResponseSchema,
+  RecapNarrativeGenerateRequestSchema,
+  RecapNarrativeGenerateResponseSchema,
+} from "./recap.js";
+import {
   TaskCreateRequestSchema,
   TaskCreateResponseSchema,
   TaskDeleteRequestSchema,
@@ -100,6 +106,13 @@ import {
   TaskUpdateRequestSchema,
   TaskUpdateResponseSchema,
 } from "./task/rpc-schemas.js";
+import {
+  AgentActionItemsEditRequestSchema,
+  AgentActionItemsEditResponseSchema,
+  AgentActionItemsGetRequestSchema,
+  AgentActionItemsGetResponseSchema,
+  AgentActionItemsUpdateSchema,
+} from "./action-items/rpc-schemas.js";
 import {
   AutomationCreateRequestSchema,
   AutomationCreateResponseSchema,
@@ -303,6 +316,8 @@ export const PIMI_MODEL_FEATURE_KEYS = [
   "task",
   "askPimi",
   "handoff",
+  "actionItems",
+  "recap",
 ] as const;
 
 // One optional model per Pimi model call site. A missing key means "same as the default".
@@ -316,6 +331,8 @@ const MutablePimiModelFeaturesSchema = z
     task: MutableStructuredGenerationProviderSchema.optional(),
     askPimi: MutableStructuredGenerationProviderSchema.optional(),
     handoff: MutableStructuredGenerationProviderSchema.optional(),
+    actionItems: MutableStructuredGenerationProviderSchema.optional(),
+    recap: MutableStructuredGenerationProviderSchema.optional(),
   })
   .strict();
 
@@ -330,6 +347,8 @@ const MutablePimiModelFeaturesPatchSchema = z
     task: MutableStructuredGenerationProviderSchema.nullable().optional(),
     askPimi: MutableStructuredGenerationProviderSchema.nullable().optional(),
     handoff: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    actionItems: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    recap: MutableStructuredGenerationProviderSchema.nullable().optional(),
   })
   .strict();
 
@@ -338,6 +357,8 @@ const MutableMetadataGenerationConfigSchema = z
     providers: z.array(MutableStructuredGenerationProviderSchema).default([]),
     features: MutablePimiModelFeaturesSchema.optional(),
     autoNaming: z.boolean(),
+    // Off hides the Action items panel and stops every model call it makes.
+    actionItems: z.boolean(),
   })
   .passthrough();
 
@@ -409,6 +430,7 @@ export const MutableDaemonConfigSchema = z
     metadataGeneration: MutableMetadataGenerationConfigSchema.default({
       providers: [],
       autoNaming: true,
+      actionItems: true,
     }),
     autoArchiveAfterMerge: z.boolean().default(false),
     supplyChain: PackagePolicySchema.default(DEFAULT_PACKAGE_POLICY),
@@ -465,6 +487,7 @@ export const MutableDaemonConfigPatchSchema = z
         providers: z.array(MutableStructuredGenerationProviderSchema).optional(),
         features: MutablePimiModelFeaturesPatchSchema.optional(),
         autoNaming: z.boolean().optional(),
+        actionItems: z.boolean().optional(),
       })
       .passthrough()
       .optional(),
@@ -3747,6 +3770,7 @@ export const SessionEventSubscriptionSchema = z.enum([
   "workspace_setup_progress",
   "agent.provider_subagents.update",
   "agent.background_work.update",
+  "agent.action_items.update",
   "terminal_attention_required",
   "status.server_info",
   "status.daemon_config_changed",
@@ -3900,6 +3924,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   UsageGetBreakdownRequestMessageSchema,
   UsageGetAgentTreeRequestMessageSchema,
   UsageRescanRequestMessageSchema,
+  RecapGetRequestSchema,
+  RecapNarrativeGenerateRequestSchema,
   WorkspaceSearchRunRequestSchema,
   WorkspaceSearchCancelRequestSchema,
   WorkspaceSearchReplaceRequestSchema,
@@ -4061,6 +4087,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   TaskDeleteRequestSchema,
   TaskLinkSetRequestSchema,
   TaskImportRequestSchema,
+  AgentActionItemsGetRequestSchema,
+  AgentActionItemsEditRequestSchema,
   LabelListRequestSchema,
   LabelCreateRequestSchema,
   LabelUpdateRequestSchema,
@@ -7982,6 +8010,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   UsageGetBreakdownResponseMessageSchema,
   UsageGetAgentTreeResponseMessageSchema,
   UsageRescanResponseMessageSchema,
+  RecapGetResponseSchema,
+  RecapNarrativeGenerateResponseSchema,
   WorkspaceSearchRunUpdateMessageSchema,
   WorkspaceSearchRunResponseMessageSchema,
   WorkspaceSearchCancelResponseMessageSchema,
@@ -8036,6 +8066,9 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   TaskDeleteResponseSchema,
   TaskLinkSetResponseSchema,
   TaskImportResponseSchema,
+  AgentActionItemsGetResponseSchema,
+  AgentActionItemsEditResponseSchema,
+  AgentActionItemsUpdateSchema,
   LabelListResponseSchema,
   LabelCreateResponseSchema,
   LabelUpdateResponseSchema,
