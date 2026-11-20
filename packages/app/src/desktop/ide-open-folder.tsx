@@ -39,6 +39,7 @@ export function IdeOpenFolderButton() {
         serverId,
         path: hostPath,
         originWorkspaceId: selection?.workspaceId ?? null,
+        openNewChat: true,
       });
       if (result === "unsaved") throw new Error(i18n.t("ideMode.unsavedLayout"));
       if (result === "unreachable") throw new Error(i18n.t("ideMode.unreachable", { path }));

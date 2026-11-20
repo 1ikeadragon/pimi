@@ -489,24 +489,33 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const isActive = useRetainedPanelActive();
     const openInIde = useOpenInIde();
     // A directory, or a file at a line, opens in IDE Mode in the chat that holds it, which may be
-    // another worktree's chat. Returns false where the window has no IDE Mode.
+    // another worktree's chat. A path no chat holds, or a window without IDE Mode, opens the way
+    // `fallback` does; a click never creates a chat.
     const openPathInIde = useStableEvent(
-      (path: string, lines?: Pick<WorkspaceFileLocation, "lineStart" | "lineEnd">) => {
-        const hostPath = toHostPath(path, workspaceRoot);
-        if (!hostPath || !isIdeModeAvailable()) return false;
-        openInIde({
-          serverId: resolvedServerId,
-          path: hostPath,
-          lineStart: lines?.lineStart,
-          lineEnd: lines?.lineEnd,
-          originWorkspaceId: context.workspaceId,
-        });
-        return true;
+      (input: {
+        path: string;
+        lines?: Pick<WorkspaceFileLocation, "lineStart" | "lineEnd">;
+        fallback: () => void;
+      }) => {
+        const hostPath = toHostPath(input.path, workspaceRoot);
+        if (!hostPath || !isIdeModeAvailable()) {
+          input.fallback();
+          return;
+        }
+        openInIde(
+          {
+            serverId: resolvedServerId,
+            path: hostPath,
+            lineStart: input.lines?.lineStart,
+            lineEnd: input.lines?.lineEnd,
+            originWorkspaceId: context.workspaceId,
+          },
+          input.fallback,
+        );
       },
     );
-    const openInlineFile = useStableEvent(
+    const openFileInChat = useStableEvent(
       (location: WorkspaceFileLocation, disposition: OpenFileDisposition) => {
-        if (location.lineStart !== undefined && openPathInIde(location.path, location)) return;
         if (onOpenWorkspaceFile) {
           onOpenWorkspaceFile({ location, disposition });
         } else if (context.workspaceId) {
@@ -518,8 +527,20 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         }
       },
     );
-    const openInlineDirectory = useStableEvent((directoryPath: string) => {
-      if (openPathInIde(directoryPath)) return;
+    const openInlineFile = useStableEvent(
+      (location: WorkspaceFileLocation, disposition: OpenFileDisposition) => {
+        if (location.lineStart === undefined) {
+          openFileInChat(location, disposition);
+          return;
+        }
+        openPathInIde({
+          path: location.path,
+          lines: location,
+          fallback: () => openFileInChat(location, disposition),
+        });
+      },
+    );
+    const revealDirectoryInChat = useStableEvent((directoryPath: string) => {
       void revealDirectory(directoryPath);
       openExplorerSidebarView({
         isCompact: isMobile,
@@ -530,12 +551,28 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         view: "files",
       });
     });
+    const openInlineDirectory = useStableEvent((directoryPath: string) => {
+      openPathInIde({
+        path: directoryPath,
+        fallback: () => revealDirectoryInChat(directoryPath),
+      });
+    });
     const openOutsideFolder = useOpenOutsideWorkspaceFolder(resolvedServerId);
     const openInlineOutsideDirectory = useStableEvent((directoryPath: string) => {
-      if (!openPathInIde(directoryPath)) openOutsideFolder(directoryPath);
+      openPathInIde({ path: directoryPath, fallback: () => openOutsideFolder(directoryPath) });
     });
+    // The path menu's "Open in IDE" asks for IDE Mode, so a path no chat holds opens as a new chat.
     const handleInlinePathOpenInIde = useStableEvent((target: InlinePathTarget) => {
-      openPathInIde(target.path, target);
+      const hostPath = toHostPath(target.path, workspaceRoot);
+      if (!hostPath) return;
+      openInIde({
+        serverId: resolvedServerId,
+        path: hostPath,
+        lineStart: target.lineStart,
+        lineEnd: target.lineEnd,
+        originWorkspaceId: context.workspaceId,
+        openNewChat: true,
+      });
     });
     const inlinePathOpener = useMemo(
       () =>
