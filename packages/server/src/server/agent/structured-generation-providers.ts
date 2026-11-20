@@ -61,6 +61,7 @@ export interface StructuredGenerationProviderIdentifier {
 export const DEFAULT_STRUCTURED_GENERATION_PROVIDERS: readonly StructuredGenerationProviderIdentifier[] =
   [
     { modelSubstring: "haiku" },
+    { modelSubstring: "gpt-6-luna", thinkingOptionId: "low" },
     { modelSubstring: "gpt-5.4-mini", thinkingOptionId: "low" },
     { modelSubstring: "minimax-m3" },
     { modelSubstring: "nemotron-3-super" },
