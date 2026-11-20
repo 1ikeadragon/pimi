@@ -174,7 +174,8 @@ A workspace is a chat container. A new agent tab or imported session stays indep
 
 Parent archive detaches a child that belongs to another workspace, where it is that workspace's chat. Every child in the parent's own workspace archives with the parent, open tab or not.
 
-Agent-scoped workspace creation records the caller's workspace as `parentWorkspaceId`.
+Agent-scoped workspace creation records the caller's workspace as `parentWorkspaceId`, except
+the `create_chat` tool, which always makes a top-level chat.
 This is informational ancestry for future workspace grouping. It does not change placement,
 visibility, status, or archive behavior. Archiving a parent workspace preserves its children's
 records and parentage. Unscoped creation and existing workspaces have no parent; ancestry is
@@ -368,11 +369,11 @@ These are two distinct concepts that used to be conflated:
 | **Tab** (workspace layout) | Per-client | User opens/closes a view   |
 | **Archive** (lifecycle)    | Global     | Explicit lifecycle gesture |
 
-Closing a tab on a **root agent** still archives — the tab is the agent's home, so closing it means "I'm done with this agent." A confirm dialog protects against archiving a running agent by accident.
+Closing a tab is always **layout-only**, for root agents and subagents alike, single or bulk. The agent stays unarchived. A root agent's chat reopens from the sidebar, which brings its tab back; a subagent's tab reopens from its parent's track.
 
-Closing a tab on a **subagent** (any agent with `parentAgentId`) is **layout-only**. The agent stays unarchived and stays in its parent's track, so a later parent archive cascades to it. The user can re-open the tab from the track at any time. Single and bulk tab close apply the same policy.
+Archive does not end a chat either. When every agent in an active workspace is archived, the app's chat directory (`fetch_agents` with `scope: "active"`) still carries the workspace's most recently archived root agent, so the chat keeps its title and labels. Opening that chat opens the archived agent with its Unarchive callout instead of a blank tab.
 
-The asymmetry is intentional: a subagent's persistent relationship lives in the parent's track. Same-workspace subagents are not auto-opened as tabs; the user opens one from that track when needed. A cross-workspace subagent is also auto-opened as a tab in its own workspace so opening that workspace does not appear empty. It remains in the parent's track until it is actually detached.
+A subagent's persistent relationship lives in the parent's track. Same-workspace subagents are not auto-opened as tabs; the user opens one from that track when needed. A cross-workspace subagent is also auto-opened as a tab in its own workspace so opening that workspace does not appear empty. It remains in the parent's track until it is actually detached.
 
 ## Workspace activity
 
@@ -454,15 +455,12 @@ To keep the agent alive but remove it from the parent's track, use **detach**. T
 
 ## Why this shape
 
-The decision was to **decouple "close tab" from "archive" only for subagents**, rather than universally:
+The decision was to **decouple "close tab" from "archive" universally**:
 
-- **Closing a tab on a root agent still archives** — preserves the existing UX users are trained on
-- **Closing a tab on a subagent is layout-only** — fixes the lossy "click to read, close to dismiss view, lose the row" flow
+- **Closing any tab is layout-only** — closing a root agent's tab used to archive it, which made the chat look wiped: its labels vanished and reopening it showed a blank tab
 - **Archive button on track rows** — gives subagents an explicit lifecycle gesture in their home surface
 - **Detach button on track rows** — lets a subagent continue independently without killing its work
 - **Cascade archive on parent** — keeps subagents from leaking when the parent is archived
-
-We considered universal decoupling (no tab close ever archives, archive is always explicit) but rejected it: it changes a behavior root-agent users rely on.
 
 ## Limitations
 

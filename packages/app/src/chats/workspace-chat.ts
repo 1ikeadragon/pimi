@@ -15,6 +15,12 @@ export interface WorkspaceChat {
   /** The agent's own title, unresolved. Pass it through `resolveChatTitle` for display. */
   title: string | null;
   createdAt: number;
+  /**
+   * The workspace has no active root agent and this one is archived. Archive does not end the
+   * chat: its title and labels still show, and opening it offers to restore the agent.
+   */
+  archived: boolean;
+  archivedAt: number | null;
 }
 
 interface SessionAgents {
@@ -35,14 +41,30 @@ function buildChatIndex(
   const index = new Map<string, WorkspaceChat>();
   for (const [serverId, session] of Object.entries(sessions)) {
     for (const agent of session.agents.values()) {
-      if (!agent.workspaceId || !isVisibleChatAgent(agent)) continue;
+      if (!agent.workspaceId || agent.background) continue;
       const parent = agent.parentAgentId ? session.agents.get(agent.parentAgentId) : undefined;
       if (!isWorkspaceRootAgent(agent, parent)) continue;
       const key = workspaceChatKey(serverId, agent.workspaceId);
+      const archivedAt = agent.archivedAt?.getTime() ?? null;
+      const archived = archivedAt !== null;
       const createdAt = agent.createdAt.getTime();
       const current = index.get(key);
-      if (current && current.createdAt <= createdAt) continue;
-      index.set(key, { serverId, agentId: agent.id, title: agent.title, createdAt });
+      // An active root agent wins over an archived one. Among active ones the oldest wins; among
+      // archived ones the last archived wins, the one the daemon keeps for a chat with no agent.
+      const replaces =
+        !current ||
+        (current.archived && !archived) ||
+        (!current.archived && !archived && createdAt < current.createdAt) ||
+        (current.archived && archived && archivedAt > (current.archivedAt ?? 0));
+      if (!replaces) continue;
+      index.set(key, {
+        serverId,
+        agentId: agent.id,
+        title: agent.title,
+        createdAt,
+        archived,
+        archivedAt,
+      });
     }
   }
   return index;

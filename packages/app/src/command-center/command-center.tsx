@@ -63,7 +63,7 @@ import {
   useKeyboardShortcutsStore,
   type CommandCenterScope,
 } from "@/stores/keyboard-shortcuts-store";
-import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
+import { openChat } from "@/chats/open-chat";
 import { useKeyboardActionDispatcher } from "@/keyboard/keyboard-action-dispatcher-context";
 import {
   clearCommandCenterFocusRestoreElement,
@@ -148,7 +148,7 @@ function agentSearchFields(result: CommandCenterAgentResult): CommandCenterSearc
 function createWorkspaceResultAction(serverId: string, workspaceId: string) {
   return () => {
     clearCommandCenterFocusRestoreElement();
-    navigateToWorkspace({ serverId, workspaceId });
+    openChat({ serverId, workspaceId });
   };
 }
 

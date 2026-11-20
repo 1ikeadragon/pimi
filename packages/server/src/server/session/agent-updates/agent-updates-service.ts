@@ -20,6 +20,8 @@ interface AgentUpdatesSubscriptionState {
   syncEnabled: boolean;
   filter?: AgentUpdatesFilter;
   backgroundVisibility: boolean;
+  /** The app's chat directory, which keeps a workspace's archived chat agent (see `isArchivedChat`). */
+  includeArchivedChats: boolean;
   isBootstrapping: boolean;
   pendingUpdatesByAgentId: Map<string, AgentUpdatePayload>;
 }
@@ -31,6 +33,7 @@ export interface AgentUpdatesService {
     emit?: (message: SessionOutboundMessage) => void;
     filter?: AgentUpdatesFilter;
     backgroundVisibility?: boolean;
+    includeArchivedChats?: boolean;
     syncEnabled?: boolean;
   }): void;
   flushBootstrapped(
@@ -47,6 +50,8 @@ export interface AgentUpdatesService {
 
 export interface AgentUpdatesServiceDeps {
   includesWorkspace?(agent: AgentSnapshotPayload, backgroundVisibility: boolean): Promise<boolean>;
+  /** The archived agent stands in for its workspace's chat because the workspace has no active agent. */
+  isArchivedChat(agent: AgentSnapshotPayload): Promise<boolean>;
   emit(message: SessionOutboundMessage): void;
   enrichAgentPayload(payload: AgentSnapshotPayload): Promise<AgentSnapshotPayload>;
   buildStoredAgentPayload(record: StoredAgentRecord): AgentSnapshotPayload;
@@ -189,11 +194,13 @@ export function createAgentUpdatesService(deps: AgentUpdatesServiceDeps): AgentU
     emit?: (message: SessionOutboundMessage) => void;
     filter?: AgentUpdatesFilter;
     backgroundVisibility?: boolean;
+    includeArchivedChats?: boolean;
     syncEnabled?: boolean;
   }): void {
     subscriptions.set(input.subscriptionId, {
       ...input,
       backgroundVisibility: input.backgroundVisibility ?? false,
+      includeArchivedChats: input.includeArchivedChats ?? false,
       emit: input.emit ?? deps.emit,
       syncEnabled: input.syncEnabled ?? false,
       isBootstrapping: true,
@@ -237,11 +244,15 @@ export function createAgentUpdatesService(deps: AgentUpdatesServiceDeps): AgentU
     const project = payload.workspaceId
       ? await deps.buildProjectPlacementForWorkspaceId(payload.workspaceId)
       : null;
+    let archivedChat: Promise<boolean> | null = null;
     for (const sub of observers) {
       const matches =
         project &&
         ((await deps.includesWorkspace?.(payload, sub.backgroundVisibility)) ?? true) &&
-        matchesAgentUpdatesFilter({ agent: payload, project, filter: sub.filter });
+        (matchesAgentUpdatesFilter({ agent: payload, project, filter: sub.filter }) ||
+          (sub.includeArchivedChats &&
+            payload.archivedAt != null &&
+            (await (archivedChat ??= deps.isArchivedChat(payload)))));
       bufferOrEmit(
         sub,
         sequence(

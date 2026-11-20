@@ -47,6 +47,34 @@ export class AgentDirectory {
     return times;
   }
 
+  /**
+   * Archive does not end a chat. A workspace with no active agent keeps its most recently
+   * archived root agent in the app's chat directory, so the chat's title and labels still show
+   * and opening it offers Restore. Reads every agent record of the given workspaces, so callers
+   * pass only workspaces that have no active agent.
+   */
+  async archivedChats(workspaceIds: Iterable<string>): Promise<AgentSnapshotPayload[]> {
+    const ids = new Set(workspaceIds);
+    if (ids.size === 0) return [];
+    const chats = new Map<string, StoredAgentRecord>();
+    const withActiveAgent = new Set<string>();
+    for (const record of await this.deps.storage.listByWorkspaces(ids, { includeArchived: true })) {
+      if (!record.workspaceId || record.internal || record.background) continue;
+      if (!record.archivedAt) {
+        withActiveAgent.add(record.workspaceId);
+        continue;
+      }
+      if (getParentAgentIdFromLabels(record.labels)) continue;
+      const current = chats.get(record.workspaceId);
+      if (!current || (current.archivedAt ?? "") < record.archivedAt) {
+        chats.set(record.workspaceId, record);
+      }
+    }
+    return [...chats.values()]
+      .filter((record) => !withActiveAgent.has(record.workspaceId ?? ""))
+      .map((record) => this.deps.projectStored(record));
+  }
+
   async includes(agent: DiscoverableAgent, visibility = false): Promise<boolean> {
     const workspace = agent.workspaceId ? await this.deps.workspaces.get(agent.workspaceId) : null;
     return admits(agent, workspace?.background === true, visibility);

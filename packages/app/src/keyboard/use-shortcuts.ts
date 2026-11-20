@@ -10,7 +10,7 @@ import { hasActiveOverlay } from "./internal/overlay-dispatch";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { usePathname, useRouter } from "expo-router";
 import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
-import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
+import { openChat } from "@/chats/open-chat";
 import { useKeyboardActionDispatcher } from "@/keyboard/keyboard-action-dispatcher-context";
 import {
   type ChordState,
@@ -132,10 +132,7 @@ export function useKeyboardShortcuts({
           serverId: action.serverId,
           workspaceId: action.workspaceId,
         };
-        navigateToWorkspace({
-          serverId: action.serverId,
-          workspaceId: action.workspaceId,
-        });
+        openChat({ serverId: action.serverId, workspaceId: action.workspaceId });
         return true;
       case "navigate-last-workspace":
         if (navigateToLastWorkspace()) {

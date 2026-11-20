@@ -25,8 +25,8 @@ import {
 import { useWorkspaceArchive } from "@/workspace/use-workspace-archive";
 import { useTranslation } from "@/i18n/use-translation";
 import { router, usePathname, type Href } from "expo-router";
+import { openChat } from "@/chats/open-chat";
 import {
-  navigateToWorkspace,
   useActiveWorkspaceSelection,
   type ActiveWorkspaceSelection,
 } from "@/stores/navigation-active-workspace-store";
@@ -1430,7 +1430,7 @@ function WorkspaceRowItem({
       return;
     }
     onWorkspacePress?.();
-    navigateToWorkspace({ serverId: workspace.serverId, workspaceId: workspace.workspaceId });
+    openChat({ serverId: workspace.serverId, workspaceId: workspace.workspaceId });
   }, [onWorkspacePress, workspace.serverId, workspace.workspaceId]);
 
   return (
