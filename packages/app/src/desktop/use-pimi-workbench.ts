@@ -45,10 +45,15 @@ export function usePimiDraftEditorAction(open: () => void) {
   }, [action, focused, openDraft]);
 }
 
+/** The next navigation to this workspace shows IDE Mode instead of following the previous mode. */
+export function requestEditorWorkbench(workspaceKey: string): void {
+  requestedModeForNextWorkspace = { mode: "editor", workspaceKey };
+}
+
 export function navigateToNewWorkspaceInEditor(selection: ActiveWorkspaceSelection): void {
   const workspaceKey = buildWorkspaceTabPersistenceKey(selection);
   if (!workspaceKey) return;
-  requestedModeForNextWorkspace = { mode: "editor", workspaceKey };
+  requestEditorWorkbench(workspaceKey);
   getDesktopHost()?.dismissPimiWorkspace?.();
   navigateToWorkspace(selection);
 }

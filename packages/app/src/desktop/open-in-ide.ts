@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useToast } from "@/contexts/toast-api-context";
 import { getDesktopHost } from "@/desktop/host";
-import { canSwitchWorkbench } from "@/desktop/use-pimi-workbench";
+import { canSwitchWorkbench, requestEditorWorkbench } from "@/desktop/use-pimi-workbench";
 import { revealWorkspaceDirectory } from "@/hooks/use-file-explorer-actions";
 import { i18n } from "@/i18n/i18next";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
@@ -76,6 +76,8 @@ export async function openPathInIde(target: IdePathTarget): Promise<IdeOpenResul
   if (useWorkspaceLayoutStore.getState().switchWorkbench(workspaceKey, "editor") === "unsaved") {
     return "unsaved";
   }
+  // Navigating follows the previous chat's mode unless IDE Mode is requested for this one.
+  requestEditorWorkbench(workspaceKey);
   getDesktopHost()?.dismissPimiWorkspace?.();
   const relative = relativePath(workspace.workspaceDirectory, path);
   if (isFile) {
