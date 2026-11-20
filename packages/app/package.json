@@ -1,6 +1,6 @@
 {
   "name": "@pimi/app",
-  "version": "0.17.67",
+  "version": "0.17.68",
   "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",
   "main": "index.ts",

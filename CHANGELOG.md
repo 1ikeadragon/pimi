@@ -2,6 +2,19 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.68 - 2026-11-21
+
+- Closing a chat tab no longer archives the chat, and closed tabs stay closed after a restart. A chat whose agent is archived keeps its title and labels and offers Unarchive instead of opening blank.
+- `pimi import` creates a new chat, or uses the one named with `--chat <id>`. The `create_chat` tool always makes a top-level chat.
+- Action items: a per-chat checklist a small model keeps as the chat goes. It floats as a note on the right; pin it to dock it as the first Explorer tab. It uses the chat provider's own small model, never another provider, and can be turned off in Settings.
+- Shell commands show as compact rows with duration and exit code; click one for a read-only terminal with colors. OpenCode commands stream their output live.
+- Chat path links open IDE Mode in the right worktree's chat: folders are revealed, `file:line` opens at that line. IDE Mode can open any folder.
+- Visuals: guidance cut to the block formats, so agents pick freely. HTML visuals on Android draw at the right size and reload after the system reclaims memory.
+- Scrolling up through a long chat no longer jumps when visuals load above.
+- Clicking anywhere in the composer focuses it; the stray green outline is gone. The path tooltip no longer sticks after opening a file.
+- Opening a Codex chat no longer moves it to the top. History loads when opened directly.
+- Crew leads list delegated tasks and models in a table. Smoother menus, tooltips, toasts and dialogs, with reduced-motion support.
+
 ## 0.17.67 - 2026-11-17
 
 - Fix Ask Pimi failing to start after a protocol change.
