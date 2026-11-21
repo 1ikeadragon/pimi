@@ -10,6 +10,7 @@ import {
   ScrollView,
   Text,
   View,
+  Platform,
   type PressableStateCallbackType,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -51,6 +52,7 @@ import { OpenLocationSection } from "@/screens/settings/open-location/open-locat
 import { TerminalSection } from "@/screens/settings/terminal/terminal-section";
 import { ChatSection } from "@/screens/settings/chat/chat-section";
 import { SidebarNavSection } from "@/screens/settings/sidebar/sidebar-nav-section";
+import { PushNotificationsSection } from "@/screens/settings/general/notifications-section";
 import { SendingSection } from "@/screens/settings/general/sending-section";
 import { useAppSettings } from "@/hooks/use-settings";
 import { Switch } from "@/components/ui/switch";
@@ -170,6 +172,7 @@ function GeneralPage() {
   return (
     <>
       <GeneralSection />
+      {Platform.OS === "android" ? <PushNotificationsSection /> : null}
       {isElectronRuntime() ? (
         <>
           <OpenLocationSection />
