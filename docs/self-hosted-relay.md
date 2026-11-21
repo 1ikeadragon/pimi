@@ -178,7 +178,7 @@ Cloudflare's ranges change rarely; rerun the loop when they do. The origin IP st
 
 ## Android push (optional)
 
-`pimi-push` is a separate process from the relay. It holds the only Firebase service-account key and calls Google, which the relay's sandbox (`IPAddressDeny=any`) must never do. It sends notifications titled with the chat or terminal name (at most 80 characters) and a fixed body ("An agent finished.") to phones that registered a handle. The name passes through Google; messages and other chat content never do.
+`pimi-push` is a separate process from the relay. It holds the only Firebase service-account key and calls Google, which the relay's sandbox (`IPAddressDeny=any`) must never do. Terminal pushes, and agent pushes to phones with previews off, carry the terminal or chat name (at most 80 characters) and a fixed body ("An agent finished."); that name passes through Google. For phones with previews on, the daemon sends only an AES-256-GCM sealed blob (`enc`, at most 1600 characters). The service forwards it as a data-only FCM message without reading or logging it, so neither it nor Google sees the chat name or message. Send bodies can reach 3 KB; the Caddy 4 KB cap below already covers that. A daemon that sends `enc` to an older `pimi-push` gets 400 `unknown_field` and loses that push, so redeploy `push-service.mjs` before updating daemons.
 
 Build it with `npm run build:node-relay`, which also writes `packages/relay/dist-node/push-service.mjs`. Create a Firebase project with Cloud Messaging, then a service account whose custom role holds only `cloudmessaging.messages.create`. Copy its key to the server as `/etc/pimi-push/fcm-sa.json`, owner root, mode 600. Keep it out of the repo and out of backups you share.
 
@@ -245,7 +245,7 @@ WantedBy=multi-user.target
 
 Unlike the relay, this unit may reach the internet (`oauth2.googleapis.com`, `fcm.googleapis.com`); the service hardcodes both hosts, ignores the key file's `token_uri`, and refuses redirects. The service reads the key from `$CREDENTIALS_DIRECTORY/fcm-sa.json` when `PIMI_PUSH_SERVICE_ACCOUNT` is unset.
 
-In the Caddyfile add a `/push/*` block with a small body cap **before** the catch-all `handle`. Registration and send bodies are under 1 KB:
+In the Caddyfile add a `/push/*` block with a small body cap **before** the catch-all `handle`. Registration bodies are under 1 KB and send bodies under 3 KB:
 
 ```
 relay.example.com {

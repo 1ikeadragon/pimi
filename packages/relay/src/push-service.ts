@@ -5,10 +5,12 @@
  * relay so the relay keeps its no-credentials, no-egress sandbox. It holds the only Google
  * service-account key. Clients hold an opaque 256-bit handle bound to one serverId; the service
  * stores only SHA-256(handle) next to the FCM token. The only free-form text it forwards is the
- * optional title (a chat or terminal name, cleaned and capped); bodies are fixed per kind.
+ * optional title (a chat or terminal name, cleaned and capped) and the opaque `enc` blob: AEAD
+ * ciphertext sealed by the daemon for the phone, never inspected or logged here. Without `enc`
+ * bodies are fixed per kind; with it the push is data-only and the phone decrypts and posts it.
  *
  * - POST /push/register   {token, serverId, handle?} -> {handle}   (handle present rotates the token)
- * - POST /push/send       {handle, kind, id, title?, workspaceId?} -> {ok}       (410 = handle gone, prune it)
+ * - POST /push/send       {handle, kind, id, title?, workspaceId?, enc?} -> {ok}       (410 = handle gone, prune it)
  * - POST /push/unregister {handle}                   -> {ok}
  *
  * Google hosts are hardcoded; token_uri from the key file is ignored; redirects are refused.
@@ -40,7 +42,7 @@ const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
 const FCM_HOST = "https://fcm.googleapis.com";
 const UPSTREAM_TIMEOUT_MS = 5_000;
-const MAX_BODY_BYTES = 2048;
+const MAX_BODY_BYTES = 3072;
 const ACCESS_TOKEN_MAX_AGE_MS = 55 * 60_000;
 const ACCESS_TOKEN_REFRESH_MARGIN_MS = 60_000;
 const DAY_MS = 86_400_000;
@@ -51,6 +53,8 @@ const HANDLE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const TOKEN_PATTERN = /^[A-Za-z0-9_:.-]{20,1024}$/;
 const SERVER_ID_PATTERN = /^[\w.-]{1,128}$/;
 const ID_PATTERN = /^[\w-]{1,128}$/;
+// Sealed preview from the daemon: AEAD ciphertext only; the service forwards it without reading it.
+const ENC_PATTERN = /^[A-Za-z0-9_-]{40,1600}$/;
 const MAX_TITLE_INPUT = 512;
 const MAX_TITLE_CHARS = 80;
 const PROJECT_ID_PATTERN = /^[a-z][a-z0-9-]{3,62}$/;
@@ -370,6 +374,63 @@ export interface PushService {
   close(): Promise<void>;
 }
 
+interface SendMessageInput {
+  token: string;
+  serverId: string;
+  target: { agentId: string } | { terminalId: string; workspaceId?: string };
+  reason: string;
+  notificationTag: string;
+  title: string | null;
+  body: string;
+  enc: string | null;
+}
+
+function buildSendMessage(input: SendMessageInput): Record<string, unknown> {
+  const { token, notificationTag, enc } = input;
+  const targetJson = JSON.stringify({
+    serverId: input.serverId,
+    ...input.target,
+    reason: input.reason,
+  });
+  // Sealed previews go out data-only: the phone's FCM service decrypts and posts the notification.
+  if (enc !== null) {
+    return {
+      token,
+      data: {
+        tag: notificationTag,
+        body: targetJson,
+        enc,
+        channelId: "agent-activity",
+        color: "#C8889A",
+      },
+      android: { priority: "HIGH", ttl: "3600s", collapse_key: notificationTag },
+    };
+  }
+  return {
+    token,
+    notification: { title: input.title ?? "Pimi", body: input.body },
+    data: {
+      tag: notificationTag,
+      // expo-notifications reads this JSON string as the notification's `data`.
+      body: targetJson,
+    },
+    android: {
+      priority: "HIGH",
+      ttl: "3600s",
+      collapse_key: notificationTag,
+      // Same small icon and colour as local notifications (app.config.js), and the app (not
+      // Play services) posts it.
+      notification: {
+        channel_id: "agent-activity",
+        tag: notificationTag,
+        icon: "notification_icon",
+        color: "#C8889A",
+        proxy: "DENY",
+      },
+    },
+  };
+}
+
 export function createPushService(options: PushServiceOptions): PushService {
   const { log } = options;
   const account = loadServiceAccount(options.serviceAccountPath);
@@ -610,7 +671,7 @@ export function createPushService(options: PushServiceOptions): PushService {
 
   async function handleSend(req: IncomingMessage, ip: string): Promise<Record<string, unknown>> {
     if (!sendIpLimiter.allow(ip, Date.now())) throw new HttpError(429, "rate_limited");
-    const body = await readJsonBody(req, ["handle", "kind", "id", "title", "workspaceId"]);
+    const body = await readJsonBody(req, ["handle", "kind", "id", "title", "workspaceId", "enc"]);
     const handle = requireString(body, "handle", HANDLE_PATTERN);
     const kind = body.kind;
     if (typeof kind !== "string" || !Object.prototype.hasOwnProperty.call(KIND_BODIES, kind)) {
@@ -621,6 +682,10 @@ export function createPushService(options: PushServiceOptions): PushService {
     // Lets a terminal tap open its workspace; agent taps resolve the workspace from the agent.
     const workspaceId =
       body.workspaceId === undefined ? null : requireString(body, "workspaceId", ID_PATTERN);
+    const enc = body.enc === undefined ? null : requireString(body, "enc", ENC_PATTERN);
+    if (enc !== null && ((kind !== "agent_finished" && kind !== "agent_permission") || title)) {
+      throw new HttpError(400, "invalid_body");
+    }
     const hash = sha256Hex(handle);
     const entry = entries.get(hash);
     const now = Date.now();
@@ -640,32 +705,17 @@ export function createPushService(options: PushServiceOptions): PushService {
       spec.tagPrefix === "agent"
         ? { agentId: id }
         : { terminalId: id, ...(workspaceId ? { workspaceId } : {}) };
-    const result = await callFcm(
-      {
-        token: entry.token,
-        notification: { title: title ?? "Pimi", body: spec.body },
-        data: {
-          tag: notificationTag,
-          // expo-notifications reads this JSON string as the notification's `data`.
-          body: JSON.stringify({ serverId: entry.serverId, ...target, reason: spec.reason }),
-        },
-        android: {
-          priority: "HIGH",
-          ttl: "3600s",
-          collapse_key: notificationTag,
-          // Same small icon and colour as local notifications (app.config.js), and the app (not
-          // Play services) posts it.
-          notification: {
-            channel_id: "agent-activity",
-            tag: notificationTag,
-            icon: "notification_icon",
-            color: "#C8889A",
-            proxy: "DENY",
-          },
-        },
-      },
-      false,
-    );
+    const message = buildSendMessage({
+      token: entry.token,
+      serverId: entry.serverId,
+      target,
+      reason: spec.reason,
+      notificationTag,
+      title,
+      body: spec.body,
+      enc,
+    });
+    const result = await callFcm(message, false);
     if (result === "unregistered") {
       entries.delete(hash);
       persist();
@@ -674,7 +724,7 @@ export function createPushService(options: PushServiceOptions): PushService {
     }
     if (result === "limit") throw new HttpError(503, "unavailable");
     if (result !== "ok") throw new HttpError(502, "upstream_error");
-    log("send_ok", { handle: tag(handle), kind });
+    log("send_ok", { handle: tag(handle), kind, enc: enc !== null });
     return { ok: true };
   }
 
