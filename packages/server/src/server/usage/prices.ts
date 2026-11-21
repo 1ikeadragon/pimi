@@ -174,19 +174,11 @@ const PRICES: Readonly<Record<string, ModelPrice>> = {
   "gpt-5.1-codex-mini": openai(0.25, 0.025, 2),
 };
 
-// OpenCode Zen's free tier: models it names "<model>-free", plus Big Pickle. They bill nothing, and
-// their tokens still count.
-const FREE: ModelPrice = { input: 0, output: 0, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 };
-
-function isFreeModel(normalized: string): boolean {
-  return normalized === "big-pickle" || normalized.endsWith("-free");
-}
-
 // Changes whenever any rate or rule above changes; the scanner reprices stored events when it
 // differs from the version they were priced with.
 export const PRICES_VERSION = createHash("sha256")
   .update(JSON.stringify(PRICES))
-  .update("rules-3")
+  .update("rules-2")
   .digest("hex")
   .slice(0, 16);
 
@@ -197,7 +189,6 @@ export function priceForModel(model: string | null): ModelPrice | null {
     .toLowerCase()
     .replace(/\[[^\]]*\]$/, "")
     .replace(/-\d{8}$/, "");
-  if (isFreeModel(normalized)) return FREE;
   return PRICES[normalized] ?? null;
 }
 

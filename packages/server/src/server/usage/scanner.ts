@@ -184,7 +184,7 @@ export class UsageScanner {
 
   // Stored costs come from the price table of the build that wrote them. Transcripts are deleted
   // after a while, so a changed table reprices the rows from their stored token counts instead of
-  // rescanning.
+  // rescanning. OpenCode rows keep the cost OpenCode recorded, so they are not repriced.
   private repriceIfPricesChanged(): void {
     const db = this.database.db;
     const stored = db.prepare("SELECT value FROM meta WHERE key = 'usage_prices_version'").get();
@@ -192,15 +192,15 @@ export class UsageScanner {
     const rows = db
       .prepare(
         `SELECT id, provider, model, input, cache_read, cache_write, cache_write_1h, output, speed,
-           us_geo FROM usage_events`,
+           us_geo FROM usage_events
+         WHERE provider != 'opencode'`,
       )
       .all();
     const update = db.prepare("UPDATE usage_events SET cost_usd = ? WHERE id = ?");
     this.database.transaction(() => {
       for (const row of rows) {
         const cost = requestCostUsd({
-          provider:
-            row.provider === "codex" || row.provider === "opencode" ? row.provider : "claude",
+          provider: row.provider === "codex" ? "codex" : "claude",
           model: row.model === null ? null : String(row.model),
           input: Number(row.input),
           cacheRead: Number(row.cache_read),

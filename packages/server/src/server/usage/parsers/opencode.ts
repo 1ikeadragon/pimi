@@ -35,7 +35,7 @@ export function readOpenCodeUsage(
     db.exec("PRAGMA busy_timeout = 2000");
     const rows = db.prepare(
       `SELECT id, session_id, time_created, time_updated,
-         json_extract(data, '$.model.id') AS model,
+         json_extract(data, '$.model.id') AS model, json_extract(data, '$.cost') AS cost,
          json_extract(data, '$.tokens.input') AS input,
          json_extract(data, '$.tokens.output') AS output,
          json_extract(data, '$.tokens.reasoning') AS reasoning,
@@ -113,17 +113,22 @@ export function readOpenCodeUsage(
           total,
           speed: "standard",
           usGeo: false,
-          costUsd: requestCostUsd({
-            provider: "opencode",
-            model,
-            input,
-            cacheRead,
-            cacheWrite,
-            cacheWrite1h: 0,
-            output,
-            speed: "standard",
-            usGeo: false,
-          }),
+          // OpenCode records the cost of each response itself (exact for paid and free models);
+          // the price table covers only a response that lacks one.
+          costUsd:
+            typeof row.cost === "number" && Number.isFinite(row.cost) && row.cost >= 0
+              ? row.cost
+              : requestCostUsd({
+                  provider: "opencode",
+                  model,
+                  input,
+                  cacheRead,
+                  cacheWrite,
+                  cacheWrite1h: 0,
+                  output,
+                  speed: "standard",
+                  usGeo: false,
+                }),
           dedupeKey: `opencode:${messageId}`,
         };
         sink.event(event);
