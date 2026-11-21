@@ -27,12 +27,18 @@ export async function registerSharedBridge(context) {
     }
     return payload;
   }
-  async function find(sessionID) {
+  // A native subagent session runs under its bound ancestor, named as the caller so Pimi gives it
+  // the subagent tools.
+  async function find(callerID) {
     const seen = new Set();
+    let sessionID = callerID;
     while (sessionID && !seen.has(sessionID)) {
       seen.add(sessionID);
       const binding = bindings.get(sessionID);
-      if (binding) return { ...binding, sessionID };
+      if (binding) {
+        const caller = sessionID === callerID ? "" : `caller=${encodeURIComponent(callerID)}`;
+        return { ...binding, path: `/sessions/${encodeURIComponent(sessionID)}`, caller };
+      }
       sessionID = (await context.session.get({ sessionID })).parentID;
     }
     return null;
@@ -60,7 +66,7 @@ export async function registerSharedBridge(context) {
           if (!scope) throw new Error("OpenCode session is not bound to a Pimi agent");
           const result = await request(
             scope,
-            `/sessions/${encodeURIComponent(scope.sessionID)}/tools/${encodeURIComponent(definition.name)}`,
+            `${scope.path}/tools/${encodeURIComponent(definition.name)}${scope.caller ? `?${scope.caller}` : ""}`,
             input,
             false,
             call.signal,
@@ -171,7 +177,10 @@ export async function registerSharedBridge(context) {
     const binding = await find(input.sessionID);
     const scope =
       binding &&
-      (await request(binding, `/sessions/${encodeURIComponent(binding.sessionID)}/context?tools`));
+      (await request(
+        binding,
+        `${binding.path}/context?tools${binding.caller ? `&${binding.caller}` : ""}`,
+      ));
     const allowed = new Set((scope?.tools ?? []).map((name) => `pimi_${name}`));
     for (const name of Object.keys(input.tools)) {
       if (name.startsWith("pimi_") && name !== STRUCTURED_OUTPUT_TOOL && !allowed.has(name))

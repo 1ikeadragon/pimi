@@ -175,10 +175,12 @@ export class OpenCodeV2AgentClient implements AgentClient {
       );
     let ownedConnection = connection;
     const bridge = this.options.bridge;
+    const childTools = launch?.pimiChildTools ?? launch?.pimiTools;
     const unbind = bridge?.bindSession({
       sessionId: info.id,
       env: launch?.env ?? {},
       tools: launch?.pimiTools,
+      childTools,
     });
     const bound = new Map<string, () => void>();
     const bindChild = (childId: string) => {
@@ -187,7 +189,7 @@ export class OpenCodeV2AgentClient implements AgentClient {
       const childUnbind = bridge?.bindSession({
         sessionId: childId,
         env: launch?.env ?? {},
-        tools: launch?.pimiTools,
+        tools: childTools,
       });
       if (childUnbind) bound.set(childId, childUnbind);
     };

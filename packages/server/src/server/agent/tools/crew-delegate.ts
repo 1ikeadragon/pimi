@@ -19,6 +19,8 @@ import {
   type PimiToolResult,
 } from "./types.js";
 
+export const CREW_DELEGATE_TOOL = "delegate";
+
 /** What a chat in Crew mode is told, appended to its instructions when its session opens. */
 export const CREW_LEAD_INSTRUCTIONS = renderTemplate("crew-lead", {});
 
@@ -111,7 +113,7 @@ export function registerDelegateTool(options: RegisterDelegateToolOptions): void
   const crew = options.crew ?? options.getCallerAgent()?.config.crew === true;
   if (!crew) return;
   options.registerTool(
-    "delegate",
+    CREW_DELEGATE_TOOL,
     {
       title: "Delegate",
       description:

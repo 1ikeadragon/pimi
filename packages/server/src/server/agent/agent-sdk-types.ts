@@ -697,6 +697,11 @@ export interface AgentLaunchContext {
    * AgentSessionConfig; providers may adapt it to their native tool surface.
    */
   pimiTools?: PimiToolCatalog;
+  /**
+   * The tools of the session's native subagents when they differ from `pimiTools`: a crew lead's
+   * subagents run without `delegate`, which would act as the lead.
+   */
+  pimiChildTools?: PimiToolCatalog;
 }
 
 export interface AgentCreateSessionOptions {
