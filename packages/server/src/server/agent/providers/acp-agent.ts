@@ -62,6 +62,7 @@ import {
 } from "@agentclientprotocol/sdk";
 import type { Logger } from "pino";
 import type { ProviderImageOutput } from "../agent-images.js";
+import { ToolCallOutputStream } from "../tool-call-output-stream.js";
 
 import {
   getAgentStreamEventTurnId,
@@ -682,6 +683,8 @@ interface TerminalEntry {
   output: string;
   truncated: boolean;
   outputByteLimit: number | null;
+  /** The tool call showing this terminal, once the agent reports one. */
+  callId?: string;
   exit: TerminalExit | null;
   waitForExit: Promise<TerminalExit>;
   resolveExit: (exit: TerminalExit) => void;
@@ -1767,6 +1770,14 @@ export class ACPAgentSession implements AgentSession, ACPClient {
   private readonly toolCalls = new Map<string, ACPToolSnapshot>();
   private readonly imagedToolCalls = new Set<string>();
   private readonly terminalEntries = new Map<string, TerminalEntry>();
+  private readonly toolOutput = new ToolCallOutputStream((update) =>
+    this.pushEvent({
+      type: "tool_call_output",
+      provider: this.provider,
+      ...update,
+      ...(this.activeForegroundTurnId ? { turnId: this.activeForegroundTurnId } : {}),
+    }),
+  );
   private readonly persistedHistory: AgentTimelineItem[] = [];
   private readonly initialHandle?: AgentPersistenceHandle;
   private readonly resumePurpose: AgentResumePurpose;
@@ -2891,12 +2902,13 @@ export class ACPAgentSession implements AgentSession, ACPClient {
       rejectExit,
     };
 
-    child.stdout!.on("data", (chunk: Buffer | string) =>
-      appendTerminalOutput(entry, chunk.toString()),
-    );
-    child.stderr!.on("data", (chunk: Buffer | string) =>
-      appendTerminalOutput(entry, chunk.toString()),
-    );
+    const onOutput = (chunk: Buffer | string) => {
+      const text = chunk.toString();
+      appendTerminalOutput(entry, text);
+      if (entry.callId) this.toolOutput.append(entry.callId, text);
+    };
+    child.stdout!.on("data", onOutput);
+    child.stderr!.on("data", onOutput);
     child.once("error", (error) => {
       const spawnError = error instanceof Error ? error : new Error(String(error));
       appendTerminalOutput(entry, `${spawnError.message}\n`);
@@ -3293,6 +3305,7 @@ export class ACPAgentSession implements AgentSession, ACPClient {
       snapshot = this.toolSnapshotTransformer(snapshot);
     }
     this.toolCalls.set(toolCallId, snapshot);
+    this.streamTerminalOutput(toolCallId, snapshot, update.status);
     if (update.status === "completed" || update.status === "failed") {
       this.cancelPendingPermissions((pending) => pending.toolCallId === toolCallId);
     }
@@ -3311,6 +3324,23 @@ export class ACPAgentSession implements AgentSession, ACPClient {
       }
     }
     return events;
+  }
+
+  /** The terminal a tool call shows streams its output from here on, until the call ends. */
+  private streamTerminalOutput(
+    toolCallId: string,
+    snapshot: ACPToolSnapshot,
+    status: ToolCall["status"] | ToolCallUpdate["status"],
+  ): void {
+    if (status === "completed" || status === "failed") {
+      this.toolOutput.stop(toolCallId);
+      return;
+    }
+    const terminal = snapshot.content?.find((item) => item.type === "terminal");
+    const entry = terminal ? this.terminalEntries.get(terminal.terminalId) : undefined;
+    if (!entry || entry.callId || !entry.running) return;
+    entry.callId = toolCallId;
+    this.toolOutput.append(toolCallId, entry.output);
   }
 
   private createMessageTimelineItem(
@@ -3489,6 +3519,7 @@ export class ACPAgentSession implements AgentSession, ACPClient {
   }
 
   private pushEvent(event: AgentStreamEvent): void {
+    this.toolOutput.observe(event);
     this.logger.trace(
       {
         agentId: this.agentId,

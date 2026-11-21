@@ -56,6 +56,7 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 import { renderPromptAttachmentAsText } from "../prompt-attachments.js";
+import { ToolCallOutputStream } from "../tool-call-output-stream.js";
 import { composeSystemPromptParts } from "../system-prompt.js";
 import { CodexAsyncQuestions, codexAsyncQuestionToTimeline } from "./codex/async-questions.js";
 import {
@@ -3658,6 +3659,9 @@ export class CodexAppServerAgentSession implements AgentSession {
   private pendingReasoning = new Map<string, string[]>();
   private pendingCommandOutputDeltas = new Map<string, string[]>();
   private pendingFileChangeOutputDeltas = new Map<string, string[]>();
+  private readonly toolOutput = new ToolCallOutputStream((update) =>
+    this.emitEvent({ type: "tool_call_output", provider: CODEX_PROVIDER, ...update }),
+  );
   private pendingToolCallDetails = new Map<string, ToolCallTimelineItem["detail"]>();
   private pendingAssistantMessageBoundary = false;
   private terminalCommandByProcessId = new Map<string, string>();
@@ -5947,6 +5951,7 @@ export class CodexAppServerAgentSession implements AgentSession {
   }
 
   private emitEvent(event: AgentStreamEvent): void {
+    this.toolOutput.observe(event);
     if (this.historySubagentEvents && event.type === "provider_subagent") {
       this.historySubagentEvents.push(event);
       return;
@@ -6655,15 +6660,7 @@ export class CodexAppServerAgentSession implements AgentSession {
       return;
     }
     if (parsed.kind === "exec_command_output_delta") {
-      const outputDeltas = routedSubAgentCallId
-        ? this.subAgentCallsByCallId.get(routedSubAgentCallId)?.pendingCommandOutputDeltas
-        : this.pendingCommandOutputDeltas;
-      if (!outputDeltas) {
-        return;
-      }
-      this.appendOutputDeltaChunk(outputDeltas, parsed.callId, parsed.chunk, {
-        decodeBase64: true,
-      });
+      this.handleExecCommandOutputDelta(parsed, routedSubAgentCallId);
       return;
     }
     const outputDeltas = routedSubAgentCallId
@@ -6672,6 +6669,23 @@ export class CodexAppServerAgentSession implements AgentSession {
     if (outputDeltas) {
       this.appendOutputDeltaChunk(outputDeltas, parsed.itemId, parsed.delta);
     }
+  }
+
+  private handleExecCommandOutputDelta(
+    parsed: Extract<CodexDeltaNotification, { kind: "exec_command_output_delta" }>,
+    routedSubAgentCallId: string | null,
+  ): void {
+    const outputDeltas = routedSubAgentCallId
+      ? this.subAgentCallsByCallId.get(routedSubAgentCallId)?.pendingCommandOutputDeltas
+      : this.pendingCommandOutputDeltas;
+    if (!outputDeltas) {
+      return;
+    }
+    const text = this.appendOutputDeltaChunk(outputDeltas, parsed.callId, parsed.chunk, {
+      decodeBase64: true,
+    });
+    // A subagent's calls live in its own timeline, which a tool_call_output cannot address.
+    if (text && parsed.callId && !routedSubAgentCallId) this.toolOutput.append(parsed.callId, text);
   }
 
   private handleThreadStartedNotification(
@@ -6995,6 +7009,7 @@ export class CodexAppServerAgentSession implements AgentSession {
     if (!outputDeltas) {
       return;
     }
+    if (parsed.callId) this.toolOutput.stop(parsed.callId);
     const bufferedOutput = this.consumeOutputDelta(outputDeltas, parsed.callId);
     const resolvedOutput = parsed.output ?? bufferedOutput;
     if (!subAgentCallId) {
@@ -7456,17 +7471,18 @@ export class CodexAppServerAgentSession implements AgentSession {
     id: string | null | undefined,
     chunk: string | null | undefined,
     options?: { decodeBase64?: boolean },
-  ): void {
+  ): string | null {
     if (!id || !chunk) {
-      return;
+      return null;
     }
     const normalized = options?.decodeBase64 ? decodeCodexOutputDeltaChunk(chunk) : chunk;
     if (!normalized.length) {
-      return;
+      return null;
     }
     const prev = store.get(id) ?? [];
     prev.push(normalized);
     store.set(id, prev);
+    return normalized;
   }
 
   private consumeOutputDelta(

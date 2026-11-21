@@ -39,6 +39,7 @@ import { commands } from "./commands.js";
 import { messages } from "./history.js";
 import { SessionPermissions } from "./permissions.js";
 import { SessionUsage } from "./usage.js";
+import { ToolCallOutputStream } from "../../../tool-call-output-stream.js";
 import { ShellOutputTail } from "./shell-tail.js";
 
 export class OpenCodeV2Session implements AgentSession {
@@ -52,6 +53,7 @@ export class OpenCodeV2Session implements AgentSession {
   private readonly turns: SessionTurns;
   private readonly children: SessionChildren;
   private readonly usage: SessionUsage;
+  private readonly toolOutput: ToolCallOutputStream;
   private readonly shellTail: ShellOutputTail;
   private stream: Promise<void> | null = null;
   private streamAbort = new AbortController();
@@ -125,18 +127,19 @@ export class OpenCodeV2Session implements AgentSession {
           });
       },
     });
+    this.toolOutput = new ToolCallOutputStream((update) =>
+      this.emit({
+        type: "tool_call_output",
+        provider: "opencode",
+        ...update,
+        ...(this.turns.id ? { turnId: this.turns.id } : {}),
+      }),
+    );
     this.shellTail = new ShellOutputTail({
       client: () => this.client,
       cwd: config.cwd,
       signal: this.abort.signal,
-      publish: ({ callId, ...update }) =>
-        this.emit({
-          type: "tool_call_output",
-          provider: "opencode",
-          callId,
-          ...update,
-          ...(this.turns.id ? { turnId: this.turns.id } : {}),
-        }),
+      output: this.toolOutput,
       reportError: (error) =>
         this.logger.warn(
           { error: toDiagnosticErrorMessage(error) },
@@ -323,6 +326,7 @@ export class OpenCodeV2Session implements AgentSession {
       event.type === "turn_canceled"
     )
       this.shellTail.stopAll();
+    this.toolOutput.observe(event);
     for (const listener of this.listeners) listener(event);
   }
   private emitTimeline(event: AgentStreamEvent) {
