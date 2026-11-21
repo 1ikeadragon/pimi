@@ -2,6 +2,15 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.70 - 2026-11-21
+
+- Review redesigned: a full-width inbox (Needs my review, Mine, All, search, paste a PR link) and a full-width PR page with Conversation, Commits, Checks and Files changed tabs.
+- Review is faster: the PR header shows instantly from the inbox row, PRs prefetch on hover and press, the last inbox stays on screen while it refreshes, and large PRs scroll as one diff up to 300 files.
+- Comment, reply, resolve, and submit reviews (Comment, Approve, Request changes) on GitHub from Review, using your existing `gh` sign-in. A retry never posts twice, and a review is refused if new commits were pushed since you loaded the PR.
+- Forge comment threads show as markers under their lines and open in a side panel.
+- Local worktree changes open in the same Files view, with Uncommitted, vs base and All, and a link to the branch's PR.
+- Recap rebuilt: a builder profile, question cards (ship volume, agents at once, top model, plan-first, go-to prompt and more) and a written story of the period, counting chats from every provider.
+
 ## 0.17.69 - 2026-11-21
 
 - Live shell output streams for OpenCode, Codex and ACP agents through one shared path, and stops when the command finishes. Claude Code rows show elapsed time.
