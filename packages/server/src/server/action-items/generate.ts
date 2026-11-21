@@ -53,7 +53,7 @@ function addUsage(total: ActionItemsUsage, usage: AgentUsage): ActionItemsUsage 
 }
 
 // One model call: the current list plus the messages since the last call. Never the whole chat.
-// Null when the chat's provider has no small model and none was chosen for action items.
+// Null when the chat's provider has no model for it (see resolveChatProviderPimiModel).
 export async function generateActionItemChanges(input: {
   manager: AgentManager;
   agent: ManagedAgent;
@@ -70,6 +70,7 @@ export async function generateActionItemChanges(input: {
     providerSnapshotManager: input.providerSnapshotManager,
     daemonConfig: input.daemonConfig,
     provider: agent.provider,
+    chatModel: agent.runtimeInfo?.model ?? agent.config.model,
   });
   if (!resolved) return null;
   const { providers, pinned } = resolved;

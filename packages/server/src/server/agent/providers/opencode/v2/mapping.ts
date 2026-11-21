@@ -25,8 +25,8 @@ const OPENCODE_SMALL_MODEL_FAMILIES = [
 
 /**
  * The models OpenCode itself would title a session with: the `title` agent's model (its
- * `small_model` config), else each provider's small model. OpenCode then falls back to the chat's
- * own model; Pimi never does, so a provider without one declares none.
+ * `small_model` config), else each provider's small model. OpenCode's last step, the chat's own
+ * model, is applied by resolveChatProviderPimiModel, so a provider without one declares none.
  */
 function openCodeSmallModels(models: ModelInfo[], agents: AgentInfo[]): Set<ModelInfo> {
   const configured = agents.find((agent) => agent.id === "title")?.model;

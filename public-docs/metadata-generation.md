@@ -36,7 +36,7 @@ In Automatic mode, Pimi builds an ordered list of candidates and tries each one 
 
 Providers without a small model are skipped. Duplicates are removed, then generation tries the list top to bottom.
 
-Action items read a chat's text, so they use only the chat's own provider's small model, never the selected model or another provider. A chat whose provider has no small model shows an error until you choose a model for Action items.
+Action items read a chat's text, so they use only the chat's own provider's small model, never another provider. An OpenCode chat whose provider has no small model uses the chat's own model, as OpenCode does for its session titles. On other providers, a chat whose provider has no small model shows an error until you choose a model for Action items.
 
 In Manual mode, Pimi tries only your configured models, in your order. It never adds the built-in defaults or the selected model, so your prompts and diffs only go to providers you chose. If every configured model is unavailable, generation fails with an error naming the model: chat titles and branch names are not generated, and commit and pull request generation report the error. If a configured model is available but its run fails, commits and pull requests get placeholder text. Pick a model that works for these tasks.
 

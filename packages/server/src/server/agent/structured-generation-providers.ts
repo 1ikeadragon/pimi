@@ -100,14 +100,22 @@ export async function resolvePimiModel(
 }
 
 /**
+ * COMPAT(opencode 2.2.6 SessionContext.selectTitle): OpenCode titles a session with its small model,
+ * else the session's own model. Pimi follows that policy for OpenCode chats only; every other
+ * provider without a small model gets none.
+ */
+const FALLS_BACK_TO_CHAT_MODEL: ReadonlySet<AgentProvider> = new Set(["opencode"]);
+
+/**
  * For a feature that reads a chat's text: the text stays on the chat's own provider. A per-feature
  * override is used as is (the user chose where the text goes). Otherwise the provider's models from
- * the Manual list, else its small model at the lowest effort. Null when the provider has
- * neither; the chat's own model is never used.
+ * the Manual list, else its small model at the lowest effort, else (OpenCode only) the chat's own
+ * model at the lowest effort. Null otherwise.
  */
 export async function resolveChatProviderPimiModel(
   options: Omit<ResolveStructuredGenerationProvidersOptions, "currentSelection"> & {
     provider: AgentProvider;
+    chatModel?: string | null;
   },
 ): Promise<ResolvedPimiModels | null> {
   const override = options.daemonConfig?.metadataGeneration?.features?.[options.feature];
@@ -127,8 +135,12 @@ export async function resolveChatProviderPimiModel(
     return resolved ? [resolved] : [];
   });
   if (configured.length > 0) return { providers: dedupeProviders(configured), pinned: true };
-  const small = resolveSmallModel(entry);
-  return small ? { providers: await withLowestEffort(options, [small]), pinned: false } : null;
+  const small = resolveSmallModel(entry)?.candidate;
+  const chatModel = FALLS_BACK_TO_CHAT_MODEL.has(entry.provider) ? options.chatModel?.trim() : "";
+  const candidate = small ?? (chatModel ? { provider: entry.provider, model: chatModel } : null);
+  return candidate
+    ? { providers: await withLowestEffort(options, [candidate]), pinned: false }
+    : null;
 }
 
 const LOWEST_EFFORT_IDS = ["none", "off", "minimal", "low"];
@@ -216,10 +228,13 @@ async function resolveStructuredGenerationProviders(
     return dedupeProviders(providers);
   }
 
-  for (const entry of modelEntries) {
-    const small = resolveSmallModel(entry);
-    if (small) providers.push(small);
-  }
+  // Haiku first, as before providers declared their small model; then by name family, then by
+  // provider id, so the order never depends on the provider registry.
+  const smalls = modelEntries.flatMap((entry) => resolveSmallModel(entry) ?? []);
+  smalls.sort(
+    (a, b) => a.rank - b.rank || a.candidate.provider.localeCompare(b.candidate.provider),
+  );
+  providers.push(...smalls.map((small) => small.candidate));
 
   const currentSelection = resolveCurrentSelection(
     options.currentSelection,
@@ -364,23 +379,28 @@ function resolveNestedProviderModel(
   return null;
 }
 
-/** The model the provider declares small, else, for a provider that declares none, a name match. */
-function resolveSmallModel(entry: ProviderSnapshotEntry): StructuredGenerationProvider | null {
+/**
+ * The model the provider declares small, else, for a provider that declares none, a name match.
+ * `rank` is the index of the name fragment the model matches (fragment count when none).
+ */
+function resolveSmallModel(
+  entry: ProviderSnapshotEntry,
+): { candidate: StructuredGenerationProvider; rank: number } | null {
   const models = filterSelectableAgentModels(entry.models);
+  const rankOf = (model: AgentModelDefinition) => {
+    const names = [model.id, model.label].map((value) => value.toLowerCase());
+    const index = SMALL_MODEL_NAME_FRAGMENTS.findIndex((fragment) =>
+      names.some((name) => name.includes(fragment)),
+    );
+    return index === -1 ? SMALL_MODEL_NAME_FRAGMENTS.length : index;
+  };
   const model =
     models.find((candidate) => candidate.isSmall) ??
-    SMALL_MODEL_NAME_FRAGMENTS.flatMap(
-      (fragment) =>
-        models.find((candidate) =>
-          [candidate.id, candidate.label].some((value) => value.toLowerCase().includes(fragment)),
-        ) ?? [],
-    )[0];
+    models
+      .filter((candidate) => rankOf(candidate) < SMALL_MODEL_NAME_FRAGMENTS.length)
+      .sort((a, b) => rankOf(a) - rankOf(b))[0];
   if (!model) return null;
-  return {
-    provider: entry.provider,
-    model: model.id,
-    ...(model.defaultThinkingOptionId ? { thinkingOptionId: model.defaultThinkingOptionId } : {}),
-  };
+  return { candidate: { provider: entry.provider, model: model.id }, rank: rankOf(model) };
 }
 
 function readConfiguredProviders(
