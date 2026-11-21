@@ -3247,8 +3247,6 @@ export const en = {
       saveAccessibility: "Save review comment",
     },
   },
-  usageOverview: {
-    title: "Usage",
   usageRecap: {
     period: {
       thisWeek: "This week",
@@ -3335,6 +3333,8 @@ export const en = {
       subagents_other: "{{count, number}} subagents",
     },
   },
+  usageOverview: {
+    title: "Usage",
     close: "Close Usage",
     tabs: {
       overview: "Overview",
@@ -3869,9 +3869,9 @@ export const en = {
         askPimi: "Ask Pimi",
         handoff: "Provider switch summary",
         actionItems: "Action items",
+        recap: "Recap",
       },
     },
-        recap: "Recap",
     voice: {
       offline: "Connect to this host to configure voice.",
       saveError: "Unable to update voice settings",
