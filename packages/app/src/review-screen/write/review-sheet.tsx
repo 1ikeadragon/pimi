@@ -4,7 +4,12 @@
 // chat". Submitting is never optimistic: the sheet stays up, fields locked, until the forge
 // answers, and a failure leaves everything as typed.
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import {
+  Text,
+  View,
+  type NativeSyntheticEvent,
+  type TextInputKeyPressEventData,
+} from "react-native";
 import * as Haptics from "expo-haptics";
 import { useQueryClient } from "@tanstack/react-query";
 import { StyleSheet } from "react-native-unistyles";
@@ -119,6 +124,19 @@ function OpenReviewChangesSheet({
     },
     [onClose, onGoTo],
   );
+  // Cmd/Ctrl+Enter submits from the summary, as it does in every comment box.
+  const { submit } = form;
+  const onSummaryKeyPress = useCallback(
+    (
+      event: NativeSyntheticEvent<
+        TextInputKeyPressEventData & { metaKey?: boolean; ctrlKey?: boolean }
+      >,
+    ) => {
+      const { key, metaKey, ctrlKey } = event.nativeEvent;
+      if (key === "Enter" && (metaKey || ctrlKey)) void submit();
+    },
+    [submit],
+  );
 
   return (
     <AdaptiveModalSheet
@@ -137,6 +155,7 @@ function OpenReviewChangesSheet({
           placeholder={t("reviewScreen.write.summaryPlaceholder")}
           initialValue=""
           onChangeText={form.setSummary}
+          onKeyPress={onSummaryKeyPress}
           style={styles.summary}
           testID="review-sheet-summary"
         />

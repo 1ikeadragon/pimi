@@ -25,6 +25,8 @@ import type { Theme } from "@/styles/theme";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { requestReviewFix } from "../agent-actions/fix-request";
 import type { ReviewJumpTo } from "../types";
+import { PendingFade } from "../write/pending-fade";
+import { isPendingTimelineId } from "../write/use-review-writes";
 import { ResolveButton, ThreadReply } from "../write/thread-write";
 
 const ThemedChevronDown = withUnistyles(ChevronDown);
@@ -119,12 +121,14 @@ export function ThreadComments({ entry }: { entry: PrThreadEntry }) {
   return (
     <>
       {entry.comments.map((comment, index) => (
-        <View key={comment.id} style={index === 0 ? styles.comment : styles.reply}>
-          <View style={styles.commentHead}>
-            <ActivityHeader activity={comment} avatarSize={16} />
+        <PendingFade key={comment.id} pending={isPendingTimelineId(comment.id)}>
+          <View style={index === 0 ? styles.comment : styles.reply}>
+            <View style={styles.commentHead}>
+              <ActivityHeader activity={comment} avatarSize={16} />
+            </View>
+            <MarkdownRenderer text={comment.body} compact onLinkPress={onLinkPress} />
           </View>
-          <MarkdownRenderer text={comment.body} compact onLinkPress={onLinkPress} />
-        </View>
+        </PendingFade>
       ))}
     </>
   );

@@ -19,7 +19,8 @@ import type { ReviewTimeline } from "../use-review-timeline";
 import { ConversationAside, ConversationSummary } from "./aside";
 import { ThreadCard } from "./thread-card";
 import { ReviewComposer } from "../write/composer";
-import { useReviewWriteContext } from "../write/use-review-writes";
+import { PendingFade } from "../write/pending-fade";
+import { isPendingTimelineId, useReviewWriteContext } from "../write/use-review-writes";
 
 /** The body is wide enough for the 260 aside beside a 860 column. */
 const ASIDE_MIN_BODY_WIDTH = 1160;
@@ -181,16 +182,18 @@ function TimelineEntry({
 
 function ActivityBlock({ activity }: { activity: PrPaneActivity }) {
   return (
-    <View style={styles.block} testID={`review-entry-${activity.id}`}>
-      <View style={styles.blockHead}>
-        <ActivityHeader activity={activity} avatarSize={20} />
-      </View>
-      {activity.body.trim() ? (
-        <View style={styles.blockBody}>
-          <MarkdownRenderer text={activity.body} onLinkPress={onLinkPress} />
+    <PendingFade pending={isPendingTimelineId(activity.id)}>
+      <View style={styles.block} testID={`review-entry-${activity.id}`}>
+        <View style={styles.blockHead}>
+          <ActivityHeader activity={activity} avatarSize={20} />
         </View>
-      ) : null}
-    </View>
+        {activity.body.trim() ? (
+          <View style={styles.blockBody}>
+            <MarkdownRenderer text={activity.body} onLinkPress={onLinkPress} />
+          </View>
+        ) : null}
+      </View>
+    </PendingFade>
   );
 }
 

@@ -644,7 +644,7 @@ function HeaderMeta({ head, overview }: { head: Head; overview: ChangeRequestOve
       <StateChip state={head.state} isDraft={head.isDraft} />
       <View style={styles.sentence}>
         {head.author ? (
-          <Text style={styles.metaText} numberOfLines={1}>
+          <Text style={styles.authorSentence} numberOfLines={1}>
             {commits !== undefined
               ? t("reviewScreen.wantsToMerge", { author: head.author, count: commits })
               : t("reviewScreen.openedBy", { author: head.author })}
@@ -654,7 +654,9 @@ function HeaderMeta({ head, overview }: { head: Head; overview: ChangeRequestOve
           <>
             <StatusBadge variant="muted" size="xs" label={head.baseRefName ?? ""} />
             <Text style={styles.metaText}>{t("reviewScreen.from")}</Text>
-            <StatusBadge variant="muted" size="xs" label={head.headRefName ?? ""} />
+            <View style={styles.branchBadge}>
+              <StatusBadge variant="muted" size="xs" label={shortBranch(head.headRefName ?? "")} />
+            </View>
           </>
         ) : null}
         {conflicts}
@@ -662,6 +664,13 @@ function HeaderMeta({ head, overview }: { head: Head; overview: ChangeRequestOve
       {diffstat}
     </View>
   );
+}
+
+const BRANCH_LABEL_MAX = 48;
+
+/** A 120-character branch name must not wrap the meta row (the header has a fixed height). */
+function shortBranch(name: string): string {
+  return name.length > BRANCH_LABEL_MAX ? `${name.slice(0, BRANCH_LABEL_MAX - 1)}…` : name;
 }
 
 function ChecksTabCount({
@@ -857,6 +866,13 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[1.5],
     overflow: "hidden",
   },
+  // The long branch name gives way first; the sentence and the base branch stay whole.
+  authorSentence: {
+    flexShrink: 0,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  branchBadge: { flexShrink: 1, minWidth: 0, overflow: "hidden" },
   metaText: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   diffstat: {
     minWidth: 120,
@@ -866,7 +882,12 @@ const styles = StyleSheet.create((theme) => ({
   },
   tabRow: { flexDirection: "row", alignItems: "flex-end" },
   tabScroll: { flex: 1 },
-  tabTrailing: { flexDirection: "row", alignItems: "center", paddingBottom: theme.spacing[1] },
+  tabTrailing: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: theme.spacing[4],
+    paddingBottom: theme.spacing[1],
+  },
   tabs: { flexDirection: "row", gap: theme.spacing[6] },
   tab: {
     flexDirection: "row",
