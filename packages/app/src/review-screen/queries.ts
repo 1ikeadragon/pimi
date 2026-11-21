@@ -12,6 +12,7 @@ import type {
   ForgeChangeRequestListInboxResponse,
 } from "@pimi/protocol/messages";
 import { fetchQueryOptions } from "@/data/query";
+import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import type { ChangeRequestSource } from "./types";
 
 export type ChangeRequestInbox = ForgeChangeRequestListInboxResponse["payload"];
@@ -212,6 +213,7 @@ export function filesQuery(ref: ChangeRequestSource | null, client: DaemonClient
     dataShape: "value",
     staleTimeMs: FILES_STALE_MS,
     retry: false,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<DeskFileList> => {
       const payload = await requireClient(client).forgeChangeRequestListFiles(
@@ -233,4 +235,49 @@ export function invalidateChangeRequest(queryClient: QueryClient, ref: ChangeReq
     queryClient.invalidateQueries({ queryKey: reviewKeys.timeline(ref) }),
     queryClient.invalidateQueries({ queryKey: reviewKeys.commits(ref) }),
   ]);
+}
+
+function prefetchRead<T>(
+  queryClient: QueryClient,
+  input: Parameters<typeof fetchQueryOptions<T>>[0],
+) {
+  // prefetchQuery skips a fresh entry and shares a fetch already in flight; a failure is left in
+  // the cache for the screen to show, so there is nothing to catch here.
+  return queryClient.prefetchQuery(fetchQueryOptions(input));
+}
+
+/** Everything the detail page needs, fired together when a row is pressed. */
+export function prefetchChangeRequest(
+  queryClient: QueryClient,
+  client: DaemonClient | null,
+  ref: ChangeRequestSource,
+): void {
+  if (!client) return;
+  void prefetchRead(queryClient, overviewQuery(ref, client));
+  void prefetchRead(queryClient, statusQuery(ref, client));
+  void prefetchRead(queryClient, timelineQuery(ref, client));
+  void prefetchRead(queryClient, filesQuery(ref, client));
+}
+
+const HOVER_INTENT_MS = 150;
+// One hover prefetch at a time: a later hover waits for the earlier one instead of fanning out
+// `gh` calls (the daemon runs a handful at once and GitHub's budget is shared).
+let hoverQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * REST-only warm-up of a hovered row: overview and file list. Returns the cancel for the hover
+ * intent timer; once the timer has fired the prefetch is not cancelled.
+ */
+export function prefetchOnHover(queryClient: QueryClient, ref: ChangeRequestSource): () => void {
+  const timer = setTimeout(() => {
+    const client = getHostRuntimeStore().getClient(ref.serverId);
+    if (!client) return;
+    hoverQueue = hoverQueue.then(() =>
+      Promise.all([
+        prefetchRead(queryClient, overviewQuery(ref, client)),
+        prefetchRead(queryClient, filesQuery(ref, client)),
+      ]),
+    );
+  }, HOVER_INTENT_MS);
+  return () => clearTimeout(timer);
 }

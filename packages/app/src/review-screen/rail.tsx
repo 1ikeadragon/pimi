@@ -2,7 +2,8 @@
 // Stream S2 owns this file: the left rail. Title, search field, All / To review filter, and one row
 // per change request (repo and number, title, state chips). Reads `forge.change_request.list_inbox`.
 // In Worktrees mode the rail lists the host's workspaces instead.
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { FlatList, Text, View } from "react-native";
 import { RefreshCw } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -12,10 +13,12 @@ import { PressHighlight } from "@/components/ui/press-highlight";
 import { SearchField } from "@/components/ui/search-field";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
+import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { useWorkspace, useWorkspaceKeys } from "@/stores/session-store-hooks";
 import type { Theme } from "@/styles/theme";
 import { ChecksChip, DecisionChip, StateChip } from "./chips";
 import type { ChangeRequestSource, ReviewRailProps, ReviewSource } from "./types";
+import { prefetchChangeRequest, prefetchOnHover } from "./queries";
 import {
   parsePastedChangeRequest,
   sameChangeRequest,
@@ -145,7 +148,7 @@ function PullRequestList({
   selected: ReviewSource | null;
   onOpen: (source: ReviewSource) => void;
 }) {
-  const data: ChangeRequestInbox | undefined = inbox.query.data;
+  const data = inbox.data;
   const needle = query.trim().toLowerCase();
   const items = useMemo(
     () =>
@@ -172,9 +175,12 @@ function PullRequestList({
     (item: InboxItem) => `${item.forgeHost}/${item.owner}/${item.name}#${item.number}`,
     [],
   );
+  const queryClient = useQueryClient();
   const openPasted = useCallback(() => {
-    if (pasted) onOpen(pasted);
-  }, [pasted, onOpen]);
+    if (!pasted) return;
+    prefetchChangeRequest(queryClient, getHostRuntimeStore().getClient(serverId), pasted);
+    onOpen(pasted);
+  }, [pasted, onOpen, queryClient, serverId]);
 
   const header = useMemo(
     () => (
@@ -318,6 +324,24 @@ function useRowStyle(active: boolean) {
   );
 }
 
+/** Press-in prefetches the whole page (it buys the tap duration); hover prefetches REST reads. */
+function useRowPrefetch(ref: ChangeRequestSource) {
+  const queryClient = useQueryClient();
+  const cancelHover = useRef<(() => void) | null>(null);
+  const onPressIn = useCallback(() => {
+    prefetchChangeRequest(queryClient, getHostRuntimeStore().getClient(ref.serverId), ref);
+  }, [queryClient, ref]);
+  const onHoverIn = useCallback(() => {
+    cancelHover.current?.();
+    cancelHover.current = prefetchOnHover(queryClient, ref);
+  }, [queryClient, ref]);
+  const onHoverOut = useCallback(() => {
+    cancelHover.current?.();
+    cancelHover.current = null;
+  }, []);
+  return { onPressIn, onHoverIn, onHoverOut };
+}
+
 function PullRequestRow({
   item,
   serverId,
@@ -329,23 +353,27 @@ function PullRequestRow({
   active: boolean;
   onOpen: (source: ReviewSource) => void;
 }) {
-  const handlePress = useCallback(
-    () =>
-      onOpen({
-        kind: "change_request",
-        serverId,
-        forgeHost: item.forgeHost,
-        owner: item.owner,
-        name: item.name,
-        number: item.number,
-      }),
-    [onOpen, serverId, item],
+  const ref = useMemo<ChangeRequestSource>(
+    () => ({
+      kind: "change_request",
+      serverId,
+      forgeHost: item.forgeHost,
+      owner: item.owner,
+      name: item.name,
+      number: item.number,
+    }),
+    [serverId, item.forgeHost, item.owner, item.name, item.number],
   );
+  const handlePress = useCallback(() => onOpen(ref), [onOpen, ref]);
+  const { onPressIn, onHoverIn, onHoverOut } = useRowPrefetch(ref);
   const rowState = useMemo(() => ({ selected: active }), [active]);
   const rowStyle = useRowStyle(active);
   return (
     <PressHighlight
       onPress={handlePress}
+      onPressIn={onPressIn}
+      onHoverIn={onHoverIn}
+      onHoverOut={onHoverOut}
       accessibilityRole="button"
       accessibilityState={rowState}
       style={rowStyle}

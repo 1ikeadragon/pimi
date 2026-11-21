@@ -15,7 +15,13 @@ import { useFetchQuery } from "@/data/query";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import type { Theme } from "@/styles/theme";
 import { ChecksChip, DecisionChip, StateChip } from "./chips";
-import { overviewQuery, statusQuery } from "./queries";
+import {
+  overviewQuery,
+  statusQuery,
+  type ChangeRequestOverview,
+  type ChangeRequestStatus,
+} from "./queries";
+import { useInboxSeed } from "./use-inbox";
 import type {
   ReviewDetailHeaderProps,
   ReviewDetailTab,
@@ -92,6 +98,10 @@ export function ReviewDetailHeader({ source, tab, onTabChange }: ReviewDetailHea
   const statusResult = useFetchQuery({ ...statusQuery(changeRequest, client), enabled });
   const overview = overviewResult.data ?? null;
   const status = statusResult.data ?? null;
+  // The inbox row the user pressed has title, state and branches already; it fills the header
+  // until the overview answers.
+  const seed = useInboxSeed(changeRequest);
+  const head = overview ?? seed;
 
   const identity = changeRequest
     ? `${changeRequest.owner}/${changeRequest.name} #${changeRequest.number}`
@@ -105,6 +115,7 @@ export function ReviewDetailHeader({ source, tab, onTabChange }: ReviewDetailHea
         .pop() || source.cwd;
   } else {
     if (overview) title = overview.title;
+    else if (seed) title = seed.title;
     else if (overviewResult.isPending) title = t("reviewScreen.loading");
     else title = t("reviewScreen.detailFailed");
   }
@@ -118,24 +129,8 @@ export function ReviewDetailHeader({ source, tab, onTabChange }: ReviewDetailHea
         {title}
       </Text>
       <View style={styles.meta}>
-        {overview ? (
-          <>
-            <StateChip state={overview.state} isDraft={overview.isDraft} />
-            <StatusBadge
-              variant="muted"
-              label={`${overview.headRefName} → ${overview.baseRefName}`}
-            />
-            <ChecksChip status={status?.checksStatus ?? null} />
-            <DecisionChip decision={status?.reviewDecision ?? null} />
-            {overview.mergeable === "CONFLICTING" ? (
-              <StatusBadge variant="warning" label={t("reviewScreen.conflicts")} />
-            ) : null}
-            <Text style={styles.metaText}>
-              {t("reviewScreen.filesCount", { count: overview.changedFiles })}
-            </Text>
-            <DiffStat additions={overview.additions} deletions={overview.deletions} />
-          </>
-        ) : null}
+        <StatusChips head={head} seed={seed} status={status} />
+        {overview ? <OverviewFacts overview={overview} /> : null}
         {source.kind === "checkout" ? (
           <StatusBadge variant="muted" label={compareLabel(source.compare.mode, t)} />
         ) : null}
@@ -155,6 +150,45 @@ export function ReviewDetailHeader({ source, tab, onTabChange }: ReviewDetailHea
         />
       </View>
     </View>
+  );
+}
+
+type Head = NonNullable<ReturnType<typeof useInboxSeed>> | ChangeRequestOverview;
+
+function StatusChips({
+  head,
+  seed,
+  status,
+}: {
+  head: Head | null;
+  seed: ReturnType<typeof useInboxSeed>;
+  status: ChangeRequestStatus | null;
+}) {
+  if (!head) return null;
+  return (
+    <>
+      <StateChip state={head.state} isDraft={head.isDraft} />
+      {head.headRefName && head.baseRefName ? (
+        <StatusBadge variant="muted" label={`${head.headRefName} → ${head.baseRefName}`} />
+      ) : null}
+      <ChecksChip status={status?.checksStatus ?? seed?.checksStatus ?? null} />
+      <DecisionChip decision={status?.reviewDecision ?? seed?.reviewDecision ?? null} />
+    </>
+  );
+}
+
+function OverviewFacts({ overview }: { overview: ChangeRequestOverview }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {overview.mergeable === "CONFLICTING" ? (
+        <StatusBadge variant="warning" label={t("reviewScreen.conflicts")} />
+      ) : null}
+      <Text style={styles.metaText}>
+        {t("reviewScreen.filesCount", { count: overview.changedFiles })}
+      </Text>
+      <DiffStat additions={overview.additions} deletions={overview.deletions} />
+    </>
   );
 }
 

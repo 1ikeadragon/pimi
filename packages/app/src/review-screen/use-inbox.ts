@@ -1,12 +1,15 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S2: the Review rail's data. One `forge.change_request.list_inbox` read per host, plus the
 // change-request URL a user pastes into the search field.
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFetchQuery } from "@/data/query";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { inboxStoreKey, useInboxStore } from "./inbox-store";
 import { inboxQuery, markInboxRefresh, reviewKeys } from "./queries";
 import type { ChangeRequestSource } from "./types";
+
+import { REVIEW_FORGE_HOST, type ChangeRequestInbox, type InboxItem } from "./queries";
 
 export { REVIEW_FORGE_HOST, type ChangeRequestInbox, type InboxItem } from "./queries";
 
@@ -19,7 +22,26 @@ export function useReviewInbox(serverId: string) {
     markInboxRefresh(serverId);
     void queryClient.invalidateQueries({ queryKey: reviewKeys.inbox(serverId) });
   }, [queryClient, serverId]);
-  return { connected, query, refresh };
+  // Rows come from the live query, else from the last inbox this host answered.
+  const key = inboxStoreKey(serverId, REVIEW_FORGE_HOST);
+  const stored = useInboxStore((state) => state.last[key]);
+  const save = useInboxStore((state) => state.save);
+  const live = query.data;
+  useEffect(() => {
+    if (live) save(key, live);
+  }, [key, live, save]);
+  const data: Omit<ChangeRequestInbox, "requestId"> | undefined = live ?? stored;
+  return { connected, query, data, refresh };
+}
+
+/** The pull request's row in the last inbox this host answered, if it was in it. */
+export function useInboxSeed(ref: ChangeRequestSource | null): InboxItem | null {
+  const key = inboxStoreKey(ref?.serverId ?? "", ref?.forgeHost ?? "");
+  const last = useInboxStore((state) => state.last[key]);
+  return useMemo(
+    () => (ref && last ? (last.items.find((item) => sameChangeRequest(item, ref)) ?? null) : null),
+    [last, ref],
+  );
 }
 
 const PASTED_URL = /^https?:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/pull\/(\d{1,15})(?:[/?#]\S*)?$/i;
