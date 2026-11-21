@@ -55,14 +55,22 @@ export class ToolCallOutputStream {
     this.timer = null;
   }
 
-  /** Stops every call when `event` ends a turn. */
+  /** Stops a call when its tool call settles, and every call when `event` ends a turn. */
   observe(event: AgentStreamEvent) {
     if (
       event.type === "turn_completed" ||
       event.type === "turn_failed" ||
       event.type === "turn_canceled"
-    )
+    ) {
       this.stopAll();
+      return;
+    }
+    if (
+      event.type === "timeline" &&
+      event.item.type === "tool_call" &&
+      event.item.status !== "running"
+    )
+      this.stop(event.item.callId);
   }
 
   private flush() {
