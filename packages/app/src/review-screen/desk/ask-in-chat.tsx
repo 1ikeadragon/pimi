@@ -1,7 +1,8 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// "Ask in chat": the user's line annotations on the change request become one `review` composer
-// attachment on a new draft of a workspace of the same repository, then that workspace opens the
-// draft with the attachment in its composer. Nothing is sent; sending clears the drafts (composer/attachments/workspace.tsx).
+// "Ask in chat": the user's line annotations become one `review` composer attachment on a new draft
+// of a workspace, then that workspace opens the draft with the attachment in its composer. For a
+// pull request the workspaces are the ones of the same repository; for a worktree it is the
+// worktree itself. Nothing is sent; sending clears the drafts (composer/attachments/workspace.tsx).
 import { useCallback, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -21,7 +22,7 @@ import { useSessionStore, type WorkspaceDescriptor } from "@/stores/session-stor
 import { generateDraftId } from "@/stores/draft-keys";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import type { ParsedDiffFile } from "@pimi/protocol/messages";
-import type { ChangeRequestSource } from "../types";
+import type { ChangeRequestSource, ReviewSource } from "../types";
 import { useDeskCopy } from "./copy";
 
 const NO_WORKSPACES: ReadonlyMap<string, WorkspaceDescriptor> = new Map();
@@ -53,6 +54,16 @@ export function matchingWorkspaces(
   return matches.sort((a, b) => Number(isThisPr(b)) - Number(isThisPr(a)));
 }
 
+function workspacesFor(
+  workspaces: ReadonlyMap<string, WorkspaceDescriptor>,
+  source: ReviewSource,
+): WorkspaceDescriptor[] {
+  if (source.kind === "change_request") return matchingWorkspaces(workspaces, source);
+  return [...workspaces.values()].filter(
+    (workspace) => !workspace.archivingAt && workspace.workspaceDirectory === source.cwd,
+  );
+}
+
 export function AskInChat({
   source,
   reviewDraftKey,
@@ -60,7 +71,7 @@ export function AskInChat({
   loadedFiles,
   baseRef,
 }: {
-  source: ChangeRequestSource;
+  source: ReviewSource;
   reviewDraftKey: string;
   draftCount: number;
   loadedFiles: ReadonlyMap<string, ParsedDiffFile>;
@@ -70,7 +81,12 @@ export function AskInChat({
   const workspaces = useSessionStore(
     (state) => state.sessions[source.serverId]?.workspaces ?? NO_WORKSPACES,
   );
-  const candidates = useMemo(() => matchingWorkspaces(workspaces, source), [workspaces, source]);
+  const candidates = useMemo(() => workspacesFor(workspaces, source), [workspaces, source]);
+  const mode = source.kind === "checkout" ? source.compare.mode : "all";
+  const repoLabel =
+    source.kind === "change_request"
+      ? `${source.owner}/${source.name}`
+      : (source.cwd.split(/[\\/]/).findLast(Boolean) ?? source.cwd);
   const [error, setError] = useState<string | null>(null);
 
   const attach = useCallback(
@@ -78,7 +94,7 @@ export function AskInChat({
       const snapshot = buildReviewAttachmentSnapshot({
         reviewDraftKey,
         cwd: workspace.workspaceDirectory,
-        mode: "all",
+        mode,
         baseRef,
         comments: getReviewDraftComments(reviewDraftKey) ?? [],
         diffFiles: [...loadedFiles.values()],
@@ -101,7 +117,7 @@ export function AskInChat({
         target: { kind: "draft", draftId },
       });
     },
-    [baseRef, copy.askUnavailable, loadedFiles, reviewDraftKey, source.serverId],
+    [baseRef, copy.askUnavailable, loadedFiles, mode, reviewDraftKey, source.serverId],
   );
 
   if (draftCount === 0) return null;
@@ -120,9 +136,7 @@ export function AskInChat({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" minWidth={260} side="top" testID="review-desk-ask-menu">
           {candidates.length === 0 ? (
-            <DropdownMenuLabel>
-              {copy.noWorkspace(`${source.owner}/${source.name}`)}
-            </DropdownMenuLabel>
+            <DropdownMenuLabel>{copy.noWorkspace(repoLabel)}</DropdownMenuLabel>
           ) : (
             candidates.map((workspace) => (
               <AskTarget key={workspace.id} workspace={workspace} onPick={attach} />

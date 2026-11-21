@@ -6,7 +6,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { useTranslation } from "@/i18n/use-translation";
 import { settingsStyles } from "@/styles/settings";
 import { Notice } from "../notice";
-import type { ReviewJumpTo, ReviewSelection, ReviewSource } from "../types";
+import type { ReviewJumpTo, ReviewSelection, ChangeRequestSource } from "../types";
 import type { ReviewTimeline } from "../use-review-timeline";
 import { ChecksBadges } from "./badges";
 import { FixSelectedBar } from "./fix-selected-bar";
@@ -19,7 +19,7 @@ export function ReviewChecks({
   onSelectionChange,
   onJumpTo,
 }: {
-  source: ReviewSource;
+  source: ChangeRequestSource;
   timeline: ReviewTimeline;
   selection: ReviewSelection;
   onSelectionChange: (next: ReviewSelection) => void;

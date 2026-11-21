@@ -20,6 +20,7 @@ export type ReviewSource =
     };
 
 export type ChangeRequestSource = Extract<ReviewSource, { kind: "change_request" }>;
+export type CheckoutSource = Extract<ReviewSource, { kind: "checkout" }>;
 
 /** Per-file badges. Built once per timeline load (S4's hook) and read by the file tree and diff. */
 export interface ReviewPathCounts {
@@ -91,7 +92,7 @@ export interface ReviewDeskProps {
 }
 
 export interface ReviewFixSheetProps {
-  source: ReviewSource;
+  source: ChangeRequestSource;
   selection: ReviewSelection;
   visible: boolean;
   onClose: () => void;

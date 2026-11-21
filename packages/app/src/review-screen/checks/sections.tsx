@@ -14,7 +14,7 @@ import { settingsStyles } from "@/styles/settings";
 import { openExternalUrl } from "@/utils/open-external-url";
 import type { Theme } from "@/styles/theme";
 import { requestReviewFix } from "../agent-actions/fix-request";
-import type { ReviewJumpTo, ReviewSelection, ReviewSource } from "../types";
+import type { ReviewJumpTo, ReviewSelection, ChangeRequestSource } from "../types";
 import {
   isAttention,
   useReviewCheckDetails,
@@ -42,7 +42,7 @@ export function CheckSections({
   onSelectionChange,
   onJumpTo,
 }: {
-  source: ReviewSource;
+  source: ChangeRequestSource;
   sections: readonly ReviewCheckSection[];
   selection: ReviewSelection;
   onSelectionChange: (next: ReviewSelection) => void;
@@ -73,7 +73,7 @@ function SectionBlock({
   onSelectionChange,
   onJumpTo,
 }: {
-  source: ReviewSource;
+  source: ChangeRequestSource;
   section: ReviewCheckSection;
   first: boolean;
   selection: ReviewSelection;
@@ -119,7 +119,7 @@ function GroupRow({
   onSelectionChange,
   onJumpTo,
 }: {
-  source: ReviewSource;
+  source: ChangeRequestSource;
   group: ReviewCheckGroup;
   selection: ReviewSelection;
   onSelectionChange: (next: ReviewSelection) => void;
@@ -182,7 +182,7 @@ function CheckRow({
   onSelectionChange,
   onJumpTo,
 }: {
-  source: ReviewSource;
+  source: ChangeRequestSource;
   check: ReviewCheck;
   selection: ReviewSelection;
   onSelectionChange: (next: ReviewSelection) => void;
@@ -300,7 +300,7 @@ function CheckDetails({
   check,
   onJumpTo,
 }: {
-  source: ReviewSource;
+  source: ChangeRequestSource;
   check: ReviewCheck;
   onJumpTo: ReviewJumpTo;
 }) {

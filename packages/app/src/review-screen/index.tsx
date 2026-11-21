@@ -17,6 +17,13 @@ import { useReviewHistory } from "./use-review-history";
 
 const PIMI_BACKGROUND = { "pimi-background": "" };
 
+/** A worktree page survives a change of compare; a pull request page is its identity. */
+function pageKey(source: ReviewSource): string {
+  return source.kind === "checkout"
+    ? `checkout|${source.serverId}|${source.cwd}`
+    : JSON.stringify(source);
+}
+
 function modeOf(source: ReviewSource): ReviewMode {
   return source.kind === "checkout" ? "worktrees" : "pull_requests";
 }
@@ -72,7 +79,7 @@ export function ReviewScreen({
   if (source) {
     body = (
       <ReviewDetail
-        key={JSON.stringify(source)}
+        key={pageKey(source)}
         source={source}
         tab={current.tab}
         navigation={navigation}

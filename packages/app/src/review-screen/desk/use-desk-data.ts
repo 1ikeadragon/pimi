@@ -1,12 +1,9 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// Data for the Files tab: the file list of one change request, forge threads for the markers,
-// and the rule that picks continuous scroll or single-file mode from the list's totals.
+// Data the Files tab shares between sources: forge threads for the markers, the rule that picks
+// continuous scroll or single-file mode from the totals, and the patch-less file stand-in.
 import { useMemo } from "react";
 import type { ChangeRequestFile, ParsedDiffFile } from "@pimi/protocol/messages";
-import { useFetchQuery } from "@/data/query";
-import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import type { ChangeRequestSource, ReviewCountsByPath } from "../types";
-import { filesQuery, type DeskFileList } from "../queries";
 import { useReviewTimeline } from "../use-review-timeline";
 
 /**
@@ -18,42 +15,12 @@ const CONTINUOUS_LIMITS = {
   compact: { files: 50, patchBytes: 1024 * 1024 },
 } as const;
 
-export type { DeskFileList };
-
-export type DeskFilesState =
-  | { status: "loading" }
-  | { status: "error"; message: string; retry: () => void }
-  | { status: "ready"; list: DeskFileList; refresh: () => void };
-
-export function useDeskFiles(source: ChangeRequestSource): DeskFilesState {
-  const client = useHostRuntimeClient(source.serverId);
-  const isConnected = useHostRuntimeIsConnected(source.serverId);
-  const query = useFetchQuery({
-    ...filesQuery(source, client),
-    enabled: Boolean(client) && isConnected,
-  });
-  const { refetch } = query;
-  return useMemo<DeskFilesState>(() => {
-    if (query.data) return { status: "ready", list: query.data, refresh: () => void refetch() };
-    if (query.error) {
-      return {
-        status: "error",
-        message: describeError(query.error) ?? "",
-        retry: () => void refetch(),
-      };
-    }
-    return { status: "loading" };
-  }, [query.data, query.error, refetch]);
-}
-
-function describeError(error: unknown): string | null {
-  if (!error) return null;
-  return error instanceof Error ? error.message : String(error);
-}
-
-export function chooseDiffMode(list: DeskFileList, isCompact: boolean): "continuous" | "single" {
+export function chooseDiffMode(
+  totals: { totalFiles: number; patchBytesTotal: number },
+  isCompact: boolean,
+): "continuous" | "single" {
   const limits = isCompact ? CONTINUOUS_LIMITS.compact : CONTINUOUS_LIMITS.full;
-  return list.totalFiles <= limits.files && list.patchBytesTotal <= limits.patchBytes
+  return totals.totalFiles <= limits.files && totals.patchBytesTotal <= limits.patchBytes
     ? "continuous"
     : "single";
 }

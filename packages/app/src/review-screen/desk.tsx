@@ -1,70 +1,72 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// The Files tab. A file tree beside the shared `DiffDocument`, fed by
-// `forge.change_request.list_files` (tree first, no patches) and `get_file_diffs` (patches on
-// demand through the LRU cache in `desk/patch-cache.ts`). Small change requests scroll as one
-// document; large ones show a file at a time. Forge threads draw under their lines and the user's
-// own line annotations leave through "Ask in chat" (`desk/ask-in-chat.tsx`).
+// The Files tab. A file tree beside the shared `DiffDocument`, fed by a `FilesModel`: a pull
+// request's file list and on-demand patches, or a worktree's live checkout diff (see
+// `desk/use-files-model.ts`). Small changes scroll as one document; large ones show a file at a
+// time. Forge threads draw under their lines and the user's own line notes leave through "Ask in
+// chat" (`desk/ask-in-chat.tsx`).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { SearchField } from "@/components/ui/search-field";
 import { DiffDocument } from "@/git/diff-document";
 import { DiffDocumentWorkspaceCacheProvider } from "@/git/diff-document/workspace-cache";
-import { orderCheckoutDiffFiles } from "@/git/diff-order";
 import { ReviewCommentSheet } from "@/review";
-import { useHostRuntimeClient } from "@/runtime/host-runtime";
-import { Text } from "react-native";
-import type { ChangeRequestSource, ReviewDeskProps } from "./types";
+import type { ChangeRequestSource, CheckoutSource, ReviewDeskProps, ReviewSource } from "./types";
 import { AskInChat } from "./desk/ask-in-chat";
 import { useDeskCopy } from "./desk/copy";
 import { FileTree } from "./desk/file-tree";
 import { FilesBar } from "./desk/files-bar";
 import { Chip, DetachedThreads } from "./desk/ui";
-import { Notice } from "./notice";
-import {
-  chooseDiffMode,
-  stubFile,
-  useDeskFiles,
-  useDeskThreads,
-  type DeskFileList,
-} from "./desk/use-desk-data";
 import {
   useDeskDisplay,
   useDeskFilter,
   useDeskKeyboard,
   useDeskViewed,
 } from "./desk/use-desk-state";
-import { useDeskPatches } from "./desk/use-patches";
+import {
+  resolveActivePath,
+  useChangeRequestFilesModel,
+  useCheckoutFilesModel,
+  type FilesModel,
+  type FilesView,
+} from "./desk/use-files-model";
 import { useReviewMarkers } from "./desk/use-review-markers";
+import { Notice } from "./notice";
 
 export function ReviewDesk({ source, focus }: ReviewDeskProps) {
-  const copy = useDeskCopy();
-  if (source.kind !== "change_request") {
-    return <Notice text={copy.checkoutUnsupported} />;
-  }
   return (
     <DiffDocumentWorkspaceCacheProvider>
-      <ChangeRequestDesk source={source} focus={focus} />
+      {source.kind === "change_request" ? (
+        <ChangeRequestFiles source={source} focus={focus} />
+      ) : (
+        <CheckoutFiles source={source} focus={focus} />
+      )}
     </DiffDocumentWorkspaceCacheProvider>
   );
 }
 
-function ChangeRequestDesk({
+function ChangeRequestFiles({
   source,
   focus,
 }: {
   source: ChangeRequestSource;
   focus: ReviewDeskProps["focus"];
 }) {
-  const copy = useDeskCopy();
-  const filesState = useDeskFiles(source);
-  if (filesState.status === "loading")
-    return <Notice text={copy.loadingFiles} busy testID="review-desk-notice" />;
-  if (filesState.status === "error") {
-    return <Notice text={`${copy.loadError} ${filesState.message}`} onRetry={filesState.retry} />;
-  }
-  if (filesState.list.files.length === 0) return <Notice text={copy.noFiles} />;
-  return <ReadyDesk source={source} list={filesState.list} focus={focus} />;
+  const view = useFilesView(focus);
+  const model = useChangeRequestFilesModel(source, view.input);
+  return <FilesDesk source={source} model={model} view={view} focus={focus} />;
+}
+
+function CheckoutFiles({
+  source,
+  focus,
+}: {
+  source: CheckoutSource;
+  focus: ReviewDeskProps["focus"];
+}) {
+  const view = useFilesView(focus);
+  const model = useCheckoutFilesModel(source, view.input);
+  return <FilesDesk source={source} model={model} view={view} focus={focus} />;
 }
 
 interface FocusTarget {
@@ -73,9 +75,10 @@ interface FocusTarget {
   seq: number;
 }
 
-/** Which path the document scrolls to, and when; see `useDocumentMode`. */
-function useFocusTarget(paths: readonly string[], focus: ReviewDeskProps["focus"]) {
-  const [activePath, setActivePath] = useState<string>(() => focus?.path ?? paths[0] ?? "");
+/** Which file is active, which one the document scrolls to and when, and the user's mode choice. */
+function useFilesView(focus: ReviewDeskProps["focus"]) {
+  const [activePath, setActivePath] = useState<string>(() => focus?.path ?? "");
+  const [singleOverride, setSingleOverride] = useState(false);
   const [target, setTarget] = useState<FocusTarget | null>(null);
   const [reveal, setReveal] = useState<{ path: string; seq: number } | null>(null);
   const seqRef = useRef(0);
@@ -87,61 +90,91 @@ function useFocusTarget(paths: readonly string[], focus: ReviewDeskProps["focus"
   }, []);
   const moveTo = useCallback((path: string) => jumpTo(path, null), [jumpTo]);
   const selectInTree = useCallback((path: string) => jumpTo(path, null, true), [jumpTo]);
+  const toggleMode = useCallback(() => setSingleOverride((current) => !current), []);
+  const input = useMemo<FilesView>(
+    () => ({ activePath, singleOverride }),
+    [activePath, singleOverride],
+  );
+  return { input, target, reveal, jumpTo, moveTo, selectInTree, toggleMode };
+}
+
+type FilesViewState = ReturnType<typeof useFilesView>;
+
+function FilesDesk({
+  source,
+  model,
+  view,
+  focus,
+}: {
+  source: ReviewSource;
+  model: FilesModel;
+  view: FilesViewState;
+  focus: ReviewDeskProps["focus"];
+}) {
+  const copy = useDeskCopy();
+  const { status } = model;
+  if (status.state === "loading") {
+    return <Notice text={copy.loadingFiles} busy testID="review-desk-notice" />;
+  }
+  if (status.state === "error") {
+    return (
+      <Notice
+        text={`${copy.loadError} ${status.message}`}
+        onRetry={status.retry}
+        testID="review-desk-notice"
+      />
+    );
+  }
+  if (status.state === "empty") {
+    return (
+      <Notice
+        text={model.kind === "checkout" ? copy.noChanges : copy.noFiles}
+        testID="review-desk-notice"
+      />
+    );
+  }
+  return <ReadyDesk source={source} model={model} view={view} focus={focus} />;
+}
+
+function ReadyDesk({
+  source,
+  model,
+  view,
+  focus,
+}: {
+  source: ReviewSource;
+  model: FilesModel;
+  view: FilesViewState;
+  focus: ReviewDeskProps["focus"];
+}) {
+  const copy = useDeskCopy();
+  const display = useDeskDisplay();
+  const { isCompact } = display;
+  const { stubs, loadedFiles, mode, eligibleMode } = model;
+  const paths = useMemo(() => stubs.map((file) => file.path), [stubs]);
+  const activePath = resolveActivePath(paths, view.input.activePath);
+  const { target, reveal, jumpTo, moveTo, selectInTree } = view;
+
+  // A thread or check asked to move: once per request, whichever tab it came from.
   const nonce = focus?.nonce;
   useEffect(() => {
     if (focus && paths.includes(focus.path)) jumpTo(focus.path, focus.line);
     // Keyed on the request's nonce: repeating the same target must still fire.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nonce]);
-  return { activePath, target, reveal, moveTo, selectInTree };
-}
 
-function ReadyDesk({
-  source,
-  list,
-  focus,
-}: {
-  source: ChangeRequestSource;
-  list: DeskFileList;
-  focus: ReviewDeskProps["focus"];
-}) {
-  const copy = useDeskCopy();
-  const client = useHostRuntimeClient(source.serverId);
-  const display = useDeskDisplay();
-  const { isCompact } = display;
-
-  // Tree order is the single order for tree, document and next/previous.
-  const stubs = useMemo(() => orderCheckoutDiffFiles(list.files.map(stubFile)), [list.files]);
-  const paths = useMemo(() => stubs.map((file) => file.path), [stubs]);
-  const blobByPath = useMemo(
-    () => new Map(list.files.map((file) => [file.path, file.blobSha])),
-    [list.files],
-  );
-  const eligibleMode = chooseDiffMode(list, isCompact);
-  const [singleOverride, setSingleOverride] = useState(false);
-  const mode = eligibleMode === "single" || singleOverride ? "single" : "continuous";
-  const toggleMode = useCallback(() => setSingleOverride((current) => !current), []);
-
-  const { activePath, target, reveal, moveTo, selectInTree } = useFocusTarget(paths, focus);
-  const patches = useDeskPatches({
-    client,
-    source,
-    headSha: list.headSha,
-    stubs,
-    mode,
-    activePath,
+  const markers = useReviewMarkers({
+    reviewDraftKey: model.draftKey,
+    threads: model.threads.threads,
+    loadedFiles,
   });
-  const { loadedFiles } = patches;
-
-  const threads = useDeskThreads(source);
-  const markers = useReviewMarkers({ source, threads: threads.threads, loadedFiles });
   const unresolvedByPath = useMemo(() => {
     const out = new Map<string, number>();
-    for (const [path, count] of threads.counts) out.set(path, count.unresolved);
+    for (const [path, count] of model.threads.counts) out.set(path, count.unresolved);
     return out;
-  }, [threads.counts]);
+  }, [model.threads.counts]);
 
-  const { viewedPaths, toggleViewed } = useDeskViewed(source, paths, blobByPath);
+  const { viewedPaths, toggleViewed } = useDeskViewed(model.reviewKey, paths, model.viewedKeyFor);
   const filter = useDeskFilter({ stubs, viewedPaths, unresolvedByPath });
   useDeskKeyboard({ paths, activePath, onMove: moveTo, onToggleViewed: toggleViewed });
 
@@ -231,18 +264,18 @@ function ReadyDesk({
           canSplit={display.canSplit}
           layout={display.layout}
           onShowFiles={showTree}
-          onToggleMode={toggleMode}
+          onToggleMode={view.toggleMode}
           onToggleLayout={display.toggleLayout}
         />
         {eligibleMode === "single" ? (
-          <Text style={styles.note}>{copy.singleFileNote(list.totalFiles)}</Text>
+          <Text style={styles.note}>{copy.singleFileNote(model.totalFiles)}</Text>
         ) : null}
-        {threads.error ? <Text style={styles.note}>{copy.threadsFailed}</Text> : null}
+        {model.threads.error ? <Text style={styles.note}>{copy.threadsFailed}</Text> : null}
+        {model.diffTooLarge ? <Text style={styles.note}>{copy.diffTooLarge}</Text> : null}
         <DetachedThreads detached={markers.detached} onOpen={openDetached} />
         <View style={styles.document} testID="review-desk-document">
           <DeskBody
-            mode={mode}
-            patches={patches}
+            model={model}
             display={display.displayPreferences}
             documentMode={documentMode}
             collapseState={collapseState}
@@ -254,7 +287,7 @@ function ReadyDesk({
           reviewDraftKey={markers.reviewDraftKey}
           draftCount={markers.draftCount}
           loadedFiles={loadedFiles}
-          baseRef={null}
+          baseRef={model.baseRef}
         />
       </View>
       <ReviewCommentSheet
@@ -268,22 +301,20 @@ function ReadyDesk({
 }
 
 function DeskBody({
-  mode,
-  patches,
+  model,
   display,
   documentMode,
   collapseState,
   activePath,
 }: {
-  mode: "continuous" | "single";
-  patches: ReturnType<typeof useDeskPatches>;
+  model: FilesModel;
   display: React.ComponentProps<typeof DiffDocument>["displayPreferences"];
   documentMode: Extract<React.ComponentProps<typeof DiffDocument>["mode"], { kind: "working" }>;
   collapseState: { paths: readonly string[]; onChange: (paths: string[]) => void };
   activePath: string;
 }) {
   const copy = useDeskCopy();
-  const { loadedFiles, documentFiles, activeEntry, retryActive } = patches;
+  const { mode, loadedFiles, documentFiles, activeEntry, retryActive } = model;
   if (mode === "single" && !loadedFiles.has(activePath)) {
     if (activeEntry?.state === "failed") {
       return <Notice text={`${copy.patchFailed} ${activeEntry.message}`} onRetry={retryActive} />;

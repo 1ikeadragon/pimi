@@ -37,7 +37,7 @@ import {
   type ChangeRequestOverview,
   type ChangeRequestStatus,
 } from "./queries";
-import type { ChangeRequestSource, ReviewCountsByPath, ReviewSource } from "./types";
+import type { ChangeRequestSource, CheckoutSource, ReviewCountsByPath } from "./types";
 
 type Overview = ChangeRequestOverview;
 type TimelineItem = ForgeChangeRequestGetTimelineResponse["payload"]["items"][number];
@@ -104,7 +104,7 @@ export interface ReviewThread {
 }
 
 export interface ReviewTimeline {
-  /** The change request the data belongs to; null while a checkout's branch PR is unresolved. */
+  /** The change request the data belongs to. */
   ref: ChangeRequestSource | null;
   overview: Overview | null;
   /** Review decision and checks; arrives after the overview and never blocks it. */
@@ -128,8 +128,6 @@ export interface ReviewTimeline {
   error: Error | null;
   threadsError: Error | null;
   threadsTruncated: boolean;
-  /** Why a checkout source has no change request, when it does not. */
-  noChangeRequest: boolean;
   refresh: () => void;
 }
 
@@ -144,24 +142,19 @@ function toError(error: { message: string } | null | undefined, fallback: string
   return new Error(error?.message?.trim() ? error.message : fallback);
 }
 
-/** The change request behind a source: itself, or the PR the checked-out branch has. */
-function useChangeRequestRef(source: ReviewSource): {
+/** The pull request the checked-out branch of a worktree has, when it has one. */
+export function useCheckoutChangeRequest(source: CheckoutSource | null): {
   ref: ChangeRequestSource | null;
-  noChangeRequest: boolean;
   resolving: boolean;
 } {
-  const isCheckout = source.kind === "checkout";
   const pr = useCheckoutPrStatusQuery({
-    serverId: source.serverId,
-    cwd: source.kind === "checkout" ? source.cwd : "",
-    enabled: isCheckout,
+    serverId: source?.serverId ?? "",
+    cwd: source?.cwd ?? "",
+    enabled: source !== null,
   });
   return useMemo(() => {
-    if (source.kind === "change_request") {
-      return { ref: source, noChangeRequest: false, resolving: false };
-    }
     const status = pr.status;
-    if (status?.number && status.repoOwner && status.repoName && status.url) {
+    if (source && status?.number && status.repoOwner && status.repoName && status.url) {
       try {
         const forgeHost = new URL(status.url).hostname.toLowerCase();
         return {
@@ -173,14 +166,13 @@ function useChangeRequestRef(source: ReviewSource): {
             name: status.repoName,
             number: status.number,
           },
-          noChangeRequest: false,
           resolving: false,
         };
       } catch {
         // A status URL that does not parse has no identity to read.
       }
     }
-    return { ref: null, noChangeRequest: !pr.isLoading, resolving: pr.isLoading };
+    return { ref: null, resolving: source !== null && pr.isLoading };
   }, [pr.isLoading, pr.status, source]);
 }
 
@@ -195,14 +187,13 @@ function readState(input: {
   status: ReadResult;
   timeline: ReadResult;
   enabled: boolean;
-  resolving: boolean;
   offline: boolean;
 }) {
-  const { overview, status, timeline, enabled, resolving, offline } = input;
+  const { overview, status, timeline, enabled, offline } = input;
   const refetching = (read: ReadResult) => read.isFetching && !read.isPending;
   return {
-    isLoading: resolving || (enabled && overview.isPending),
-    checksLoading: resolving || (enabled && status.isPending),
+    isLoading: enabled && overview.isPending,
+    checksLoading: enabled && status.isPending,
     threadsLoading: enabled && timeline.isPending,
     isRefreshing: refetching(overview) || refetching(status) || refetching(timeline),
     error:
@@ -212,12 +203,11 @@ function readState(input: {
 }
 
 export function useReviewTimeline(
-  source: ReviewSource,
+  ref: ChangeRequestSource | null,
   options: UseReviewTimelineOptions = {},
 ): ReviewTimeline {
-  const { ref, noChangeRequest, resolving } = useChangeRequestRef(source);
-  const client = useHostRuntimeClient(source.serverId);
-  const isConnected = useHostRuntimeIsConnected(source.serverId);
+  const client = useHostRuntimeClient(ref?.serverId ?? "");
+  const isConnected = useHostRuntimeIsConnected(ref?.serverId ?? "");
   const enabled = !!client && isConnected && ref !== null;
   const overviewResult = useFetchQuery({ ...overviewQuery(ref, client), enabled });
   const statusResult = useFetchQuery({ ...statusQuery(ref, client), enabled });
@@ -312,12 +302,10 @@ export function useReviewTimeline(
       status: statusResult,
       timeline: timelineResult,
       enabled,
-      resolving,
       offline: ref !== null && !isConnected,
     }),
     checksError: status?.checksError ?? statusResult.error?.message ?? null,
     threadsTruncated: timelineResult.data?.truncated ?? false,
-    noChangeRequest,
     refresh,
   };
 }
@@ -341,9 +329,12 @@ export async function fetchCheckDetails(
 }
 
 /** Details of one check, read when `enabled` (an expanded failing row, or the Fix sheet). */
-export function useReviewCheckDetails(source: ReviewSource, check: ReviewCheck, enabled: boolean) {
-  const { ref } = useChangeRequestRef(source);
-  const client = useHostRuntimeClient(source.serverId);
+export function useReviewCheckDetails(
+  ref: ChangeRequestSource,
+  check: ReviewCheck,
+  enabled: boolean,
+) {
+  const client = useHostRuntimeClient(ref.serverId);
   return useFetchQuery({
     ...SHARED,
     queryKey: ref ? reviewKeys.checkDetails(ref, check) : ["reviewCheckDetails", "none"],
@@ -353,9 +344,8 @@ export function useReviewCheckDetails(source: ReviewSource, check: ReviewCheck, 
 }
 
 /** Refresh-free read for code that is not a component, e.g. the Fix sheet's confirm handler. */
-export function useFetchReviewCheckDetails(source: ReviewSource) {
-  const { ref } = useChangeRequestRef(source);
-  const client = useHostRuntimeClient(source.serverId);
+export function useFetchReviewCheckDetails(ref: ChangeRequestSource) {
+  const client = useHostRuntimeClient(ref.serverId);
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (check: ReviewCheck) =>

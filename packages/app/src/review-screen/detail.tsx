@@ -1,21 +1,30 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// A pull request or worktree page: bar, header with tabs, and the tab body at full width. It owns
-// the one read of the pull request (`useReviewTimeline`), the Fix-selected checks, the focus
-// request a thread or check sends to the Files tab, and the Fix sheet.
+// A pull request page or a worktree page: bar, header with tabs, and the tab body at full width.
+// The pull request page owns the one read of the pull request (`useReviewTimeline`), the
+// Fix-selected checks, the focus request a thread or check sends to the Files tab, and the Fix
+// sheet. The worktree page is the Files tab alone, with a link to the branch's pull request.
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { StyleSheet } from "react-native-unistyles";
 import { getForgePresentation } from "@/git/forge";
+import { checkoutPrStatusQueryKey, checkoutStatusQueryKey } from "@/git/query-keys";
 import { ReviewFixSheet } from "./agent-actions/fix-sheet";
 import { ReviewChecks } from "./checks";
 import { ReviewCommits } from "./commits";
 import { ReviewConversation } from "./conversation";
 import { ReviewDesk } from "./desk";
-import { ReviewDetailBar, ReviewDetailHeader } from "./header";
+import {
+  ReviewDetailBar,
+  ReviewPullRequestHeader,
+  ReviewWorktreeHeader,
+  useWorktreeHeader,
+} from "./header";
 import { invalidateChangeRequest, reviewKeys } from "./queries";
 import {
   EMPTY_REVIEW_SELECTION,
+  type ChangeRequestSource,
+  type CheckoutSource,
   type ReviewDetailTab,
   type ReviewJumpTo,
   type ReviewNavigation,
@@ -36,9 +45,26 @@ export function ReviewDetail({
   navigation: ReviewNavigation;
   onHome: () => void;
 }) {
-  const changeRequest = source.kind === "change_request" ? source : null;
+  return source.kind === "change_request" ? (
+    <PullRequestPage source={source} tab={tab} navigation={navigation} onHome={onHome} />
+  ) : (
+    <WorktreePage source={source} navigation={navigation} onHome={onHome} />
+  );
+}
+
+function PullRequestPage({
+  source,
+  tab,
+  navigation,
+  onHome,
+}: {
+  source: ChangeRequestSource;
+  tab: ReviewDetailTab;
+  navigation: ReviewNavigation;
+  onHome: () => void;
+}) {
   const timeline = useReviewTimeline(source);
-  const seed = useInboxSeed(changeRequest);
+  const seed = useInboxSeed(source);
   const [selection, setSelection] = useState<ReviewSelection>(EMPTY_REVIEW_SELECTION);
   const [focus, setFocus] = useState<{ path: string; line: number | null; nonce: number } | null>(
     null,
@@ -46,8 +72,6 @@ export function ReviewDetail({
   const [fixOpen, setFixOpen] = useState(false);
   const closeFixSheet = useCallback(() => setFixOpen(false), []);
   const { push } = navigation;
-  // A worktree page has one tab; a stale tab from the pull request it replaced would show nothing.
-  const activeTab: ReviewDetailTab = source.kind === "checkout" ? "files" : tab;
 
   const onTabChange = useCallback((next: ReviewDetailTab) => push({ tab: next }), [push]);
   const onOpenChecks = useCallback(() => push({ tab: "checks" }), [push]);
@@ -60,13 +84,11 @@ export function ReviewDetail({
   );
 
   const queryClient = useQueryClient();
-  const ref = timeline.ref;
   const refresh = useCallback(() => {
-    if (!ref) return;
-    void invalidateChangeRequest(queryClient, ref);
-    void queryClient.invalidateQueries({ queryKey: reviewKeys.files(ref) });
+    void invalidateChangeRequest(queryClient, source);
+    void queryClient.invalidateQueries({ queryKey: reviewKeys.files(source) });
     void queryClient.invalidateQueries({ queryKey: ["reviewCheckDetails"] });
-  }, [queryClient, ref]);
+  }, [queryClient, source]);
 
   const url = timeline.overview?.url ?? seed?.url ?? null;
   const brandLabel = getForgePresentation(timeline.forge).brandLabel;
@@ -75,6 +97,7 @@ export function ReviewDetail({
     <View style={styles.detail} testID="review-detail">
       <ReviewDetailBar
         source={source}
+        identity={`${source.owner}/${source.name} #${source.number}`}
         navigation={navigation}
         onHome={onHome}
         url={url}
@@ -82,19 +105,18 @@ export function ReviewDetail({
         onRefresh={refresh}
         refreshing={timeline.isRefreshing}
       />
-      <ReviewDetailHeader
-        source={source}
-        tab={activeTab}
+      <ReviewPullRequestHeader
+        tab={tab}
         onTabChange={onTabChange}
         timeline={timeline}
         seed={seed}
       />
       <View style={styles.body}>
-        {activeTab === "conversation" ? (
+        {tab === "conversation" ? (
           <ReviewConversation timeline={timeline} onJumpTo={onJumpTo} onOpenChecks={onOpenChecks} />
         ) : null}
-        {activeTab === "commits" && changeRequest ? <ReviewCommits source={changeRequest} /> : null}
-        {activeTab === "checks" ? (
+        {tab === "commits" ? <ReviewCommits source={source} /> : null}
+        {tab === "checks" ? (
           <ReviewChecks
             source={source}
             timeline={timeline}
@@ -103,7 +125,7 @@ export function ReviewDetail({
             onJumpTo={onJumpTo}
           />
         ) : null}
-        {activeTab === "files" ? <ReviewDesk source={source} focus={focus} /> : null}
+        {tab === "files" ? <ReviewDesk source={source} focus={focus} /> : null}
       </View>
       <ReviewFixSheet
         source={source}
@@ -111,6 +133,61 @@ export function ReviewDetail({
         visible={fixOpen}
         onClose={closeFixSheet}
       />
+    </View>
+  );
+}
+
+function WorktreePage({
+  source,
+  navigation,
+  onHome,
+}: {
+  source: CheckoutSource;
+  navigation: ReviewNavigation;
+  onHome: () => void;
+}) {
+  const worktree = useWorktreeHeader(source);
+  const { push } = navigation;
+  // Each compare is its own history entry, so back steps through them.
+  const onCompareChange = useCallback(
+    (mode: CheckoutSource["compare"]["mode"]) =>
+      push({ source: { ...source, compare: { ...source.compare, mode } } }),
+    [push, source],
+  );
+  const onOpenPullRequest = useCallback(
+    (ref: ChangeRequestSource) => push({ source: ref, tab: "conversation", path: null }),
+    [push],
+  );
+  const queryClient = useQueryClient();
+  // The diff and status are pushed; refreshing re-reads them, and the branch's pull request.
+  const { serverId, cwd } = source;
+  const refresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: checkoutStatusQueryKey(serverId, cwd) });
+    void queryClient.invalidateQueries({ queryKey: checkoutPrStatusQueryKey(serverId, cwd) });
+    void queryClient.invalidateQueries({ queryKey: ["checkoutDiff", serverId, cwd] });
+  }, [cwd, queryClient, serverId]);
+  if (!worktree) return null;
+  return (
+    <View style={styles.detail} testID="review-detail">
+      <ReviewDetailBar
+        source={source}
+        identity={worktree.title}
+        navigation={navigation}
+        onHome={onHome}
+        url={null}
+        brandLabel=""
+        onRefresh={refresh}
+        refreshing={false}
+      />
+      <ReviewWorktreeHeader
+        source={source}
+        worktree={worktree}
+        onCompareChange={onCompareChange}
+        onOpenPullRequest={onOpenPullRequest}
+      />
+      <View style={styles.body}>
+        <ReviewDesk source={source} focus={null} />
+      </View>
     </View>
   );
 }

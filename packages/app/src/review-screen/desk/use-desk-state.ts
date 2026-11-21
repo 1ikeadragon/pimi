@@ -8,8 +8,7 @@ import { resolveDiffLayout } from "@/git/diff-pane";
 import { useChangesPreferences } from "@/hooks/use-changes-preferences";
 import { useAppSettings } from "@/hooks/use-settings";
 import type { ParsedDiffFile } from "@pimi/protocol/messages";
-import type { ChangeRequestSource } from "../types";
-import { reviewKeyOf, useViewedStore } from "./viewed-store";
+import { useViewedStore } from "./viewed-store";
 
 export function useDeskDisplay() {
   const isCompact = useIsCompactFormFactor();
@@ -32,25 +31,30 @@ export function useDeskDisplay() {
   return { isCompact, canSplit, layout: preferences.layout, displayPreferences, toggleLayout };
 }
 
+/**
+ * Viewed marks of one review. A mark is the file's `viewedKeyFor` value at the time it was set, so
+ * a file that changed since reads as unviewed while every other file keeps its mark. The key is
+ * computed only for files that have a mark, and on toggle.
+ */
 export function useDeskViewed(
-  source: ChangeRequestSource,
+  reviewKey: string,
   paths: readonly string[],
-  blobByPath: ReadonlyMap<string, string>,
+  viewedKeyFor: (path: string) => string | null,
 ) {
-  const reviewKey = reviewKeyOf(source);
   const marks = useViewedStore((state) => state.marks[reviewKey]);
   const toggleMark = useViewedStore((state) => state.toggle);
   const viewedPaths = useMemo(() => {
     const out = new Set<string>();
+    if (!marks) return out;
     for (const path of paths) {
-      const mark = marks?.[path];
-      if (mark !== undefined && mark === blobByPath.get(path)) out.add(path);
+      const mark = marks[path];
+      if (mark !== undefined && mark === viewedKeyFor(path)) out.add(path);
     }
     return out;
-  }, [blobByPath, marks, paths]);
+  }, [marks, paths, viewedKeyFor]);
   const toggleViewed = useCallback(
-    (path: string) => toggleMark(reviewKey, path, blobByPath.get(path) ?? ""),
-    [blobByPath, reviewKey, toggleMark],
+    (path: string) => toggleMark(reviewKey, path, viewedKeyFor(path) ?? ""),
+    [reviewKey, toggleMark, viewedKeyFor],
   );
   return { viewedPaths, toggleViewed };
 }

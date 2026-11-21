@@ -41,7 +41,7 @@ export function useDeskPatches(input: {
   const activeIndex = Math.max(0, paths.indexOf(activePath));
 
   useEffect(() => {
-    if (!client) return;
+    if (!client || paths.length === 0) return;
     const window = paths.slice(Math.max(0, activeIndex - 1), activeIndex + 1 + PREFETCH_AHEAD);
     const wanted = mode === "continuous" ? paths : window;
     // The active file goes first so the first diff paints before the rest of the batch queue.

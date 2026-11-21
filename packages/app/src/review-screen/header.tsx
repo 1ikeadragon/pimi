@@ -39,9 +39,23 @@ import type { Theme } from "@/styles/theme";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { StateChip } from "./chips";
 import { reviewKeys, markInboxRefresh, type ChangeRequestOverview } from "./queries";
-import type { ReviewDetailTab, ReviewMode, ReviewNavigation, ReviewSource } from "./types";
+import type {
+  ChangeRequestSource,
+  CheckoutSource,
+  ReviewDetailTab,
+  ReviewMode,
+  ReviewNavigation,
+  ReviewSource,
+} from "./types";
 import type { InboxItem } from "./use-inbox";
-import type { ReviewCheckSection, ReviewTimeline } from "./use-review-timeline";
+import {
+  useCheckoutChangeRequest,
+  type ReviewCheckSection,
+  type ReviewTimeline,
+} from "./use-review-timeline";
+import { useCheckoutDiff } from "./desk/use-files-model";
+import { prefetchChangeRequest } from "./queries";
+import { getHostRuntimeStore } from "@/runtime/host-runtime";
 
 const ThemedChevronLeft = withUnistyles(ChevronLeft);
 const ThemedChevronRight = withUnistyles(ChevronRight);
@@ -205,6 +219,7 @@ export function ReviewHomeBar({
 
 export function ReviewDetailBar({
   source,
+  identity,
   navigation,
   onHome,
   url,
@@ -213,6 +228,8 @@ export function ReviewDetailBar({
   refreshing,
 }: {
   source: ReviewSource;
+  /** `owner/name #n` for a pull request, the workspace name for a worktree. */
+  identity: string;
   navigation: ReviewNavigation;
   onHome: () => void;
   /** The pull request's page on its forge, once the overview has answered. */
@@ -224,10 +241,6 @@ export function ReviewDetailBar({
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
   const toast = useToast();
-  const identity =
-    source.kind === "change_request"
-      ? `${source.owner}/${source.name} #${source.number}`
-      : worktreeName(source.cwd);
   const homeLabel =
     source.kind === "change_request" ? t("reviewScreen.pullRequests") : t("reviewScreen.worktrees");
   const openOnForge = useCallback(() => {
@@ -307,12 +320,150 @@ export function ReviewDetailBar({
   );
 }
 
-function worktreeName(cwd: string): string {
+// ---- worktree header ----
+
+export interface WorktreeHeader {
+  title: string;
+  branch: string | null;
+  baseRef: string | null;
+  /** From the loaded diff; null until it has arrived. */
+  stat: { additions: number; deletions: number; files: number } | null;
+  /** The pull request the checked-out branch has, if it has one. */
+  pullRequest: ChangeRequestSource | null;
+}
+
+export function worktreeNameOf(cwd: string): string {
   return (
     cwd
       .replace(/[\\/]+$/, "")
       .split(/[\\/]/)
       .pop() || cwd
+  );
+}
+
+/** What a worktree page's header shows: all of it reads caches the Files tab fills. */
+export function useWorktreeHeader(source: CheckoutSource | null): WorktreeHeader | null {
+  const { gitStatus, baseRef, workspace, diff } = useCheckoutDiff(source);
+  const { ref } = useCheckoutChangeRequest(source);
+  const stat = useMemo(() => {
+    if (diff.isLoading || diff.payloadError) return null;
+    let additions = 0;
+    let deletions = 0;
+    for (const file of diff.files) {
+      additions += file.additions;
+      deletions += file.deletions;
+    }
+    return { additions, deletions, files: diff.files.length };
+  }, [diff.files, diff.isLoading, diff.payloadError]);
+  if (!source) return null;
+  const branch =
+    gitStatus?.currentBranch && gitStatus.currentBranch !== "HEAD" ? gitStatus.currentBranch : null;
+  return {
+    title: workspace?.title || workspace?.name || worktreeNameOf(source.cwd),
+    branch,
+    baseRef: baseRef?.replace(/^refs\/(?:heads|remotes)\//, "") ?? null,
+    stat,
+    pullRequest: ref,
+  };
+}
+
+export function ReviewWorktreeHeader({
+  source,
+  worktree,
+  onCompareChange,
+  onOpenPullRequest,
+}: {
+  source: CheckoutSource;
+  worktree: WorktreeHeader;
+  onCompareChange: (mode: CheckoutSource["compare"]["mode"]) => void;
+  onOpenPullRequest: (ref: ChangeRequestSource) => void;
+}) {
+  const { t } = useTranslation();
+  const isCompact = useIsCompactFormFactor();
+  const options = useMemo<SegmentedControlOption<CheckoutSource["compare"]["mode"]>[]>(
+    () => [
+      {
+        value: "uncommitted",
+        label: t("reviewScreen.compareUncommitted"),
+        testID: "review-compare-uncommitted",
+      },
+      { value: "base", label: t("reviewScreen.compareBase"), testID: "review-compare-base" },
+      { value: "all", label: t("reviewScreen.compareAll"), testID: "review-compare-all" },
+    ],
+    [t],
+  );
+  const queryClient = useQueryClient();
+  const pullRequest = worktree.pullRequest;
+  const openPullRequest = useCallback(() => {
+    if (!pullRequest) return;
+    prefetchChangeRequest(
+      queryClient,
+      getHostRuntimeStore().getClient(pullRequest.serverId),
+      pullRequest,
+    );
+    onOpenPullRequest(pullRequest);
+  }, [onOpenPullRequest, pullRequest, queryClient]);
+  const tabs: DetailTabSpec[] = [
+    {
+      tab: "files",
+      label: t("reviewScreen.tabFiles"),
+      count: worktree.stat ? String(worktree.stat.files) : "",
+    },
+  ];
+  const branches =
+    worktree.branch && worktree.baseRef
+      ? `${worktree.branch} → ${worktree.baseRef}`
+      : worktree.branch;
+  const noop = useCallback(() => {}, []);
+  return (
+    <View style={isCompact ? styles.headerCompact : styles.header} testID="review-detail-header">
+      <Text style={styles.title} numberOfLines={2} testID="review-detail-title">
+        {worktree.title}
+      </Text>
+      <View style={styles.worktreeMeta}>
+        <View style={styles.metaRow}>
+          {branches ? (
+            <Text style={styles.sentenceText} numberOfLines={1}>
+              {branches}
+            </Text>
+          ) : (
+            <View style={styles.spacer} />
+          )}
+          {pullRequest ? (
+            <PressHighlight
+              onPress={openPullRequest}
+              accessibilityRole="link"
+              style={styles.prChip}
+              testID="review-worktree-pr"
+            >
+              <StatusBadge
+                variant="success"
+                size="xs"
+                label={t("reviewScreen.pullRequestChip", { number: pullRequest.number })}
+              />
+            </PressHighlight>
+          ) : null}
+        </View>
+        <View style={styles.metaRow}>
+          <SegmentedControl
+            options={options}
+            value={source.compare.mode}
+            onValueChange={onCompareChange}
+            size="sm"
+            appearance="track"
+            accessibilityLabel={t("reviewScreen.compareLabel")}
+            testID="review-compare"
+          />
+          <View style={styles.spacer} />
+          <View style={styles.diffstat}>
+            {worktree.stat ? (
+              <DiffStat additions={worktree.stat.additions} deletions={worktree.stat.deletions} />
+            ) : null}
+          </View>
+        </View>
+      </View>
+      <TabRow tabs={tabs} tab="files" onTabChange={noop} scrollable={false} />
+    </View>
   );
 }
 
@@ -339,14 +490,12 @@ function worstCheckSection(sections: readonly ReviewCheckSection[]) {
   return null;
 }
 
-export function ReviewDetailHeader({
-  source,
+export function ReviewPullRequestHeader({
   tab,
   onTabChange,
   timeline,
   seed,
 }: {
-  source: ReviewSource;
   tab: ReviewDetailTab;
   onTabChange: (tab: ReviewDetailTab) => void;
   timeline: ReviewTimeline;
@@ -357,39 +506,34 @@ export function ReviewDetailHeader({
   const isCompact = useIsCompactFormFactor();
   const overview = timeline.overview;
   const head: Head | null = overview ?? seed;
-  const isWorktree = source.kind === "checkout";
 
-  const tabs: DetailTabSpec[] = isWorktree
-    ? [{ tab: "files", label: t("reviewScreen.tabFiles") }]
-    : [
-        {
-          tab: "conversation",
-          label: t("reviewScreen.tabConversation"),
-          count: timeline.threadsLoading ? "" : String(commentCount(timeline)),
-        },
-        {
-          tab: "commits",
-          label: t("reviewScreen.tabCommits"),
-          count: overview ? String(overview.commitCount) : "",
-        },
-        {
-          tab: "checks",
-          label: t("reviewScreen.tabChecks"),
-          count: (
-            <ChecksTabCount loading={timeline.checksLoading} sections={timeline.checkSections} />
-          ),
-        },
-        {
-          tab: "files",
-          label: t("reviewScreen.tabFiles"),
-          count: overview ? String(overview.changedFiles) : "",
-        },
-      ];
+  const tabs: DetailTabSpec[] = [
+    {
+      tab: "conversation",
+      label: t("reviewScreen.tabConversation"),
+      count: timeline.threadsLoading ? "" : String(commentCount(timeline)),
+    },
+    {
+      tab: "commits",
+      label: t("reviewScreen.tabCommits"),
+      count: overview ? String(overview.commitCount) : "",
+    },
+    {
+      tab: "checks",
+      label: t("reviewScreen.tabChecks"),
+      count: <ChecksTabCount loading={timeline.checksLoading} sections={timeline.checkSections} />,
+    },
+    {
+      tab: "files",
+      label: t("reviewScreen.tabFiles"),
+      count: overview ? String(overview.changedFiles) : "",
+    },
+  ];
 
   return (
     <View style={isCompact ? styles.headerCompact : styles.header} testID="review-detail-header">
-      <HeaderTitle source={source} head={head} failed={timeline.error !== null && !head} />
-      {isWorktree ? null : <HeaderMetaOrSkeleton head={head} overview={overview} />}
+      <HeaderTitle head={head} failed={timeline.error !== null && !head} />
+      <HeaderMetaOrSkeleton head={head} overview={overview} />
       <TabRow tabs={tabs} tab={tab} onTabChange={onTabChange} scrollable={isCompact} />
     </View>
   );
@@ -405,24 +549,9 @@ function commentCount(timeline: ReviewTimeline): number {
   return count;
 }
 
-function HeaderTitle({
-  source,
-  head,
-  failed,
-}: {
-  source: ReviewSource;
-  head: Head | null;
-  failed: boolean;
-}) {
+function HeaderTitle({ head, failed }: { head: Head | null; failed: boolean }) {
   const { t } = useTranslation();
   const pulse = useSkeletonPulse();
-  if (source.kind === "checkout") {
-    return (
-      <Text style={styles.title} numberOfLines={2} testID="review-detail-title">
-        {worktreeName(source.cwd)}
-      </Text>
-    );
-  }
   if (head) {
     return (
       <Text style={styles.title} numberOfLines={2} testID="review-detail-title">
@@ -693,6 +822,8 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[2],
   },
   metaCompact: { gap: theme.spacing[1] },
+  worktreeMeta: { gap: theme.spacing[2] },
+  prChip: { borderRadius: theme.borderRadius.full },
   sentenceText: {
     flex: 1,
     minWidth: 0,

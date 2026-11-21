@@ -15,6 +15,7 @@ import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/s
 import { SkeletonPulse, useSkeletonPulse } from "@/components/ui/skeleton";
 import { DiffStat } from "@/components/diff-stat";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { resolveWorkingDiffComparison } from "@/git/working-diff-comparison";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { useWorkspace, useWorkspaceKeys } from "@/stores/session-store-hooks";
 import type { Theme } from "@/styles/theme";
@@ -378,9 +379,13 @@ function WorktreeRow({
 }) {
   const workspace = useWorkspace(serverId, workspaceKey);
   const cwd = workspace?.workspaceDirectory ?? null;
+  const workspaceId = workspace?.id;
   const handlePress = useCallback(() => {
-    if (cwd) onOpen({ kind: "checkout", serverId, cwd, compare: { mode: "base" } });
-  }, [onOpen, serverId, cwd]);
+    if (!cwd) return;
+    // Opens on the comparison the chat Changes pane shows for this worktree.
+    const mode = resolveWorkingDiffComparison({ serverId, workspaceId, cwd });
+    onOpen({ kind: "checkout", serverId, cwd, compare: { mode } });
+  }, [onOpen, serverId, cwd, workspaceId]);
   if (!workspace || !cwd) return null;
   const label = workspace.title || workspace.name;
   if (

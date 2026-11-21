@@ -67,12 +67,11 @@ export interface ReviewMarkers {
 }
 
 export function useReviewMarkers(input: {
-  source: ChangeRequestSource;
+  reviewDraftKey: string;
   threads: readonly ForgeThread[];
   loadedFiles: ReadonlyMap<string, ParsedDiffFile>;
 }): ReviewMarkers {
-  const { source, threads, loadedFiles } = input;
-  const reviewDraftKey = useMemo(() => reviewDraftKeyFor(source), [source]);
+  const { reviewDraftKey, threads, loadedFiles } = input;
   const controller = useInlineReviewController({ reviewDraftKey, presentation: "review-desk" });
   const draftCount = useReviewCommentCount(reviewDraftKey);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
