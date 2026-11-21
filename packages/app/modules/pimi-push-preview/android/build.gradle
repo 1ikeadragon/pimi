@@ -1,0 +1,28 @@
+apply plugin: 'com.android.library'
+
+group = 'sh.pimi.pushpreview'
+version = '0.1.0'
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+apply from: expoModulesCorePlugin
+applyKotlinExpoModulesCorePlugin()
+useCoreDependencies()
+useExpoPublishing()
+useDefaultAndroidSdkVersions()
+
+android {
+  namespace "sh.pimi.pushpreview"
+}
+
+dependencies {
+  // expo-notifications ships as a prebuilt artifact, not a Gradle project. Keep the version equal to
+  // the exact pin in packages/app/package.json.
+  implementation 'host.exp.exponent:expo.modules.notifications:57.0.23'
+  // Same pin as expo-notifications, which already ships it in the APK.
+  implementation 'com.google.firebase:firebase-messaging:25.0.1'
+}
+
+// Pin resolved dependency versions in gradle.lockfile. Refresh with --write-locks.
+dependencyLocking {
+  lockAllConfigurations()
+}
