@@ -90,8 +90,6 @@ export interface RegisterDelegateToolOptions {
     handler: (input: DelegateArgs, context: PimiToolExecutionContext) => Promise<PimiToolResult>,
   ) => void;
   callerAgentId: string | undefined;
-  /** Build for the shared manifest of every session's tools, so list it whatever the caller. */
-  manifest?: boolean;
   /** The caller's session leads a crew; unset means read the caller agent's config. */
   crew?: boolean;
   getCallerAgent: () => CallerAgent | null;
@@ -108,11 +106,10 @@ export interface RegisterDelegateToolOptions {
 
 export function registerDelegateTool(options: RegisterDelegateToolOptions): void {
   const { callerAgentId } = options;
-  // A session opening for an agent not registered yet passes `crew`; a live caller is read.
+  // A session opening for an agent not registered yet, or the shared manifest, passes `crew`;
+  // a live caller is read.
   const crew = options.crew ?? options.getCallerAgent()?.config.crew === true;
-  if (!options.manifest && (!callerAgentId || !crew)) {
-    return;
-  }
+  if (!crew) return;
   options.registerTool(
     "delegate",
     {
@@ -130,6 +127,7 @@ export function registerDelegateTool(options: RegisterDelegateToolOptions): void
       },
     },
     async (args, context) => {
+      if (!callerAgentId) throw new PimiToolInputError("Only a crew lead can delegate.");
       const live = options
         .listAgents()
         .filter(

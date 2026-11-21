@@ -232,12 +232,6 @@ export interface PimiToolHostDependencies {
    */
   callerAgentId?: string;
   /**
-   * Builds the shared manifest a provider installs once for every session (OpenCode's bridge
-   * plugin). Tools that only some callers get are included; each session's own catalog still
-   * decides which of them it lists.
-   */
-  manifest?: boolean;
-  /**
    * Optional resolver for session-bound speak handlers.
    * Used by hidden voice agents to narrate through daemon-managed TTS.
    */
@@ -530,8 +524,11 @@ export function createPimiAgentToolManifest(
   options: PimiToolHostDependencies,
 ): Pick<PimiToolCatalog, "tools"> {
   // Plugins register before a caller exists, but every execution uses an agent-bound catalog.
+  // The manifest stands for every session (OpenCode's bridge plugin installs it once), so every
+  // caller-gated tool is in it; each session's own catalog still decides which of them it lists.
+  const everyCaller = { attackRun: true, crew: true, enableVoiceTools: true };
   return {
-    tools: lazyPimiToolCatalog(createToolCatalog({ ...options, manifest: true }, "agent")).tools,
+    tools: lazyPimiToolCatalog(createToolCatalog({ ...options, ...everyCaller }, "agent")).tools,
   };
 }
 
@@ -2044,7 +2041,6 @@ function createToolCatalog(
   registerDelegateTool({
     registerTool,
     callerAgentId,
-    manifest: options.manifest,
     crew: options.crew,
     getCallerAgent: () => (callerAgentId ? agentManager.getAgent(callerAgentId) : null),
     listAgents: () => agentManager.listAgents(),
