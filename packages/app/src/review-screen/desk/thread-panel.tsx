@@ -8,6 +8,8 @@ import { X } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "@/i18n/use-translation";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
+import type { ContextBridge } from "@/components/ui/isolated-bottom-sheet-modal";
+import { ToastApiProvider, useToast } from "@/contexts/toast-api-context";
 import { Button } from "@/components/ui/button";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -15,6 +17,7 @@ import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { requestReviewFix } from "../agent-actions/fix-request";
 import { ThreadComments } from "../conversation/thread-card";
+import { ReviewWriteContext, useReviewWriteContext } from "../write/use-review-writes";
 import { ResolveButton, ThreadReply } from "../write/thread-write";
 import type { ForgeThread } from "./use-desk-data";
 
@@ -136,8 +139,25 @@ export function ThreadSheet({ thread, onClose }: { thread: ForgeThread; onClose:
     [t, thread],
   );
   useCloseOnEscape(true, onClose);
+  // The compact sheet renders in its own portal, where the page's contexts do not reach.
+  const write = useReviewWriteContext();
+  const toast = useToast();
+  const contextBridge = useCallback<ContextBridge>(
+    (content) => (
+      <ToastApiProvider api={toast}>
+        <ReviewWriteContext.Provider value={write}>{content}</ReviewWriteContext.Provider>
+      </ToastApiProvider>
+    ),
+    [toast, write],
+  );
   return (
-    <AdaptiveModalSheet visible onClose={onClose} header={header} testID="review-thread-sheet">
+    <AdaptiveModalSheet
+      visible
+      onClose={onClose}
+      header={header}
+      contextBridge={contextBridge}
+      testID="review-thread-sheet"
+    >
       <ThreadBody thread={thread} />
     </AdaptiveModalSheet>
   );
