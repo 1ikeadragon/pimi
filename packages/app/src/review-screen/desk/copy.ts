@@ -32,7 +32,6 @@ export function useDeskCopy() {
       detached: (count: number) => t("reviewScreen.desk.detached", { count }),
       detachedNoLine: t("reviewScreen.desk.detachedNoLine"),
       detachedOutside: t("reviewScreen.desk.detachedOutside"),
-      detachedHidden: t("reviewScreen.desk.detachedHidden"),
       threadsFailed: t("reviewScreen.desk.threadsFailed"),
       patchFailed: t("reviewScreen.desk.patchFailed"),
     }),

@@ -97,18 +97,27 @@ export function ThreadCard({
       </PressHighlight>
       {folded ? null : (
         <>
-          {entry.comments.map((comment, index) => (
-            <View key={comment.id} style={index === 0 ? styles.comment : styles.reply}>
-              <View style={styles.commentHead}>
-                <ActivityHeader activity={comment} avatarSize={16} />
-              </View>
-              <MarkdownRenderer text={comment.body} compact onLinkPress={onLinkPress} />
-            </View>
-          ))}
+          <ThreadComments entry={entry} />
           <ThreadActions entry={entry} brandLabel={brandLabel} onJumpTo={onJumpTo} />
         </>
       )}
     </View>
+  );
+}
+
+/** Every comment of a thread in order, in full. */
+export function ThreadComments({ entry }: { entry: PrThreadEntry }) {
+  return (
+    <>
+      {entry.comments.map((comment, index) => (
+        <View key={comment.id} style={index === 0 ? styles.comment : styles.reply}>
+          <View style={styles.commentHead}>
+            <ActivityHeader activity={comment} avatarSize={16} />
+          </View>
+          <MarkdownRenderer text={comment.body} compact onLinkPress={onLinkPress} />
+        </View>
+      ))}
+    </>
   );
 }
 

@@ -3,6 +3,7 @@
 // continuous scroll or single-file mode from the totals, and the patch-less file stand-in.
 import { useMemo } from "react";
 import type { ChangeRequestFile, ParsedDiffFile } from "@pimi/protocol/messages";
+import type { PrThreadEntry } from "@/git/pull-request-panel/timeline";
 import type { ChangeRequestSource, ReviewCountsByPath } from "../types";
 import { useReviewTimeline } from "../use-review-timeline";
 
@@ -49,6 +50,8 @@ export interface ForgeThread {
   body: string;
   replies: number;
   url: string;
+  /** Every comment, for the thread panel. */
+  entry: PrThreadEntry;
 }
 
 export interface DeskThreads {
@@ -75,6 +78,7 @@ export function useDeskThreads(source: ChangeRequestSource): DeskThreads {
         body: thread.summary,
         replies: thread.entry.comments.length - 1,
         url: thread.url,
+        entry: thread.entry,
       });
     }
     return { threads, counts, error: threadsError?.message ?? null };

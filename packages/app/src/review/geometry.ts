@@ -4,6 +4,8 @@ import type { ReviewDraftComment } from "./store";
 
 export const INLINE_REVIEW_COMMENT_HEIGHT = 72;
 export const INLINE_REVIEW_EDITOR_HEIGHT = 90;
+/** One forge thread under its line: a single row, whatever the thread says. */
+export const INLINE_REVIEW_MARKER_HEIGHT = 40;
 export const INLINE_REVIEW_BLOCK_MAX_WIDTH = 560;
 export const INLINE_REVIEW_GAP = 6;
 export const INLINE_REVIEW_VERTICAL_PADDING = 8;
@@ -14,8 +16,22 @@ export interface InlineReviewEditorState {
   body: string;
 }
 
+/** A forge thread drawn as one row under its line; pressing it opens the thread elsewhere. */
+export interface InlineForgeThreadMarker {
+  id: string;
+  author: string;
+  /** First line of the opening comment, markup stripped. */
+  summary: string;
+  replies: number;
+  isResolved: boolean;
+  isOutdated: boolean;
+}
+
 export interface InlineReviewActions {
   commentsByTarget: ReadonlyMap<string, ReviewDraftComment[]>;
+  /** Forge threads by target. Absent where there are none (the chat Changes pane). */
+  threadsByTarget?: ReadonlyMap<string, InlineForgeThreadMarker[]>;
+  onOpenThread?: (id: string) => void;
   editor: InlineReviewEditorState | null;
   onStartComment: (target: ReviewableDiffTarget) => void;
   onEditComment: (target: ReviewableDiffTarget, comment: ReviewDraftComment) => void;
@@ -24,6 +40,8 @@ export interface InlineReviewActions {
   onSaveEditor: (body: string) => void;
   onDeleteComment: (id: string) => void;
 }
+
+const NO_MARKERS: InlineForgeThreadMarker[] = [];
 
 export function isInlineReviewEditorForTarget(
   editor: InlineReviewEditorState | null,
@@ -41,6 +59,7 @@ export function getInlineReviewThreadState(input: {
   reviewActions?: InlineReviewActions;
 }): {
   comments: ReviewDraftComment[];
+  markers: InlineForgeThreadMarker[];
   hasEditor: boolean;
   editingCommentId: string | null;
   height: number;
@@ -49,6 +68,7 @@ export function getInlineReviewThreadState(input: {
   if (!reviewTarget || !reviewActions) return null;
 
   const comments = reviewActions.commentsByTarget.get(reviewTarget.key) ?? [];
+  const markers = reviewActions.threadsByTarget?.get(reviewTarget.key) ?? NO_MARKERS;
   const editorForTarget = isInlineReviewEditorForTarget(reviewActions.editor, reviewTarget)
     ? reviewActions.editor
     : null;
@@ -58,15 +78,16 @@ export function getInlineReviewThreadState(input: {
     editingCommentId !== null && comments.some((comment) => comment.id === editingCommentId);
   const visibleCommentCount = editingExisting ? comments.length - 1 : comments.length;
   const editorCount = hasEditor ? 1 : 0;
-  const visibleBlockCount = visibleCommentCount + editorCount;
+  const visibleBlockCount = markers.length + visibleCommentCount + editorCount;
   if (visibleBlockCount === 0) return null;
 
   const height =
+    markers.length * INLINE_REVIEW_MARKER_HEIGHT +
     visibleCommentCount * INLINE_REVIEW_COMMENT_HEIGHT +
     editorCount * INLINE_REVIEW_EDITOR_HEIGHT +
     Math.max(0, visibleBlockCount - 1) * INLINE_REVIEW_GAP +
     INLINE_REVIEW_VERTICAL_PADDING * 2;
-  return { comments, hasEditor, editingCommentId, height };
+  return { comments, markers, hasEditor, editingCommentId, height };
 }
 
 export function getSplitInlineReviewThreadState(input: {

@@ -521,12 +521,13 @@ function NativeReviewOverlays({
     return row.cells.flatMap((cell, index) => {
       if (!cell?.reviewTarget) return [];
       const comments = reviewActions.commentsByTarget.get(cell.reviewTarget.key) ?? [];
+      const markers = reviewActions.threadsByTarget?.get(cell.reviewTarget.key) ?? [];
       const editor = reviewActions.editor;
       const hasEditor =
         editor?.target.filePath === cell.reviewTarget.filePath &&
         editor.target.side === cell.reviewTarget.side &&
         editor.target.lineNumber === cell.reviewTarget.lineNumber;
-      if (comments.length === 0 && !hasEditor) return [];
+      if (comments.length === 0 && markers.length === 0 && !hasEditor) return [];
       return [
         <View
           key={cell.reviewTarget.key}

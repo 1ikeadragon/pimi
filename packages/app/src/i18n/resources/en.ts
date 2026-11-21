@@ -309,7 +309,6 @@ export const en = {
       detached_other: "{{count}} threads not on this diff",
       detachedNoLine: "no line",
       detachedOutside: "line not in diff",
-      detachedHidden: "hidden",
       threadsFailed: "Review threads could not be loaded.",
       patchFailed: "Could not load this file's diff.",
     },
@@ -3258,6 +3257,13 @@ export const en = {
       cancelAccessibility: "Cancel review comment",
       save: "Comment",
       saveAccessibility: "Save review comment",
+    },
+    thread: {
+      open: "Open thread by {{author}}",
+      replies_one: "{{count}} reply",
+      replies_other: "{{count}} replies",
+      resolved: "Resolved",
+      outdated: "Outdated",
     },
   },
   usageRecap: {

@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   EditingTextInput as TextInput,
   type EditingTextInputHandle,
@@ -40,8 +41,10 @@ import {
   INLINE_REVIEW_BLOCK_MAX_WIDTH,
   INLINE_REVIEW_EDITOR_HEIGHT,
   INLINE_REVIEW_GAP,
+  INLINE_REVIEW_MARKER_HEIGHT,
   INLINE_REVIEW_VERTICAL_PADDING,
   isInlineReviewEditorForTarget,
+  type InlineForgeThreadMarker,
   type InlineReviewActions,
   type InlineReviewEditorState,
 } from "./geometry";
@@ -276,6 +279,7 @@ export function InlineReviewThread({
   testID?: string;
 }) {
   const comments = reviewActions.commentsByTarget.get(reviewTarget.key) ?? [];
+  const markers = reviewActions.threadsByTarget?.get(reviewTarget.key);
   const editor = isInlineReviewEditorForTarget(reviewActions.editor, reviewTarget)
     ? reviewActions.editor
     : null;
@@ -305,6 +309,9 @@ export function InlineReviewThread({
 
   return (
     <View style={containerStyle} testID={testID}>
+      {markers?.map((marker) => (
+        <ThreadMarkerRow key={marker.id} marker={marker} onOpen={reviewActions.onOpenThread} />
+      ))}
       {comments.map((comment) => {
         if (comment.id === editingCommentId) {
           return <React.Fragment key={comment.id}>{editorElement}</React.Fragment>;
@@ -322,6 +329,49 @@ export function InlineReviewThread({
       {editor && !editingExisting ? editorElement : null}
     </View>
   );
+}
+
+function ThreadMarkerRow({
+  marker,
+  onOpen,
+}: {
+  marker: InlineForgeThreadMarker;
+  onOpen?: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const handlePress = useCallback(() => onOpen?.(marker.id), [marker.id, onOpen]);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t("review.thread.open", { author: marker.author })}
+      testID={`review-thread-marker-${marker.id}`}
+      onPress={handlePress}
+      disabled={!onOpen}
+      style={markerStyle}
+    >
+      <Text style={styles.markerAuthor} numberOfLines={1}>
+        {marker.author}
+      </Text>
+      <Text style={styles.markerSummary} numberOfLines={1}>
+        {marker.summary}
+      </Text>
+      {marker.replies > 0 ? (
+        <Text style={styles.markerMeta}>
+          {t("review.thread.replies", { count: marker.replies })}
+        </Text>
+      ) : null}
+      {marker.isResolved ? (
+        <StatusBadge size="xs" variant="success" label={t("review.thread.resolved")} />
+      ) : null}
+      {marker.isOutdated ? (
+        <StatusBadge size="xs" variant="warning" label={t("review.thread.outdated")} />
+      ) : null}
+    </Pressable>
+  );
+}
+
+function markerStyle({ hovered, pressed }: PressableState): StyleProp<ViewStyle> {
+  return [styles.markerBlock, (hovered || pressed) && styles.markerBlockHovered];
 }
 
 function CommentRow({
@@ -565,6 +615,42 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
+  },
+  markerBlock: {
+    alignSelf: "flex-start",
+    width: "100%",
+    maxWidth: INLINE_REVIEW_BLOCK_MAX_WIDTH,
+    // The row height is computed from INLINE_REVIEW_MARKER_HEIGHT, so the block cannot grow.
+    height: INLINE_REVIEW_MARKER_HEIGHT,
+    backgroundColor: theme.colors.surface2,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.borderAccent,
+    borderRadius: theme.borderRadius.lg,
+    paddingHorizontal: theme.spacing[3],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  markerBlockHovered: {
+    backgroundColor: theme.colors.surface3,
+  },
+  markerAuthor: {
+    flexShrink: 0,
+    maxWidth: 140,
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+  },
+  markerSummary: {
+    flex: 1,
+    minWidth: 0,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.base,
+  },
+  markerMeta: {
+    flexShrink: 0,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
   },
   commentBody: {
     flex: 1,

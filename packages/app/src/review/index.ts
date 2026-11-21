@@ -17,6 +17,7 @@ export {
   getInlineReviewThreadState,
   getSplitInlineReviewThreadState,
   isInlineReviewEditorForTarget,
+  type InlineForgeThreadMarker,
   type InlineReviewActions,
   type InlineReviewEditorState,
 } from "./geometry";

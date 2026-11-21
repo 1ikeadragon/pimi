@@ -898,11 +898,12 @@ export function DiffSurface(props: DiffSurfaceProps) {
                 return row.cells.map((cell, index) => {
                   if (!cell?.reviewTarget) return null;
                   const comments = reviewActions.commentsByTarget.get(cell.reviewTarget.key) ?? [];
+                  const markers = reviewActions.threadsByTarget?.get(cell.reviewTarget.key) ?? [];
                   const hasEditor =
                     reviewActions.editor?.target.filePath === cell.reviewTarget.filePath &&
                     reviewActions.editor.target.side === cell.reviewTarget.side &&
                     reviewActions.editor.target.lineNumber === cell.reviewTarget.lineNumber;
-                  if (comments.length === 0 && !hasEditor) return null;
+                  if (comments.length === 0 && markers.length === 0 && !hasEditor) return null;
                   return (
                     <WebReviewThread
                       key={cell.reviewTarget.key}

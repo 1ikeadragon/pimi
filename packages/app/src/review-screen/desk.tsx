@@ -5,7 +5,7 @@
 // time. Forge threads draw under their lines and the user's own line notes leave through "Ask in
 // chat" (`desk/ask-in-chat.tsx`).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { Text, View, type LayoutChangeEvent } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { SearchField } from "@/components/ui/search-field";
 import { DiffDocument } from "@/git/diff-document";
@@ -16,6 +16,7 @@ import { AskInChat } from "./desk/ask-in-chat";
 import { useDeskCopy } from "./desk/copy";
 import { FileTree } from "./desk/file-tree";
 import { FilesBar } from "./desk/files-bar";
+import { ThreadPanel, ThreadSheet, THREAD_PANEL_DOCK_MIN_WIDTH } from "./desk/thread-panel";
 import { Chip, DetachedThreads } from "./desk/ui";
 import {
   useDeskDisplay,
@@ -207,13 +208,27 @@ function ReadyDesk({
     },
     [selectInTree],
   );
+  const { openThread, onOpenThread, onCloseThread } = markers;
   const openDetached = useCallback(
     (path: string, id: string) => {
-      markers.showThread(id);
       moveTo(path);
+      onOpenThread(id);
     },
-    [markers, moveTo],
+    [moveTo, onOpenThread],
   );
+  // The panel resizes the diff; ask for the thread's line again once it is open so it stays in view.
+  const openThreadId = openThread?.id ?? null;
+  useEffect(() => {
+    if (openThread?.line) jumpTo(openThread.path, openThread.line, true);
+    // Keyed on the id: a thread's data refreshing must not scroll the document.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openThreadId]);
+  const [deskWidth, setDeskWidth] = useState(0);
+  const onDeskLayout = useCallback(
+    (event: LayoutChangeEvent) => setDeskWidth(event.nativeEvent.layout.width),
+    [],
+  );
+  const docked = !isCompact && deskWidth >= THREAD_PANEL_DOCK_MIN_WIDTH;
 
   const treePane = (
     <View style={isCompact ? styles.treeFull : styles.tree} testID="review-desk-tree-pane">
@@ -252,7 +267,7 @@ function ReadyDesk({
 
   if (isCompact && treeOpen) return <View style={styles.desk}>{treePane}</View>;
   return (
-    <View style={styles.desk} testID="review-desk">
+    <View style={styles.desk} testID="review-desk" onLayout={onDeskLayout}>
       {isCompact ? null : treePane}
       <View style={styles.main}>
         <FilesBar
@@ -290,6 +305,8 @@ function ReadyDesk({
           baseRef={model.baseRef}
         />
       </View>
+      {openThread && docked ? <ThreadPanel thread={openThread} onClose={onCloseThread} /> : null}
+      {openThread && !docked ? <ThreadSheet thread={openThread} onClose={onCloseThread} /> : null}
       <ReviewCommentSheet
         enabled
         editor={markers.controller.sheetEditor}

@@ -343,10 +343,13 @@ export function reviewGeometryKey(
   const comments = [...reviewActions.commentsByTarget.entries()]
     .map(([target, targetComments]) => [target, targetComments.map((comment) => comment.id).sort()])
     .sort(([left], [right]) => String(left).localeCompare(String(right)));
+  const markers = [...(reviewActions.threadsByTarget?.entries() ?? [])]
+    .map(([target, targetMarkers]) => [target, targetMarkers.map((marker) => marker.id).sort()])
+    .sort(([left], [right]) => String(left).localeCompare(String(right)));
   const editor = reviewActions.editor
     ? [reviewActions.editor.target.key, reviewActions.editor.commentId]
     : null;
-  return JSON.stringify([comments, editor]);
+  return JSON.stringify([comments, markers, editor]);
 }
 
 export function expandedBodyBorderTop(file: DiffFileSection): number | null {

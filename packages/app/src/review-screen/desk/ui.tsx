@@ -34,9 +34,7 @@ function reasonLabel(
   reason: ReviewMarkers["detached"][number]["reason"],
   copy: ReturnType<typeof useDeskCopy>,
 ): string {
-  if (reason === "no_line") return copy.detachedNoLine;
-  if (reason === "outside_diff") return copy.detachedOutside;
-  return copy.detachedHidden;
+  return reason === "no_line" ? copy.detachedNoLine : copy.detachedOutside;
 }
 
 /** Threads the document cannot draw under a line, listed under the toolbar. */
