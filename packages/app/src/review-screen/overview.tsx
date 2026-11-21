@@ -44,8 +44,8 @@ export function ReviewOverview(props: ReviewOverviewProps) {
     <View style={styles.screen} testID="review-overview">
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.column}>
-          <DescriptionCard overview={overview} />
-          <ChecksCard {...props} timeline={timeline} overview={overview} />
+          <DescriptionCard overview={overview} decision={timeline.status?.reviewDecision ?? null} />
+          <ChecksCard {...props} timeline={timeline} />
           <ThreadsCard {...props} timeline={timeline} />
           <CommitsCard overview={overview} />
         </View>
@@ -55,7 +55,13 @@ export function ReviewOverview(props: ReviewOverviewProps) {
   );
 }
 
-function DescriptionCard({ overview }: { overview: Overview }) {
+function DescriptionCard({
+  overview,
+  decision,
+}: {
+  overview: Overview;
+  decision: "approved" | "changes_requested" | "pending" | null;
+}) {
   const { t } = useTranslation();
   const onLinkPress = useCallback((url: string) => void openExternalUrl(url), []);
   // PR descriptions run long; the card shows the opening and expands on request.
@@ -97,10 +103,7 @@ function DescriptionCard({ overview }: { overview: Overview }) {
             label={t("reviewScreen.overview.factMerge")}
             value={t(mergeKey(overview.mergeable))}
           />
-          <Fact
-            label={t("reviewScreen.overview.factReview")}
-            value={t(reviewKey(overview.reviewDecision))}
-          />
+          <Fact label={t("reviewScreen.overview.factReview")} value={t(reviewKey(decision))} />
           {overview.labels.length > 0 ? (
             <Fact
               label={t("reviewScreen.overview.factLabels")}
@@ -119,15 +122,16 @@ function ChecksCard({
   selection,
   onSelectionChange,
   timeline,
-  overview,
-}: CardProps & { timeline: ReviewTimeline; overview: Overview }) {
+}: CardProps & { timeline: ReviewTimeline }) {
   const { t } = useTranslation();
   const trailing = useMemo(
     () => <ChecksBadges sections={timeline.checkSections} />,
     [timeline.checkSections],
   );
   let message: string | null = null;
-  if (overview.checksError) message = overview.checksError;
+  const { checksError } = timeline;
+  if (checksError) message = checksError;
+  else if (timeline.checksLoading) message = t("reviewScreen.inspector.loadingChecks");
   else if (timeline.checks.length === 0) message = t("reviewScreen.overview.noChecks");
   return (
     <SettingsSection
@@ -137,9 +141,7 @@ function ChecksCard({
     >
       <View style={settingsStyles.card}>
         {message ? (
-          <Text style={[styles.pad, overview.checksError ? styles.error : styles.muted]}>
-            {message}
-          </Text>
+          <Text style={[styles.pad, checksError ? styles.error : styles.muted]}>{message}</Text>
         ) : (
           <CheckSections
             source={source}

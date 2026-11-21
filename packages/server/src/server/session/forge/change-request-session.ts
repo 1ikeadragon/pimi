@@ -176,6 +176,49 @@ export class ChangeRequestSession {
     }
   }
 
+  async handleGetStatusRequest(
+    msg: Extract<SessionInboundMessage, { type: "forge.change_request.get_status.request" }>,
+  ): Promise<void> {
+    try {
+      const status = await this.withService(msg, (s) => s.getChangeRequestStatus);
+      this.host.emit({
+        type: "forge.change_request.get_status.response",
+        payload: { status, error: null, requestId: msg.requestId },
+      });
+    } catch (error) {
+      this.host.emit({
+        type: "forge.change_request.get_status.response",
+        payload: {
+          status: null,
+          error: this.toWireError(error, "get_status"),
+          requestId: msg.requestId,
+        },
+      });
+    }
+  }
+
+  async handleListCommitsRequest(
+    msg: Extract<SessionInboundMessage, { type: "forge.change_request.list_commits.request" }>,
+  ): Promise<void> {
+    try {
+      const list = await this.withService(msg, (s) => s.listChangeRequestCommits);
+      this.host.emit({
+        type: "forge.change_request.list_commits.response",
+        payload: { ...list, error: null, requestId: msg.requestId },
+      });
+    } catch (error) {
+      this.host.emit({
+        type: "forge.change_request.list_commits.response",
+        payload: {
+          commits: [],
+          truncated: false,
+          error: this.toWireError(error, "list_commits"),
+          requestId: msg.requestId,
+        },
+      });
+    }
+  }
+
   async handleListFilesRequest(
     msg: Extract<SessionInboundMessage, { type: "forge.change_request.list_files.request" }>,
   ): Promise<void> {

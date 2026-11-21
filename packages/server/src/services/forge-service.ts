@@ -3,7 +3,9 @@ import type {
   ChangeRequestFileDiff,
   ChangeRequestInboxItem,
   ChangeRequestInboxScope,
+  ChangeRequestCommit,
   ChangeRequestOverview,
+  ChangeRequestStatus,
   ForgeSearchKind,
 } from "@pimi/protocol/messages";
 
@@ -465,6 +467,11 @@ export interface ChangeRequestFileList {
   files: ChangeRequestFile[];
 }
 
+export interface ChangeRequestCommitList {
+  commits: ChangeRequestCommit[];
+  truncated: boolean;
+}
+
 export type GetChangeRequestFileDiffsOptions = ChangeRequestReadOptions & {
   headSha: string;
   paths: string[];
@@ -536,6 +543,8 @@ export interface ForgeService {
    */
   listChangeRequestInbox?(options: ListChangeRequestInboxOptions): Promise<ChangeRequestInbox>;
   getChangeRequestOverview?(options: ChangeRequestReadOptions): Promise<ChangeRequestOverview>;
+  getChangeRequestStatus?(options: ChangeRequestReadOptions): Promise<ChangeRequestStatus>;
+  listChangeRequestCommits?(options: ChangeRequestReadOptions): Promise<ChangeRequestCommitList>;
   listChangeRequestFiles?(options: ChangeRequestReadOptions): Promise<ChangeRequestFileList>;
   getChangeRequestFileDiffs?(
     options: GetChangeRequestFileDiffsOptions,

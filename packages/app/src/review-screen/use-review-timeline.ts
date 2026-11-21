@@ -5,10 +5,9 @@
 import { i18n } from "@/i18n/i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchQueryOptions, useFetchQueries, useFetchQuery } from "@/data/query";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 import type {
   CheckoutCheckDetails,
-  ForgeChangeRequestGetOverviewResponse,
   ForgeChangeRequestGetTimelineResponse,
 } from "@pimi/protocol/messages";
 import { normalizeForge, type Forge } from "@/git/forge";
@@ -23,9 +22,19 @@ import {
 import { mapCheckStatus } from "@/git/pull-request-panel/check-status";
 import type { PrThreadEntry } from "@/git/pull-request-panel/timeline";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import {
+  markChangeRequestRefresh,
+  overviewQuery,
+  refInput,
+  reviewKeys,
+  statusQuery,
+  timelineQuery,
+  type ChangeRequestOverview,
+  type ChangeRequestStatus,
+} from "./queries";
 import type { ChangeRequestSource, ReviewCountsByPath, ReviewSource } from "./types";
 
-type Overview = NonNullable<ForgeChangeRequestGetOverviewResponse["payload"]["overview"]>;
+type Overview = ChangeRequestOverview;
 type TimelineItem = ForgeChangeRequestGetTimelineResponse["payload"]["items"][number];
 
 const STALE_MS = 30_000;
@@ -93,6 +102,8 @@ export interface ReviewTimeline {
   /** The change request the data belongs to; null while a checkout's branch PR is unresolved. */
   ref: ChangeRequestSource | null;
   overview: Overview | null;
+  /** Review decision and checks; arrives after the overview and never blocks it. */
+  status: ChangeRequestStatus | null;
   forge: Forge;
   checks: ReviewCheck[];
   checkSections: ReviewCheckSection[];
@@ -102,6 +113,8 @@ export interface ReviewTimeline {
   counts: ReviewCountsByPath;
   isLoading: boolean;
   checksLoading: boolean;
+  /** The forge's note that checks are unreadable, or the status read's failure. */
+  checksError: string | null;
   threadsLoading: boolean;
   isRefreshing: boolean;
   /** Overview failure (nothing renders without it). */
@@ -118,27 +131,7 @@ export interface UseReviewTimelineOptions {
   annotations?: boolean;
 }
 
-export function changeRequestRefKey(ref: ChangeRequestSource): readonly unknown[] {
-  return [ref.serverId, ref.forgeHost, ref.owner, ref.name, ref.number];
-}
-
-function overviewKey(ref: ChangeRequestSource | null) {
-  return ["reviewOverview", ...(ref ? changeRequestRefKey(ref) : [])] as const;
-}
-function timelineKey(ref: ChangeRequestSource | null) {
-  return ["reviewTimeline", ...(ref ? changeRequestRefKey(ref) : [])] as const;
-}
-export function checkDetailsKey(
-  ref: ChangeRequestSource,
-  ids: { checkRunId: number | null; workflowRunId: number | null },
-) {
-  return [
-    "reviewCheckDetails",
-    ...changeRequestRefKey(ref),
-    ids.checkRunId,
-    ids.workflowRunId,
-  ] as const;
-}
+export { changeRequestRefKey } from "./queries";
 
 function toError(error: { message: string } | null | undefined, fallback: string): Error {
   return new Error(error?.message?.trim() ? error.message : fallback);
@@ -184,6 +177,33 @@ function useChangeRequestRef(source: ReviewSource): {
   }, [pr.isLoading, pr.status, source]);
 }
 
+interface ReadResult {
+  isPending: boolean;
+  isFetching: boolean;
+  error: Error | null;
+}
+
+function readState(input: {
+  overview: ReadResult;
+  status: ReadResult;
+  timeline: ReadResult;
+  enabled: boolean;
+  resolving: boolean;
+  offline: boolean;
+}) {
+  const { overview, status, timeline, enabled, resolving, offline } = input;
+  const refetching = (read: ReadResult) => read.isFetching && !read.isPending;
+  return {
+    isLoading: resolving || (enabled && overview.isPending),
+    checksLoading: resolving || (enabled && status.isPending),
+    threadsLoading: enabled && timeline.isPending,
+    isRefreshing: refetching(overview) || refetching(status) || refetching(timeline),
+    error:
+      overview.error ?? (offline ? new Error(i18n.t("reviewScreen.errors.hostOffline")) : null),
+    threadsError: timeline.error,
+  };
+}
+
 export function useReviewTimeline(
   source: ReviewSource,
   options: UseReviewTimelineOptions = {},
@@ -192,44 +212,21 @@ export function useReviewTimeline(
   const client = useHostRuntimeClient(source.serverId);
   const isConnected = useHostRuntimeIsConnected(source.serverId);
   const enabled = !!client && isConnected && ref !== null;
-  // The refresh button asks the daemon to skip its short read cache once.
-  const refreshNext = useRef(false);
+  const overviewResult = useFetchQuery({ ...overviewQuery(ref, client), enabled });
+  const statusResult = useFetchQuery({ ...statusQuery(ref, client), enabled });
+  const timelineResult = useFetchQuery({ ...timelineQuery(ref, client), enabled });
 
-  const overviewQuery = useFetchQuery({
-    ...SHARED,
-    queryKey: overviewKey(ref),
-    enabled,
-    queryFn: async () => {
-      if (!client || !ref) throw new Error(i18n.t("reviewScreen.errors.noConnection"));
-      const payload = await client.forgeChangeRequestGetOverview(
-        refInput(ref, refreshNext.current),
-      );
-      if (!payload.overview)
-        throw toError(payload.error, i18n.t("reviewScreen.errors.loadPullRequest"));
-      return payload.overview;
-    },
-  });
-  const timelineQuery = useFetchQuery({
-    ...SHARED,
-    queryKey: timelineKey(ref),
-    enabled,
-    queryFn: async () => {
-      if (!client || !ref) throw new Error(i18n.t("reviewScreen.errors.noConnection"));
-      const payload = await client.forgeChangeRequestGetTimeline(
-        refInput(ref, refreshNext.current),
-      );
-      if (payload.error) throw toError(payload.error, i18n.t("reviewScreen.errors.loadThreads"));
-      return { items: payload.items, truncated: payload.truncated };
-    },
-  });
-
-  const overview = overviewQuery.data ?? null;
+  const overview = overviewResult.data ?? null;
+  const status = statusResult.data ?? null;
   const forge = normalizeForge(overview?.forge);
-  const checks = useMemo(() => (overview ? buildChecks(overview, forge) : []), [overview, forge]);
+  const checks = useMemo(
+    () => (overview && status ? buildChecks(overview.url, status, forge) : []),
+    [overview, status, forge],
+  );
   const checkSections = useMemo(() => buildCheckSections(checks), [checks]);
   const threads = useMemo(
-    () => buildThreads(timelineQuery.data?.items ?? [], forge),
-    [timelineQuery.data, forge],
+    () => buildThreads(timelineResult.data?.items ?? [], forge),
+    [timelineResult.data, forge],
   );
 
   const annotationChecks = useMemo(
@@ -247,7 +244,7 @@ export function useReviewTimeline(
       staleTimeMs: STALE_MS,
       refetchOnMount: false as const,
       refetchOnWindowFocus: false as const,
-      queryKey: ref ? checkDetailsKey(ref, check) : ["reviewCheckDetails", "none"],
+      queryKey: ref ? reviewKeys.checkDetails(ref, check) : ["reviewCheckDetails", "none"],
       enabled,
       queryFn: () => fetchCheckDetails(client, ref, check),
     })),
@@ -275,48 +272,38 @@ export function useReviewTimeline(
 
   const queryClient = useQueryClient();
   const refresh = useCallback(() => {
-    refreshNext.current = true;
+    if (!ref) return;
+    markChangeRequestRefresh(ref);
     void Promise.all([
-      queryClient.invalidateQueries({ queryKey: overviewKey(ref) }),
-      queryClient.invalidateQueries({ queryKey: timelineKey(ref) }),
+      queryClient.invalidateQueries({ queryKey: reviewKeys.overview(ref) }),
+      queryClient.invalidateQueries({ queryKey: reviewKeys.status(ref) }),
+      queryClient.invalidateQueries({ queryKey: reviewKeys.timeline(ref) }),
       queryClient.invalidateQueries({ queryKey: ["reviewCheckDetails"] }),
-    ]).finally(() => {
-      refreshNext.current = false;
-    });
+    ]);
   }, [queryClient, ref]);
 
   return {
     ref,
     overview,
+    status,
     forge,
     checks,
     checkSections,
     threads,
     unresolvedCount: threads.filter((thread) => !thread.isResolved).length,
     counts,
-    isLoading: resolving || (enabled && overviewQuery.isPending),
-    checksLoading: resolving || (enabled && overviewQuery.isPending),
-    threadsLoading: enabled && timelineQuery.isPending,
-    isRefreshing:
-      (overviewQuery.isFetching && !overviewQuery.isPending) ||
-      (timelineQuery.isFetching && !timelineQuery.isPending),
-    error:
-      overviewQuery.error ??
-      (ref && !isConnected ? new Error(i18n.t("reviewScreen.errors.hostOffline")) : null),
-    threadsError: timelineQuery.error,
-    threadsTruncated: timelineQuery.data?.truncated ?? false,
+    ...readState({
+      overview: overviewResult,
+      status: statusResult,
+      timeline: timelineResult,
+      enabled,
+      resolving,
+      offline: ref !== null && !isConnected,
+    }),
+    checksError: status?.checksError ?? statusResult.error?.message ?? null,
+    threadsTruncated: timelineResult.data?.truncated ?? false,
     noChangeRequest,
     refresh,
-  };
-}
-
-function refInput(ref: ChangeRequestSource, refresh: boolean) {
-  return {
-    forgeHost: ref.forgeHost,
-    owner: ref.owner,
-    name: ref.name,
-    number: ref.number,
-    ...(refresh ? { refresh: true } : {}),
   };
 }
 
@@ -344,7 +331,7 @@ export function useReviewCheckDetails(source: ReviewSource, check: ReviewCheck, 
   const client = useHostRuntimeClient(source.serverId);
   return useFetchQuery({
     ...SHARED,
-    queryKey: ref ? checkDetailsKey(ref, check) : ["reviewCheckDetails", "none"],
+    queryKey: ref ? reviewKeys.checkDetails(ref, check) : ["reviewCheckDetails", "none"],
     enabled: enabled && !!client && ref !== null && check.hasDetails,
     queryFn: () => fetchCheckDetails(client, ref, check),
   });
@@ -360,7 +347,7 @@ export function useFetchReviewCheckDetails(source: ReviewSource) {
       queryClient.fetchQuery(
         fetchQueryOptions({
           ...SHARED,
-          queryKey: ref ? checkDetailsKey(ref, check) : ["reviewCheckDetails", "none"],
+          queryKey: ref ? reviewKeys.checkDetails(ref, check) : ["reviewCheckDetails", "none"],
           queryFn: () => fetchCheckDetails(client, ref, check),
         }),
       ),
@@ -375,8 +362,12 @@ export function isAttention(presentation: CheckPresentation): boolean {
   );
 }
 
-function buildChecks(overview: Overview, forge: Forge): ReviewCheck[] {
-  return overview.checks.map((raw) => {
+function buildChecks(
+  overviewUrl: string,
+  checkStatus: ChangeRequestStatus,
+  forge: Forge,
+): ReviewCheck[] {
+  return checkStatus.checks.map((raw) => {
     const status = mapCheckStatus(raw.status);
     const checkRunId = raw.checkRunId ?? null;
     const workflowRunId = raw.workflowRunId ?? null;
@@ -385,7 +376,7 @@ function buildChecks(overview: Overview, forge: Forge): ReviewCheck[] {
       name: raw.name,
       status,
       ...(raw.traits ? { traits: raw.traits } : {}),
-      url: raw.url ?? overview.url,
+      url: raw.url ?? overviewUrl,
       ...(raw.workflow ? { workflow: raw.workflow } : {}),
       ...(raw.duration ? { timing: raw.duration } : {}),
       ...(checkRunId !== null || workflowRunId !== null
@@ -403,7 +394,7 @@ function buildChecks(overview: Overview, forge: Forge): ReviewCheck[] {
       workflow: raw.workflow ?? null,
       presentation: classifyCheck(pane),
       duration: raw.duration ?? null,
-      url: raw.url ?? overview.url,
+      url: raw.url ?? overviewUrl,
       checkRunId,
       workflowRunId,
       hasDetails: checkRunId !== null || workflowRunId !== null,

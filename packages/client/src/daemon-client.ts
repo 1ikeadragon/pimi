@@ -92,6 +92,8 @@ import type {
   ForgeChangeRequestListInboxResponse,
   ForgeChangeRequestGetOverviewRequest,
   ForgeChangeRequestGetOverviewResponse,
+  ForgeChangeRequestGetStatusResponse,
+  ForgeChangeRequestListCommitsResponse,
   ForgeChangeRequestListFilesResponse,
   ForgeChangeRequestGetFileDiffsRequest,
   ForgeChangeRequestGetFileDiffsResponse,
@@ -575,6 +577,8 @@ export type ChangeRequestRefInput = Pick<
 >;
 type ForgeChangeRequestListInboxPayload = ForgeChangeRequestListInboxResponse["payload"];
 type ForgeChangeRequestGetOverviewPayload = ForgeChangeRequestGetOverviewResponse["payload"];
+type ForgeChangeRequestGetStatusPayload = ForgeChangeRequestGetStatusResponse["payload"];
+type ForgeChangeRequestListCommitsPayload = ForgeChangeRequestListCommitsResponse["payload"];
 type ForgeChangeRequestListFilesPayload = ForgeChangeRequestListFilesResponse["payload"];
 type ForgeChangeRequestGetFileDiffsPayload = ForgeChangeRequestGetFileDiffsResponse["payload"];
 type ForgeChangeRequestGetTimelinePayload = ForgeChangeRequestGetTimelineResponse["payload"];
@@ -5152,6 +5156,30 @@ export class DaemonClient {
       {
         requestId,
         message: { type: "forge.change_request.get_overview.request", ...input },
+        timeout: 60000,
+      },
+    );
+  }
+
+  async forgeChangeRequestGetStatus(
+    input: ChangeRequestRefInput,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestGetStatusPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.get_status.response">({
+      requestId,
+      message: { type: "forge.change_request.get_status.request", ...input },
+      timeout: 60000,
+    });
+  }
+
+  async forgeChangeRequestListCommits(
+    input: ChangeRequestRefInput,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestListCommitsPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.list_commits.response">(
+      {
+        requestId,
+        message: { type: "forge.change_request.list_commits.request", ...input },
         timeout: 60000,
       },
     );

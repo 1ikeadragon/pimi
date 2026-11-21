@@ -1,15 +1,18 @@
 import { LRUCache } from "lru-cache";
 import { z } from "zod";
 import type {
+  ChangeRequestCommit,
   ChangeRequestFile,
   ChangeRequestFileDiff,
   ChangeRequestInboxItem,
   ChangeRequestOverview,
+  ChangeRequestStatus,
 } from "@pimi/protocol/messages";
 import { highlightDiffFromHunks, parseDiff } from "../server/utils/diff-highlighter.js";
 import {
   ChangeRequestReadError,
   computeChecksStatus,
+  type ChangeRequestCommitList,
   type ChangeRequestFileDiffs,
   type ChangeRequestFileList,
   type ChangeRequestInbox,
@@ -22,9 +25,10 @@ import {
 } from "./forge-service.js";
 
 // Bounds on network and memory work. Reaching one is reported to the client, never silently clipped.
-const GH_CONCURRENCY = 3;
+const GH_CONCURRENCY = 6;
 const GH_MAX_PENDING = 64;
-const FILES_PAGE_SIZE = 50;
+// GitHub's maximum; a page costs one round trip whatever its size.
+const FILES_PAGE_SIZE = 100;
 // GitHub's pull request files endpoint stops at 3,000 files.
 const GITHUB_FILE_LIMIT = 3000;
 const FILE_PATCH_MAX_BYTES = 1024 * 1024;
@@ -34,13 +38,32 @@ const SNAPSHOT_CACHE_MAX_ENTRIES = 12;
 const SNAPSHOT_TTL_MS = 10 * 60 * 1000;
 const SNAPSHOT_MAX_PATCH_BYTES = 32 * 1024 * 1024;
 const OVERVIEW_TTL_MS = 30_000;
+const COMMITS_PAGE_SIZE = 100;
 const OVERVIEW_CHECK_CONTEXT_LIMIT = 100;
 const INBOX_REPOSITORY_CONCURRENCY = GH_CONCURRENCY;
 
-const PullMetaSchema = z.object({
-  head: z.object({ sha: z.string().regex(/^[a-f0-9]{40}$/) }),
-  base: z.object({ sha: z.string().regex(/^[a-f0-9]{40}$/) }),
+const ShaSchema = z.string().regex(/^[a-f0-9]{40}$/);
+
+// REST `pulls/{number}`: one round trip carries the header, the description and the revision pair
+// the file snapshot brackets its page reads with.
+const PullSchema = z.object({
+  html_url: z.string(),
+  title: z.string(),
+  body: z.string().nullable().optional(),
+  state: z.string(),
+  draft: z.boolean().optional(),
+  merged: z.boolean().optional(),
+  created_at: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
+  user: z.object({ login: z.string(), html_url: z.string().nullable().optional() }).nullable(),
+  head: z.object({ sha: ShaSchema, ref: z.string() }),
+  base: z.object({ sha: ShaSchema, ref: z.string() }),
+  mergeable: z.boolean().nullable().optional(),
+  additions: z.number().int().nonnegative().optional(),
+  deletions: z.number().int().nonnegative().optional(),
   changed_files: z.number().int().nonnegative(),
+  commits: z.number().int().nonnegative().optional(),
+  labels: z.array(z.object({ name: z.string() })).optional(),
 });
 
 const FilesPageSchema = z.array(
@@ -56,38 +79,29 @@ const FilesPageSchema = z.array(
   }),
 );
 
-const OverviewGraphqlSchema = z.object({
+const CommitsPageSchema = z.array(
+  z.object({
+    sha: ShaSchema,
+    html_url: z.string(),
+    commit: z.object({
+      message: z.string(),
+      author: z
+        .object({ name: z.string().optional(), date: z.string().optional() })
+        .nullable()
+        .optional(),
+    }),
+    author: z.object({ login: z.string() }).nullable().optional(),
+  }),
+);
+
+const StatusGraphqlSchema = z.object({
   data: z
     .object({
       repository: z
         .object({
           pullRequest: z
             .object({
-              url: z.string(),
-              title: z.string(),
-              body: z.string().nullable().optional(),
-              state: z.string(),
-              isDraft: z.boolean().optional(),
-              merged: z.boolean().optional(),
-              createdAt: z.string().nullable().optional(),
-              updatedAt: z.string().nullable().optional(),
-              author: z
-                .object({ login: z.string(), url: z.string().nullable().optional() })
-                .nullable()
-                .optional(),
-              baseRefName: z.string(),
-              headRefName: z.string(),
-              baseRefOid: z.string().nullable().optional(),
-              headRefOid: z.string().nullable().optional(),
-              mergeable: z.string().optional(),
               reviewDecision: z.string().nullable().optional(),
-              additions: z.number().optional(),
-              deletions: z.number().optional(),
-              changedFiles: z.number().optional(),
-              commitCount: z.object({ totalCount: z.number() }).optional(),
-              labels: z
-                .object({ nodes: z.array(z.object({ name: z.string() }).nullable()) })
-                .optional(),
               latest: z
                 .object({
                   nodes: z.array(
@@ -154,41 +168,13 @@ const PrListSchema = z.array(
 const REPOSITORY_FROM_API_URL =
   /\/repos\/([A-Za-z0-9_][A-Za-z0-9._-]*)\/([A-Za-z0-9_][A-Za-z0-9._-]*)$/;
 
-const OVERVIEW_QUERY_HEAD = `
-query ChangeRequestOverview($owner: String!, $name: String!, $number: Int!) {
+const STATUS_QUERY_HEAD = `
+query ChangeRequestStatus($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
-      url
-      title
-      body
-      state
-      isDraft
-      merged
-      createdAt
-      updatedAt
-      author {
-        login
-        url
-      }
-      baseRefName
-      headRefName
-      baseRefOid
-      headRefOid
-      mergeable
-      reviewDecision
-      additions
-      deletions
-      changedFiles
-      commitCount: commits {
-        totalCount
-      }
-      labels(first: 20) {
-        nodes {
-          name
-        }
-      }`;
+      reviewDecision`;
 
-const OVERVIEW_QUERY_CHECKS = `
+const STATUS_QUERY_CHECKS = `
       latest: commits(last: 1) {
         nodes {
           commit {
@@ -229,7 +215,7 @@ const OVERVIEW_QUERY_CHECKS = `
         }
       }`;
 
-const OVERVIEW_QUERY_TAIL = `
+const STATUS_QUERY_TAIL = `
     }
   }
 }`;
@@ -266,6 +252,8 @@ export interface GitHubChangeRequestReaderDeps {
 export interface GitHubChangeRequestReader {
   listChangeRequestInbox(options: ListChangeRequestInboxOptions): Promise<ChangeRequestInbox>;
   getChangeRequestOverview(options: ChangeRequestReadOptions): Promise<ChangeRequestOverview>;
+  getChangeRequestStatus(options: ChangeRequestReadOptions): Promise<ChangeRequestStatus>;
+  listChangeRequestCommits(options: ChangeRequestReadOptions): Promise<ChangeRequestCommitList>;
   listChangeRequestFiles(options: ChangeRequestReadOptions): Promise<ChangeRequestFileList>;
   getChangeRequestFileDiffs(
     options: GetChangeRequestFileDiffsOptions,
@@ -334,10 +322,6 @@ function toState(state: string, merged: boolean): "open" | "closed" | "merged" {
     return "merged";
   }
   return state.toUpperCase() === "OPEN" ? "open" : "closed";
-}
-
-function toMergeable(value: string | undefined): "MERGEABLE" | "CONFLICTING" | "UNKNOWN" {
-  return value === "MERGEABLE" || value === "CONFLICTING" ? value : "UNKNOWN";
 }
 
 function toFileRecord(file: z.infer<typeof FilesPageSchema>[number]): PatchRecord {
@@ -450,66 +434,73 @@ function toFileDiff(record: PatchRecord): ChangeRequestFileDiff {
   };
 }
 
-type OverviewPullRequest = NonNullable<
-  NonNullable<
-    NonNullable<z.infer<typeof OverviewGraphqlSchema>["data"]>["repository"]
-  >["pullRequest"]
->;
+type Pull = z.infer<typeof PullSchema>;
 
-function overviewStats(pr: OverviewPullRequest) {
-  return {
-    additions: pr.additions ?? 0,
-    deletions: pr.deletions ?? 0,
-    changedFiles: pr.changedFiles ?? 0,
-    commitCount: pr.commitCount?.totalCount ?? 0,
-    labels: (pr.labels?.nodes ?? []).flatMap((label) => (label ? [label.name] : [])),
-  };
+function toMergeable(value: boolean | null | undefined): "MERGEABLE" | "CONFLICTING" | "UNKNOWN" {
+  if (value === true) {
+    return "MERGEABLE";
+  }
+  return value === false ? "CONFLICTING" : "UNKNOWN";
 }
 
-function overviewAuthorship(pr: OverviewPullRequest) {
-  return {
-    author: pr.author?.login ?? null,
-    authorUrl: pr.author?.url ?? null,
-    createdAt: pr.createdAt ?? null,
-    updatedAt: pr.updatedAt ?? null,
-  };
-}
-
-function buildOverview(
-  deps: GitHubChangeRequestReaderDeps,
-  ref: ChangeRequestReadOptions,
-  pr: OverviewPullRequest,
-  initialChecksError: string | null,
-): ChangeRequestOverview {
-  const rollup = pr.latest?.nodes[0]?.commit?.statusCheckRollup ?? null;
-  const truncatedChecks = rollup?.contexts.pageInfo.hasNextPage === true;
-  const checks = rollup ? deps.parseChecks(rollup.contexts.nodes.map(deps.toRollupNode)) : [];
-  const merged = pr.merged === true;
+function buildOverview(ref: ChangeRequestReadOptions, pull: Pull): ChangeRequestOverview {
+  const merged = pull.merged === true;
   return {
     forge: "github",
     forgeHost: ref.forgeHost,
     owner: ref.owner,
     name: ref.name,
     number: ref.number,
-    url: pr.url,
-    title: pr.title,
-    body: pr.body ?? "",
-    state: toState(pr.state, merged),
-    isDraft: pr.isDraft ?? false,
+    url: pull.html_url,
+    title: pull.title,
+    body: pull.body ?? "",
+    state: toState(pull.state, merged),
+    isDraft: pull.draft ?? false,
     isMerged: merged,
-    baseRefName: pr.baseRefName,
-    headRefName: pr.headRefName,
-    baseSha: pr.baseRefOid ?? null,
-    headSha: pr.headRefOid ?? null,
-    mergeable: toMergeable(pr.mergeable),
-    reviewDecision: deps.mapReviewDecision(pr.reviewDecision),
-    checks,
-    checksStatus: computeChecksStatus(checks),
-    checksError: truncatedChecks
-      ? `Showing the first ${OVERVIEW_CHECK_CONTEXT_LIMIT} checks.`
-      : initialChecksError,
-    ...overviewAuthorship(pr),
-    ...overviewStats(pr),
+    author: pull.user?.login ?? null,
+    authorUrl: pull.user?.html_url ?? null,
+    createdAt: pull.created_at ?? null,
+    updatedAt: pull.updated_at ?? null,
+    baseRefName: pull.base.ref,
+    headRefName: pull.head.ref,
+    baseSha: pull.base.sha,
+    headSha: pull.head.sha,
+    mergeable: toMergeable(pull.mergeable),
+    additions: pull.additions ?? 0,
+    deletions: pull.deletions ?? 0,
+    changedFiles: pull.changed_files,
+    commitCount: pull.commits ?? 0,
+    labels: (pull.labels ?? []).map((label) => label.name),
+  };
+}
+
+/** A read-through cache with a TTL that also shares the request already in flight. */
+function createTimedCache<T>(now: () => number, ttlMs: number) {
+  const values = new Map<string, { at: number; value: T }>();
+  const inFlight = new Map<string, Promise<T>>();
+  return {
+    get(key: string, force: boolean | undefined, load: () => Promise<T>): Promise<T> {
+      const cachedValue = values.get(key);
+      if (!force && cachedValue && now() - cachedValue.at < ttlMs) {
+        return Promise.resolve(cachedValue.value);
+      }
+      const existing = inFlight.get(key);
+      if (existing && !force) {
+        return existing;
+      }
+      const pending = load()
+        .then((value) => {
+          values.set(key, { at: now(), value });
+          return value;
+        })
+        .finally(() => {
+          if (inFlight.get(key) === pending) {
+            inFlight.delete(key);
+          }
+        });
+      inFlight.set(key, pending);
+      return pending;
+    },
   };
 }
 
@@ -529,22 +520,54 @@ export function createGitHubChangeRequestReader(
     ttl: SNAPSHOT_TTL_MS,
   });
   const inFlightSnapshots = new Map<string, Promise<Snapshot>>();
-  const overviews = new Map<string, { at: number; value: ChangeRequestOverview }>();
-  const inFlightOverviews = new Map<string, Promise<ChangeRequestOverview>>();
+  const pulls = createTimedCache<Pull>(deps.now, OVERVIEW_TTL_MS);
+  const statuses = createTimedCache<ChangeRequestStatus>(deps.now, OVERVIEW_TTL_MS);
+  const commitLists = createTimedCache<ChangeRequestCommitList>(deps.now, OVERVIEW_TTL_MS);
 
-  async function readPullMeta(ref: ChangeRequestReadOptions) {
-    return parseJson(
-      await gh(
-        ["api", "--method", "GET", `repos/${ref.owner}/${ref.name}/pulls/${ref.number}`],
-        ref.forgeHost,
+  function readPull(ref: ChangeRequestReadOptions, force: boolean | undefined): Promise<Pull> {
+    return pulls.get(refKey(ref), force, async () =>
+      parseJson(
+        await gh(
+          ["api", "--method", "GET", `repos/${ref.owner}/${ref.name}/pulls/${ref.number}`],
+          ref.forgeHost,
+        ),
+        PullSchema,
+        "pull request",
       ),
-      PullMetaSchema,
-      "pull request",
     );
   }
 
-  async function fetchSnapshot(ref: ChangeRequestReadOptions): Promise<Snapshot> {
-    const before = await readPullMeta(ref);
+  async function readFilesPage(ref: ChangeRequestReadOptions, page: number) {
+    return parseJson(
+      await gh(
+        [
+          "api",
+          "--method",
+          "GET",
+          `repos/${ref.owner}/${ref.name}/pulls/${ref.number}/files`,
+          "-F",
+          `per_page=${FILES_PAGE_SIZE}`,
+          "-F",
+          `page=${page}`,
+        ],
+        ref.forgeHost,
+      ),
+      FilesPageSchema,
+      "file list",
+    );
+  }
+
+  function samePull(a: Pull, b: Pull): boolean {
+    return (
+      a.head.sha === b.head.sha && a.base.sha === b.base.sha && a.changed_files === b.changed_files
+    );
+  }
+
+  /** The file pages read between two matching pull reads, or the newer pull when they differ. */
+  async function readSnapshotAt(
+    ref: ChangeRequestReadOptions,
+    before: Pull,
+  ): Promise<{ snapshot: Snapshot } | { changedTo: Pull }> {
     if (before.changed_files > GITHUB_FILE_LIMIT) {
       throw new ChangeRequestReadError(
         "too_large",
@@ -554,61 +577,40 @@ export function createGitHubChangeRequestReader(
     const key = `${refKey(ref)}@${before.head.sha}`;
     const cachedSnapshot = ref.force ? undefined : snapshots.get(key);
     if (cachedSnapshot) {
-      return cachedSnapshot;
+      return { snapshot: cachedSnapshot };
+    }
+    // Every page is known up front, so they load together; the limiter bounds the processes.
+    const pageCount = Math.ceil(before.changed_files / FILES_PAGE_SIZE);
+    const pages = await Promise.all(
+      Array.from({ length: pageCount }, (_, index) => readFilesPage(ref, index + 1)),
+    );
+    const after = await readPull(ref, true);
+    if (!samePull(before, after)) {
+      return { changedTo: after };
     }
     const records = new Map<string, PatchRecord>();
     let patchBytes = 0;
-    for (let page = 1; records.size < before.changed_files; page++) {
-      const files = parseJson(
-        await gh(
-          [
-            "api",
-            "--method",
-            "GET",
-            `repos/${ref.owner}/${ref.name}/pulls/${ref.number}/files`,
-            "-F",
-            `per_page=${FILES_PAGE_SIZE}`,
-            "-F",
-            `page=${page}`,
-          ],
-          ref.forgeHost,
-        ),
-        FilesPageSchema,
-        "file list",
-      );
-      if (files.length === 0) {
+    for (const file of pages.flat()) {
+      if (records.has(file.filename)) {
         throw new ChangeRequestReadError(
-          "unavailable",
-          "GitHub returned an incomplete file list. Reload the pull request.",
+          "stale_snapshot",
+          "The file list changed while loading. Reload the pull request.",
         );
       }
-      for (const file of files) {
-        if (records.has(file.filename)) {
-          throw new ChangeRequestReadError(
-            "stale_snapshot",
-            "The file list changed while loading. Reload the pull request.",
-          );
-        }
-        const record = toFileRecord(file);
-        patchBytes += record.patch === null ? 0 : Buffer.byteLength(record.patch);
-        records.set(record.path, record);
-      }
-      if (patchBytes > SNAPSHOT_MAX_PATCH_BYTES) {
-        throw new ChangeRequestReadError(
-          "too_large",
-          "This diff exceeds the 32 MB limit. Open it on the forge.",
-        );
-      }
+      const record = toFileRecord(file);
+      patchBytes += record.patch === null ? 0 : Buffer.byteLength(record.patch);
+      records.set(record.path, record);
     }
-    const after = await readPullMeta(ref);
-    if (
-      after.head.sha !== before.head.sha ||
-      after.base.sha !== before.base.sha ||
-      after.changed_files !== before.changed_files
-    ) {
+    if (records.size !== before.changed_files) {
       throw new ChangeRequestReadError(
-        "stale_snapshot",
-        "The pull request changed while loading. Reload it to review a consistent snapshot.",
+        "unavailable",
+        "GitHub returned an incomplete file list. Reload the pull request.",
+      );
+    }
+    if (patchBytes > SNAPSHOT_MAX_PATCH_BYTES) {
+      throw new ChangeRequestReadError(
+        "too_large",
+        "This diff exceeds the 32 MB limit. Open it on the forge.",
       );
     }
     const snapshot: Snapshot = {
@@ -619,7 +621,25 @@ export function createGitHubChangeRequestReader(
       patchBytes,
     };
     snapshots.set(key, snapshot);
-    return snapshot;
+    return { snapshot };
+  }
+
+  async function fetchSnapshot(ref: ChangeRequestReadOptions): Promise<Snapshot> {
+    // The pull read the header just made brackets the page reads as well as a new one would: an
+    // older "before" only widens the window the "after" read has to confirm. When they differ the
+    // cached read may predate a push, so the pages are read once more from the newer revision.
+    const first = await readSnapshotAt(ref, await readPull(ref, ref.force));
+    if ("snapshot" in first) {
+      return first.snapshot;
+    }
+    const second = await readSnapshotAt(ref, first.changedTo);
+    if ("snapshot" in second) {
+      return second.snapshot;
+    }
+    throw new ChangeRequestReadError(
+      "stale_snapshot",
+      "The pull request changed while loading. Reload it to review a consistent snapshot.",
+    );
   }
 
   function loadSnapshot(ref: ChangeRequestReadOptions): Promise<Snapshot> {
@@ -633,7 +653,7 @@ export function createGitHubChangeRequestReader(
     return pending;
   }
 
-  async function fetchOverview(ref: ChangeRequestReadOptions): Promise<ChangeRequestOverview> {
+  async function fetchStatus(ref: ChangeRequestReadOptions): Promise<ChangeRequestStatus> {
     const variables = [
       "-f",
       `owner=${ref.owner}`,
@@ -643,7 +663,7 @@ export function createGitHubChangeRequestReader(
       `number=${ref.number}`,
     ];
     const query = (withChecks: boolean) =>
-      `${OVERVIEW_QUERY_HEAD}${withChecks ? OVERVIEW_QUERY_CHECKS : ""}${OVERVIEW_QUERY_TAIL}`;
+      `${STATUS_QUERY_HEAD}${withChecks ? STATUS_QUERY_CHECKS : ""}${STATUS_QUERY_TAIL}`;
     let checksError: string | null = null;
     let stdout: string;
     try {
@@ -652,7 +672,7 @@ export function createGitHubChangeRequestReader(
         ref.forgeHost,
       );
     } catch (error) {
-      // Some tokens read the pull request but not its CI; keep the pull request, mark checks unknown.
+      // Some tokens read the pull request but not its CI; keep the review state, mark checks unknown.
       if (!(error instanceof ChangeRequestReadError) || error.code !== "forbidden") {
         throw error;
       }
@@ -662,7 +682,7 @@ export function createGitHubChangeRequestReader(
         ref.forgeHost,
       );
     }
-    const parsed = parseJson(stdout, OverviewGraphqlSchema, "pull request");
+    const parsed = parseJson(stdout, StatusGraphqlSchema, "pull request status");
     const pr = parsed.data?.repository?.pullRequest;
     if (!pr) {
       throw new ChangeRequestReadError(
@@ -670,7 +690,50 @@ export function createGitHubChangeRequestReader(
         "This pull request is not available to your GitHub account.",
       );
     }
-    return buildOverview(deps, ref, pr, checksError);
+    const rollup = pr.latest?.nodes[0]?.commit?.statusCheckRollup ?? null;
+    const checks = rollup ? deps.parseChecks(rollup.contexts.nodes.map(deps.toRollupNode)) : [];
+    return {
+      reviewDecision: deps.mapReviewDecision(pr.reviewDecision),
+      checks,
+      checksStatus: computeChecksStatus(checks),
+      checksError:
+        rollup?.contexts.pageInfo.hasNextPage === true
+          ? `Showing the first ${OVERVIEW_CHECK_CONTEXT_LIMIT} checks.`
+          : checksError,
+    };
+  }
+
+  async function fetchCommits(ref: ChangeRequestReadOptions): Promise<ChangeRequestCommitList> {
+    const page = parseJson(
+      await gh(
+        [
+          "api",
+          "--method",
+          "GET",
+          `repos/${ref.owner}/${ref.name}/pulls/${ref.number}/commits`,
+          "-F",
+          `per_page=${COMMITS_PAGE_SIZE}`,
+        ],
+        ref.forgeHost,
+      ),
+      CommitsPageSchema,
+      "commit list",
+    );
+    return {
+      commits: page.map((entry): ChangeRequestCommit => {
+        const [headline = "", ...rest] = entry.commit.message.split("\n");
+        return {
+          sha: entry.sha,
+          headline,
+          body: rest.join("\n").trim(),
+          author: entry.author?.login ?? entry.commit.author?.name ?? null,
+          committedAt: entry.commit.author?.date ?? null,
+          url: entry.html_url,
+        };
+      }),
+      // One page is read; a longer history is reported, never silently clipped.
+      truncated: page.length >= COMMITS_PAGE_SIZE,
+    };
   }
 
   function inboxItemFromSearch(
@@ -907,28 +970,16 @@ export function createGitHubChangeRequestReader(
       };
     },
 
-    getChangeRequestOverview(options) {
-      const key = refKey(options);
-      const cachedOverview = overviews.get(key);
-      if (!options.force && cachedOverview && deps.now() - cachedOverview.at < OVERVIEW_TTL_MS) {
-        return Promise.resolve(cachedOverview.value);
-      }
-      const existing = inFlightOverviews.get(key);
-      if (existing && !options.force) {
-        return existing;
-      }
-      const pending = fetchOverview(options)
-        .then((value) => {
-          overviews.set(key, { at: deps.now(), value });
-          return value;
-        })
-        .finally(() => {
-          if (inFlightOverviews.get(key) === pending) {
-            inFlightOverviews.delete(key);
-          }
-        });
-      inFlightOverviews.set(key, pending);
-      return pending;
+    async getChangeRequestOverview(options) {
+      return buildOverview(options, await readPull(options, options.force));
+    },
+
+    getChangeRequestStatus(options) {
+      return statuses.get(refKey(options), options.force, () => fetchStatus(options));
+    },
+
+    listChangeRequestCommits(options) {
+      return commitLists.get(refKey(options), options.force, () => fetchCommits(options));
     },
 
     async listChangeRequestFiles(options) {

@@ -1,7 +1,6 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
 // Stream S2 owns this file: the top bar (back/forward, Pull requests / Worktrees) and the detail
 // header (repo and number, title, state/branch/counter chips, Overview / Changes tabs).
-import { i18n } from "@/i18n/i18next";
 import { useCallback, useMemo } from "react";
 import { Text, View } from "react-native";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
@@ -13,11 +12,11 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { useFetchQuery } from "@/data/query";
-import { getHostRuntimeStore, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import type { Theme } from "@/styles/theme";
 import { ChecksChip, DecisionChip, StateChip } from "./chips";
+import { overviewQuery, statusQuery } from "./queries";
 import type {
-  ChangeRequestSource,
   ReviewDetailHeaderProps,
   ReviewDetailTab,
   ReviewHeaderProps,
@@ -83,40 +82,16 @@ export function ReviewHeader({ mode, navigation, onModeChange }: ReviewHeaderPro
   );
 }
 
-function useOverview(source: ChangeRequestSource | null) {
-  const connected = useHostRuntimeIsConnected(source?.serverId ?? "");
-  const query = useFetchQuery({
-    queryKey: [
-      "review-screen",
-      "overview-header",
-      source?.serverId,
-      source?.forgeHost,
-      source?.owner,
-      source?.name,
-      source?.number,
-    ],
-    enabled: source !== null && connected,
-    dataShape: "value",
-    staleTimeMs: 30_000,
-    queryFn: async () => {
-      const client = source ? getHostRuntimeStore().getClient(source.serverId) : null;
-      if (!source || !client) throw new Error(i18n.t("reviewScreen.errors.hostNotConnected"));
-      return client.forgeChangeRequestGetOverview({
-        forgeHost: source.forgeHost,
-        owner: source.owner,
-        name: source.name,
-        number: source.number,
-      });
-    },
-  });
-  return query;
-}
-
 export function ReviewDetailHeader({ source, tab, onTabChange }: ReviewDetailHeaderProps) {
   const { t } = useTranslation();
   const changeRequest = source.kind === "change_request" ? source : null;
-  const overviewQuery = useOverview(changeRequest);
-  const overview = overviewQuery.data?.overview ?? null;
+  const client = useHostRuntimeClient(source.serverId);
+  const connected = useHostRuntimeIsConnected(source.serverId);
+  const enabled = changeRequest !== null && !!client && connected;
+  const overviewResult = useFetchQuery({ ...overviewQuery(changeRequest, client), enabled });
+  const statusResult = useFetchQuery({ ...statusQuery(changeRequest, client), enabled });
+  const overview = overviewResult.data ?? null;
+  const status = statusResult.data ?? null;
 
   const identity = changeRequest
     ? `${changeRequest.owner}/${changeRequest.name} #${changeRequest.number}`
@@ -130,7 +105,7 @@ export function ReviewDetailHeader({ source, tab, onTabChange }: ReviewDetailHea
         .pop() || source.cwd;
   } else {
     if (overview) title = overview.title;
-    else if (overviewQuery.isPending) title = t("reviewScreen.loading");
+    else if (overviewResult.isPending) title = t("reviewScreen.loading");
     else title = t("reviewScreen.detailFailed");
   }
 
@@ -150,8 +125,8 @@ export function ReviewDetailHeader({ source, tab, onTabChange }: ReviewDetailHea
               variant="muted"
               label={`${overview.headRefName} → ${overview.baseRefName}`}
             />
-            <ChecksChip status={overview.checksStatus} />
-            <DecisionChip decision={overview.reviewDecision} />
+            <ChecksChip status={status?.checksStatus ?? null} />
+            <DecisionChip decision={status?.reviewDecision ?? null} />
             {overview.mergeable === "CONFLICTING" ? (
               <StatusBadge variant="warning" label={t("reviewScreen.conflicts")} />
             ) : null}

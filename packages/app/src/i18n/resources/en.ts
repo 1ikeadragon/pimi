@@ -306,6 +306,8 @@ export const en = {
       hostNotConnected: "Host is not connected",
       loadPullRequest: "Could not load the pull request",
       loadThreads: "Could not load review threads",
+      loadChecks: "Could not load checks",
+      loadCommits: "Could not load commits",
       loadCheckDetails: "Could not load check details",
       noFileList: "The daemon returned no file list",
       noDiff: "The daemon returned no diff",

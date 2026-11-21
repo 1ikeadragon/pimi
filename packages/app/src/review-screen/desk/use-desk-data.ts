@@ -1,46 +1,19 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
 // Data for the Changes tab: the file list of one change request, forge threads for the markers,
 // and the rule that picks continuous scroll or single-file mode from the list's totals.
-import { i18n } from "@/i18n/i18next";
 import { useMemo } from "react";
 import type { ChangeRequestFile, ParsedDiffFile } from "@pimi/protocol/messages";
 import { useFetchQuery } from "@/data/query";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import type { ChangeRequestSource, ReviewCountsByPath } from "../types";
+import { filesQuery, type DeskFileList } from "../queries";
 import { useReviewTimeline } from "../use-review-timeline";
 
 /** Continuous scroll up to this many files and this much patch text; single-file mode above. */
 export const CONTINUOUS_MAX_FILES = 50;
 export const CONTINUOUS_MAX_PATCH_BYTES = 1024 * 1024;
 
-function refOf(source: ChangeRequestSource) {
-  return {
-    forgeHost: source.forgeHost,
-    owner: source.owner,
-    name: source.name,
-    number: source.number,
-  };
-}
-
-export function deskFilesQueryKey(source: ChangeRequestSource) {
-  return [
-    "review-desk",
-    "files",
-    source.serverId,
-    source.forgeHost,
-    source.owner,
-    source.name,
-    source.number,
-  ] as const;
-}
-
-export interface DeskFileList {
-  baseSha: string;
-  headSha: string;
-  totalFiles: number;
-  patchBytesTotal: number;
-  files: ChangeRequestFile[];
-}
+export type { DeskFileList };
 
 export type DeskFilesState =
   | { status: "loading" }
@@ -51,19 +24,8 @@ export function useDeskFiles(source: ChangeRequestSource): DeskFilesState {
   const client = useHostRuntimeClient(source.serverId);
   const isConnected = useHostRuntimeIsConnected(source.serverId);
   const query = useFetchQuery({
-    queryKey: deskFilesQueryKey(source),
-    dataShape: "value",
-    staleTimeMs: 60_000,
-    retry: false,
-    queryFn: async (): Promise<DeskFileList> => {
-      if (!client) throw new Error(i18n.t("reviewScreen.errors.hostNotConnected"));
-      const payload = await client.forgeChangeRequestListFiles(refOf(source));
-      if (payload.error) throw new Error(payload.error.message);
-      if (!payload.snapshot) throw new Error(i18n.t("reviewScreen.errors.noFileList"));
-      return { ...payload.snapshot, files: payload.files };
-    },
+    ...filesQuery(source, client),
     enabled: Boolean(client) && isConnected,
-    refetchOnWindowFocus: false,
   });
   const { refetch } = query;
   return useMemo<DeskFilesState>(() => {

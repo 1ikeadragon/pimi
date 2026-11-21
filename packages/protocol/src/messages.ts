@@ -3082,6 +3082,16 @@ export const ForgeChangeRequestGetOverviewRequestSchema = z.object({
   ...ChangeRequestRefFields,
 });
 
+export const ForgeChangeRequestGetStatusRequestSchema = z.object({
+  type: z.literal("forge.change_request.get_status.request"),
+  ...ChangeRequestRefFields,
+});
+
+export const ForgeChangeRequestListCommitsRequestSchema = z.object({
+  type: z.literal("forge.change_request.list_commits.request"),
+  ...ChangeRequestRefFields,
+});
+
 export const ForgeChangeRequestListFilesRequestSchema = z.object({
   type: z.literal("forge.change_request.list_files.request"),
   ...ChangeRequestRefFields,
@@ -3995,6 +4005,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutForgeGetCheckDetailsRequestSchema,
   ForgeChangeRequestListInboxRequestSchema,
   ForgeChangeRequestGetOverviewRequestSchema,
+  ForgeChangeRequestGetStatusRequestSchema,
+  ForgeChangeRequestListCommitsRequestSchema,
   ForgeChangeRequestListFilesRequestSchema,
   ForgeChangeRequestGetFileDiffsRequestSchema,
   ForgeChangeRequestGetTimelineRequestSchema,
@@ -6518,6 +6530,25 @@ const ChangeRequestOverviewSchema = z.object({
   baseSha: z.string().nullable(),
   headSha: z.string().nullable(),
   mergeable: ChangeRequestMergeableSchema,
+  additions: z.number(),
+  deletions: z.number(),
+  changedFiles: z.number(),
+  commitCount: z.number(),
+  labels: z.array(z.string()),
+});
+
+export const ForgeChangeRequestGetOverviewResponseSchema = z.object({
+  type: z.literal("forge.change_request.get_overview.response"),
+  payload: z.object({
+    overview: ChangeRequestOverviewSchema.nullable(),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
+// Review decision and CI, read apart from the overview: the forge answers them far slower than
+// the header fields, and the header should not wait.
+const ChangeRequestStatusSchema = z.object({
   reviewDecision: ChangeRequestReviewDecisionSchema.nullable(),
   checks: z.array(
     z.object({
@@ -6541,10 +6572,30 @@ const ChangeRequestOverviewSchema = z.object({
   labels: z.array(z.string()),
 });
 
-export const ForgeChangeRequestGetOverviewResponseSchema = z.object({
-  type: z.literal("forge.change_request.get_overview.response"),
+export const ForgeChangeRequestGetStatusResponseSchema = z.object({
+  type: z.literal("forge.change_request.get_status.response"),
   payload: z.object({
-    overview: ChangeRequestOverviewSchema.nullable(),
+    status: ChangeRequestStatusSchema.nullable(),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
+const ChangeRequestCommitSchema = z.object({
+  sha: z.string(),
+  headline: z.string(),
+  body: z.string(),
+  author: z.string().nullable(),
+  committedAt: z.string().nullable(),
+  url: z.string(),
+});
+
+export const ForgeChangeRequestListCommitsResponseSchema = z.object({
+  type: z.literal("forge.change_request.list_commits.response"),
+  payload: z.object({
+    commits: z.array(ChangeRequestCommitSchema),
+    // True when the forge has more commits than the one page read.
+    truncated: z.boolean(),
     error: ChangeRequestErrorSchema.nullable(),
     requestId: z.string(),
   }),
@@ -7963,6 +8014,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CodeNavigationQueryResponseSchema,
   CodeNavigationServersListResponseSchema,
   CodeNavigationServerTestResponseSchema,
+  ForgeChangeRequestGetStatusResponseSchema,
+  ForgeChangeRequestListCommitsResponseSchema,
   CheckoutForgeGetCheckDetailsResponseSchema,
   ForgeChangeRequestListInboxResponseSchema,
   ForgeChangeRequestGetOverviewResponseSchema,
@@ -8498,6 +8551,14 @@ export type CheckoutPipelineStage = z.infer<typeof CheckoutPipelineStageSchema>;
 export type CheckoutPipelineJob = z.infer<typeof CheckoutPipelineJobSchema>;
 export type CheckoutForgeGetCheckDetailsResponse = z.infer<
   typeof CheckoutForgeGetCheckDetailsResponseSchema
+export type ChangeRequestStatus = z.infer<typeof ChangeRequestStatusSchema>;
+export type ChangeRequestCommit = z.infer<typeof ChangeRequestCommitSchema>;
+>;
+export type ForgeChangeRequestGetStatusResponse = z.infer<
+  typeof ForgeChangeRequestGetStatusResponseSchema
+>;
+export type ForgeChangeRequestListCommitsResponse = z.infer<
+  typeof ForgeChangeRequestListCommitsResponseSchema
 >;
 export type ChangeRequestError = z.infer<typeof ChangeRequestErrorSchema>;
 export type ChangeRequestInboxScope = z.infer<typeof ChangeRequestInboxScopeSchema>;

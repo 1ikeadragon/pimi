@@ -3247,6 +3247,10 @@ export class Session {
         return this.changeRequestSession.handleListInboxRequest(msg);
       case "forge.change_request.get_overview.request":
         return this.changeRequestSession.handleGetOverviewRequest(msg);
+      case "forge.change_request.get_status.request":
+        return this.changeRequestSession.handleGetStatusRequest(msg);
+      case "forge.change_request.list_commits.request":
+        return this.changeRequestSession.handleListCommitsRequest(msg);
       case "forge.change_request.list_files.request":
         return this.changeRequestSession.handleListFilesRequest(msg);
       case "forge.change_request.get_file_diffs.request":
