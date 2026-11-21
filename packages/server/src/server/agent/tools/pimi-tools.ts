@@ -221,6 +221,8 @@ export interface PimiToolHostDependencies {
   browserToolsBroker?: BrowserToolsBroker | null;
   /** The caller is an agent of an Attack run. Only then do the Attack and desktop tools exist. */
   attackRun?: boolean;
+  /** The caller's session leads a crew. Unset: read the caller agent's config. */
+  crew?: boolean;
   pimiToolPolicy?: ProviderPimiToolsPolicy;
   pimiHome?: string;
   worktreesRoot?: string;
@@ -229,6 +231,12 @@ export interface PimiToolHostDependencies {
    * Used for cwd/mode inheritance when agents spawn child agents.
    */
   callerAgentId?: string;
+  /**
+   * Builds the shared manifest a provider installs once for every session (OpenCode's bridge
+   * plugin). Tools that only some callers get are included; each session's own catalog still
+   * decides which of them it lists.
+   */
+  manifest?: boolean;
   /**
    * Optional resolver for session-bound speak handlers.
    * Used by hidden voice agents to narrate through daemon-managed TTS.
@@ -522,7 +530,9 @@ export function createPimiAgentToolManifest(
   options: PimiToolHostDependencies,
 ): Pick<PimiToolCatalog, "tools"> {
   // Plugins register before a caller exists, but every execution uses an agent-bound catalog.
-  return { tools: lazyPimiToolCatalog(createToolCatalog(options, "agent")).tools };
+  return {
+    tools: lazyPimiToolCatalog(createToolCatalog({ ...options, manifest: true }, "agent")).tools,
+  };
 }
 
 function registerBrowserShowWhenAvailable(input: {
@@ -2034,6 +2044,8 @@ function createToolCatalog(
   registerDelegateTool({
     registerTool,
     callerAgentId,
+    manifest: options.manifest,
+    crew: options.crew,
     getCallerAgent: () => (callerAgentId ? agentManager.getAgent(callerAgentId) : null),
     listAgents: () => agentManager.listAgents(),
     findProfile: (id) => daemonConfigStore?.get().agentProfiles?.find((p) => p.id === id),

@@ -1952,6 +1952,7 @@ export async function createPimiDaemon(
     browserToolsEnabled: browserToolsPolicy.isEnabled(),
     browserToolsBroker,
     attackRun: runtime.attackRun,
+    crew: runtime.crew,
     pimiToolPolicy:
       runtime.pimiToolPolicy ??
       (runtime.callerAgentId ? agentManager.getPimiToolPolicy(runtime.callerAgentId) : undefined),

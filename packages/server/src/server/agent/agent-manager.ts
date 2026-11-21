@@ -103,7 +103,7 @@ import {
   withRuntimePimiMcpServer,
 } from "./runtime-mcp-config.js";
 import { resolveCreateAgentTitles } from "./create-agent-title.js";
-import type { PimiToolCatalogFactory } from "./tools/types.js";
+import type { PimiToolCatalogFactory, PimiToolRuntimeContext } from "./tools/types.js";
 import { memoryRecallInstructions } from "./tools/project-memory-tools.js";
 import { isPimiToolEnabled, isPimiToolPolicyEnabled } from "./pimi-tool-policy.js";
 import {
@@ -224,6 +224,20 @@ function pimiActionInstructions(input: {
     );
   }
   return instructions;
+}
+
+/** What decides the Pimi tools a session opening for this agent lists. */
+function launchToolContext(
+  agentId: string,
+  pimiToolPolicy: ProviderPimiToolsPolicy | undefined,
+  opening: { labels?: Record<string, string>; crew?: boolean } | undefined,
+): PimiToolRuntimeContext {
+  return {
+    callerAgentId: agentId,
+    pimiToolPolicy,
+    attackRun: carriesAttackRun(opening),
+    crew: opening?.crew,
+  };
 }
 
 /** Every agent of an Attack run carries the run's label: the lead from the run, the rest from create_agent. */
@@ -2148,6 +2162,7 @@ export class AgentManager {
           options.env,
           {
             reason: "create",
+            crew: storedConfig.crew === true,
             purpose: "interactive",
             workspaceId: options.workspaceId ?? null,
             title: options.initialTitle ?? storedConfig.title ?? null,
@@ -2292,6 +2307,7 @@ export class AgentManager {
       launchEnv,
       {
         reason: "resume",
+        crew: storedConfig.crew === true,
         purpose,
         workspaceId,
         title: record?.title ?? mergedConfig.title ?? null,
@@ -2384,6 +2400,7 @@ export class AgentManager {
       undefined,
       {
         reason: "import",
+        crew: storedConfig.crew === true,
         purpose: "interactive",
         workspaceId: input.workspaceId,
         labels: input.labels ?? {},
@@ -2879,6 +2896,7 @@ export class AgentManager {
         agent.launchEnv,
         {
           reason: "refresh",
+          crew: storedConfig.crew === true,
           purpose: "interactive",
           workspaceId: agent.workspaceId,
           title: await this.resolveInitialPersistedTitle(agentId, agent.config, null),
@@ -7700,6 +7718,8 @@ export class AgentManager {
       workspaceId?: string | null;
       title?: string | null;
       labels?: Record<string, string>;
+      /** The session leads a crew, so its tools include `delegate`. */
+      crew?: boolean;
     },
   ): Promise<AgentLaunchContext> {
     // A plugin changing during this open must still make the resulting session stale.
@@ -7747,11 +7767,9 @@ export class AgentManager {
       (useNativeTools || this.getPluginTools(agentId).length > 0)
     ) {
       try {
-        const catalog = await this.pimiToolCatalogFactory({
-          callerAgentId: agentId,
-          pimiToolPolicy,
-          attackRun: carriesAttackRun(opening),
-        });
+        const catalog = await this.pimiToolCatalogFactory(
+          launchToolContext(agentId, pimiToolPolicy, opening),
+        );
         if (useNativeTools) context.pimiTools = lazyPimiToolCatalog(catalog);
       } catch (error) {
         this.detachPluginTools(agentId);

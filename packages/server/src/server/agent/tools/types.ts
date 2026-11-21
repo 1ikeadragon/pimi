@@ -52,6 +52,8 @@ export interface PimiToolRuntimeContext {
   pimiToolPolicy?: ProviderPimiToolsPolicy;
   /** The caller carries an Attack run's label, so the Attack and desktop tools exist for it. */
   attackRun?: boolean;
+  /** The caller's session leads a crew, so `delegate` exists for it. Unset: read the live agent. */
+  crew?: boolean;
   enableVoiceTools?: boolean;
   voiceOnly?: boolean;
 }
