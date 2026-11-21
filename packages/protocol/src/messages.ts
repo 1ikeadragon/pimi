@@ -3056,6 +3056,33 @@ const ChangeRequestRefFields = {
   requestId: z.string(),
 };
 
+// Writes address the same identity but never carry `refresh`; `mutationId` makes a retried
+// request (a timeout over the relay, then a resend) run at most once in the daemon.
+const ChangeRequestWriteFields = {
+  forgeHost: ChangeRequestForgeHostSchema,
+  owner: ChangeRequestRepoSegmentSchema,
+  name: ChangeRequestRepoSegmentSchema,
+  number: ChangeRequestNumberSchema,
+  requestId: z.string(),
+  mutationId: z.string().uuid(),
+};
+
+// GitHub's comment limit. A body is user text: the daemon hands it to the forge CLI through a
+// temp file, never argv.
+export const ChangeRequestBodySchema = z.string().min(1).max(65536);
+export const ChangeRequestThreadIdSchema = z.string().regex(/^[A-Za-z0-9_=-]{1,128}$/);
+export const ChangeRequestLineLocationSchema = z.object({
+  // No control characters (NUL, CR, LF, tab): the path reaches a forge API as JSON text.
+  path: z
+    .string()
+    .min(1)
+    .max(4096)
+    .regex(/^[^\p{Cc}]+$/u),
+  side: z.enum(["new", "old"]),
+  line: z.number().int().min(1).max(10_000_000),
+});
+export const ChangeRequestReviewEventSchema = z.enum(["comment", "approve", "request_changes"]);
+
 export const ChangeRequestInboxScopeSchema = z.enum(["review_requested", "authored", "repository"]);
 
 export const ForgeChangeRequestListInboxRequestSchema = z.object({
@@ -3117,6 +3144,44 @@ export const ForgeChangeRequestGetCheckDetailsRequestSchema = z.object({
   // At least one of checkRunId/workflowRunId; the daemon rejects a request with neither.
   checkRunId: z.number().int().positive().optional(),
   workflowRunId: z.number().int().positive().optional(),
+});
+
+export const ForgeChangeRequestCreateCommentRequestSchema = z.object({
+  type: z.literal("forge.change_request.create_comment.request"),
+  ...ChangeRequestWriteFields,
+  body: ChangeRequestBodySchema,
+  // Absent: a comment on the conversation. Present: a single comment on one diff line of the
+  // revision the user saw.
+  location: ChangeRequestLineLocationSchema.extend({
+    headSha: ChangeRequestHeadShaSchema,
+  }).optional(),
+});
+
+export const ForgeChangeRequestReplyToThreadRequestSchema = z.object({
+  type: z.literal("forge.change_request.reply_to_thread.request"),
+  ...ChangeRequestWriteFields,
+  threadId: ChangeRequestThreadIdSchema,
+  body: ChangeRequestBodySchema,
+});
+
+export const ForgeChangeRequestSetThreadResolvedRequestSchema = z.object({
+  type: z.literal("forge.change_request.set_thread_resolved.request"),
+  ...ChangeRequestWriteFields,
+  threadId: ChangeRequestThreadIdSchema,
+  resolved: z.boolean(),
+});
+
+export const ForgeChangeRequestSubmitReviewRequestSchema = z.object({
+  type: z.literal("forge.change_request.submit_review.request"),
+  ...ChangeRequestWriteFields,
+  // The revision the reviewer saw; the daemon refuses with `stale_snapshot` if the pull request
+  // moved, so an approval always covers the commit that was on screen.
+  headSha: ChangeRequestHeadShaSchema,
+  event: ChangeRequestReviewEventSchema,
+  body: z.string().max(65536),
+  comments: z
+    .array(ChangeRequestLineLocationSchema.extend({ body: ChangeRequestBodySchema }))
+    .max(100),
 });
 
 export const CheckoutPrStatusRequestSchema = z.object({
@@ -4011,6 +4076,10 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ForgeChangeRequestGetFileDiffsRequestSchema,
   ForgeChangeRequestGetTimelineRequestSchema,
   ForgeChangeRequestGetCheckDetailsRequestSchema,
+  ForgeChangeRequestCreateCommentRequestSchema,
+  ForgeChangeRequestReplyToThreadRequestSchema,
+  ForgeChangeRequestSetThreadResolvedRequestSchema,
+  ForgeChangeRequestSubmitReviewRequestSchema,
   CheckoutPrStatusRequestSchema,
   PullRequestTimelineRequestSchema,
   CheckoutSwitchBranchRequestSchema,
@@ -6458,6 +6527,9 @@ const ChangeRequestErrorSchema = z.object({
     "stale_snapshot",
     "too_large",
     "unavailable",
+    // The forge refused a write for a reason the user can act on (own pull request, a line that
+    // is not in the diff, a locked conversation); `message` is the forge's own sentence.
+    "rejected",
   ]),
   message: z.string(),
 });
@@ -6512,8 +6584,19 @@ export const ForgeChangeRequestListInboxResponseSchema = z.object({
   }),
 });
 
+// What the UI may offer for this pull request on this forge. The daemon derives it from which
+// write methods the forge adapter has; it varies between forges, so the UI hides what is absent.
+const ChangeRequestActionsSchema = z.object({
+  comment: z.boolean(),
+  lineComment: z.boolean(),
+  reply: z.boolean(),
+  resolve: z.boolean(),
+  reviewEvents: z.array(ChangeRequestReviewEventSchema),
+});
+
 const ChangeRequestOverviewSchema = z.object({
   ...ChangeRequestIdentityFields,
+  actions: ChangeRequestActionsSchema,
   forge: z.string(),
   url: z.string(),
   title: z.string(),
@@ -6550,6 +6633,9 @@ export const ForgeChangeRequestGetOverviewResponseSchema = z.object({
 // the header fields, and the header should not wait.
 const ChangeRequestStatusSchema = z.object({
   reviewDecision: ChangeRequestReviewDecisionSchema.nullable(),
+  // The viewer opened this pull request: approving or requesting changes is refused on one's own.
+  viewerIsAuthor: z.boolean(),
+  viewerLatestReview: z.enum(["approved", "changes_requested", "commented"]).nullable(),
   checks: z.array(
     z.object({
       name: z.string(),
@@ -6565,11 +6651,6 @@ const ChangeRequestStatusSchema = z.object({
   checksStatus: ChangeRequestChecksStatusSchema,
   // Set when the token can read the change request but not its checks.
   checksError: z.string().nullable(),
-  additions: z.number(),
-  deletions: z.number(),
-  changedFiles: z.number(),
-  commitCount: z.number(),
-  labels: z.array(z.string()),
 });
 
 export const ForgeChangeRequestGetStatusResponseSchema = z.object({
@@ -6697,6 +6778,42 @@ export const ForgeChangeRequestGetCheckDetailsResponseSchema = z.object({
   type: z.literal("forge.change_request.get_check_details.response"),
   payload: z.object({
     details: CheckoutCheckDetailsSchema.nullable(),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
+export const ForgeChangeRequestCreateCommentResponseSchema = z.object({
+  type: z.literal("forge.change_request.create_comment.response"),
+  payload: z.object({
+    url: z.string().nullable(),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
+export const ForgeChangeRequestReplyToThreadResponseSchema = z.object({
+  type: z.literal("forge.change_request.reply_to_thread.response"),
+  payload: z.object({
+    url: z.string().nullable(),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
+export const ForgeChangeRequestSetThreadResolvedResponseSchema = z.object({
+  type: z.literal("forge.change_request.set_thread_resolved.response"),
+  payload: z.object({
+    resolved: z.boolean().nullable(),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
+export const ForgeChangeRequestSubmitReviewResponseSchema = z.object({
+  type: z.literal("forge.change_request.submit_review.response"),
+  payload: z.object({
+    url: z.string().nullable(),
     error: ChangeRequestErrorSchema.nullable(),
     requestId: z.string(),
   }),
@@ -8014,15 +8131,19 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CodeNavigationQueryResponseSchema,
   CodeNavigationServersListResponseSchema,
   CodeNavigationServerTestResponseSchema,
-  ForgeChangeRequestGetStatusResponseSchema,
-  ForgeChangeRequestListCommitsResponseSchema,
   CheckoutForgeGetCheckDetailsResponseSchema,
   ForgeChangeRequestListInboxResponseSchema,
   ForgeChangeRequestGetOverviewResponseSchema,
   ForgeChangeRequestListFilesResponseSchema,
   ForgeChangeRequestGetFileDiffsResponseSchema,
+  ForgeChangeRequestGetStatusResponseSchema,
+  ForgeChangeRequestListCommitsResponseSchema,
   ForgeChangeRequestGetTimelineResponseSchema,
   ForgeChangeRequestGetCheckDetailsResponseSchema,
+  ForgeChangeRequestCreateCommentResponseSchema,
+  ForgeChangeRequestReplyToThreadResponseSchema,
+  ForgeChangeRequestSetThreadResolvedResponseSchema,
+  ForgeChangeRequestSubmitReviewResponseSchema,
   CheckoutPrStatusResponseSchema,
   PullRequestTimelineResponseSchema,
   CheckoutSwitchBranchResponseSchema,
@@ -8551,20 +8672,20 @@ export type CheckoutPipelineStage = z.infer<typeof CheckoutPipelineStageSchema>;
 export type CheckoutPipelineJob = z.infer<typeof CheckoutPipelineJobSchema>;
 export type CheckoutForgeGetCheckDetailsResponse = z.infer<
   typeof CheckoutForgeGetCheckDetailsResponseSchema
+>;
+export type ChangeRequestError = z.infer<typeof ChangeRequestErrorSchema>;
+export type ChangeRequestInboxScope = z.infer<typeof ChangeRequestInboxScopeSchema>;
+export type ChangeRequestInboxItem = z.infer<typeof ChangeRequestInboxItemSchema>;
+export type ChangeRequestOverview = z.infer<typeof ChangeRequestOverviewSchema>;
 export type ChangeRequestStatus = z.infer<typeof ChangeRequestStatusSchema>;
 export type ChangeRequestCommit = z.infer<typeof ChangeRequestCommitSchema>;
->;
+export type ChangeRequestFile = z.infer<typeof ChangeRequestFileSchema>;
 export type ForgeChangeRequestGetStatusResponse = z.infer<
   typeof ForgeChangeRequestGetStatusResponseSchema
 >;
 export type ForgeChangeRequestListCommitsResponse = z.infer<
   typeof ForgeChangeRequestListCommitsResponseSchema
 >;
-export type ChangeRequestError = z.infer<typeof ChangeRequestErrorSchema>;
-export type ChangeRequestInboxScope = z.infer<typeof ChangeRequestInboxScopeSchema>;
-export type ChangeRequestInboxItem = z.infer<typeof ChangeRequestInboxItemSchema>;
-export type ChangeRequestOverview = z.infer<typeof ChangeRequestOverviewSchema>;
-export type ChangeRequestFile = z.infer<typeof ChangeRequestFileSchema>;
 export type ChangeRequestFileDiff = z.infer<typeof ChangeRequestFileDiffSchema>;
 export type ChangeRequestTimelineItem = z.infer<typeof ChangeRequestTimelineItemSchema>;
 export type ForgeChangeRequestListInboxRequest = z.infer<
@@ -8599,6 +8720,33 @@ export type ForgeChangeRequestGetTimelineResponse = z.infer<
 >;
 export type ForgeChangeRequestGetCheckDetailsRequest = z.infer<
   typeof ForgeChangeRequestGetCheckDetailsRequestSchema
+>;
+export type ChangeRequestLineLocation = z.infer<typeof ChangeRequestLineLocationSchema>;
+export type ChangeRequestReviewEvent = z.infer<typeof ChangeRequestReviewEventSchema>;
+export type ChangeRequestActions = z.infer<typeof ChangeRequestActionsSchema>;
+export type ForgeChangeRequestCreateCommentRequest = z.infer<
+  typeof ForgeChangeRequestCreateCommentRequestSchema
+>;
+export type ForgeChangeRequestCreateCommentResponse = z.infer<
+  typeof ForgeChangeRequestCreateCommentResponseSchema
+>;
+export type ForgeChangeRequestReplyToThreadRequest = z.infer<
+  typeof ForgeChangeRequestReplyToThreadRequestSchema
+>;
+export type ForgeChangeRequestReplyToThreadResponse = z.infer<
+  typeof ForgeChangeRequestReplyToThreadResponseSchema
+>;
+export type ForgeChangeRequestSetThreadResolvedRequest = z.infer<
+  typeof ForgeChangeRequestSetThreadResolvedRequestSchema
+>;
+export type ForgeChangeRequestSetThreadResolvedResponse = z.infer<
+  typeof ForgeChangeRequestSetThreadResolvedResponseSchema
+>;
+export type ForgeChangeRequestSubmitReviewRequest = z.infer<
+  typeof ForgeChangeRequestSubmitReviewRequestSchema
+>;
+export type ForgeChangeRequestSubmitReviewResponse = z.infer<
+  typeof ForgeChangeRequestSubmitReviewResponseSchema
 >;
 export type ForgeChangeRequestGetCheckDetailsResponse = z.infer<
   typeof ForgeChangeRequestGetCheckDetailsResponseSchema

@@ -3247,6 +3247,14 @@ export class Session {
         return this.changeRequestSession.handleListInboxRequest(msg);
       case "forge.change_request.get_overview.request":
         return this.changeRequestSession.handleGetOverviewRequest(msg);
+      case "forge.change_request.create_comment.request":
+        return this.changeRequestSession.handleCreateCommentRequest(msg);
+      case "forge.change_request.reply_to_thread.request":
+        return this.changeRequestSession.handleReplyToThreadRequest(msg);
+      case "forge.change_request.set_thread_resolved.request":
+        return this.changeRequestSession.handleSetThreadResolvedRequest(msg);
+      case "forge.change_request.submit_review.request":
+        return this.changeRequestSession.handleSubmitReviewRequest(msg);
       case "forge.change_request.get_status.request":
         return this.changeRequestSession.handleGetStatusRequest(msg);
       case "forge.change_request.list_commits.request":
@@ -3416,14 +3424,14 @@ export class Session {
         return this.usageSession.handleGetAgentTree(msg);
       case "usage.rescan.request":
         return this.usageSession.handleRescan(msg);
-      default:
-        return undefined;
-    }
-  }
       case "recap.get.request":
         return this.usageSession.handleRecapGet(msg);
       case "recap.narrative.generate.request":
         return this.usageSession.handleRecapNarrative(msg);
+      default:
+        return undefined;
+    }
+  }
 
   private dispatchTerminalMessage(msg: SessionInboundMessage): Promise<void> | undefined {
     switch (msg.type) {

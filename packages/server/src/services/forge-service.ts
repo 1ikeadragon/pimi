@@ -4,7 +4,9 @@ import type {
   ChangeRequestInboxItem,
   ChangeRequestInboxScope,
   ChangeRequestCommit,
+  ChangeRequestLineLocation,
   ChangeRequestOverview,
+  ChangeRequestReviewEvent,
   ChangeRequestStatus,
   ForgeSearchKind,
 } from "@pimi/protocol/messages";
@@ -426,7 +428,8 @@ export type ChangeRequestReadErrorCode =
   | "unsupported"
   | "stale_snapshot"
   | "too_large"
-  | "unavailable";
+  | "unavailable"
+  | "rejected";
 
 /** A change-request read failed in a way the client can act on; `message` is safe to show. */
 export class ChangeRequestReadError extends Error {
@@ -461,6 +464,8 @@ export interface ChangeRequestInbox {
 }
 
 export type ChangeRequestReadOptions = ChangeRequestRef & { force?: boolean };
+
+export type ChangeRequestReviewComment = ChangeRequestLineLocation & { body: string };
 
 export interface ChangeRequestFileList {
   snapshot: { baseSha: string; headSha: string; totalFiles: number; patchBytesTotal: number };
@@ -542,7 +547,9 @@ export interface ForgeService {
    * and none writes to the forge.
    */
   listChangeRequestInbox?(options: ListChangeRequestInboxOptions): Promise<ChangeRequestInbox>;
-  getChangeRequestOverview?(options: ChangeRequestReadOptions): Promise<ChangeRequestOverview>;
+  getChangeRequestOverview?(
+    options: ChangeRequestReadOptions,
+  ): Promise<Omit<ChangeRequestOverview, "actions">>;
   getChangeRequestStatus?(options: ChangeRequestReadOptions): Promise<ChangeRequestStatus>;
   listChangeRequestCommits?(options: ChangeRequestReadOptions): Promise<ChangeRequestCommitList>;
   listChangeRequestFiles?(options: ChangeRequestReadOptions): Promise<ChangeRequestFileList>;
@@ -550,6 +557,32 @@ export interface ForgeService {
     options: GetChangeRequestFileDiffsOptions,
   ): Promise<ChangeRequestFileDiffs>;
   getChangeRequestTimeline?(options: ChangeRequestReadOptions): Promise<PullRequestTimeline>;
+  // Writes. Optional like the reads: a forge that omits one needs no other change, and the UI
+  // hides the control. Neutral vocabulary only; no forge enum crosses this interface. The
+  // adapter must pass user text to the forge CLI without putting it in argv.
+  createChangeRequestComment?(
+    options: ChangeRequestRef & {
+      body: string;
+      location?: ChangeRequestLineLocation & { headSha: string };
+    },
+  ): Promise<{ url: string | null }>;
+  replyToChangeRequestThread?(
+    options: ChangeRequestRef & { threadId: string; body: string },
+  ): Promise<{ url: string | null }>;
+  setChangeRequestThreadResolved?(
+    options: ChangeRequestRef & { threadId: string; resolved: boolean },
+  ): Promise<{ resolved: boolean }>;
+  /** Posts the summary, the verdict and every line comment as one review on `headSha`. */
+  submitChangeRequestReview?(
+    options: ChangeRequestRef & {
+      headSha: string;
+      event: ChangeRequestReviewEvent;
+      body: string;
+      comments: ChangeRequestReviewComment[];
+    },
+  ): Promise<{ url: string | null }>;
+  /** The verdicts this forge accepts; "request changes" is not available everywhere. */
+  changeRequestReviewEvents?: readonly ChangeRequestReviewEvent[];
   getChangeRequestCheckDetails?(
     options: GetChangeRequestCheckDetailsOptions,
   ): Promise<CheckDetails>;

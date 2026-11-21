@@ -104,15 +104,49 @@ hosts, and adapters must not route credentials to an unauthenticated host.
 ### Review reads
 
 The Review screen (`/pimi-review`) reads change requests that are not checked
-out through six optional `ForgeService` methods: `listChangeRequestInbox`,
-`getChangeRequestOverview`, `listChangeRequestFiles`, `getChangeRequestFileDiffs`,
-`getChangeRequestTimeline`, and `getChangeRequestCheckDetails`. They back the
-`forge.change_request.*` RPCs and take a `ChangeRequestRef` (host, owner, name,
-number). Only the GitHub adapter implements them. An adapter that omits them
-needs no other change: the RPCs answer "unsupported" and Review falls back to
-checkout-backed review for that forge. Implement them only when the forge can
-return a file list without patches and patches on demand per file; Review never
-asks for a whole-PR patch.
+out through eight optional `ForgeService` methods: `listChangeRequestInbox`,
+`getChangeRequestOverview`, `getChangeRequestStatus`, `listChangeRequestCommits`,
+`listChangeRequestFiles`, `getChangeRequestFileDiffs`, `getChangeRequestTimeline`,
+and `getChangeRequestCheckDetails`. They back the `forge.change_request.*` RPCs
+and take a `ChangeRequestRef` (host, owner, name, number). Only the GitHub adapter
+implements them. An adapter that omits them needs no other change: the RPCs
+answer "unsupported" and Review falls back to checkout-backed review for that
+forge. Implement them only when the forge can return a file list without patches
+and patches on demand per file; Review never asks for a whole-PR patch.
+
+The overview is the cheap read (header, description, revision pair). Review
+decision and checks are a separate `getChangeRequestStatus` because forges answer
+them far slower; the header must not wait for them. On GitHub the status is
+GraphQL, which shares one account-wide budget with PR polling, so the app reads
+it on open and refetches only while checks are pending.
+
+### Review writes
+
+Four more optional methods let Review act as the signed-in forge user:
+`createChangeRequestComment` (conversation comment, or one comment on a diff
+line), `replyToChangeRequestThread`, `setChangeRequestThreadResolved`, and
+`submitChangeRequestReview` (summary, verdict, and all line comments in one call),
+plus `changeRequestReviewEvents`, the verdicts the forge accepts (`comment`,
+`approve`, `request_changes`). The overview's `actions` is derived from which of
+these an adapter has, so the UI hides what a forge cannot do. The vocabulary is
+neutral (`side: "new" | "old"`); no forge enum crosses the interface.
+
+Rules every write adapter follows:
+
+- User text never goes in argv. On GitHub the body, path, thread id and sha travel
+  in a JSON request body written to a private temp file and passed with
+  `--input <file>`; argv holds only fixed strings, the validated owner, name and
+  number, and that daemon-made path. No `-F` (a value starting with `@` is read
+  as a file) and no `-f` with free text (argv length limits, Windows quoting).
+- GraphQL documents are constants; every value is a variable.
+- A write that the forge refuses for a reason the user can act on maps to the
+  `rejected` error code, with a message built only from the forge's parsed JSON
+  response. Raw CLI output never reaches the client.
+- `submitChangeRequestReview` re-reads the head and fails with `stale_snapshot`
+  when it differs from the revision the reviewer saw, and pins the review to
+  that commit.
+- The session runs a repeated `mutationId` once, so a retry after a timeout over
+  the relay cannot post twice. Bodies are never logged.
 
 ## App
 

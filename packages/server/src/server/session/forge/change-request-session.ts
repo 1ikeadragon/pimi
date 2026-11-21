@@ -1,10 +1,15 @@
 import type pino from "pino";
+import { LRUCache } from "lru-cache";
 import { normalizeHost } from "@pimi/protocol/git-remote";
 import {
+  ChangeRequestBodySchema,
   ChangeRequestForgeHostSchema,
   ChangeRequestHeadShaSchema,
+  ChangeRequestLineLocationSchema,
   ChangeRequestNumberSchema,
   ChangeRequestRepoSegmentSchema,
+  ChangeRequestThreadIdSchema,
+  type ChangeRequestActions,
   type ChangeRequestError,
   type SessionInboundMessage,
   type SessionOutboundMessage,
@@ -34,6 +39,11 @@ interface RefFields {
 }
 
 const DEFAULT_INBOX_LIMIT = 50;
+// A repeated `mutationId` inside this window returns the first result instead of writing again.
+const MUTATION_CACHE_MAX = 200;
+const MUTATION_CACHE_TTL_MS = 10 * 60 * 1000;
+
+type WriteMessage = RefFields & { type: string; mutationId: string };
 
 /**
  * `forge.change_request.*` RPCs: read-only change-request data addressed by forge identity
@@ -45,6 +55,10 @@ export class ChangeRequestSession {
   private readonly host: ChangeRequestSessionHost;
   private readonly workspaceGitService: Pick<WorkspaceGitService, "resolveForgeForHost">;
   private readonly logger: pino.Logger;
+  private readonly mutations = new LRUCache<string, Promise<unknown>>({
+    max: MUTATION_CACHE_MAX,
+    ttl: MUTATION_CACHE_TTL_MS,
+  });
 
   constructor(options: ChangeRequestSessionOptions) {
     this.host = options.host;
@@ -58,8 +72,8 @@ export class ChangeRequestSession {
     }
     // Unclassified failures are logged with detail and shown without it: CLI errors can carry
     // credentials or remote response text.
-    this.logger.warn({ err: error, operation }, "Change request read failed");
-    return { code: "unavailable", message: "The change request could not be read." };
+    this.logger.warn({ err: error, operation }, "Change request operation failed");
+    return { code: "unavailable", message: "The change request could not be read or updated." };
   }
 
   private validateHost(forgeHost: string): string {
@@ -159,10 +173,17 @@ export class ChangeRequestSession {
     msg: Extract<SessionInboundMessage, { type: "forge.change_request.get_overview.request" }>,
   ): Promise<void> {
     try {
-      const overview = await this.withService(msg, (s) => s.getChangeRequestOverview);
+      const ref = this.validateRef(msg);
+      const service = await this.resolveService(ref.forgeHost);
+      if (!service.getChangeRequestOverview) throw this.unsupported(ref.forgeHost);
+      const overview = await service.getChangeRequestOverview({ ...ref, force: msg.refresh });
       this.host.emit({
         type: "forge.change_request.get_overview.response",
-        payload: { overview, error: null, requestId: msg.requestId },
+        payload: {
+          overview: { ...overview, actions: actionsOf(service) },
+          error: null,
+          requestId: msg.requestId,
+        },
       });
     } catch (error) {
       this.host.emit({
@@ -170,6 +191,194 @@ export class ChangeRequestSession {
         payload: {
           overview: null,
           error: this.toWireError(error, "get_overview"),
+          requestId: msg.requestId,
+        },
+      });
+    }
+  }
+
+  /**
+   * Shared path of the four writes: re-check identity, resolve the trusted service, run the
+   * adapter once per `mutationId`. A failed run is forgotten so a retry with the same id runs
+   * again; a successful one is remembered so a retry after a timeout cannot write twice. The body
+   * is never logged.
+   */
+  private async write<T>(
+    msg: WriteMessage,
+    operation: string,
+    execute: (service: ForgeService, ref: ChangeRequestRef) => Promise<T> | undefined,
+  ): Promise<T> {
+    const ref = this.validateRef(msg);
+    const service = await this.resolveService(ref.forgeHost);
+    const key = `${msg.type}:${msg.mutationId}`;
+    const existing = this.mutations.get(key);
+    if (existing) {
+      this.logger.info({ operation, ref, outcome: "duplicate" }, "Change request write");
+      return existing as Promise<T>;
+    }
+    const pending = execute(service, ref);
+    if (!pending) throw this.unsupported(ref.forgeHost);
+    this.mutations.set(key, pending);
+    pending.then(
+      () => this.logger.info({ operation, ref, outcome: "ok" }, "Change request write"),
+      (error: unknown) => {
+        this.mutations.delete(key);
+        const code = error instanceof ChangeRequestReadError ? error.code : "unavailable";
+        this.logger.info({ operation, ref, outcome: code }, "Change request write");
+      },
+    );
+    return pending;
+  }
+
+  private requireBody(body: string): string {
+    if (!ChangeRequestBodySchema.safeParse(body).success || body.trim() === "") {
+      throw new ChangeRequestReadError("invalid_request", "The comment is empty or too long.");
+    }
+    return body;
+  }
+
+  private requireThreadId(threadId: string): string {
+    if (!ChangeRequestThreadIdSchema.safeParse(threadId).success) {
+      throw new ChangeRequestReadError("invalid_request", "Invalid conversation id.");
+    }
+    return threadId;
+  }
+
+  private requireHeadSha(headSha: string): string {
+    if (!ChangeRequestHeadShaSchema.safeParse(headSha).success) {
+      throw new ChangeRequestReadError("invalid_request", "Invalid revision.");
+    }
+    return headSha;
+  }
+
+  private requireLocation<L extends { path: string; side: "new" | "old"; line: number }>(
+    location: L,
+  ): L {
+    if (!ChangeRequestLineLocationSchema.safeParse(location).success) {
+      throw new ChangeRequestReadError("invalid_request", "Invalid comment location.");
+    }
+    return location;
+  }
+
+  async handleCreateCommentRequest(
+    msg: Extract<SessionInboundMessage, { type: "forge.change_request.create_comment.request" }>,
+  ): Promise<void> {
+    try {
+      const body = this.requireBody(msg.body);
+      const location = msg.location
+        ? {
+            ...this.requireLocation(msg.location),
+            headSha: this.requireHeadSha(msg.location.headSha),
+          }
+        : undefined;
+      const result = await this.write(msg, "create_comment", (service, ref) =>
+        service.createChangeRequestComment?.({ ...ref, body, ...(location ? { location } : {}) }),
+      );
+      this.host.emit({
+        type: "forge.change_request.create_comment.response",
+        payload: { url: result.url, error: null, requestId: msg.requestId },
+      });
+    } catch (error) {
+      this.host.emit({
+        type: "forge.change_request.create_comment.response",
+        payload: {
+          url: null,
+          error: this.toWireError(error, "create_comment"),
+          requestId: msg.requestId,
+        },
+      });
+    }
+  }
+
+  async handleReplyToThreadRequest(
+    msg: Extract<SessionInboundMessage, { type: "forge.change_request.reply_to_thread.request" }>,
+  ): Promise<void> {
+    try {
+      const body = this.requireBody(msg.body);
+      const threadId = this.requireThreadId(msg.threadId);
+      const result = await this.write(msg, "reply_to_thread", (service, ref) =>
+        service.replyToChangeRequestThread?.({ ...ref, threadId, body }),
+      );
+      this.host.emit({
+        type: "forge.change_request.reply_to_thread.response",
+        payload: { url: result.url, error: null, requestId: msg.requestId },
+      });
+    } catch (error) {
+      this.host.emit({
+        type: "forge.change_request.reply_to_thread.response",
+        payload: {
+          url: null,
+          error: this.toWireError(error, "reply_to_thread"),
+          requestId: msg.requestId,
+        },
+      });
+    }
+  }
+
+  async handleSetThreadResolvedRequest(
+    msg: Extract<
+      SessionInboundMessage,
+      { type: "forge.change_request.set_thread_resolved.request" }
+    >,
+  ): Promise<void> {
+    try {
+      const threadId = this.requireThreadId(msg.threadId);
+      const result = await this.write(msg, "set_thread_resolved", (service, ref) =>
+        service.setChangeRequestThreadResolved?.({ ...ref, threadId, resolved: msg.resolved }),
+      );
+      this.host.emit({
+        type: "forge.change_request.set_thread_resolved.response",
+        payload: { resolved: result.resolved, error: null, requestId: msg.requestId },
+      });
+    } catch (error) {
+      this.host.emit({
+        type: "forge.change_request.set_thread_resolved.response",
+        payload: {
+          resolved: null,
+          error: this.toWireError(error, "set_thread_resolved"),
+          requestId: msg.requestId,
+        },
+      });
+    }
+  }
+
+  async handleSubmitReviewRequest(
+    msg: Extract<SessionInboundMessage, { type: "forge.change_request.submit_review.request" }>,
+  ): Promise<void> {
+    try {
+      const headSha = this.requireHeadSha(msg.headSha);
+      const comments = msg.comments.map((comment) => ({
+        ...this.requireLocation(comment),
+        body: this.requireBody(comment.body),
+      }));
+      const hasBody = msg.body.trim() !== "";
+      // GitHub refuses an empty comment or change request; fail here with a sentence instead.
+      if (msg.event !== "approve" && !hasBody && comments.length === 0) {
+        throw new ChangeRequestReadError(
+          "invalid_request",
+          "Add a summary or at least one line comment.",
+        );
+      }
+      const result = await this.write(msg, "submit_review", (service, ref) => {
+        if (!service.changeRequestReviewEvents?.includes(msg.event)) return undefined;
+        return service.submitChangeRequestReview?.({
+          ...ref,
+          headSha,
+          event: msg.event,
+          body: msg.body,
+          comments,
+        });
+      });
+      this.host.emit({
+        type: "forge.change_request.submit_review.response",
+        payload: { url: result.url, error: null, requestId: msg.requestId },
+      });
+    } catch (error) {
+      this.host.emit({
+        type: "forge.change_request.submit_review.response",
+        payload: {
+          url: null,
+          error: this.toWireError(error, "submit_review"),
           requestId: msg.requestId,
         },
       });
@@ -342,4 +551,17 @@ export class ChangeRequestSession {
       });
     }
   }
+}
+
+/** What the UI may offer: derived from which optional write methods the adapter implements. */
+function actionsOf(service: ForgeService): ChangeRequestActions {
+  return {
+    comment: service.createChangeRequestComment !== undefined,
+    lineComment: service.createChangeRequestComment !== undefined,
+    reply: service.replyToChangeRequestThread !== undefined,
+    resolve: service.setChangeRequestThreadResolved !== undefined,
+    reviewEvents: service.submitChangeRequestReview
+      ? [...(service.changeRequestReviewEvents ?? [])]
+      : [],
+  };
 }

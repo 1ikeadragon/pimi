@@ -57,6 +57,7 @@ import type {
   SearchResult,
 } from "./forge-service.js";
 import { createGitHubChangeRequestReader } from "./github-change-requests.js";
+import { createGitHubChangeRequestWriter } from "./github-change-request-writes.js";
 import {
   isGitHubPullRequestStatusFacts,
   type GitHubPullRequestStatusFacts,
@@ -2235,6 +2236,11 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
     now: deps.now,
   });
 
+  const changeRequestWriter = createGitHubChangeRequestWriter({
+    run: (args, forgeHost) => run(args, { cwd: HOSTED_CWD, forgeHost }),
+    mapError: toChangeRequestReadError,
+  });
+
   api = {
     authProbeCanThrow: true,
 
@@ -2416,6 +2422,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
     },
 
     ...changeRequestReader,
+    ...changeRequestWriter,
 
     getChangeRequestTimeline(input) {
       return loadPullRequestTimeline({

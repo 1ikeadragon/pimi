@@ -92,7 +92,15 @@ import type {
   ForgeChangeRequestListInboxResponse,
   ForgeChangeRequestGetOverviewRequest,
   ForgeChangeRequestGetOverviewResponse,
+  ForgeChangeRequestCreateCommentRequest,
+  ForgeChangeRequestCreateCommentResponse,
   ForgeChangeRequestGetStatusResponse,
+  ForgeChangeRequestReplyToThreadRequest,
+  ForgeChangeRequestReplyToThreadResponse,
+  ForgeChangeRequestSetThreadResolvedRequest,
+  ForgeChangeRequestSetThreadResolvedResponse,
+  ForgeChangeRequestSubmitReviewRequest,
+  ForgeChangeRequestSubmitReviewResponse,
   ForgeChangeRequestListCommitsResponse,
   ForgeChangeRequestListFilesResponse,
   ForgeChangeRequestGetFileDiffsRequest,
@@ -577,6 +585,23 @@ export type ChangeRequestRefInput = Pick<
 >;
 type ForgeChangeRequestListInboxPayload = ForgeChangeRequestListInboxResponse["payload"];
 type ForgeChangeRequestGetOverviewPayload = ForgeChangeRequestGetOverviewResponse["payload"];
+type ChangeRequestWriteInput<T extends { type: string; requestId: string }> = Omit<
+  T,
+  "type" | "requestId"
+>;
+export type ForgeChangeRequestCreateCommentInput =
+  ChangeRequestWriteInput<ForgeChangeRequestCreateCommentRequest>;
+export type ForgeChangeRequestReplyToThreadInput =
+  ChangeRequestWriteInput<ForgeChangeRequestReplyToThreadRequest>;
+export type ForgeChangeRequestSetThreadResolvedInput =
+  ChangeRequestWriteInput<ForgeChangeRequestSetThreadResolvedRequest>;
+export type ForgeChangeRequestSubmitReviewInput =
+  ChangeRequestWriteInput<ForgeChangeRequestSubmitReviewRequest>;
+type ForgeChangeRequestCreateCommentPayload = ForgeChangeRequestCreateCommentResponse["payload"];
+type ForgeChangeRequestReplyToThreadPayload = ForgeChangeRequestReplyToThreadResponse["payload"];
+type ForgeChangeRequestSetThreadResolvedPayload =
+  ForgeChangeRequestSetThreadResolvedResponse["payload"];
+type ForgeChangeRequestSubmitReviewPayload = ForgeChangeRequestSubmitReviewResponse["payload"];
 type ForgeChangeRequestGetStatusPayload = ForgeChangeRequestGetStatusResponse["payload"];
 type ForgeChangeRequestListCommitsPayload = ForgeChangeRequestListCommitsResponse["payload"];
 type ForgeChangeRequestListFilesPayload = ForgeChangeRequestListFilesResponse["payload"];
@@ -5170,6 +5195,60 @@ export class DaemonClient {
       message: { type: "forge.change_request.get_status.request", ...input },
       timeout: 60000,
     });
+  }
+
+  // Writes. The caller makes one `mutationId` per user action and reuses it on retry; the daemon
+  // runs a repeated id once.
+  async forgeChangeRequestCreateComment(
+    input: ForgeChangeRequestCreateCommentInput,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestCreateCommentPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.create_comment.response">(
+      {
+        requestId,
+        message: { type: "forge.change_request.create_comment.request", ...input },
+        timeout: 60000,
+      },
+    );
+  }
+
+  async forgeChangeRequestReplyToThread(
+    input: ForgeChangeRequestReplyToThreadInput,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestReplyToThreadPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.reply_to_thread.response">(
+      {
+        requestId,
+        message: { type: "forge.change_request.reply_to_thread.request", ...input },
+        timeout: 60000,
+      },
+    );
+  }
+
+  async forgeChangeRequestSetThreadResolved(
+    input: ForgeChangeRequestSetThreadResolvedInput,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestSetThreadResolvedPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.set_thread_resolved.response">(
+      {
+        requestId,
+        message: { type: "forge.change_request.set_thread_resolved.request", ...input },
+        timeout: 60000,
+      },
+    );
+  }
+
+  async forgeChangeRequestSubmitReview(
+    input: ForgeChangeRequestSubmitReviewInput,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestSubmitReviewPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.submit_review.response">(
+      {
+        requestId,
+        message: { type: "forge.change_request.submit_review.request", ...input },
+        timeout: 60000,
+      },
+    );
   }
 
   async forgeChangeRequestListCommits(

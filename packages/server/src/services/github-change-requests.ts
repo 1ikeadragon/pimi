@@ -102,6 +102,8 @@ const StatusGraphqlSchema = z.object({
           pullRequest: z
             .object({
               reviewDecision: z.string().nullable().optional(),
+              viewerDidAuthor: z.boolean(),
+              viewerLatestReview: z.object({ state: z.string() }).nullable().optional(),
               latest: z
                 .object({
                   nodes: z.array(
@@ -172,7 +174,9 @@ const STATUS_QUERY_HEAD = `
 query ChangeRequestStatus($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
-      reviewDecision`;
+      reviewDecision
+      viewerDidAuthor
+      viewerLatestReview { state }`;
 
 const STATUS_QUERY_CHECKS = `
       latest: commits(last: 1) {
@@ -251,7 +255,9 @@ export interface GitHubChangeRequestReaderDeps {
 
 export interface GitHubChangeRequestReader {
   listChangeRequestInbox(options: ListChangeRequestInboxOptions): Promise<ChangeRequestInbox>;
-  getChangeRequestOverview(options: ChangeRequestReadOptions): Promise<ChangeRequestOverview>;
+  getChangeRequestOverview(
+    options: ChangeRequestReadOptions,
+  ): Promise<Omit<ChangeRequestOverview, "actions">>;
   getChangeRequestStatus(options: ChangeRequestReadOptions): Promise<ChangeRequestStatus>;
   listChangeRequestCommits(options: ChangeRequestReadOptions): Promise<ChangeRequestCommitList>;
   listChangeRequestFiles(options: ChangeRequestReadOptions): Promise<ChangeRequestFileList>;
@@ -265,7 +271,7 @@ function refKey(ref: { forgeHost: string; owner: string; name: string; number: n
 }
 
 /** Bounds concurrent `gh` processes and the queue behind them. */
-function createLimiter(concurrency: number, maxPending: number) {
+export function createLimiter(concurrency: number, maxPending: number) {
   let active = 0;
   const waiting: Array<() => void> = [];
   return async function limit<T>(task: () => Promise<T>): Promise<T> {
@@ -293,7 +299,7 @@ function createLimiter(concurrency: number, maxPending: number) {
   };
 }
 
-function parseJson<T>(stdout: string, schema: z.ZodType<T>, what: string): T {
+export function parseJson<T>(stdout: string, schema: z.ZodType<T>, what: string): T {
   let value: unknown;
   try {
     value = JSON.parse(stdout);
@@ -443,7 +449,17 @@ function toMergeable(value: boolean | null | undefined): "MERGEABLE" | "CONFLICT
   return value === false ? "CONFLICTING" : "UNKNOWN";
 }
 
-function buildOverview(ref: ChangeRequestReadOptions, pull: Pull): ChangeRequestOverview {
+function mapViewerReview(state: string | undefined): ChangeRequestStatus["viewerLatestReview"] {
+  if (state === "APPROVED") return "approved";
+  if (state === "CHANGES_REQUESTED") return "changes_requested";
+  if (state === "COMMENTED") return "commented";
+  return null;
+}
+
+function buildOverview(
+  ref: ChangeRequestReadOptions,
+  pull: Pull,
+): Omit<ChangeRequestOverview, "actions"> {
   const merged = pull.merged === true;
   return {
     forge: "github",
@@ -694,6 +710,8 @@ export function createGitHubChangeRequestReader(
     const checks = rollup ? deps.parseChecks(rollup.contexts.nodes.map(deps.toRollupNode)) : [];
     return {
       reviewDecision: deps.mapReviewDecision(pr.reviewDecision),
+      viewerIsAuthor: pr.viewerDidAuthor,
+      viewerLatestReview: mapViewerReview(pr.viewerLatestReview?.state),
       checks,
       checksStatus: computeChecksStatus(checks),
       checksError:

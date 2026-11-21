@@ -62,6 +62,8 @@ The daemon writes a new `$PIMI_HOME/local-credential` on every run with mode `06
 
 Connected clients are trusted operators of the daemon user. File previews follow that authority: a preview request may read any regular file the daemon process can read, while keeping path normalization and symlink checks in the daemon file service. Workspace-relative paths remain a UI convenience, not a security boundary.
 
+The same authority covers forge writes: Review can comment on a change request, reply to and resolve threads, and submit approvals and change requests as the forge user the daemon's CLI is signed in as. These RPCs add no credentials and no unauthenticated endpoint; no agent tool or CLI command reaches them.
+
 When Pimi checks out a change request from a different repository, it does not run that workspace's `pimi.json` setup, automatic terminals, named scripts, or teardown until you explicitly run setup for that workspace. The decision lasts for the workspace and does not re-prompt after new commits. Same-repository changes, ordinary branches, local workspaces, agent launches, terminals, explicit shell commands, and metadata-generation instructions are outside this gate.
 
 If you expose the daemon beyond loopback, such as by binding to `0.0.0.0`, forwarding it through a tunnel or reverse proxy, or publishing it from a container, you are responsible for restricting and securing that access. Setting a password is strongly recommended in that case.
