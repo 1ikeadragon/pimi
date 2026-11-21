@@ -311,11 +311,23 @@ export class UsageScanner {
     const cursor = this.loadCursors().get(dbPath);
     if (cursor && cursor.size === size && cursor.mtimeMs === mtimeMs) return 0;
     const writer = this.createWriter();
-    const { lastUpdated } = readOpenCodeUsage(dbPath, cursor?.offset ?? 0, writer.sink, (updated) =>
-      writer.flush({ path: dbPath, size: 0, mtimeMs: 0, offset: updated, state: null }),
-    );
-    writer.flush({ path: dbPath, size, mtimeMs, offset: lastUpdated, state: null });
-    return writer.eventCount();
+    const start = cursor?.offset ?? 0;
+    const read = readOpenCodeUsage(dbPath, start, writer.sink);
+    for (;;) {
+      const step = read.next();
+      if (!step.done) {
+        writer.flush({ path: dbPath, size: 0, mtimeMs: 0, offset: step.value, state: null });
+        // Each batch is synchronous SQLite work; let the daemon serve requests in between.
+        await new Promise((resolve) => setImmediate(resolve));
+        continue;
+      }
+      // Busy: leave the cursor as it was so the next scan retries. Unsupported (OpenCode 1.x):
+      // remember the file's size so it costs one stat until it changes (e.g. an upgrade).
+      if (step.value === "busy") return writer.eventCount();
+      const offset = step.value === "unsupported" ? start : step.value.lastUpdated;
+      writer.flush({ path: dbPath, size, mtimeMs, offset, state: null });
+      return writer.eventCount();
+    }
   }
 
   // Buffers parsed rows and writes them, with the source's cursor, in one transaction per flush.

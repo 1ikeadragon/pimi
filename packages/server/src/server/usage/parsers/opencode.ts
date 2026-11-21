@@ -4,6 +4,11 @@ import { toNumber, type UsageEventRow, type UsageSink } from "../types.js";
 
 const BATCH_ROWS = 2000;
 const MAX_SESSION_DEPTH = 16;
+// Another OpenCode process stamps time_updated before it commits, so a row can land behind the
+// cursor; reading from a little before it picks those up (the upsert dedupes the overlap).
+const CURSOR_SLACK_MS = 5000;
+// The scan must never hold the daemon up behind OpenCode's writer: give up fast, retry next scan.
+const BUSY_TIMEOUT_MS = 100;
 
 interface SessionInfo {
   directory: string | null;
@@ -24,15 +29,24 @@ function emitTools(rows: Record<string, unknown>[], ts: number, sink: UsageSink)
 // rewritten (and its time_updated moves) while it streams and when it completes, so everything
 // changed since the last read comes back (`onBatch` fires after each batch so the caller can
 // persist rows and the cursor in bounded chunks), and a row read twice upserts onto the same dedupe key.
-export function readOpenCodeUsage(
+// A generator: each yield is a finished batch, so the caller can flush and let the event loop run
+// (the query cannot use an index on time_updated, so a batch is real synchronous work).
+// Returns "unsupported" for an OpenCode 1.x database (it has no session_message table) and
+// "busy" when the database stayed locked; the caller treats both as nothing to read.
+export function* readOpenCodeUsage(
   dbPath: string,
   afterUpdated: number,
   sink: UsageSink,
-  onBatch: (lastUpdated: number) => void,
-): { lastUpdated: number; events: number } {
+): Generator<number, { lastUpdated: number } | "unsupported" | "busy"> {
   const db = new DatabaseSync(dbPath, { readOnly: true });
   try {
-    db.exec("PRAGMA busy_timeout = 2000");
+    db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
+    const present = db
+      .prepare(
+        "SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name IN ('session_message', 'session_v2')",
+      )
+      .get();
+    if (Number(present?.n) < 2) return "unsupported";
     const rows = db.prepare(
       `SELECT id, session_id, time_created, time_updated,
          json_extract(data, '$.model.id') AS model, json_extract(data, '$.cost') AS cost,
@@ -46,9 +60,10 @@ export function readOpenCodeUsage(
        ORDER BY time_updated, id LIMIT ${BATCH_ROWS}`,
     );
     const tools = db.prepare(
-      `SELECT json_extract(c.value, '$.id') AS id, json_extract(c.value, '$.name') AS name
+      `SELECT m.id AS message_id, json_extract(c.value, '$.id') AS id,
+         json_extract(c.value, '$.name') AS name
        FROM session_message m, json_each(m.data, '$.content') c
-       WHERE m.id = ? AND json_extract(c.value, '$.type') = 'tool'`,
+       WHERE m.id IN (SELECT value FROM json_each(?)) AND json_extract(c.value, '$.type') = 'tool'`,
     );
     const sessionRow = db.prepare("SELECT directory, parent_id FROM session_v2 WHERE id = ?");
     const sessions = new Map<string, SessionInfo | null>();
@@ -77,16 +92,20 @@ export function readOpenCodeUsage(
 
     let lastUpdated = afterUpdated;
     let lastId = "";
-    let events = 0;
+    let readFrom = Math.max(0, afterUpdated - CURSOR_SLACK_MS);
     for (;;) {
-      const batch = rows.all(lastUpdated, lastId);
+      const batch = rows.all(readFrom, lastId);
+      const toolsByMessage = groupByMessage(
+        batch.length > 0 ? tools.all(JSON.stringify(batch.map((row) => String(row.id)))) : [],
+      );
       for (const row of batch) {
         const ts = Number(row.time_created);
         const sessionId = String(row.session_id);
         const messageId = String(row.id);
-        lastUpdated = Number(row.time_updated);
+        readFrom = Number(row.time_updated);
+        lastUpdated = Math.max(lastUpdated, readFrom);
         lastId = messageId;
-        emitTools(tools.all(messageId), ts, sink);
+        emitTools(toolsByMessage.get(messageId) ?? [], ts, sink);
         const input = toNumber(row.input);
         const cacheRead = toNumber(row.cache_read);
         const cacheWrite = toNumber(row.cache_write);
@@ -132,13 +151,36 @@ export function readOpenCodeUsage(
           dedupeKey: `opencode:${messageId}`,
         };
         sink.event(event);
-        events += 1;
       }
-      if (batch.length > 0) onBatch(lastUpdated);
+      if (batch.length > 0) yield lastUpdated;
       if (batch.length < BATCH_ROWS) break;
     }
-    return { lastUpdated, events };
+    return { lastUpdated };
+  } catch (error) {
+    if (isSqliteBusy(error)) return "busy";
+    throw error;
   } finally {
     db.close();
   }
+}
+
+function isSqliteBusy(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const { errcode } = error as { errcode?: number };
+  return (
+    errcode === 5 ||
+    errcode === 6 ||
+    /database is locked|database table is locked/i.test(error.message)
+  );
+}
+
+function groupByMessage(rows: Record<string, unknown>[]): Map<string, Record<string, unknown>[]> {
+  const grouped = new Map<string, Record<string, unknown>[]>();
+  for (const row of rows) {
+    const key = String(row.message_id);
+    const list = grouped.get(key);
+    if (list) list.push(row);
+    else grouped.set(key, [row]);
+  }
+  return grouped;
 }
