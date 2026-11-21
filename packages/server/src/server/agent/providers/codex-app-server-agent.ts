@@ -1745,28 +1745,6 @@ function isEditToolCallWithoutContent(item: ToolCallTimelineItem): boolean {
   return !hasDiff && !hasNewString;
 }
 
-function decodeCodexOutputDeltaChunk(chunk: string): string {
-  const trimmed = chunk.trim();
-  if (trimmed.length === 0) {
-    return chunk;
-  }
-  if (!/^[A-Za-z0-9+/=]+$/.test(trimmed) || trimmed.length % 4 !== 0) {
-    return chunk;
-  }
-
-  try {
-    const decoded = Buffer.from(trimmed, "base64").toString("utf8");
-    if (decoded.length === 0) {
-      return chunk;
-    }
-    const normalizedInput = trimmed.replace(/=+$/, "");
-    const normalizedRoundTrip = Buffer.from(decoded, "utf8").toString("base64").replace(/=+$/, "");
-    return normalizedRoundTrip === normalizedInput ? decoded : chunk;
-  } catch {
-    return chunk;
-  }
-}
-
 function mapCodexExecNotificationToToolCall(params: {
   callId?: string | null;
   command: unknown;
@@ -2577,19 +2555,12 @@ const CodexEventExecCommandEndNotificationSchema = z
   })
   .passthrough();
 
-const CodexEventExecCommandOutputDeltaNotificationSchema = z
+// item/commandExecution/outputDelta: `itemId` is the command's call id, `delta` plain UTF-8 text.
+const ItemCommandExecutionOutputDeltaNotificationSchema = z
   .object({
-    ...CodexEventThreadIdFields,
-    msg: z
-      .object({
-        ...CodexEventThreadIdFields,
-        type: z.literal("exec_command_output_delta"),
-        call_id: z.string().optional(),
-        stream: z.string().optional(),
-        chunk: z.string().optional(),
-        delta: z.string().optional(),
-      })
-      .passthrough(),
+    threadId: z.string().optional(),
+    itemId: z.string(),
+    delta: z.string(),
   })
   .passthrough();
 
@@ -2738,9 +2709,8 @@ type ParsedCodexNotification =
     }
   | {
       kind: "exec_command_output_delta";
-      callId: string | null;
-      stream: string | null;
-      chunk: string | null;
+      callId: string;
+      chunk: string;
       threadId: string | null;
     }
   | {
@@ -3097,21 +3067,20 @@ const CodexNotificationSchema = z.union([
   ),
   z
     .object({
-      method: z.literal("codex/event/exec_command_output_delta"),
-      params: CodexEventExecCommandOutputDeltaNotificationSchema,
+      method: z.literal("item/commandExecution/outputDelta"),
+      params: ItemCommandExecutionOutputDeltaNotificationSchema,
     })
     .transform(
       ({ params }): ParsedCodexNotification => ({
         kind: "exec_command_output_delta",
-        callId: params.msg.call_id ?? null,
-        stream: params.msg.stream ?? null,
-        chunk: params.msg.chunk ?? params.msg.delta ?? null,
-        threadId: getCodexEventThreadId(params),
+        callId: params.itemId,
+        chunk: params.delta,
+        threadId: params.threadId ?? null,
       }),
     ),
   z
     .object({
-      method: z.literal("codex/event/exec_command_output_delta"),
+      method: z.literal("item/commandExecution/outputDelta"),
       params: z.unknown(),
     })
     .transform(
@@ -6681,11 +6650,9 @@ export class CodexAppServerAgentSession implements AgentSession {
     if (!outputDeltas) {
       return;
     }
-    const text = this.appendOutputDeltaChunk(outputDeltas, parsed.callId, parsed.chunk, {
-      decodeBase64: true,
-    });
+    if (!this.appendOutputDeltaChunk(outputDeltas, parsed.callId, parsed.chunk)) return;
     // A subagent's calls live in its own timeline, which a tool_call_output cannot address.
-    if (text && parsed.callId && !routedSubAgentCallId) this.toolOutput.append(parsed.callId, text);
+    if (!routedSubAgentCallId) this.toolOutput.append(parsed.callId, parsed.chunk);
   }
 
   private handleThreadStartedNotification(
@@ -7470,19 +7437,14 @@ export class CodexAppServerAgentSession implements AgentSession {
     store: Map<string, string[]>,
     id: string | null | undefined,
     chunk: string | null | undefined,
-    options?: { decodeBase64?: boolean },
-  ): string | null {
+  ): boolean {
     if (!id || !chunk) {
-      return null;
-    }
-    const normalized = options?.decodeBase64 ? decodeCodexOutputDeltaChunk(chunk) : chunk;
-    if (!normalized.length) {
-      return null;
+      return false;
     }
     const prev = store.get(id) ?? [];
-    prev.push(normalized);
+    prev.push(chunk);
     store.set(id, prev);
-    return normalized;
+    return true;
   }
 
   private consumeOutputDelta(
