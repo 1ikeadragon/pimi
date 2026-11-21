@@ -38,7 +38,7 @@ const TIMELINE_STALE_MS = 30_000;
 const COMMITS_STALE_MS = 60_000;
 const FILES_STALE_MS = 60_000;
 
-type Kind = "overview" | "status" | "timeline" | "commits" | "inbox";
+type Kind = "overview" | "status" | "timeline" | "commits" | "files" | "inbox";
 
 export function changeRequestRefKey(ref: ChangeRequestSource | null): readonly unknown[] {
   return ref ? [ref.serverId, ref.forgeHost, ref.owner, ref.name, ref.number] : [];
@@ -72,7 +72,7 @@ function markKey(kind: Kind, key: readonly unknown[]): string {
 }
 
 export function markChangeRequestRefresh(ref: ChangeRequestSource): void {
-  for (const kind of ["overview", "status", "timeline", "commits"] as const) {
+  for (const kind of ["overview", "status", "timeline", "commits", "files"] as const) {
     refreshMarks.add(markKey(kind, changeRequestRefKey(ref)));
   }
 }
@@ -89,7 +89,7 @@ function markRefresh(ref: ChangeRequestSource, kinds: readonly Kind[]): void {
 export function refreshAfterWrite(
   queryClient: QueryClient,
   ref: ChangeRequestSource,
-  kinds: ReadonlyArray<"timeline" | "status" | "overview">,
+  kinds: ReadonlyArray<"timeline" | "status" | "overview" | "files">,
 ): Promise<unknown> {
   markRefresh(ref, kinds);
   return Promise.all(
@@ -237,7 +237,7 @@ export function filesQuery(ref: ChangeRequestSource | null, client: DaemonClient
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<DeskFileList> => {
       const payload = await requireClient(client).forgeChangeRequestListFiles(
-        refInput(requireRef(ref)),
+        refInput(requireRef(ref), consumeRefresh("files", changeRequestRefKey(ref))),
       );
       if (payload.error) throw new Error(payload.error.message);
       if (!payload.snapshot) throw new Error(i18n.t("reviewScreen.errors.noFileList"));

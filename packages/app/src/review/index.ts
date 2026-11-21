@@ -19,6 +19,7 @@ export {
   isInlineReviewEditorForTarget,
   type InlineForgeThreadMarker,
   type InlineReviewActions,
+  type InlineReviewSubmitActions,
   type InlineReviewEditorState,
 } from "./geometry";
 

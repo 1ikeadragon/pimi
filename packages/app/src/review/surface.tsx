@@ -47,6 +47,7 @@ import {
   type InlineForgeThreadMarker,
   type InlineReviewActions,
   type InlineReviewEditorState,
+  type InlineReviewSubmitActions,
 } from "./geometry";
 
 type PressableState = PressableStateCallbackType & { hovered?: boolean };
@@ -263,6 +264,23 @@ export function InlineReviewGutterCell({
   );
 }
 
+/** "Comment now" for the open editor; only the new side offers it (see the thread's placement). */
+function useCommentNow(
+  editor: InlineReviewEditorState | null,
+  submit: InlineReviewSubmitActions | undefined,
+) {
+  const now = submit?.commentNow;
+  return useMemo(() => {
+    if (!editor || !now || editor.target.side !== "new") return null;
+    const target = editor.target;
+    return {
+      label: now.label,
+      error: now.error?.targetKey === target.key ? now.error.message : null,
+      onPress: (body: string) => now.onCommentNow(target, body),
+    };
+  }, [editor, now]);
+}
+
 export function InlineReviewThread({
   reviewTarget,
   reviewActions,
@@ -287,6 +305,8 @@ export function InlineReviewThread({
   const editingExisting =
     editingCommentId !== null && comments.some((comment) => comment.id === editingCommentId);
 
+  const submit = reviewActions.submit;
+  const commentNow = useCommentNow(editor, submit);
   const editorElement = editor ? (
     <InlineReviewEditor
       key={editingCommentId ?? "new"}
@@ -294,6 +314,8 @@ export function InlineReviewThread({
       onChangeBody={reviewActions.onChangeEditorBody}
       onCancel={reviewActions.onCancelEditor}
       onSave={reviewActions.onSaveEditor}
+      saveLabel={submit?.saveLabel}
+      commentNow={editingExisting ? null : commentNow}
       testID="inline-review-editor"
     />
   ) : null;
@@ -450,12 +472,17 @@ export function InlineReviewEditor({
   onChangeBody,
   onCancel,
   onSave,
+  saveLabel,
+  commentNow,
   testID,
 }: {
   body: string;
   onChangeBody: (body: string) => void;
   onCancel: () => void;
   onSave: (body: string) => void;
+  /** The review desk's label for the local pending comment; the chat pane says "Comment". */
+  saveLabel?: string;
+  commentNow?: { label: string; error: string | null; onPress: (body: string) => void } | null;
   testID?: string;
 }) {
   const { t } = useTranslation();
@@ -475,6 +502,11 @@ export function InlineReviewEditor({
     setIsFocused(false);
   }, []);
   const handleSave = useCallback(() => onSave(trimmedBody), [onSave, trimmedBody]);
+  const onCommentNow = commentNow?.onPress;
+  const handleCommentNow = useCallback(
+    () => onCommentNow?.(trimmedBody),
+    [onCommentNow, trimmedBody],
+  );
 
   useEffect(() => {
     const element = getWebTextInputElement(inputRef.current);
@@ -531,7 +563,17 @@ export function InlineReviewEditor({
         style={styles.editorInput}
       />
       <View style={styles.editorActions}>
-        <Text style={styles.editorHint}>{SUBMIT_HINT}</Text>
+        {commentNow?.error ? (
+          <Text
+            style={styles.editorError}
+            numberOfLines={1}
+            testID={testID ? `${testID}-error` : undefined}
+          >
+            {commentNow.error}
+          </Text>
+        ) : (
+          <Text style={styles.editorHint}>{SUBMIT_HINT}</Text>
+        )}
         <Button
           accessibilityLabel={t("review.comment.cancelAccessibility")}
           testID={testID ? `${testID}-cancel` : undefined}
@@ -551,8 +593,20 @@ export function InlineReviewEditor({
           variant="default"
           size="sm"
         >
-          {t("review.comment.save")}
+          {saveLabel ?? t("review.comment.save")}
         </Button>
+        {commentNow ? (
+          <Button
+            testID={testID ? `${testID}-comment-now` : undefined}
+            hitSlop={SMALL_ACTION_HIT_SLOP}
+            disabled={!canSave}
+            onPress={handleCommentNow}
+            variant="secondary"
+            size="sm"
+          >
+            {commentNow.label}
+          </Button>
+        ) : null}
       </View>
     </View>
   );
@@ -724,6 +778,12 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "flex-end",
     alignItems: "center",
     gap: theme.spacing[1],
+  },
+  editorError: {
+    flex: 1,
+    paddingHorizontal: theme.spacing[1],
+    color: theme.colors.statusDanger,
+    fontSize: theme.fontSize.sm,
   },
   editorHint: {
     flex: 1,

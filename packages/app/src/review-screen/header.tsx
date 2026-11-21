@@ -495,10 +495,13 @@ export function ReviewPullRequestHeader({
   onTabChange,
   timeline,
   seed,
+  trailing,
 }: {
   tab: ReviewDetailTab;
   onTabChange: (tab: ReviewDetailTab) => void;
   timeline: ReviewTimeline;
+  /** The end of the tab row: the Review changes button on a wide screen. */
+  trailing?: ReactNode;
   /** The inbox row this page was opened from; fills the header until the overview answers. */
   seed: InboxItem | null;
 }) {
@@ -534,7 +537,13 @@ export function ReviewPullRequestHeader({
     <View style={isCompact ? styles.headerCompact : styles.header} testID="review-detail-header">
       <HeaderTitle head={head} failed={timeline.error !== null && !head} />
       <HeaderMetaOrSkeleton head={head} overview={overview} />
-      <TabRow tabs={tabs} tab={tab} onTabChange={onTabChange} scrollable={isCompact} />
+      <TabRow
+        tabs={tabs}
+        tab={tab}
+        onTabChange={onTabChange}
+        scrollable={isCompact}
+        trailing={trailing}
+      />
     </View>
   );
 }
@@ -678,11 +687,13 @@ function TabRow({
   tab,
   onTabChange,
   scrollable,
+  trailing,
 }: {
   tabs: readonly DetailTabSpec[];
   tab: ReviewDetailTab;
   onTabChange: (tab: ReviewDetailTab) => void;
   scrollable: boolean;
+  trailing?: ReactNode;
 }) {
   const { t } = useTranslation();
   const row = (
@@ -701,6 +712,7 @@ function TabRow({
       ) : (
         row
       )}
+      {trailing ? <View style={styles.tabTrailing}>{trailing}</View> : null}
     </View>
   );
 }
@@ -854,6 +866,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   tabRow: { flexDirection: "row", alignItems: "flex-end" },
   tabScroll: { flex: 1 },
+  tabTrailing: { flexDirection: "row", alignItems: "center", paddingBottom: theme.spacing[1] },
   tabs: { flexDirection: "row", gap: theme.spacing[6] },
   tab: {
     flexDirection: "row",

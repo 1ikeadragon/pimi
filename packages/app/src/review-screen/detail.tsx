@@ -3,10 +3,11 @@
 // The pull request page owns the one read of the pull request (`useReviewTimeline`), the
 // Fix-selected checks, the focus request a thread or check sends to the Files tab, and the Fix
 // sheet. The worktree page is the Files tab alone, with a link to the branch's pull request.
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { StyleSheet } from "react-native-unistyles";
+import { useIsCompactFormFactor } from "@/constants/layout";
 import { getForgePresentation } from "@/git/forge";
 import { checkoutPrStatusQueryKey, checkoutStatusQueryKey } from "@/git/query-keys";
 import { ReviewFixSheet } from "./agent-actions/fix-sheet";
@@ -34,6 +35,7 @@ import {
 import { useInboxSeed } from "./use-inbox";
 import { useReviewTimeline } from "./use-review-timeline";
 import { ReviewWriteProvider } from "./write/provider";
+import { ReviewChangesButton, ReviewChangesSheet } from "./write/review-sheet";
 
 export function ReviewDetail({
   source,
@@ -64,6 +66,7 @@ function PullRequestPage({
   navigation: ReviewNavigation;
   onHome: () => void;
 }) {
+  const isCompact = useIsCompactFormFactor();
   const timeline = useReviewTimeline(source);
   const seed = useInboxSeed(source);
   const [selection, setSelection] = useState<ReviewSelection>(EMPTY_REVIEW_SELECTION);
@@ -71,6 +74,13 @@ function PullRequestPage({
     null,
   );
   const [fixOpen, setFixOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const openReview = useCallback(() => setReviewOpen(true), []);
+  const closeReview = useCallback(() => setReviewOpen(false), []);
+  const headerButton = useMemo(
+    () => (isCompact ? null : <ReviewChangesButton onPress={openReview} />),
+    [isCompact, openReview],
+  );
   const closeFixSheet = useCallback(() => setFixOpen(false), []);
   const { push } = navigation;
 
@@ -112,6 +122,7 @@ function PullRequestPage({
           onTabChange={onTabChange}
           timeline={timeline}
           seed={seed}
+          trailing={headerButton}
         />
         <View style={styles.body}>
           {tab === "conversation" ? (
@@ -133,6 +144,12 @@ function PullRequestPage({
           ) : null}
           {tab === "files" ? <ReviewDesk source={source} focus={focus} /> : null}
         </View>
+        {isCompact ? (
+          <View style={styles.reviewBar}>
+            <ReviewChangesButton onPress={openReview} />
+          </View>
+        ) : null}
+        <ReviewChangesSheet visible={reviewOpen} onClose={closeReview} onGoTo={onJumpTo} />
         <ReviewFixSheet
           source={source}
           selection={selection}
@@ -199,7 +216,8 @@ function WorktreePage({
   );
 }
 
-const styles = StyleSheet.create(() => ({
+const styles = StyleSheet.create((theme) => ({
   detail: { flex: 1, minWidth: 0 },
   body: { flex: 1, minHeight: 0 },
+  reviewBar: { padding: theme.spacing[3] },
 }));

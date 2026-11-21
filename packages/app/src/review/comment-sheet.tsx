@@ -48,10 +48,20 @@ function OpenReviewCommentSheet({
   );
   const { onSaveEditor, onCancelEditor } = reviewActions;
   const handleSave = useCallback(() => onSaveEditor(editor.body), [onSaveEditor, editor.body]);
+  const submit = reviewActions.submit;
+  const commentNow = editor.target.side === "new" ? submit?.commentNow : null;
+  const onCommentNow = commentNow?.onCommentNow;
+  const handleCommentNow = useCallback(
+    () => onCommentNow?.(editor.target, editor.body.trim()),
+    [onCommentNow, editor.target, editor.body],
+  );
+  const error =
+    commentNow?.error?.targetKey === editor.target.key ? commentNow.error.message : null;
   const canSave = editor.body.trim().length > 0;
   const footer = useMemo(
     () => (
       <View style={styles.actions}>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button
           variant="secondary"
           accessibilityLabel={t("review.comment.cancelAccessibility")}
@@ -65,11 +75,25 @@ function OpenReviewCommentSheet({
           disabled={!canSave}
           onPress={handleSave}
         >
-          {t("common.actions.save")}
+          {submit?.saveLabel ?? t("common.actions.save")}
         </Button>
+        {commentNow ? (
+          <Button variant="secondary" disabled={!canSave} onPress={handleCommentNow}>
+            {commentNow.label}
+          </Button>
+        ) : null}
       </View>
     ),
-    [canSave, handleSave, onCancelEditor, t],
+    [
+      canSave,
+      commentNow,
+      error,
+      handleCommentNow,
+      handleSave,
+      onCancelEditor,
+      submit?.saveLabel,
+      t,
+    ],
   );
   return (
     <AdaptiveModalSheet
@@ -97,6 +121,7 @@ function OpenReviewCommentSheet({
 const COMMENT_SNAP_POINTS = ["50%", "90%"];
 
 const styles = StyleSheet.create((theme) => ({
+  error: { flex: 1, color: theme.colors.statusDanger, fontSize: theme.fontSize.sm },
   context: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   input: { flex: 1, minHeight: 0, textAlignVertical: "top" },
   actions: { flex: 1, flexDirection: "row", justifyContent: "flex-end", gap: theme.spacing[2] },

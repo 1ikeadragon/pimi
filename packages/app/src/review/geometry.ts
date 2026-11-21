@@ -27,11 +27,27 @@ export interface InlineForgeThreadMarker {
   isOutdated: boolean;
 }
 
+/**
+ * What the review desk adds to the inline editor: its own label for saving a local pending
+ * comment, and, on a pull request, a second action that posts the comment to the forge at once.
+ */
+export interface InlineReviewSubmitActions {
+  saveLabel: string;
+  commentNow: {
+    label: string;
+    /** Why the last attempt on `targetKey` failed; shown in the editor row. */
+    error: { targetKey: string; message: string } | null;
+    onCommentNow: (target: ReviewableDiffTarget, body: string) => void;
+  } | null;
+}
+
 export interface InlineReviewActions {
   commentsByTarget: ReadonlyMap<string, ReviewDraftComment[]>;
   /** Forge threads by target. Absent where there are none (the chat Changes pane). */
   threadsByTarget?: ReadonlyMap<string, InlineForgeThreadMarker[]>;
   onOpenThread?: (id: string) => void;
+  /** Absent in the chat Changes pane, which keeps the plain "Comment" editor. */
+  submit?: InlineReviewSubmitActions;
   editor: InlineReviewEditorState | null;
   onStartComment: (target: ReviewableDiffTarget) => void;
   onEditComment: (target: ReviewableDiffTarget, comment: ReviewDraftComment) => void;

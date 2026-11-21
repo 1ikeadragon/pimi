@@ -3,17 +3,20 @@
 // pressing it opens the thread panel. Notes are the existing annotate-a-line flow
 // (`useInlineReviewController`): they persist per review and travel to chat as a `review`
 // attachment. Threads the document cannot place are listed in the strip above it.
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "@/i18n/use-translation";
 import type { ParsedDiffFile } from "@pimi/protocol/messages";
 import {
   buildReviewDraftKey,
   useInlineReviewController,
   type InlineForgeThreadMarker,
   type InlineReviewActions,
+  type InlineReviewSubmitActions,
 } from "@/review";
 import { useReviewCommentCount } from "@/review/store";
-import { buildReviewableDiffTargetKey } from "@/utils/diff-layout";
+import { buildReviewableDiffTargetKey, type ReviewableDiffTarget } from "@/utils/diff-layout";
 import type { ChangeRequestSource } from "../types";
+import { newMutationId, type WriteResult } from "../write/use-review-writes";
 import type { ForgeThread } from "./use-desk-data";
 
 export function reviewDraftKeyFor(source: ChangeRequestSource): string {
@@ -25,18 +28,33 @@ export function reviewDraftKeyFor(source: ChangeRequestSource): string {
   });
 }
 
-/** New-side lines a patch shows; a thread outside this set cannot be drawn under a line. */
-export function newSideLines(file: ParsedDiffFile): Set<number> {
-  const lines = new Set<number>();
+/**
+ * Lines of a patch a comment can sit on, per side: the new side is context and added lines, the
+ * old side is context and removed lines. A thread or draft outside these sets is not in the diff.
+ */
+export function commentableLines(file: ParsedDiffFile): { new: Set<number>; old: Set<number> } {
+  const lines = { new: new Set<number>(), old: new Set<number>() };
   for (const hunk of file.hunks) {
-    let next = hunk.newStart;
+    let nextNew = hunk.newStart;
+    let nextOld = hunk.oldStart;
     for (const line of hunk.lines) {
-      if (line.type === "header" || line.type === "remove") continue;
-      lines.add(next);
-      next += 1;
+      if (line.type === "header") continue;
+      if (line.type !== "remove") {
+        lines.new.add(nextNew);
+        nextNew += 1;
+      }
+      if (line.type !== "add") {
+        lines.old.add(nextOld);
+        nextOld += 1;
+      }
     }
   }
   return lines;
+}
+
+/** New-side lines a patch shows; a thread outside this set cannot be drawn under a line. */
+export function newSideLines(file: ParsedDiffFile): Set<number> {
+  return commentableLines(file).new;
 }
 
 function toMarker(thread: ForgeThread): InlineForgeThreadMarker {
@@ -49,6 +67,13 @@ function toMarker(thread: ForgeThread): InlineForgeThreadMarker {
     isOutdated: thread.isOutdated,
   };
 }
+
+export type PostLineComment = (input: {
+  path: string;
+  line: number;
+  body: string;
+  mutationId: string;
+}) => Promise<WriteResult>;
 
 export interface ReviewMarkers {
   reviewDraftKey: string;
@@ -68,8 +93,11 @@ export function useReviewMarkers(input: {
   reviewDraftKey: string;
   threads: readonly ForgeThread[];
   loadedFiles: ReadonlyMap<string, ParsedDiffFile>;
+  /** Posts a single line comment to the forge; null where the source has no forge to post to. */
+  postLineComment: PostLineComment | null;
 }): ReviewMarkers {
-  const { reviewDraftKey, threads, loadedFiles } = input;
+  const { reviewDraftKey, threads, loadedFiles, postLineComment } = input;
+  const { t } = useTranslation();
   const controller = useInlineReviewController({ reviewDraftKey, presentation: "review-desk" });
   const draftCount = useReviewCommentCount(reviewDraftKey);
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
@@ -114,8 +142,56 @@ export function useReviewMarkers(input: {
     [openThreadId, threads],
   );
 
+  // "Comment now": the editor closes at once and the thread appears under the line. If the post
+  // fails the editor reopens on that line with the text and the reason. A retry of the same text
+  // on the same line reuses the first attempt's mutation id, so the daemon posts it once.
+  const [nowError, setNowError] = useState<{ targetKey: string; message: string } | null>(null);
+  const attempt = useRef<{ key: string; body: string; mutationId: string } | null>(null);
+  const { onCancelEditor, onStartComment, onChangeEditorBody } = controller;
+  const onCommentNow = useCallback(
+    (target: ReviewableDiffTarget, body: string) => {
+      if (!postLineComment || !body) return;
+      const previous = attempt.current;
+      const mutationId =
+        previous && previous.key === target.key && previous.body === body
+          ? previous.mutationId
+          : newMutationId();
+      attempt.current = { key: target.key, body, mutationId };
+      setNowError(null);
+      onCancelEditor();
+      void (async () => {
+        const result = await postLineComment({
+          path: target.filePath,
+          line: target.lineNumber,
+          body,
+          mutationId,
+        });
+        if (result.ok) {
+          attempt.current = null;
+          return;
+        }
+        setNowError({ targetKey: target.key, message: result.failure.message });
+        onStartComment(target);
+        onChangeEditorBody(body);
+      })();
+    },
+    [onCancelEditor, onChangeEditorBody, onStartComment, postLineComment],
+  );
+  const submit = useMemo<InlineReviewSubmitActions>(
+    () => ({
+      saveLabel: t(
+        postLineComment ? "reviewScreen.write.addReviewComment" : "reviewScreen.write.addNote",
+      ),
+      commentNow: postLineComment
+        ? { label: t("reviewScreen.write.commentNow"), error: nowError, onCommentNow }
+        : null,
+    }),
+    [nowError, onCommentNow, postLineComment, t],
+  );
+
   const reviewActions = useMemo<InlineReviewActions>(
     () => ({
+      submit,
       commentsByTarget: controller.commentsByTarget,
       threadsByTarget,
       onOpenThread,
@@ -127,7 +203,7 @@ export function useReviewMarkers(input: {
       onSaveEditor: controller.onSaveEditor,
       onDeleteComment: controller.onDeleteComment,
     }),
-    [controller, onOpenThread, threadsByTarget],
+    [controller, onOpenThread, submit, threadsByTarget],
   );
 
   return {

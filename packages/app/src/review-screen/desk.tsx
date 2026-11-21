@@ -32,6 +32,7 @@ import {
   type FilesView,
 } from "./desk/use-files-model";
 import { useReviewMarkers } from "./desk/use-review-markers";
+import { useLineCommentPoster } from "./desk/use-line-comment";
 import { Notice } from "./notice";
 
 export function ReviewDesk({ source, focus }: ReviewDeskProps) {
@@ -164,10 +165,12 @@ function ReadyDesk({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nonce]);
 
+  const postLineComment = useLineCommentPoster(model);
   const markers = useReviewMarkers({
     reviewDraftKey: model.draftKey,
     threads: model.threads.threads,
     loadedFiles,
+    postLineComment,
   });
   const unresolvedByPath = useMemo(() => {
     const out = new Map<string, number>();
