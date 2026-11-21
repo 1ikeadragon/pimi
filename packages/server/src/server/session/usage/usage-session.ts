@@ -5,6 +5,7 @@ import type { UsageReportEntry } from "@pimi/protocol/messages";
 import type { SessionInboundMessage, SessionOutboundMessage } from "../../messages.js";
 import type { UsageReader } from "../../usage/aggregate.js";
 import type { UsageScanner } from "../../usage/scanner.js";
+import type { RecapService } from "../../recap/service.js";
 
 // A scan newer than this is not repeated when a screen asks for history; the stored rows answer.
 const SCAN_STALE_MS = 15_000;
@@ -23,6 +24,7 @@ export interface UsageSessionOptions {
   isEnabled: () => boolean;
   // The usage ledger is always on; it is separate from vendor limit reports and their switch.
   ledger?: { reader: UsageReader; scanner: UsageScanner };
+  recap?: RecapService;
   logger: pino.Logger;
 }
 
@@ -211,6 +213,47 @@ export class UsageSession {
       this.options.emit({
         type: "usage.rescan.response",
         payload: { requestId: msg.requestId, error: errorMessage(error), events: 0, filesRead: 0 },
+      });
+    }
+  }
+
+  private requireRecap(): RecapService {
+    if (!this.options.recap) throw new Error("Recap is unavailable");
+    return this.options.recap;
+  }
+
+  async handleRecapGet(
+    msg: Extract<SessionInboundMessage, { type: "recap.get.request" }>,
+  ): Promise<void> {
+    try {
+      const recap = await this.requireRecap().get(msg);
+      this.options.emit({
+        type: "recap.get.response",
+        payload: { requestId: msg.requestId, error: null, recap },
+      });
+    } catch (error) {
+      this.options.logger.warn({ err: error }, "Recap read failed");
+      this.options.emit({
+        type: "recap.get.response",
+        payload: { requestId: msg.requestId, error: errorMessage(error), recap: null },
+      });
+    }
+  }
+
+  async handleRecapNarrative(
+    msg: Extract<SessionInboundMessage, { type: "recap.narrative.generate.request" }>,
+  ): Promise<void> {
+    try {
+      const narrative = await this.requireRecap().writeNarrative(msg);
+      this.options.emit({
+        type: "recap.narrative.generate.response",
+        payload: { requestId: msg.requestId, error: null, narrative },
+      });
+    } catch (error) {
+      this.options.logger.warn({ err: error }, "Recap narrative failed");
+      this.options.emit({
+        type: "recap.narrative.generate.response",
+        payload: { requestId: msg.requestId, error: errorMessage(error), narrative: null },
       });
     }
   }

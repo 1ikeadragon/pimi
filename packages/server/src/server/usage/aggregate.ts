@@ -42,7 +42,7 @@ interface OwnerInfo {
   parentAgentId: string | null;
 }
 
-interface ProjectLookup {
+export interface ProjectLookup {
   resolve(cwd: string | null): { key: string; label: string } | null;
 }
 
@@ -322,7 +322,8 @@ export class UsageReader {
     return owners;
   }
 
-  private async loadProjects(cwds: Iterable<string | null>): Promise<ProjectLookup> {
+  /** Resolves directories to the project the chat list shows them under. Recap reads it too. */
+  async loadProjects(cwds: Iterable<string | null>): Promise<ProjectLookup> {
     const projects = new Map<string, string>();
     const roots: { path: string; projectId: string }[] = [];
     const rows = this.database.db

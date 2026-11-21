@@ -18,6 +18,7 @@ Pimi generates these kinds of metadata:
 - **Pull request title and body** — drafted from the diff when you open a PR.
 - **Describe it** — turns an automation description into a draft automation.
 - **Provider switch summary** — the summary of a chat's history that the new provider receives when you switch a chat to another provider, or when a limit moves it. It reads the whole chat, so pick a model with a large context.
+- **Recap** — the builder profile on the Usage screen's Recap tab: your archetype, the period's story, what you built, decision patterns, strengths and growth areas. It runs only when you press Write recap, and reads a digest of the period's chats: titles, projects, a few prompts from each, and the period's numbers.
 - **Ask Pimi** — the voice command assistant. It runs only on Claude Code, Codex, or OpenCode.
 
 A chat title and its branch name are produced together from the same prompt, but you configure their wording independently (see below).

@@ -293,9 +293,6 @@ export interface PimiReviewSummary {
   incomplete: boolean;
 }
 
-export const PimiRecapPeriod = z.enum(["last-week", "this-week"]);
-export type PimiRecapPeriod = z.infer<typeof PimiRecapPeriod>;
-
 export const PIMI_REVIEW_SUGGESTION_TOOL = "suggest_pimi_review";
 export const PimiReviewSuggestionInput = z.object({
   summary: z.string().trim().min(1).max(300).optional(),

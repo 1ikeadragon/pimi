@@ -242,6 +242,13 @@ const PROJECT_GITHUB_CLONE_TIMEOUT_MS = 5 * 60 * 1000;
 
 export interface ImportAgentInput {
   providerId: string;
+export interface RecapPeriodOptions {
+  startMs: number;
+  endMs: number;
+  timezoneOffsetMinutes: number;
+  requestId?: string;
+}
+
   providerHandleId: string;
   cwd?: string;
   workspaceId?: string;
@@ -6249,6 +6256,33 @@ export class DaemonClient {
       response,
     });
   }
+  async getRecap(options: RecapPeriodOptions) {
+    return this.sendNamespacedCorrelatedSessionRequest<"recap.get.response">({
+      requestId: options.requestId,
+      message: {
+        type: "recap.get.request",
+        startMs: options.startMs,
+        endMs: options.endMs,
+        timezoneOffsetMinutes: options.timezoneOffsetMinutes,
+      },
+      timeout: 60_000,
+    });
+  }
+
+  // The daemon runs a model over the period's chats; a slow provider takes minutes.
+  async generateRecapNarrative(options: RecapPeriodOptions) {
+    return this.sendNamespacedCorrelatedSessionRequest<"recap.narrative.generate.response">({
+      requestId: options.requestId,
+      message: {
+        type: "recap.narrative.generate.request",
+        startMs: options.startMs,
+        endMs: options.endMs,
+        timezoneOffsetMinutes: options.timezoneOffsetMinutes,
+      },
+      timeout: 300_000,
+    });
+  }
+
 
   async getPluginCatalog(): Promise<PluginCatalogEntry[]> {
     if (this.config.createPluginClientBundleStore && !this.pluginClientBundleStore) {

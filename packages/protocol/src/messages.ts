@@ -85,6 +85,12 @@ import {
   LabelUpdateSchema,
 } from "./label-rpc-schemas.js";
 import {
+  RecapGetRequestSchema,
+  RecapGetResponseSchema,
+  RecapNarrativeGenerateRequestSchema,
+  RecapNarrativeGenerateResponseSchema,
+} from "./recap.js";
+import {
   TaskCreateRequestSchema,
   TaskCreateResponseSchema,
   TaskDeleteRequestSchema,
@@ -311,6 +317,7 @@ export const PIMI_MODEL_FEATURE_KEYS = [
   "askPimi",
   "handoff",
   "actionItems",
+  "recap",
 ] as const;
 
 // One optional model per Pimi model call site. A missing key means "same as the default".
@@ -325,6 +332,7 @@ const MutablePimiModelFeaturesSchema = z
     askPimi: MutableStructuredGenerationProviderSchema.optional(),
     handoff: MutableStructuredGenerationProviderSchema.optional(),
     actionItems: MutableStructuredGenerationProviderSchema.optional(),
+    recap: MutableStructuredGenerationProviderSchema.optional(),
   })
   .strict();
 
@@ -340,6 +348,7 @@ const MutablePimiModelFeaturesPatchSchema = z
     askPimi: MutableStructuredGenerationProviderSchema.nullable().optional(),
     handoff: MutableStructuredGenerationProviderSchema.nullable().optional(),
     actionItems: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    recap: MutableStructuredGenerationProviderSchema.nullable().optional(),
   })
   .strict();
 
@@ -3934,6 +3943,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   RefreshAgentRequestMessageSchema,
   CancelAgentRequestMessageSchema,
   ShutdownServerRequestMessageSchema,
+  RecapGetRequestSchema,
+  RecapNarrativeGenerateRequestSchema,
   RestartServerRequestMessageSchema,
   DaemonUpdateRequestMessageSchema,
   FetchAgentTimelineRequestMessageSchema,
@@ -8050,6 +8061,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   FlowRunRetryResponseSchema,
   FlowRunPrepareResponseSchema,
   TaskListResponseSchema,
+  RecapGetResponseSchema,
+  RecapNarrativeGenerateResponseSchema,
   TaskGetResponseSchema,
   TaskCreateResponseSchema,
   TaskUpdateResponseSchema,

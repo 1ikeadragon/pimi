@@ -699,6 +699,7 @@ export class VoiceAssistantWebSocketServer {
     private readonly finishSubscriptions?: SessionOptions["finishSubscriptions"],
     private readonly usageLedger?: SessionOptions["usageLedger"],
     private readonly actionItemsService?: ActionItemsService,
+    private readonly recap?: SessionOptions["recap"],
   ) {
     this.logger = logger.child({ module: "websocket-server" });
     this.workspaceSetupRuntime = workspaceSetupRuntime;
@@ -1662,6 +1663,7 @@ export class VoiceAssistantWebSocketServer {
       daemonConfigStore: this.daemonConfigStore,
       pluginRuntime: this.pluginRuntime,
       usageLedger: this.usageLedger,
+      recap: this.recap,
       pushNotifier: this.pushNotifier,
       orchestrationSkills: this.orchestrationSkills,
       mcpBaseUrl: this.mcpBaseUrl,
