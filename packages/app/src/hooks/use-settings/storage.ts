@@ -114,6 +114,10 @@ export interface AppSettings {
   /** Desktop-only preferences for implicit opens into the ordinary side pane. */
   openInSidePane: OpenInSidePanePreferences;
   pullRequestOpenLocation: PullRequestOpenLocation;
+  /** Android: push notifications carry the agent's message (end-to-end encrypted), not generic text. */
+  pushPreviews: boolean;
+  /** Android: show only the chat name in notifications while the phone is locked. */
+  pushPreviewsHideWhenLocked: boolean;
 }
 
 export type AppSettingsUpdate =
@@ -174,6 +178,8 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   filePanelAssociations: {},
   openInSidePane: DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES,
   pullRequestOpenLocation: "explorer",
+  pushPreviews: true,
+  pushPreviewsHideWhenLocked: false,
 };
 
 export const DEFAULT_APP_SETTINGS: Settings = {
@@ -269,6 +275,8 @@ const StoredAppSettingsSchema = z
       })
       .catch(DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES),
     pullRequestOpenLocation: z.enum(["main", "side", "explorer"]).catch("explorer"),
+    pushPreviews: z.boolean().catch(true),
+    pushPreviewsHideWhenLocked: z.boolean().catch(false),
   })
   .transform((stored) => {
     const needsWrite = stored.contentFontSize === undefined;

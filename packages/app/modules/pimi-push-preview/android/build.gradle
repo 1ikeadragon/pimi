@@ -15,11 +15,11 @@ android {
 }
 
 dependencies {
-  // expo-notifications ships as a prebuilt artifact, not a Gradle project. Keep the version equal to
-  // the exact pin in packages/app/package.json.
-  implementation 'host.exp.exponent:expo.modules.notifications:57.0.23'
-  // Same pin as expo-notifications, which already ships it in the APK.
-  implementation 'com.google.firebase:firebase-messaging:25.0.1'
+  // Both ship in the app already (expo-notifications as a prebuilt artifact, not a Gradle project;
+  // keep its version equal to the exact pin in packages/app/package.json). Compile-only and
+  // non-transitive: resolving their transitive graph here pulls unverified artifact versions.
+  compileOnly('host.exp.exponent:expo.modules.notifications:57.0.23') { transitive = false }
+  compileOnly('com.google.firebase:firebase-messaging:25.0.1') { transitive = false }
 }
 
 // Pin resolved dependency versions in gradle.lockfile. Refresh with --write-locks.

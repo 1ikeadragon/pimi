@@ -35,7 +35,9 @@ import {
   type SessionState,
 } from "@/stores/session-store";
 import { sendOsNotification } from "@/utils/os-notifications";
+import { genericBodyWhenPreviewWithheld, setPreviewsHiddenWhileLocked } from "@/utils/push-preview";
 import { syncPushRegistration } from "@/utils/push-registration";
+import { useAppSettings } from "@/hooks/use-settings";
 import { getIsAppActivelyVisible, getIsAppVisible } from "@/utils/app-visibility";
 import {
   getInitKey,
@@ -248,10 +250,19 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
   const pushEndpoint = useSessionStore(
     (state) => state.sessions[serverId]?.serverInfo?.pushEndpoint ?? null,
   );
+  const { settings } = useAppSettings();
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const pushPreviews = settings.pushPreviews;
+  const hidePreviewsWhileLocked = settings.pushPreviewsHideWhenLocked;
+  // The native FCM service reads this setting itself while the app is not running.
+  useEffect(() => {
+    void setPreviewsHiddenWhileLocked(hidePreviewsWhileLocked);
+  }, [hidePreviewsWhileLocked]);
   useEffect(() => {
     if (!isConnected || !pushEndpoint) return;
-    void syncPushRegistration({ client, serverId, pushEndpoint });
-  }, [client, isConnected, pushEndpoint, serverId]);
+    void syncPushRegistration({ client, serverId, pushEndpoint, previews: pushPreviews });
+  }, [client, isConnected, pushEndpoint, pushPreviews, serverId]);
 
   // Client activity tracking (heartbeat)
   useClientActivity({
@@ -306,10 +317,11 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
         return;
       }
 
+      const withheldBody = genericBodyWhenPreviewWithheld(settingsRef.current, params.reason);
       void sendOsNotification({
         identifier: `agent:${params.agentId}`,
         title: notification.title,
-        body: notification.body,
+        body: withheldBody ?? notification.body,
         data: notification.data,
       });
     },

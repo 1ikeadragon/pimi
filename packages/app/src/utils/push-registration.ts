@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { isDev } from "@/constants/platform";
 import { ensureOsNotificationPermission } from "@/utils/os-notifications";
+import { deletePreviewKey, getOrCreatePreviewKey } from "@/utils/push-preview";
 
 // Android push (FCM) registration. One handle per paired host: the push service binds it to that
 // host's serverId, so a handle can never notify about another host. Every failure leaves push off;
@@ -37,7 +38,8 @@ interface StoredHandle {
 
 type StoredHandles = Record<string, StoredHandle>;
 
-const inFlight = new Map<string, Promise<void>>();
+// One sync per host at a time, tagged with the previews setting it was started with.
+const inFlight = new Map<string, { previews: boolean; promise: Promise<void> }>();
 
 async function readStored(): Promise<StoredHandles> {
   try {
@@ -102,7 +104,11 @@ async function registerWithService(input: {
   return { handle: result.status === 200 && typeof handle === "string" ? handle : null, gone };
 }
 
-async function runSync(input: { client: DaemonClient; serverId: string }): Promise<void> {
+async function runSync(input: {
+  client: DaemonClient;
+  serverId: string;
+  previews: boolean;
+}): Promise<void> {
   if (!(await ensureOsNotificationPermission())) return;
   const stored = (await readStored())[input.serverId];
   const sameEndpoint = stored?.endpoint === PINNED_PUSH_ENDPOINT;
@@ -126,8 +132,15 @@ async function runSync(input: { client: DaemonClient; serverId: string }): Promi
     }
   }
   if (!handle) return;
+  // Turning previews off drops the key, so turning them on again rotates it.
+  let previewKey: string | null = null;
+  if (input.previews) {
+    previewKey = await getOrCreatePreviewKey(input.serverId);
+  } else {
+    await deletePreviewKey(input.serverId);
+  }
   // The daemon ties the handle to this connection, so it is sent on every connect.
-  await input.client.registerPushHandle(handle);
+  await input.client.registerPushHandle(handle, previewKey);
 }
 
 async function renewHandle(
@@ -154,6 +167,7 @@ export function syncPushRegistration(input: {
   client: DaemonClient;
   serverId: string;
   pushEndpoint: string;
+  previews: boolean;
 }): Promise<void> {
   if (
     Platform.OS !== "android" ||
@@ -163,21 +177,26 @@ export function syncPushRegistration(input: {
   ) {
     return Promise.resolve();
   }
-  const pending =
-    inFlight.get(input.serverId) ??
-    runSync(input)
-      .catch((error: unknown) => {
-        console.warn("[Push] Registration skipped", error instanceof Error ? error.message : "");
-      })
-      .finally(() => inFlight.delete(input.serverId));
-  inFlight.set(input.serverId, pending);
-  return pending;
+  const running = inFlight.get(input.serverId);
+  if (running?.previews === input.previews) return running.promise;
+  // A toggle during a running sync queues behind it, so the last setting always wins.
+  const promise = (running?.promise ?? Promise.resolve())
+    .then(() => runSync(input))
+    .catch((error: unknown) => {
+      console.warn("[Push] Registration skipped", error instanceof Error ? error.message : "");
+    })
+    .finally(() => {
+      if (inFlight.get(input.serverId)?.promise === promise) inFlight.delete(input.serverId);
+    });
+  inFlight.set(input.serverId, { previews: input.previews, promise });
+  return promise;
 }
 
 /** Revokes the handle for a host that was unpaired. Best effort; the service expires it anyway. */
 export async function unregisterPush(serverId: string, client: DaemonClient | null): Promise<void> {
   if (Platform.OS !== "android") return;
   try {
+    await deletePreviewKey(serverId);
     const stored = await readStored();
     const entry = stored[serverId];
     if (!entry) return;

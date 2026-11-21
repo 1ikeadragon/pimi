@@ -2,15 +2,39 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type pino from "pino";
 import { writePrivateFileAtomicSync } from "../private-files.js";
+import { sealPushPreview, type PushPreviewReason } from "./push-preview-seal.js";
 
 export type PushKind = "agent_finished" | "agent_permission" | "terminal";
 
 const HANDLES_FILENAME = "push-handles.json";
 const HANDLE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const PREVIEW_KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 // One handle per paired phone; bounds the store and the fan-out when nobody is present.
 const MAX_HANDLES = 32;
 const SEND_TIMEOUT_MS = 5_000;
 const WORKSPACE_ID_PATTERN = /^[\w-]{1,128}$/;
+
+/** One paired phone: its push handle and, when it wants previews, the key it seals them with. */
+interface PushDevice {
+  handle: string;
+  previewKey: string | null;
+}
+
+/** What an attention push says. Reaches the phone only as ciphertext, never the push service. */
+export interface PushPreview {
+  reason: PushPreviewReason;
+  title: string;
+  body: string;
+}
+
+interface PushSend {
+  handle: string;
+  kind: PushKind;
+  id: string;
+  title: string | null;
+  workspaceId: string | null;
+  enc: string | null;
+}
 
 interface PushNotifierOptions {
   pimiHome: string;
@@ -21,30 +45,50 @@ interface PushNotifierOptions {
 
 /**
  * Daemon side of Android push: owns the handles phones registered and asks the push service to
- * deliver a notification titled with the chat or terminal name. Handles are bearer capabilities, so they are persisted in a
+ * deliver a notification. Phones that registered a preview key get the chat name and message
+ * sealed into one AES-GCM blob the push service and Google cannot read; the rest get the chat or
+ * terminal name in the clear. Handles and keys are bearer secrets, so they are persisted in a
  * private file and never logged. Sends are fire-and-forget; callers never wait on the network.
  */
 export class PushNotifier {
   private readonly filePath: string;
   private readonly logger: pino.Logger;
   private readonly getEndpoint: () => string | null;
-  private handles: string[];
+  private devices: PushDevice[];
+  // Last timestamp sealed per handle; the phone accepts only strictly increasing values.
+  private readonly lastTs = new Map<string, number>();
 
   constructor(options: PushNotifierOptions) {
     this.filePath = path.join(options.pimiHome, HANDLES_FILENAME);
     this.logger = options.logger.child({ module: "push" });
     this.getEndpoint = options.getEndpoint;
-    this.handles = this.load();
+    this.devices = this.load();
   }
 
-  private load(): string[] {
+  private load(): PushDevice[] {
     if (!existsSync(this.filePath)) return [];
     try {
-      const parsed = JSON.parse(readFileSync(this.filePath, "utf8")) as { handles?: unknown };
-      if (!Array.isArray(parsed.handles)) return [];
-      return parsed.handles
-        .filter((value): value is string => typeof value === "string" && HANDLE_PATTERN.test(value))
-        .slice(0, MAX_HANDLES);
+      const parsed = JSON.parse(readFileSync(this.filePath, "utf8")) as {
+        devices?: unknown;
+        handles?: unknown;
+      };
+      // COMPAT(push-handles.json v1): `{ version: 1, handles: [...] }` had no preview keys. Phones
+      // re-send theirs on the next connect; until then they get generic notifications.
+      let rows: unknown = parsed.devices;
+      if (!Array.isArray(rows) && Array.isArray(parsed.handles)) {
+        rows = parsed.handles.map((handle) => ({ handle, previewKey: null }));
+      }
+      if (!Array.isArray(rows)) return [];
+      const devices: PushDevice[] = [];
+      for (const entry of rows as Array<Partial<PushDevice> | null>) {
+        if (typeof entry?.handle !== "string" || !HANDLE_PATTERN.test(entry.handle)) continue;
+        const previewKey =
+          typeof entry.previewKey === "string" && PREVIEW_KEY_PATTERN.test(entry.previewKey)
+            ? entry.previewKey
+            : null;
+        devices.push({ handle: entry.handle, previewKey });
+      }
+      return devices.slice(0, MAX_HANDLES);
     } catch (error) {
       this.logger.warn({ err: error }, "Ignoring unreadable push handle store");
       return [];
@@ -54,24 +98,39 @@ export class PushNotifier {
   private persist(): void {
     writePrivateFileAtomicSync(
       this.filePath,
-      JSON.stringify({ version: 1, handles: this.handles }),
+      JSON.stringify({ version: 2, devices: this.devices }),
     );
   }
 
   hasHandle(handle: string): boolean {
-    return this.handles.includes(handle);
+    return this.devices.some((device) => device.handle === handle);
   }
 
-  add(handle: string): void {
-    if (this.handles.includes(handle)) return;
-    // Newest wins when full: the oldest handle belongs to the phone least likely to still be paired.
-    this.handles = [...this.handles, handle].slice(-MAX_HANDLES);
+  /** Registers or updates a phone. A null key means it wants generic notifications. */
+  upsert(handle: string, previewKey: string | null): void {
+    const existing = this.devices.find((device) => device.handle === handle);
+    if (existing) {
+      if (existing.previewKey === previewKey) return;
+      existing.previewKey = previewKey;
+      this.lastTs.delete(handle);
+    } else {
+      // Newest wins when full: the oldest handle belongs to the phone least likely to still be paired.
+      this.devices = [...this.devices, { handle, previewKey }].slice(-MAX_HANDLES);
+    }
     this.persist();
   }
 
   remove(handle: string): void {
-    if (!this.handles.includes(handle)) return;
-    this.handles = this.handles.filter((existing) => existing !== handle);
+    if (!this.hasHandle(handle)) return;
+    this.devices = this.devices.filter((device) => device.handle !== handle);
+    this.lastTs.delete(handle);
+    this.persist();
+  }
+
+  /** Forgets every phone, so a revoked device stops receiving pushes (and keeps no usable key). */
+  clear(): void {
+    this.devices = [];
+    this.lastTs.clear();
     this.persist();
   }
 
@@ -82,30 +141,36 @@ export class PushNotifier {
     id: string;
     title: string | null;
     workspaceId?: string | null;
+    preview?: PushPreview;
   }): void {
     const endpoint = this.getEndpoint();
     if (!endpoint) return;
-    const targets = input.handles ?? this.handles;
-    for (const handle of targets) {
-      void this.send(
-        endpoint,
-        handle,
-        input.kind,
-        input.id,
-        input.title,
-        input.workspaceId ?? null,
-      );
+    const targets = input.handles
+      ? this.devices.filter((device) => input.handles?.includes(device.handle))
+      : this.devices;
+    for (const device of targets) {
+      const enc = input.preview ? this.seal(device, input.id, input.preview) : null;
+      void this.send(endpoint, {
+        handle: device.handle,
+        kind: input.kind,
+        id: input.id,
+        // With a sealed preview the chat name travels inside the ciphertext, not beside it.
+        title: enc ? null : input.title,
+        workspaceId: input.workspaceId ?? null,
+        enc,
+      });
     }
   }
 
-  private async send(
-    endpoint: string,
-    handle: string,
-    kind: PushKind,
-    id: string,
-    title: string | null,
-    workspaceId: string | null,
-  ): Promise<void> {
+  private seal(device: PushDevice, agentId: string, preview: PushPreview): string | null {
+    if (!device.previewKey) return null;
+    const ts = Math.max(Date.now(), (this.lastTs.get(device.handle) ?? 0) + 1);
+    this.lastTs.set(device.handle, ts);
+    return sealPushPreview({ key: device.previewKey, agentId, ts, ...preview });
+  }
+
+  private async send(endpoint: string, push: PushSend): Promise<void> {
+    const { handle, kind, id, title, workspaceId, enc } = push;
     try {
       const response = await fetch(`${endpoint}/send`, {
         method: "POST",
@@ -118,6 +183,7 @@ export class PushNotifier {
           ...(title ? { title: title.slice(0, 200) } : {}),
           // The push service rejects ids outside this shape; drop it rather than lose the push.
           ...(workspaceId && WORKSPACE_ID_PATTERN.test(workspaceId) ? { workspaceId } : {}),
+          ...(enc ? { enc } : {}),
         }),
         redirect: "error",
         signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
