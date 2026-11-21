@@ -79,7 +79,6 @@ export {
   getStructuredAgentResponse,
   StructuredAgentResponseError,
   StructuredAgentFallbackError,
-  DEFAULT_STRUCTURED_GENERATION_PROVIDERS,
   generateStructuredAgentResponseWithFallback,
   type AgentCaller,
   type JsonSchema,

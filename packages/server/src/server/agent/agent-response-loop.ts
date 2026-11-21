@@ -125,9 +125,6 @@ export interface StructuredAgentGenerationWithFallbackOptions<T> {
   runner?: <TResult>(options: StructuredAgentGenerationOptions<TResult>) => Promise<TResult>;
 }
 
-// Re-export from the legacy module path so existing server consumers keep working.
-export { DEFAULT_STRUCTURED_GENERATION_PROVIDERS } from "./structured-generation-providers.js";
-
 interface SchemaValidator<T> {
   jsonSchema: JsonSchema;
   validate: (value: unknown) => { ok: true; value: T } | { ok: false; errors: string[] };

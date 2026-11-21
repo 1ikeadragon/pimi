@@ -8,6 +8,8 @@ interface ClaudeModelManifestEntry {
   label: string;
   description: string;
   defaultPriority?: number;
+  /** Claude Code's small model family; Pimi features run on the first one available. */
+  small?: true;
   minimumClaudeCodeVersion?: string;
   requiresDiscovery?: boolean;
   contextWindowMaxTokens?: number;
@@ -184,6 +186,7 @@ export const CLAUDE_MODEL_MANIFEST = [
   },
   {
     id: "claude-haiku-5-5",
+    small: true,
     label: "Haiku 5.5",
     description: "Haiku 5.5 · Fastest for quick answers",
     minimumClaudeCodeVersion: "2.1.293",
@@ -194,6 +197,7 @@ export const CLAUDE_MODEL_MANIFEST = [
   },
   {
     id: "claude-haiku-4-5",
+    small: true,
     label: "Haiku 4.5",
     description: "Haiku 4.5 · Previous release",
     contextWindowMaxTokens: 200_000,
@@ -265,6 +269,9 @@ export function getClaudeManifestModels(
     }
     if (model === defaultModel) {
       definition.isDefault = true;
+    }
+    if ("small" in model && model.small) {
+      definition.isSmall = true;
     }
     if (model.contextWindowMaxTokens !== undefined) {
       definition.contextWindowMaxTokens = model.contextWindowMaxTokens;

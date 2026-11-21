@@ -105,6 +105,11 @@ export interface AgentModelDefinition {
   label: string;
   description?: string;
   isDefault?: boolean;
+  /**
+   * The provider's own small model, which Pimi features run on instead of a chat model. Set only
+   * from what the provider knows (its config or its own default choice), never guessed by name.
+   */
+  isSmall?: boolean;
   metadata?: AgentMetadata;
   contextWindowMaxTokens?: number;
   thinkingOptions?: AgentSelectOption[];

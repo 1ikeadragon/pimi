@@ -28,14 +28,15 @@ Pimi has two modes. **Automatic** is the default and needs no configuration. **M
 
 In Automatic mode, Pimi builds an ordered list of candidates and tries each one until a generation succeeds, so a slow or unavailable model falls through to the next:
 
-1. **Built-in defaults**, matched against the models of the providers you have enabled:
-   1. a `haiku` model
-   2. `gpt-5.4-mini` (low reasoning)
-   3. `minimax-m3`
-   4. `nemotron-3-super`
+1. **Each enabled provider's small model**, at its lowest reasoning effort:
+   - Claude Code: Haiku.
+   - OpenCode: the model OpenCode itself titles sessions with: your `small_model` setting, else OpenCode's own small model for that provider. OpenCode's free models have none, so set `small_model` to use one.
+   - Other providers: a model whose id or name contains `haiku`, `gpt-6-luna` or `gpt-5.4-mini`.
 2. **The model currently selected** for that agent or draft, as a last resort.
 
-Each default is a match on the model id or name, so the first enabled provider that ships a matching model wins. Defaults with no match are skipped. Duplicates are removed, then generation tries the list top to bottom. The default order prefers small, fast, cheap models for these short tasks before falling back to whatever you have selected.
+Providers without a small model are skipped. Duplicates are removed, then generation tries the list top to bottom.
+
+Action items read a chat's text, so they use only the chat's own provider's small model, never the selected model or another provider. A chat whose provider has no small model shows an error until you choose a model for Action items.
 
 In Manual mode, Pimi tries only your configured models, in your order. It never adds the built-in defaults or the selected model, so your prompts and diffs only go to providers you chose. If every configured model is unavailable, generation fails with an error naming the model: chat titles and branch names are not generated, and commit and pull request generation report the error. If a configured model is available but its run fails, commits and pull requests get placeholder text. Pick a model that works for these tasks.
 

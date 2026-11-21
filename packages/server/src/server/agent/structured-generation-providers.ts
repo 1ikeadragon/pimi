@@ -1,7 +1,8 @@
-import type {
-  AgentModelDefinition,
-  AgentProvider,
-  ProviderSnapshotEntry,
+import {
+  filterSelectableAgentModels,
+  type AgentModelDefinition,
+  type AgentProvider,
+  type ProviderSnapshotEntry,
 } from "./agent-sdk-types.js";
 import type { StructuredGenerationProvider } from "./agent-response-loop.js";
 import type { ProviderSnapshotManager } from "./provider-snapshot-manager.js";
@@ -53,19 +54,11 @@ export class PimiModelUnavailableError extends Error {
   }
 }
 
-export interface StructuredGenerationProviderIdentifier {
-  modelSubstring: string;
-  thinkingOptionId?: string;
-}
-
-export const DEFAULT_STRUCTURED_GENERATION_PROVIDERS: readonly StructuredGenerationProviderIdentifier[] =
-  [
-    { modelSubstring: "haiku" },
-    { modelSubstring: "gpt-6-luna", thinkingOptionId: "low" },
-    { modelSubstring: "gpt-5.4-mini", thinkingOptionId: "low" },
-    { modelSubstring: "minimax-m3" },
-    { modelSubstring: "nemotron-3-super" },
-  ] as const;
+/**
+ * For a provider that declares no small model (`isSmall`): names of small models it may list.
+ * Claude Code and OpenCode declare theirs; Codex, Copilot, Pi and ACP agents expose no such fact.
+ */
+const SMALL_MODEL_NAME_FRAGMENTS: readonly string[] = ["haiku", "gpt-6-luna", "gpt-5.4-mini"];
 
 export interface ResolveStructuredGenerationProvidersOptions {
   feature: PimiModelFeature;
@@ -89,7 +82,7 @@ export interface ResolvedPimiModels {
  * Resolution order for a Pimi feature:
  * 1. A per-feature override: exactly that model, or PimiModelUnavailableError.
  * 2. A non-empty configured list (Manual): only those models, in order.
- * 3. Automatic: built-in defaults, then the current selection.
+ * 3. Automatic: each provider's small model, then the current selection.
  */
 export async function resolvePimiModel(
   options: ResolveStructuredGenerationProvidersOptions,
@@ -109,7 +102,7 @@ export async function resolvePimiModel(
 /**
  * For a feature that reads a chat's text: the text stays on the chat's own provider. A per-feature
  * override is used as is (the user chose where the text goes). Otherwise the provider's models from
- * the Manual list, else its small built-in default at the lowest effort. Null when the provider has
+ * the Manual list, else its small model at the lowest effort. Null when the provider has
  * neither; the chat's own model is never used.
  */
 export async function resolveChatProviderPimiModel(
@@ -134,13 +127,8 @@ export async function resolveChatProviderPimiModel(
     return resolved ? [resolved] : [];
   });
   if (configured.length > 0) return { providers: dedupeProviders(configured), pinned: true };
-  for (const identifier of DEFAULT_STRUCTURED_GENERATION_PROVIDERS) {
-    const resolved = resolveByModelSubstring([entry], identifier);
-    if (resolved) {
-      return { providers: await withLowestEffort(options, [resolved]), pinned: false };
-    }
-  }
-  return null;
+  const small = resolveSmallModel(entry);
+  return small ? { providers: await withLowestEffort(options, [small]), pinned: false } : null;
 }
 
 const LOWEST_EFFORT_IDS = ["none", "off", "minimal", "low"];
@@ -199,7 +187,7 @@ async function resolveFeatureOverride(
 
 /**
  * A non-empty configured list means Manual: only those models are tried, in order.
- * An empty list means Automatic: built-in defaults, then the current selection.
+ * An empty list means Automatic: each provider's small model, then the current selection.
  */
 async function resolveStructuredGenerationProviders(
   options: ResolveStructuredGenerationProvidersOptions,
@@ -228,11 +216,9 @@ async function resolveStructuredGenerationProviders(
     return dedupeProviders(providers);
   }
 
-  for (const identifier of DEFAULT_STRUCTURED_GENERATION_PROVIDERS) {
-    const resolved = resolveByModelSubstring(modelEntries, identifier);
-    if (resolved) {
-      providers.push(resolved);
-    }
+  for (const entry of modelEntries) {
+    const small = resolveSmallModel(entry);
+    if (small) providers.push(small);
   }
 
   const currentSelection = resolveCurrentSelection(
@@ -378,31 +364,23 @@ function resolveNestedProviderModel(
   return null;
 }
 
-function resolveByModelSubstring(
-  entries: readonly ProviderSnapshotEntry[],
-  identifier: StructuredGenerationProviderIdentifier,
-): StructuredGenerationProvider | null {
-  const needle = identifier.modelSubstring.trim().toLowerCase();
-  if (!needle) {
-    return null;
-  }
-
-  for (const entry of entries) {
-    for (const model of entry.models ?? []) {
-      const haystacks = [model.id, model.label].map((value) => value.toLowerCase());
-      if (!haystacks.some((value) => value.includes(needle))) {
-        continue;
-      }
-      const thinkingOptionId = resolveThinkingOptionId(model, identifier.thinkingOptionId);
-      return {
-        provider: entry.provider,
-        model: model.id,
-        ...(thinkingOptionId ? { thinkingOptionId } : {}),
-      };
-    }
-  }
-
-  return null;
+/** The model the provider declares small, else, for a provider that declares none, a name match. */
+function resolveSmallModel(entry: ProviderSnapshotEntry): StructuredGenerationProvider | null {
+  const models = filterSelectableAgentModels(entry.models);
+  const model =
+    models.find((candidate) => candidate.isSmall) ??
+    SMALL_MODEL_NAME_FRAGMENTS.flatMap(
+      (fragment) =>
+        models.find((candidate) =>
+          [candidate.id, candidate.label].some((value) => value.toLowerCase().includes(fragment)),
+        ) ?? [],
+    )[0];
+  if (!model) return null;
+  return {
+    provider: entry.provider,
+    model: model.id,
+    ...(model.defaultThinkingOptionId ? { thinkingOptionId: model.defaultThinkingOptionId } : {}),
+  };
 }
 
 function readConfiguredProviders(
