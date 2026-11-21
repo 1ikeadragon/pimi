@@ -1,5 +1,5 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// The Changes tab's file tree. Ordering, nesting, folder rows and folder collapse state come from
+// The Files tab's file tree. Ordering, nesting, folder rows and folder collapse state come from
 // the shared diff tree (`git/diff-tree`, `DiffFolderRow`); the file row is local because it carries
 // thread badges and a viewed mark, which the shared `FileHeader` has no slot for.
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";

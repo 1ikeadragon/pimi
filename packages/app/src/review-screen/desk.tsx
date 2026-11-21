@@ -1,5 +1,5 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// Stream S3: the Changes tab. A file tree beside the shared `DiffDocument`, fed by
+// The Files tab. A file tree beside the shared `DiffDocument`, fed by
 // `forge.change_request.list_files` (tree first, no patches) and `get_file_diffs` (patches on
 // demand through the LRU cache in `desk/patch-cache.ts`). Small change requests scroll as one
 // document; large ones show a file at a time. Forge threads draw under their lines and the user's
@@ -18,8 +18,9 @@ import type { ChangeRequestSource, ReviewDeskProps } from "./types";
 import { AskInChat } from "./desk/ask-in-chat";
 import { useDeskCopy } from "./desk/copy";
 import { FileTree } from "./desk/file-tree";
-import { DeskToolbar } from "./desk/toolbar";
-import { Chip, DetachedThreads, Notice } from "./desk/ui";
+import { FilesBar } from "./desk/files-bar";
+import { Chip, DetachedThreads } from "./desk/ui";
+import { Notice } from "./notice";
 import {
   chooseDiffMode,
   stubFile,
@@ -57,7 +58,8 @@ function ChangeRequestDesk({
 }) {
   const copy = useDeskCopy();
   const filesState = useDeskFiles(source);
-  if (filesState.status === "loading") return <Notice text={copy.loadingFiles} busy />;
+  if (filesState.status === "loading")
+    return <Notice text={copy.loadingFiles} busy testID="review-desk-notice" />;
   if (filesState.status === "error") {
     return <Notice text={`${copy.loadError} ${filesState.message}`} onRetry={filesState.retry} />;
   }
@@ -172,15 +174,6 @@ function ReadyDesk({
     },
     [selectInTree],
   );
-  const activeIndex = paths.indexOf(activePath);
-  const goPrevious = useCallback(() => {
-    const previous = paths[activeIndex - 1];
-    if (previous) moveTo(previous);
-  }, [activeIndex, moveTo, paths]);
-  const goNext = useCallback(() => {
-    const next = paths[activeIndex + 1];
-    if (next) moveTo(next);
-  }, [activeIndex, moveTo, paths]);
   const openDetached = useCallback(
     (path: string, id: string) => {
       markers.showThread(id);
@@ -229,7 +222,7 @@ function ReadyDesk({
     <View style={styles.desk} testID="review-desk">
       {isCompact ? null : treePane}
       <View style={styles.main}>
-        <DeskToolbar
+        <FilesBar
           activePath={activePath}
           viewedLabel={copy.viewed(viewedPaths.size, paths.length)}
           mode={mode}
@@ -238,8 +231,6 @@ function ReadyDesk({
           canSplit={display.canSplit}
           layout={display.layout}
           onShowFiles={showTree}
-          onPrevious={goPrevious}
-          onNext={goNext}
           onToggleMode={toggleMode}
           onToggleLayout={display.toggleLayout}
         />

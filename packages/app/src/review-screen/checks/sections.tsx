@@ -1,7 +1,7 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// Stream S4: CI checks as rows inside a card. Failed first, then running, then passed and skipped
-// collapsed; shards of one job fold into one group; a failing check expands to its log tail and
-// annotations (`get_check_details`). Shared by the Overview Checks card and the inspector.
+// CI checks as rows inside a card. Failed first, then running, then passed and skipped collapsed;
+// shards of one job fold into one group; a failing check expands to its log tail and annotations
+// (`get_check_details`).
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "@/i18n/use-translation";
 import { ScrollView, Text, View } from "react-native";
@@ -29,10 +29,10 @@ const ThemedChevronRight = withUnistyles(ChevronRight);
 const mutedColor = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 const SECTION_TITLE: Record<ReviewCheckSection["id"], string> = {
-  attention: "reviewScreen.inspector.sectionFailed",
-  running: "reviewScreen.inspector.sectionRunning",
-  passed: "reviewScreen.inspector.sectionPassed",
-  skipped: "reviewScreen.inspector.sectionSkipped",
+  attention: "reviewScreen.checkList.sectionFailed",
+  running: "reviewScreen.checkList.sectionRunning",
+  passed: "reviewScreen.checkList.sectionPassed",
+  skipped: "reviewScreen.checkList.sectionSkipped",
 };
 
 export function CheckSections({
@@ -151,7 +151,7 @@ function GroupRow({
             {group.label}
           </Text>
           <Text style={styles.meta} numberOfLines={1}>
-            {[group.workflow, t("reviewScreen.inspector.jobs", { count: group.checks.length })]
+            {[group.workflow, t("reviewScreen.checkList.jobs", { count: group.checks.length })]
               .filter(Boolean)
               .join(" · ")}
           </Text>
@@ -210,7 +210,7 @@ function CheckRow({
           <SelectionBox
             checked={selection.checks.has(check.key)}
             onToggle={toggleSelected}
-            label={t("reviewScreen.inspector.selectCheck", { name: check.name })}
+            label={t("reviewScreen.checkList.selectCheck", { name: check.name })}
           />
         ) : null}
         <PressHighlight
@@ -235,7 +235,7 @@ function CheckRow({
         </PressHighlight>
         {failing ? (
           <Button size="sm" variant="outline" onPress={fix} testID={`review-fix-${check.key}`}>
-            {t("reviewScreen.inspector.fixThis")}
+            {t("reviewScreen.checkList.fixThis")}
           </Button>
         ) : null}
         <Button
@@ -243,7 +243,7 @@ function CheckRow({
           variant="ghost"
           leftIcon={ExternalLink}
           onPress={openOnForge}
-          accessibilityLabel={t("reviewScreen.inspector.openCheck", { name: check.name })}
+          accessibilityLabel={t("reviewScreen.checkList.openCheck", { name: check.name })}
         />
       </View>
       {open ? <CheckDetails source={source} check={check} onJumpTo={onJumpTo} /> : null}
@@ -311,17 +311,17 @@ function CheckDetails({
   const scrollLogToEnd = useCallback(() => logRef.current?.scrollToEnd({ animated: false }), []);
   const details = query.data;
   if (query.isPending)
-    return <Text style={styles.detailNote}>{t("reviewScreen.inspector.loadingLog")}</Text>;
+    return <Text style={styles.detailNote}>{t("reviewScreen.checkList.loadingLog")}</Text>;
   if (query.error) return <Text style={styles.detailError}>{query.error.message}</Text>;
   if (!details)
-    return <Text style={styles.detailNote}>{t("reviewScreen.inspector.noDetails")}</Text>;
+    return <Text style={styles.detailNote}>{t("reviewScreen.checkList.noDetails")}</Text>;
   const outputTitle = details.output?.title?.trim();
   return (
     <View style={styles.details} testID={`review-check-details-${check.key}`}>
       {outputTitle ? <Text style={styles.detailTitle}>{outputTitle}</Text> : null}
       {details.annotations.length > 0 ? (
         <View style={styles.annotations}>
-          <Text style={styles.meta}>{t("reviewScreen.inspector.annotations")}</Text>
+          <Text style={styles.meta}>{t("reviewScreen.checkList.annotations")}</Text>
           {annotationRows(details.annotations).map((row) => (
             <AnnotationRow key={row.key} row={row} onJumpTo={onJumpTo} />
           ))}
@@ -330,8 +330,8 @@ function CheckDetails({
       {details.failedJobs.map((job) => (
         <View key={job.jobId} style={styles.job}>
           <Text style={styles.meta}>
-            {job.name} · {job.conclusion ?? job.status ?? t("reviewScreen.inspector.unknown")}
-            {job.logTruncated ? ` · ${t("reviewScreen.inspector.logTail")}` : ""}
+            {job.name} · {job.conclusion ?? job.status ?? t("reviewScreen.checkList.unknown")}
+            {job.logTruncated ? ` · ${t("reviewScreen.checkList.logTail")}` : ""}
           </Text>
           {job.logTail ? (
             <ScrollView
@@ -347,12 +347,12 @@ function CheckDetails({
               </ScrollView>
             </ScrollView>
           ) : (
-            <Text style={styles.detailNote}>{t("reviewScreen.inspector.noLog")}</Text>
+            <Text style={styles.detailNote}>{t("reviewScreen.checkList.noLog")}</Text>
           )}
         </View>
       ))}
       {details.annotations.length === 0 && details.failedJobs.length === 0 && !outputTitle ? (
-        <Text style={styles.detailNote}>{t("reviewScreen.inspector.noLogOrAnnotations")}</Text>
+        <Text style={styles.detailNote}>{t("reviewScreen.checkList.noLogOrAnnotations")}</Text>
       ) : null}
     </View>
   );

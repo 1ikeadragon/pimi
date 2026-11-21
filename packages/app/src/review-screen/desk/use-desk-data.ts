@@ -1,5 +1,5 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// Data for the Changes tab: the file list of one change request, forge threads for the markers,
+// Data for the Files tab: the file list of one change request, forge threads for the markers,
 // and the rule that picks continuous scroll or single-file mode from the list's totals.
 import { useMemo } from "react";
 import type { ChangeRequestFile, ParsedDiffFile } from "@pimi/protocol/messages";
@@ -90,7 +90,7 @@ export interface DeskThreads {
   error: string | null;
 }
 
-/** Forge threads through stream S4's shared timeline read (one cached fetch for every consumer). */
+/** Forge threads through the shared timeline read (one cached fetch for every consumer). */
 export function useDeskThreads(source: ChangeRequestSource): DeskThreads {
   const timeline = useReviewTimeline(source);
   const { threads: raw, counts, threadsError } = timeline;

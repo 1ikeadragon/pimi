@@ -1,5 +1,5 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// Stream S5: how a card or the inspector asks for the Fix sheet. The shell mounts one
+// How a thread or check asks for the Fix sheet. The detail page mounts one
 // `ReviewFixSheet` beside the detail pane and does not pass it an opener, so the request travels
 // through this store instead of the shell. Ids resolve against the timeline inside the sheet.
 import { create } from "zustand";

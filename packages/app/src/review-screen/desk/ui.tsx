@@ -1,35 +1,12 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// Small presentational pieces of the Changes tab.
+// Small presentational pieces of the Files tab.
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { useDeskCopy } from "./copy";
 import type { ReviewMarkers } from "./use-review-markers";
-
-export function Notice({
-  text,
-  busy,
-  onRetry,
-}: {
-  text: string;
-  busy?: boolean;
-  onRetry?: () => void;
-}) {
-  const copy = useDeskCopy();
-  return (
-    <View style={styles.notice} testID="review-desk-notice">
-      {busy ? <ActivityIndicator /> : null}
-      <Text style={styles.noticeText}>{text}</Text>
-      {onRetry ? (
-        <Button size="sm" variant="outline" onPress={onRetry}>
-          {copy.retry}
-        </Button>
-      ) : null}
-    </View>
-  );
-}
 
 export function Chip({
   label,
@@ -113,18 +90,6 @@ function DetachedRow({
 }
 
 const styles = StyleSheet.create((theme) => ({
-  notice: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: theme.spacing[3],
-    padding: theme.spacing[6],
-  },
-  noticeText: {
-    fontSize: theme.fontSize.base,
-    color: theme.colors.foregroundMuted,
-    textAlign: "center",
-  },
   detached: {
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,

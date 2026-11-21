@@ -2,8 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View, type ViewStyle } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
-  CircleCheck,
-  CircleX,
   Copy,
   ExternalLink,
   GitMerge,
@@ -62,7 +60,8 @@ import {
   canAddPullRequestActivityToChat,
 } from "./context-attachment";
 import { ChecksSection, getCheckIdentity } from "./checks-section";
-import { getActivityVerbKey, getStateLabelKey } from "./data";
+import { getStateLabelKey } from "./data";
+import { ActivityHeader } from "./activity-kit";
 import type { PrPaneActivity, PrPaneCheck, PrPaneData, PrState } from "./data";
 import type { ForgeSpecificStatusFacts } from "@/git/merge-capability";
 import { CheckPresentationIcon } from "@/git/check-presentation.view";
@@ -81,8 +80,6 @@ import {
   successColorMapping,
 } from "./section-kit";
 
-const ThemedCircleCheck = withUnistyles(CircleCheck);
-const ThemedCircleX = withUnistyles(CircleX);
 const ThemedCopy = withUnistyles(Copy);
 const ThemedExternalLink = withUnistyles(ExternalLink);
 const ThemedGitMerge = withUnistyles(GitMerge);
@@ -697,72 +694,6 @@ function kebabSlotStyle(visible: boolean) {
   return visible ? styles.kebabSlot : styles.kebabSlotHidden;
 }
 
-function ActivityAvatar({ activity, size }: { activity: PrPaneActivity; size: number }) {
-  const frameStyle = useMemo(
-    () => [
-      styles.avatar,
-      {
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: activity.avatarColor,
-      },
-    ],
-    [activity.avatarColor, size],
-  );
-  return (
-    <View style={frameStyle}>
-      <Text style={styles.avatarText}>{activity.author.slice(0, 1).toUpperCase()}</Text>
-    </View>
-  );
-}
-
-function ActivityVerb({ activity }: { activity: PrPaneActivity }) {
-  const { t } = useTranslation();
-  const verb = t(getActivityVerbKey(activity)).toLowerCase();
-  if (activity.kind === "review" && activity.reviewState === "approved") {
-    return (
-      <View style={styles.verbGroup}>
-        <ThemedCircleCheck size={12} uniProps={successColorMapping} />
-        <Text style={styles.verbSuccess}>{verb}</Text>
-      </View>
-    );
-  }
-  if (activity.kind === "review" && activity.reviewState === "changes_requested") {
-    return (
-      <View style={styles.verbGroup}>
-        <ThemedCircleX size={12} uniProps={dangerColorMapping} />
-        <Text style={styles.verbDanger}>{verb}</Text>
-      </View>
-    );
-  }
-  return <Text style={styles.verbMuted}>{verb}</Text>;
-}
-
-function ActivityHeader({
-  activity,
-  avatarSize,
-  children,
-}: {
-  activity: PrPaneActivity;
-  avatarSize: number;
-  children?: React.ReactNode;
-}) {
-  return (
-    <>
-      <ActivityAvatar activity={activity} size={avatarSize} />
-      <Text style={styles.authorText} numberOfLines={1}>
-        {activity.author}
-      </Text>
-      <ActivityVerb activity={activity} />
-      <View style={styles.headerTrailing}>
-        <Text style={styles.ageText}>{activity.age}</Text>
-        {children}
-      </View>
-    </>
-  );
-}
-
 function SingleActivityCard({
   entry,
   collapsed,
@@ -1298,29 +1229,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[2],
   },
-  authorText: {
-    fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.normal,
-    color: theme.colors.foreground,
-    flexShrink: 1,
-  },
-  verbGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[1],
-  },
-  verbMuted: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.foregroundMuted,
-  },
-  verbSuccess: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.statusSuccess,
-  },
-  verbDanger: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.statusDanger,
-  },
   ageText: {
     fontSize: theme.fontSize.sm,
     color: theme.colors.foregroundMuted,
@@ -1418,15 +1326,5 @@ const styles = StyleSheet.create((theme) => ({
   },
   replyThreadComment: {
     borderTopWidth: 0,
-  },
-  avatar: {
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  avatarText: {
-    fontSize: 10,
-    fontWeight: theme.fontWeight.normal,
-    color: "#fff",
   },
 }));

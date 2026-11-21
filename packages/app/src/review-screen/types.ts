@@ -1,6 +1,5 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// Contracts shared by the Review screen's slots. Every stream imports from here and none redefines
-// these shapes; change one only in the stream that owns `review-screen/types.ts`.
+// Contracts shared by the Review screen's pieces.
 import type { ChangeRequestFile } from "@pimi/protocol/messages";
 
 /** What a Review desk is reading. `serverId` is the daemon that answers every RPC for it. */
@@ -32,7 +31,7 @@ export type ReviewCountsByPath = ReadonlyMap<string, ReviewPathCounts>;
 /** Jump the desk to a file and optionally a line; `line: null` jumps to the file header. */
 export type ReviewJumpTo = (path: string, line: number | null) => void;
 
-/** Ids chosen for a batch "Fix N selected". Owned by the shell, written by the inspector and diff. */
+/** Ids chosen for a batch "Fix N selected". Owned by the shell, written by the Checks tab. */
 export interface ReviewSelection {
   threads: ReadonlySet<string>;
   checks: ReadonlySet<string>;
@@ -45,12 +44,15 @@ export const EMPTY_REVIEW_SELECTION: ReviewSelection = {
   drafts: new Set(),
 };
 
-export type ReviewInspectorTab = "threads" | "checks";
+/** The detail page's tabs. A worktree page has only `files`. */
+export type ReviewDetailTab = "conversation" | "commits" | "checks" | "files";
 
-/** The detail pane's two tabs, as in the website's Review mockup: cards first, diff second. */
-export type ReviewDetailTab = "overview" | "changes";
+/** The tab a source opens on: a pull request reads first, a worktree is its diff. */
+export function defaultReviewTab(source: ReviewSource): ReviewDetailTab {
+  return source.kind === "checkout" ? "files" : "conversation";
+}
 
-/** Rail source: pull requests (inbox) or local worktrees. */
+/** Home source: pull requests (the inbox) or local worktrees. */
 export type ReviewMode = "pull_requests" | "worktrees";
 
 /**
@@ -61,7 +63,7 @@ export interface ReviewViewState {
   mode: ReviewMode;
   source: ReviewSource | null;
   tab: ReviewDetailTab;
-  /** File open on the Changes tab. */
+  /** File open on the Files tab. */
   path: string | null;
 }
 
@@ -81,56 +83,11 @@ export interface ReviewFileSnapshot {
   files: ChangeRequestFile[];
 }
 
-// ---- Slot props: S2 header + rail + detail header, S3 desk, S4 overview + inspector, S5 fix sheet ----
-
-/** Left rail: title, search, All / To review filter, one row per change request. */
-export interface ReviewRailProps {
-  /** Daemon whose forge CLI auth the rail reads through. */
-  serverId: string;
-  mode: ReviewMode;
-  selected: ReviewSource | null;
-  onOpen: (source: ReviewSource) => void;
-}
-
-/** Top bar: Review title, back/forward, Pull requests / Worktrees switch. */
-export interface ReviewHeaderProps {
-  mode: ReviewMode;
-  navigation: ReviewNavigation;
-  onModeChange: (mode: ReviewMode) => void;
-}
-
-/** Above the tabs: repo and number, title, state/branch/counter chips, Overview / Changes tabs. */
-export interface ReviewDetailHeaderProps {
-  source: ReviewSource;
-  tab: ReviewDetailTab;
-  onTabChange: (tab: ReviewDetailTab) => void;
-}
-
-/** Overview tab: stacked cards (Description, a separate Checks card, Threads, Commits). */
-export interface ReviewOverviewProps {
-  source: ReviewSource;
-  onJumpTo: ReviewJumpTo;
-  selection: ReviewSelection;
-  onSelectionChange: (next: ReviewSelection) => void;
-}
-
-/** Changes tab: file tree beside the diff. */
+/** Files tab: file tree beside the diff. */
 export interface ReviewDeskProps {
   source: ReviewSource;
-  /** Set by the shell when a card or the inspector asks the desk to move. `nonce` changes on every request so repeating a target still fires. */
+  /** Set by the detail page when a thread or check asks the desk to move. `nonce` changes on every request so repeating a target still fires. */
   focus: { path: string; line: number | null; nonce: number } | null;
-  selection: ReviewSelection;
-  onSelectionChange: (next: ReviewSelection) => void;
-}
-
-/** Changes tab, right column: Threads / Checks beside the diff. Collapsible. */
-export interface ReviewInspectorProps {
-  source: ReviewSource;
-  tab: ReviewInspectorTab;
-  onTabChange: (tab: ReviewInspectorTab) => void;
-  onJumpTo: ReviewJumpTo;
-  selection: ReviewSelection;
-  onSelectionChange: (next: ReviewSelection) => void;
 }
 
 export interface ReviewFixSheetProps {

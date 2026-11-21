@@ -1,5 +1,5 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// Stream S2: the Review rail's data. One `forge.change_request.list_inbox` read per host, plus the
+// The Review home's data. One `forge.change_request.list_inbox` read per host, plus the
 // change-request URL a user pastes into the search field.
 import { useCallback, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";

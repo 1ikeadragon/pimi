@@ -249,7 +249,11 @@ function formatCheckTiming(duration: string | undefined, status: CheckStatus): s
   return status === "pending" ? `running ${duration}` : duration;
 }
 
-function mapActivity(item: PullRequestTimelineItem, nowMs: number, forge: Forge): PrPaneActivity[] {
+export function mapActivity(
+  item: PullRequestTimelineItem,
+  nowMs: number,
+  forge: Forge,
+): PrPaneActivity[] {
   if (item.kind === "comment") {
     if (item.body.trim() === "") {
       return [];

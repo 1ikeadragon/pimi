@@ -25,13 +25,13 @@ export function FixSelectedBar({
   if (count === 0) return null;
   return (
     <View style={styles.bar} testID="review-fix-selected">
-      <Text style={styles.text}>{t("reviewScreen.inspector.selectedCount", { count })}</Text>
+      <Text style={styles.text}>{t("reviewScreen.checkList.selectedCount", { count })}</Text>
       <View style={styles.actions}>
         <Button size="sm" variant="ghost" onPress={clear}>
-          {t("reviewScreen.inspector.clear")}
+          {t("reviewScreen.checkList.clear")}
         </Button>
         <Button size="sm" variant="default" onPress={fix} testID="review-fix-selected-button">
-          {t("reviewScreen.inspector.fixSelected", { count })}
+          {t("reviewScreen.checkList.fixSelected", { count })}
         </Button>
       </View>
     </View>

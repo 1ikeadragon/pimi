@@ -1,6 +1,6 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// Stream S4 owns this file: the one read of a change request's overview, checks and review threads
-// for the Review screen. The Overview cards, the Changes-tab inspector, the file tree badges and the
+// The one read of a change request's overview, checks and review threads for the Review screen.
+// The Conversation and Checks tabs, the header, the file tree badges and the
 // Fix sheet all call it; react-query keys the requests by identity, so every caller shares one fetch.
 import { i18n } from "@/i18n/i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,11 +16,16 @@ import { useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
 import {
   deriveAvatarColor,
   formatAge,
+  mapActivity,
   type PrPaneActivity,
   type PrPaneCheck,
 } from "@/git/pull-request-panel/data";
 import { mapCheckStatus } from "@/git/pull-request-panel/check-status";
-import type { PrThreadEntry } from "@/git/pull-request-panel/timeline";
+import {
+  buildPrTimeline,
+  type PrThreadEntry,
+  type PrTimelineEntry,
+} from "@/git/pull-request-panel/timeline";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import {
   markChangeRequestRefresh,
@@ -108,6 +113,8 @@ export interface ReviewTimeline {
   checks: ReviewCheck[];
   checkSections: ReviewCheckSection[];
   threads: ReviewThread[];
+  /** The Conversation tab's entries: singles, reviews with their threads, standalone threads. */
+  entries: PrTimelineEntry[];
   unresolvedCount: number;
   /** Per-file unresolved-thread and annotation counts for the file tree and diff gutter. */
   counts: ReviewCountsByPath;
@@ -229,6 +236,13 @@ export function useReviewTimeline(
     [timelineResult.data, forge],
   );
 
+  const entries = useMemo(() => {
+    const now = Date.now();
+    return buildPrTimeline(
+      (timelineResult.data?.items ?? []).flatMap((item) => mapActivity(item, now, forge)),
+    );
+  }, [timelineResult.data, forge]);
+
   const annotationChecks = useMemo(
     () =>
       options.annotations
@@ -290,6 +304,7 @@ export function useReviewTimeline(
     checks,
     checkSections,
     threads,
+    entries,
     unresolvedCount: threads.filter((thread) => !thread.isResolved).length,
     counts,
     ...readState({

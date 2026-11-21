@@ -9,10 +9,10 @@ const BADGES: Record<
   ReviewCheckSection["id"],
   { key: string; variant: "error" | "warning" | "success" | "muted" }
 > = {
-  attention: { key: "reviewScreen.inspector.badgeFailed", variant: "error" },
-  running: { key: "reviewScreen.inspector.badgeRunning", variant: "warning" },
-  passed: { key: "reviewScreen.inspector.badgePassed", variant: "success" },
-  skipped: { key: "reviewScreen.inspector.badgeSkipped", variant: "muted" },
+  attention: { key: "reviewScreen.checkList.badgeFailed", variant: "error" },
+  running: { key: "reviewScreen.checkList.badgeRunning", variant: "warning" },
+  passed: { key: "reviewScreen.checkList.badgePassed", variant: "success" },
+  skipped: { key: "reviewScreen.checkList.badgeSkipped", variant: "muted" },
 };
 
 /** "1 failed · 25 passed · 6 skipped" as pills, for a card header. */

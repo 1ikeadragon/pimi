@@ -1,293 +1,752 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// Stream S2 owns this file: the top bar (back/forward, Pull requests / Worktrees) and the detail
-// header (repo and number, title, state/branch/counter chips, Overview / Changes tabs).
-import { useCallback, useMemo } from "react";
-import { Text, View } from "react-native";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
+// Review's chrome. `ReviewHomeBar` is the inbox's top bar (history, Pull requests / Worktrees,
+// search, refresh). `ReviewDetailBar` replaces it while a source is open (history, breadcrumb back
+// to the inbox, open on the forge, refresh). `ReviewDetailHeader` is the title block and tab row of
+// a pull request or worktree page. None of them reads a query: the page owns the data.
+import { useCallback, useMemo, type ReactNode } from "react";
+import { ScrollView, Text, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Link,
+  MoreHorizontal,
+  RefreshCw,
+} from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { useQueryClient, useIsFetching } from "@tanstack/react-query";
 import { useTranslation } from "@/i18n/use-translation";
+import { Button } from "@/components/ui/button";
 import { DiffStat } from "@/components/diff-stat";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { PressHighlight } from "@/components/ui/press-highlight";
+import { SearchField } from "@/components/ui/search-field";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
+import { SkeletonPulse, useSkeletonPulse } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
-import { PressHighlight } from "@/components/ui/press-highlight";
-import { useFetchQuery } from "@/data/query";
-import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { CheckPresentationIcon } from "@/git/check-presentation.view";
+import { useToast } from "@/contexts/toast-context";
+import { useIsCompactFormFactor } from "@/constants/layout";
 import type { Theme } from "@/styles/theme";
-import { ChecksChip, DecisionChip, StateChip } from "./chips";
-import {
-  overviewQuery,
-  statusQuery,
-  type ChangeRequestOverview,
-  type ChangeRequestStatus,
-} from "./queries";
-import { useInboxSeed } from "./use-inbox";
-import type {
-  ReviewDetailHeaderProps,
-  ReviewDetailTab,
-  ReviewHeaderProps,
-  ReviewMode,
-} from "./types";
+import { openExternalUrl } from "@/utils/open-external-url";
+import { StateChip } from "./chips";
+import { reviewKeys, markInboxRefresh, type ChangeRequestOverview } from "./queries";
+import type { ReviewDetailTab, ReviewMode, ReviewNavigation, ReviewSource } from "./types";
+import type { InboxItem } from "./use-inbox";
+import type { ReviewCheckSection, ReviewTimeline } from "./use-review-timeline";
 
 const ThemedChevronLeft = withUnistyles(ChevronLeft);
 const ThemedChevronRight = withUnistyles(ChevronRight);
-const iconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const ThemedRefresh = withUnistyles(RefreshCw);
+const ThemedMore = withUnistyles(MoreHorizontal);
+const ThemedExternalLink = withUnistyles(ExternalLink);
+const ThemedLink = withUnistyles(Link);
+const ThemedSpinner = withUnistyles(LoadingSpinner);
+const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const OPEN_ICON = <ThemedExternalLink size={14} uniProps={mutedMapping} />;
+const LINK_ICON = <ThemedLink size={14} uniProps={mutedMapping} />;
+const REFRESH_ICON = <ThemedRefresh size={14} uniProps={mutedMapping} />;
 
-export function ReviewHeader({ mode, navigation, onModeChange }: ReviewHeaderProps) {
+const SEARCH_WIDTH = 320;
+
+function HistoryButtons({ navigation }: { navigation: ReviewNavigation }) {
   const { t } = useTranslation();
-  const options = useMemo<SegmentedControlOption<ReviewMode>[]>(
-    () => [
-      {
-        value: "pull_requests",
-        label: t("reviewScreen.pullRequests"),
-        testID: "review-mode-prs",
-      },
-      {
-        value: "worktrees",
-        label: t("reviewScreen.worktrees"),
-        testID: "review-mode-worktrees",
-      },
-    ],
-    [t],
-  );
   return (
     <View
-      style={styles.bar}
+      style={styles.history}
       testID="review-header"
       role="group"
       accessibilityLabel={t("reviewScreen.historyLabel")}
     >
-      <View style={styles.history}>
-        <ToolbarButton
-          label={t("reviewScreen.backLabel")}
-          onPress={navigation.goBack}
-          disabled={!navigation.canGoBack}
-          testID="review-back"
-        >
-          <ThemedChevronLeft size={16} uniProps={iconMapping} />
-        </ToolbarButton>
-        <ToolbarButton
-          label={t("reviewScreen.forwardLabel")}
-          onPress={navigation.goForward}
-          disabled={!navigation.canGoForward}
-          testID="review-forward"
-        >
-          <ThemedChevronRight size={16} uniProps={iconMapping} />
-        </ToolbarButton>
-      </View>
-      <SegmentedControl
-        options={options}
-        value={mode}
-        onValueChange={onModeChange}
-        size="sm"
-        appearance="track"
-        accessibilityLabel={t("reviewScreen.sourceLabel")}
-        testID="review-mode"
-      />
+      <ToolbarButton
+        label={t("reviewScreen.backLabel")}
+        onPress={navigation.goBack}
+        disabled={!navigation.canGoBack}
+        testID="review-back"
+      >
+        <ThemedChevronLeft size={16} uniProps={mutedMapping} />
+      </ToolbarButton>
+      <ToolbarButton
+        label={t("reviewScreen.forwardLabel")}
+        onPress={navigation.goForward}
+        disabled={!navigation.canGoForward}
+        testID="review-forward"
+      >
+        <ThemedChevronRight size={16} uniProps={mutedMapping} />
+      </ToolbarButton>
     </View>
   );
 }
 
-export function ReviewDetailHeader({ source, tab, onTabChange }: ReviewDetailHeaderProps) {
+function RefreshButton({
+  onPress,
+  spinning,
+  disabled,
+  testID,
+}: {
+  onPress: () => void;
+  spinning: boolean;
+  disabled?: boolean;
+  testID: string;
+}) {
   const { t } = useTranslation();
-  const changeRequest = source.kind === "change_request" ? source : null;
-  const client = useHostRuntimeClient(source.serverId);
-  const connected = useHostRuntimeIsConnected(source.serverId);
-  const enabled = changeRequest !== null && !!client && connected;
-  const overviewResult = useFetchQuery({ ...overviewQuery(changeRequest, client), enabled });
-  const statusResult = useFetchQuery({ ...statusQuery(changeRequest, client), enabled });
-  const overview = overviewResult.data ?? null;
-  const status = statusResult.data ?? null;
-  // The inbox row the user pressed has title, state and branches already; it fills the header
-  // until the overview answers.
-  const seed = useInboxSeed(changeRequest);
-  const head = overview ?? seed;
+  return (
+    <View style={styles.refresh}>
+      {spinning ? <ThemedSpinner size={14} uniProps={mutedMapping} /> : null}
+      <ToolbarButton
+        label={t("reviewScreen.refresh")}
+        onPress={onPress}
+        disabled={disabled}
+        testID={testID}
+      >
+        <ThemedRefresh size={14} uniProps={mutedMapping} />
+      </ToolbarButton>
+    </View>
+  );
+}
 
-  const identity = changeRequest
-    ? `${changeRequest.owner}/${changeRequest.name} #${changeRequest.number}`
-    : t("reviewScreen.worktree");
-  let title: string;
-  if (source.kind === "checkout") {
-    title =
-      source.cwd
-        .replace(/[\\/]+$/, "")
-        .split(/[\\/]/)
-        .pop() || source.cwd;
-  } else {
-    if (overview) title = overview.title;
-    else if (seed) title = seed.title;
-    else if (overviewResult.isPending) title = t("reviewScreen.loading");
-    else title = t("reviewScreen.detailFailed");
+export function ReviewHomeBar({
+  serverId,
+  connected,
+  mode,
+  navigation,
+  onModeChange,
+  query,
+  onQueryChange,
+}: {
+  serverId: string | null;
+  connected: boolean;
+  mode: ReviewMode;
+  navigation: ReviewNavigation;
+  onModeChange: (mode: ReviewMode) => void;
+  query: string;
+  onQueryChange: (query: string) => void;
+}) {
+  const { t } = useTranslation();
+  const isCompact = useIsCompactFormFactor();
+  const queryClient = useQueryClient();
+  const fetching =
+    useIsFetching({ queryKey: reviewKeys.inbox(serverId ?? "") }) > 0 && mode === "pull_requests";
+  const refresh = useCallback(() => {
+    if (!serverId) return;
+    markInboxRefresh(serverId);
+    void queryClient.invalidateQueries({ queryKey: reviewKeys.inbox(serverId) });
+  }, [queryClient, serverId]);
+  const options = useMemo<SegmentedControlOption<ReviewMode>[]>(
+    () => [
+      { value: "pull_requests", label: t("reviewScreen.pullRequests"), testID: "review-mode-prs" },
+      { value: "worktrees", label: t("reviewScreen.worktrees"), testID: "review-mode-worktrees" },
+    ],
+    [t],
+  );
+  const modeSwitch = (
+    <SegmentedControl
+      options={options}
+      value={mode}
+      onValueChange={onModeChange}
+      size="sm"
+      appearance="track"
+      accessibilityLabel={t("reviewScreen.sourceLabel")}
+      testID="review-mode"
+    />
+  );
+  const search = (
+    <SearchField
+      value={query}
+      onChangeText={onQueryChange}
+      placeholder={
+        mode === "pull_requests"
+          ? t("reviewScreen.searchPullRequests")
+          : t("reviewScreen.searchWorktrees")
+      }
+      clearAccessibilityLabel={t("reviewScreen.clearSearch")}
+      testID="review-inbox-search"
+    />
+  );
+  const refreshButton =
+    mode === "pull_requests" ? (
+      <RefreshButton
+        onPress={refresh}
+        spinning={fetching}
+        disabled={!connected}
+        testID="review-inbox-refresh"
+      />
+    ) : null;
+  if (isCompact) {
+    return (
+      <View style={styles.homeBarCompact} testID="review-home-bar">
+        <View style={styles.row}>
+          {modeSwitch}
+          <View style={styles.spacer} />
+          {refreshButton}
+        </View>
+        {search}
+      </View>
+    );
   }
+  return (
+    <View style={styles.homeBar} testID="review-home-bar">
+      <HistoryButtons navigation={navigation} />
+      {modeSwitch}
+      <View style={styles.spacer} />
+      <View style={styles.searchWrap}>{search}</View>
+      {refreshButton}
+    </View>
+  );
+}
+
+export function ReviewDetailBar({
+  source,
+  navigation,
+  onHome,
+  url,
+  brandLabel,
+  onRefresh,
+  refreshing,
+}: {
+  source: ReviewSource;
+  navigation: ReviewNavigation;
+  onHome: () => void;
+  /** The pull request's page on its forge, once the overview has answered. */
+  url: string | null;
+  brandLabel: string;
+  onRefresh: () => void;
+  refreshing: boolean;
+}) {
+  const { t } = useTranslation();
+  const isCompact = useIsCompactFormFactor();
+  const toast = useToast();
+  const identity =
+    source.kind === "change_request"
+      ? `${source.owner}/${source.name} #${source.number}`
+      : worktreeName(source.cwd);
+  const homeLabel =
+    source.kind === "change_request" ? t("reviewScreen.pullRequests") : t("reviewScreen.worktrees");
+  const openOnForge = useCallback(() => {
+    if (url) void openExternalUrl(url);
+  }, [url]);
+  const copyLink = useCallback(() => {
+    if (!url) return;
+    void Clipboard.setStringAsync(url).then(
+      () => toast.copied(t("reviewScreen.link")),
+      () => toast.error(t("common.errors.unableToCopy")),
+    );
+  }, [t, toast, url]);
+
+  if (isCompact) {
+    return (
+      <View style={styles.detailBarCompact} testID="review-detail-bar">
+        <ToolbarButton label={homeLabel} onPress={onHome} testID="review-home">
+          <ThemedChevronLeft size={16} uniProps={mutedMapping} />
+        </ToolbarButton>
+        <Text style={styles.identity} numberOfLines={1}>
+          {identity}
+        </Text>
+        <View style={styles.spacer} />
+        {refreshing ? <ThemedSpinner size={14} uniProps={mutedMapping} /> : null}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            hitSlop={8}
+            accessibilityLabel={t("reviewScreen.moreActions")}
+            style={styles.menuTrigger}
+            testID="review-detail-menu"
+          >
+            <ThemedMore size={16} uniProps={mutedMapping} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" width={220}>
+            {url ? (
+              <DropdownMenuItem leading={OPEN_ICON} onSelect={openOnForge}>
+                {t("reviewScreen.openOn", { brand: brandLabel })}
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem leading={REFRESH_ICON} onSelect={onRefresh}>
+              {t("reviewScreen.refresh")}
+            </DropdownMenuItem>
+            {url ? (
+              <DropdownMenuItem leading={LINK_ICON} onSelect={copyLink}>
+                {t("reviewScreen.copyLink")}
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </View>
+    );
+  }
+  return (
+    <View style={styles.homeBar} testID="review-detail-bar">
+      <HistoryButtons navigation={navigation} />
+      <View style={styles.breadcrumb}>
+        <PressHighlight
+          onPress={onHome}
+          accessibilityRole="link"
+          style={styles.crumbHome}
+          testID="review-home"
+        >
+          <Text style={styles.crumbText}>{homeLabel}</Text>
+        </PressHighlight>
+        <Text style={styles.crumbText}>/</Text>
+        <Text style={styles.identity} numberOfLines={1}>
+          {identity}
+        </Text>
+      </View>
+      {url ? (
+        <Button size="sm" variant="ghost" onPress={openOnForge} testID="review-open-on-forge">
+          {t("reviewScreen.openOn", { brand: brandLabel })}
+        </Button>
+      ) : null}
+      <RefreshButton onPress={onRefresh} spinning={refreshing} testID="review-detail-refresh" />
+    </View>
+  );
+}
+
+function worktreeName(cwd: string): string {
+  return (
+    cwd
+      .replace(/[\\/]+$/, "")
+      .split(/[\\/]/)
+      .pop() || cwd
+  );
+}
+
+// ---- detail header ----
+
+type Head = Pick<
+  InboxItem,
+  "state" | "isDraft" | "title" | "author" | "headRefName" | "baseRefName"
+>;
+
+interface DetailTabSpec {
+  tab: ReviewDetailTab;
+  label: string;
+  count?: ReactNode;
+}
+
+function worstCheckSection(sections: readonly ReviewCheckSection[]) {
+  const attention = sections.find((section) => section.id === "attention");
+  if (attention) return { presentation: "failure" as const, count: attention.count };
+  if (sections.some((section) => section.id === "running")) {
+    return { presentation: "pending" as const, count: 0 };
+  }
+  if (sections.length > 0) return { presentation: "success" as const, count: 0 };
+  return null;
+}
+
+export function ReviewDetailHeader({
+  source,
+  tab,
+  onTabChange,
+  timeline,
+  seed,
+}: {
+  source: ReviewSource;
+  tab: ReviewDetailTab;
+  onTabChange: (tab: ReviewDetailTab) => void;
+  timeline: ReviewTimeline;
+  /** The inbox row this page was opened from; fills the header until the overview answers. */
+  seed: InboxItem | null;
+}) {
+  const { t } = useTranslation();
+  const isCompact = useIsCompactFormFactor();
+  const overview = timeline.overview;
+  const head: Head | null = overview ?? seed;
+  const isWorktree = source.kind === "checkout";
+
+  const tabs: DetailTabSpec[] = isWorktree
+    ? [{ tab: "files", label: t("reviewScreen.tabFiles") }]
+    : [
+        {
+          tab: "conversation",
+          label: t("reviewScreen.tabConversation"),
+          count: timeline.threadsLoading ? "" : String(commentCount(timeline)),
+        },
+        {
+          tab: "commits",
+          label: t("reviewScreen.tabCommits"),
+          count: overview ? String(overview.commitCount) : "",
+        },
+        {
+          tab: "checks",
+          label: t("reviewScreen.tabChecks"),
+          count: (
+            <ChecksTabCount loading={timeline.checksLoading} sections={timeline.checkSections} />
+          ),
+        },
+        {
+          tab: "files",
+          label: t("reviewScreen.tabFiles"),
+          count: overview ? String(overview.changedFiles) : "",
+        },
+      ];
 
   return (
-    <View style={styles.detailTop} testID="review-detail-header">
-      <Text style={styles.identity} numberOfLines={1}>
-        {identity}
-      </Text>
-      <Text style={styles.title} numberOfLines={2} testID="review-detail-title">
-        {title}
-      </Text>
-      <View style={styles.meta}>
-        <StatusChips head={head} seed={seed} status={status} />
-        {overview ? <OverviewFacts overview={overview} /> : null}
-        {source.kind === "checkout" ? (
-          <StatusBadge variant="muted" label={compareLabel(source.compare.mode, t)} />
-        ) : null}
-      </View>
-      <View style={styles.tabs} role="tablist" accessibilityLabel={t("reviewScreen.tabsLabel")}>
-        <DetailTab
-          tab="overview"
-          selected={tab === "overview"}
-          label={t("reviewScreen.tabOverview")}
-          onPress={onTabChange}
-        />
-        <DetailTab
-          tab="changes"
-          selected={tab === "changes"}
-          label={t("reviewScreen.tabChanges")}
-          onPress={onTabChange}
-        />
-      </View>
+    <View style={isCompact ? styles.headerCompact : styles.header} testID="review-detail-header">
+      <HeaderTitle source={source} head={head} failed={timeline.error !== null && !head} />
+      {isWorktree ? null : <HeaderMetaOrSkeleton head={head} overview={overview} />}
+      <TabRow tabs={tabs} tab={tab} onTabChange={onTabChange} scrollable={isCompact} />
     </View>
   );
 }
 
-type Head = NonNullable<ReturnType<typeof useInboxSeed>> | ChangeRequestOverview;
+function commentCount(timeline: ReviewTimeline): number {
+  let count = 0;
+  for (const entry of timeline.entries) {
+    if (entry.kind === "single") count += 1;
+    else if (entry.kind === "thread") count += entry.comments.length;
+    else count += 1 + entry.threads.reduce((sum, thread) => sum + thread.comments.length, 0);
+  }
+  return count;
+}
 
-function StatusChips({
+function HeaderTitle({
+  source,
   head,
-  seed,
-  status,
+  failed,
+}: {
+  source: ReviewSource;
+  head: Head | null;
+  failed: boolean;
+}) {
+  const { t } = useTranslation();
+  const pulse = useSkeletonPulse();
+  if (source.kind === "checkout") {
+    return (
+      <Text style={styles.title} numberOfLines={2} testID="review-detail-title">
+        {worktreeName(source.cwd)}
+      </Text>
+    );
+  }
+  if (head) {
+    return (
+      <Text style={styles.title} numberOfLines={2} testID="review-detail-title">
+        {head.title}
+      </Text>
+    );
+  }
+  if (failed) {
+    return (
+      <Text style={styles.title} numberOfLines={2} testID="review-detail-title">
+        {t("reviewScreen.detailFailed")}
+      </Text>
+    );
+  }
+  return (
+    <View style={styles.titleSkeletonBox} testID="review-detail-title">
+      <SkeletonPulse pulse={pulse} style={styles.titleSkeleton} />
+    </View>
+  );
+}
+
+function HeaderMetaOrSkeleton({
+  head,
+  overview,
 }: {
   head: Head | null;
-  seed: ReturnType<typeof useInboxSeed>;
-  status: ChangeRequestStatus | null;
+  overview: ChangeRequestOverview | null;
 }) {
-  if (!head) return null;
+  if (head) return <HeaderMeta head={head} overview={overview} />;
   return (
-    <>
-      <StateChip state={head.state} isDraft={head.isDraft} />
-      {head.headRefName && head.baseRefName ? (
-        <StatusBadge variant="muted" label={`${head.headRefName} → ${head.baseRefName}`} />
-      ) : null}
-      <ChecksChip status={status?.checksStatus ?? seed?.checksStatus ?? null} />
-      <DecisionChip decision={status?.reviewDecision ?? seed?.reviewDecision ?? null} />
-    </>
+    <View style={styles.metaRow}>
+      <HeaderMetaSkeleton />
+    </View>
   );
 }
 
-function OverviewFacts({ overview }: { overview: ChangeRequestOverview }) {
+function HeaderMetaSkeleton() {
+  const pulse = useSkeletonPulse();
+  return <SkeletonPulse pulse={pulse} style={styles.metaSkeleton} />;
+}
+
+function HeaderMeta({ head, overview }: { head: Head; overview: ChangeRequestOverview | null }) {
   const { t } = useTranslation();
-  return (
-    <>
-      {overview.mergeable === "CONFLICTING" ? (
-        <StatusBadge variant="warning" label={t("reviewScreen.conflicts")} />
+  const isCompact = useIsCompactFormFactor();
+  const commits = overview?.commitCount;
+  const branches = head.headRefName && head.baseRefName;
+  const diffstat = (
+    <View style={styles.diffstat}>
+      {overview ? (
+        <>
+          <DiffStat additions={overview.additions} deletions={overview.deletions} />
+          <Text style={styles.metaText}>
+            {` · ${t("reviewScreen.filesCount", { count: overview.changedFiles })}`}
+          </Text>
+        </>
       ) : null}
-      <Text style={styles.metaText}>
-        {t("reviewScreen.filesCount", { count: overview.changedFiles })}
-      </Text>
-      <DiffStat additions={overview.additions} deletions={overview.deletions} />
-    </>
+    </View>
+  );
+  const conflicts =
+    overview?.mergeable === "CONFLICTING" ? (
+      <StatusBadge variant="warning" size="xs" label={t("reviewScreen.conflicts")} />
+    ) : null;
+  if (isCompact) {
+    return (
+      <View style={styles.metaCompact}>
+        <View style={styles.metaRow}>
+          <StateChip state={head.state} isDraft={head.isDraft} />
+          <Text style={styles.sentenceText} numberOfLines={1}>
+            {[head.author, branches ? `${head.headRefName} → ${head.baseRefName}` : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </Text>
+          {conflicts}
+        </View>
+        {diffstat}
+      </View>
+    );
+  }
+  return (
+    <View style={styles.metaRow}>
+      <StateChip state={head.state} isDraft={head.isDraft} />
+      <View style={styles.sentence}>
+        {head.author ? (
+          <Text style={styles.metaText} numberOfLines={1}>
+            {commits !== undefined
+              ? t("reviewScreen.wantsToMerge", { author: head.author, count: commits })
+              : t("reviewScreen.openedBy", { author: head.author })}
+          </Text>
+        ) : null}
+        {branches ? (
+          <>
+            <StatusBadge variant="muted" size="xs" label={head.baseRefName ?? ""} />
+            <Text style={styles.metaText}>{t("reviewScreen.from")}</Text>
+            <StatusBadge variant="muted" size="xs" label={head.headRefName ?? ""} />
+          </>
+        ) : null}
+        {conflicts}
+      </View>
+      {diffstat}
+    </View>
   );
 }
 
-function compareLabel(mode: "uncommitted" | "base" | "all", t: (key: string) => string): string {
-  if (mode === "uncommitted") return t("reviewScreen.compareUncommitted");
-  if (mode === "base") return t("reviewScreen.compareBase");
-  return t("reviewScreen.compareAll");
+function ChecksTabCount({
+  loading,
+  sections,
+}: {
+  loading: boolean;
+  sections: readonly ReviewCheckSection[];
+}) {
+  if (loading) return null;
+  const worst = worstCheckSection(sections);
+  if (!worst) return null;
+  return (
+    <View style={styles.checksCount}>
+      <CheckPresentationIcon presentation={worst.presentation} size={12} />
+      {worst.count > 0 ? <Text style={styles.countText}>{worst.count}</Text> : null}
+    </View>
+  );
+}
+
+function TabRow({
+  tabs,
+  tab,
+  onTabChange,
+  scrollable,
+}: {
+  tabs: readonly DetailTabSpec[];
+  tab: ReviewDetailTab;
+  onTabChange: (tab: ReviewDetailTab) => void;
+  scrollable: boolean;
+}) {
+  const { t } = useTranslation();
+  const row = (
+    <View style={styles.tabs} role="tablist" accessibilityLabel={t("reviewScreen.tabsLabel")}>
+      {tabs.map((spec) => (
+        <DetailTab key={spec.tab} spec={spec} selected={tab === spec.tab} onPress={onTabChange} />
+      ))}
+    </View>
+  );
+  return (
+    <View style={styles.tabRow}>
+      {scrollable ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll}>
+          {row}
+        </ScrollView>
+      ) : (
+        row
+      )}
+    </View>
+  );
 }
 
 function DetailTab({
-  tab,
+  spec,
   selected,
-  label,
   onPress,
 }: {
-  tab: ReviewDetailTab;
+  spec: DetailTabSpec;
   selected: boolean;
-  label: string;
   onPress: (tab: ReviewDetailTab) => void;
 }) {
   const state = useMemo(() => ({ selected }), [selected]);
-  const handlePress = useCallback(() => onPress(tab), [onPress, tab]);
+  const handlePress = useCallback(() => onPress(spec.tab), [onPress, spec.tab]);
   return (
     <PressHighlight
       onPress={handlePress}
       role="tab"
       accessibilityState={state}
-      accessibilityLabel={label}
+      accessibilityLabel={spec.label}
       style={selected ? styles.tabSelected : styles.tab}
-      testID={`review-tab-${tab}`}
+      testID={`review-tab-${spec.tab}`}
     >
-      <Text style={selected ? styles.tabTextSelected : styles.tabText}>{label}</Text>
+      <Text style={selected ? styles.tabTextSelected : styles.tabText}>{spec.label}</Text>
+      {spec.count !== undefined ? (
+        <View style={styles.countSlot}>
+          {typeof spec.count === "string" ? (
+            <Text style={styles.countText}>{spec.count}</Text>
+          ) : (
+            spec.count
+          )}
+        </View>
+      ) : null}
     </PressHighlight>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  bar: {
+  history: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1] },
+  row: { flexDirection: "row", alignItems: "center", gap: theme.spacing[3] },
+  spacer: { flex: 1 },
+  refresh: { flexDirection: "row", alignItems: "center", gap: theme.spacing[2] },
+  homeBar: {
+    // The height with the "Open on ..." button present, so it does not grow when the link arrives.
+    minHeight: 45,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: theme.spacing[3],
     paddingHorizontal: theme.spacing[4],
     paddingVertical: theme.spacing[2],
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.borderWindow,
   },
-  history: {
+  homeBarCompact: {
+    gap: theme.spacing[2],
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[2],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.borderWindow,
+  },
+  searchWrap: { width: SEARCH_WIDTH, flexShrink: 1 },
+  detailBarCompact: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing[1],
-  },
-  detailTop: {
     gap: theme.spacing[2],
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[2],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.borderWindow,
+  },
+  menuTrigger: { padding: theme.spacing[1], borderRadius: theme.borderRadius.base },
+  breadcrumb: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  crumbHome: { paddingVertical: theme.spacing[1], paddingHorizontal: theme.spacing[1] },
+  crumbText: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.base },
+  identity: {
+    flexShrink: 1,
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+  },
+  header: {
     paddingTop: theme.spacing[4],
-    paddingHorizontal: theme.spacing[4],
+    paddingHorizontal: theme.spacing[6],
+    gap: theme.spacing[2],
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
-  identity: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
+  headerCompact: {
+    paddingTop: theme.spacing[3],
+    paddingHorizontal: theme.spacing[3],
+    gap: theme.spacing[2],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   title: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.normal,
+    fontWeight: theme.fontWeight.medium,
+    lineHeight: 24,
+    minHeight: 24,
   },
-  meta: {
+  titleSkeletonBox: { height: 24, justifyContent: "center" },
+  titleSkeleton: {
+    width: "45%",
+    height: 14,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.surface3,
+  },
+  metaRow: {
+    minHeight: 24,
     flexDirection: "row",
-    flexWrap: "wrap",
     alignItems: "center",
     gap: theme.spacing[2],
   },
-  metaText: {
+  metaCompact: { gap: theme.spacing[1] },
+  sentenceText: {
+    flex: 1,
+    minWidth: 0,
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
   },
-  tabs: {
-    flexDirection: "row",
-    gap: theme.spacing[6],
-    marginTop: theme.spacing[1],
+  metaSkeleton: {
+    width: "35%",
+    height: 12,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.surface3,
   },
+  sentence: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "nowrap",
+    gap: theme.spacing[1.5],
+    overflow: "hidden",
+  },
+  metaText: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
+  diffstat: {
+    minWidth: 120,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  tabRow: { flexDirection: "row", alignItems: "flex-end" },
+  tabScroll: { flex: 1 },
+  tabs: { flexDirection: "row", gap: theme.spacing[6] },
   tab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1.5],
     paddingVertical: theme.spacing[2],
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
   tabSelected: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1.5],
     paddingVertical: theme.spacing[2],
     borderBottomWidth: 2,
     borderBottomColor: theme.colors.accent,
   },
-  tabText: {
+  tabText: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.base },
+  tabTextSelected: { color: theme.colors.foreground, fontSize: theme.fontSize.base },
+  countSlot: { minWidth: 20, alignItems: "flex-start", justifyContent: "center" },
+  countText: {
     color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.base,
+    fontSize: theme.fontSize.sm,
+    fontVariant: ["tabular-nums"],
   },
-  tabTextSelected: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-  },
+  checksCount: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1] },
 }));
