@@ -20,6 +20,8 @@ dependencies {
   // non-transitive: resolving their transitive graph here pulls unverified artifact versions.
   compileOnly('host.exp.exponent:expo.modules.notifications:57.0.23') { transitive = false }
   compileOnly('com.google.firebase:firebase-messaging:25.0.1') { transitive = false }
+  // Supertype of RemoteMessage; needed to compile against it.
+  compileOnly('com.google.android.gms:play-services-basement:18.4.0') { transitive = false }
 }
 
 // Pin resolved dependency versions in gradle.lockfile. Refresh with --write-locks.
