@@ -5575,6 +5575,7 @@ export class CodexAppServerAgentSession implements AgentSession {
 
   async close(): Promise<void> {
     this.closed = true;
+    this.toolOutput.stopAll();
     this.background.stop();
     this.clearPendingPermissions();
     this.pendingToolCallDetails.clear();

@@ -2646,6 +2646,7 @@ export class ACPAgentSession implements AgentSession, ACPClient {
       return;
     }
     this.closed = true;
+    this.toolOutput.stopAll();
 
     this.deliverTranslatedEvents(this.flushPendingUserMessage());
     this.settleCommandsReady();
@@ -3332,12 +3333,13 @@ export class ACPAgentSession implements AgentSession, ACPClient {
     snapshot: ACPToolSnapshot,
     status: ToolCall["status"] | ToolCallUpdate["status"],
   ): void {
-    if (status === "completed" || status === "failed") {
-      this.toolOutput.stop(toolCallId);
-      return;
-    }
     const terminal = snapshot.content?.find((item) => item.type === "terminal");
     const entry = terminal ? this.terminalEntries.get(terminal.terminalId) : undefined;
+    if (status === "completed" || status === "failed") {
+      this.toolOutput.stop(toolCallId);
+      if (entry?.callId === toolCallId) entry.callId = undefined;
+      return;
+    }
     if (!entry || entry.callId || !entry.running) return;
     entry.callId = toolCallId;
     this.toolOutput.append(toolCallId, entry.output);
@@ -3520,6 +3522,13 @@ export class ACPAgentSession implements AgentSession, ACPClient {
 
   private pushEvent(event: AgentStreamEvent): void {
     this.toolOutput.observe(event);
+    if (
+      event.type === "turn_completed" ||
+      event.type === "turn_failed" ||
+      event.type === "turn_canceled"
+    ) {
+      for (const entry of this.terminalEntries.values()) entry.callId = undefined;
+    }
     this.logger.trace(
       {
         agentId: this.agentId,

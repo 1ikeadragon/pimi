@@ -103,7 +103,11 @@ import {
   withRuntimePimiMcpServer,
 } from "./runtime-mcp-config.js";
 import { resolveCreateAgentTitles } from "./create-agent-title.js";
-import type { PimiToolCatalogFactory, PimiToolRuntimeContext } from "./tools/types.js";
+import type {
+  PimiToolCatalog,
+  PimiToolCatalogFactory,
+  PimiToolRuntimeContext,
+} from "./tools/types.js";
 import { memoryRecallInstructions } from "./tools/project-memory-tools.js";
 import { isPimiToolEnabled, isPimiToolPolicyEnabled } from "./pimi-tool-policy.js";
 import {
@@ -113,7 +117,11 @@ import {
 } from "./provider-subagents/store.js";
 import { AgentBackgroundWorkStore, type AgentBackgroundWorkItem } from "./background-work/index.js";
 import { LAZY_TOOL_GROUP_NAMES, lazyPimiToolCatalog } from "./tools/lazy-tool-groups.js";
-import { CREW_LEAD_INSTRUCTIONS, crewChangeNote } from "./tools/crew-delegate.js";
+import {
+  CREW_DELEGATE_TOOL,
+  CREW_LEAD_INSTRUCTIONS,
+  crewChangeNote,
+} from "./tools/crew-delegate.js";
 import { withTimeout } from "../../utils/promise-timeout.js";
 import { extractAttention } from "../persistence-hooks.js";
 import {
@@ -1178,6 +1186,11 @@ const RETIRED_INTERNAL_AGENT_LIMIT = 500;
 export interface RetiredInternalAgent {
   record: ArchivedStoredAgentRecord;
   lastMessage: string | null;
+}
+
+/** Reports and live output that arrive without the user or agent doing anything new. */
+function isPassiveStreamEvent(event: AgentStreamEvent): boolean {
+  return event.type === "usage_updated" || event.type === "tool_call_output";
 }
 
 export class AgentManager {
@@ -6497,11 +6510,11 @@ export class AgentManager {
       return false;
     }
 
-    // Only update timestamp for live events, not history replay. A usage report is not activity:
+    // Only update timestamp for live events, not history replay. Usage reports and live tool output are not activity:
     // Codex sends one as soon as a resumed thread attaches, and stamping it made merely opening
     // a chat move it to the top of the sidebar as "now".
     if (!options?.fromHistory) {
-      if (event.type !== "usage_updated") {
+      if (!isPassiveStreamEvent(event)) {
         this.touchUpdatedAt(agent);
       }
       if (this.agentStreamCoalescer.handle(agent.id, event)) {
@@ -7758,10 +7771,10 @@ export class AgentManager {
       (useNativeTools || this.getPluginTools(agentId).length > 0)
     ) {
       try {
-        const catalog = await this.pimiToolCatalogFactory(
-          launchToolContext(agentId, pimiToolPolicy, opening),
-        );
-        if (useNativeTools) context.pimiTools = lazyPimiToolCatalog(catalog);
+        const toolContext = launchToolContext(agentId, pimiToolPolicy, opening);
+        const catalog = await this.pimiToolCatalogFactory(toolContext);
+        if (useNativeTools)
+          Object.assign(context, await this.nativePimiTools(catalog, toolContext));
       } catch (error) {
         this.detachPluginTools(agentId);
         throw error;
@@ -7769,6 +7782,18 @@ export class AgentManager {
     }
     this.sessionOpenGenerations.set(agentId, generation);
     return context;
+  }
+
+  /** A crew lead's native subagents get the lead's tools without `delegate`, which acts as the lead. */
+  private async nativePimiTools(
+    catalog: PimiToolCatalog,
+    toolContext: PimiToolRuntimeContext,
+  ): Promise<Pick<AgentLaunchContext, "pimiTools" | "pimiChildTools">> {
+    const pimiTools = lazyPimiToolCatalog(catalog);
+    if (!this.pimiToolCatalogFactory || !catalog.tools.has(CREW_DELEGATE_TOOL))
+      return { pimiTools };
+    const subagent = await this.pimiToolCatalogFactory({ ...toolContext, crew: false });
+    return { pimiTools, pimiChildTools: lazyPimiToolCatalog(subagent) };
   }
 
   private resolveProviderLaunchConfig(
