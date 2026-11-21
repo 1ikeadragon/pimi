@@ -4431,6 +4431,9 @@ export class AgentManager {
     if (turnId && agent.activeTurnId !== turnId) return "stale";
     agent.activeTurnId = null;
     agent.activeTurnStartedAt = null;
+    // A turn can create a PR, push, or merge on the forge without touching anything a local
+    // watcher sees, so every provider's turn end re-reads the checkout and forge.
+    this.onWorkspaceStateMayHaveChanged?.({ cwd: agent.cwd });
     return "closed_current";
   }
 
@@ -7040,18 +7043,6 @@ export class AgentManager {
       timestamp: row.timestamp,
     });
 
-    if (
-      item.type === "tool_call" &&
-      item.status === "completed" &&
-      item.detail?.type === "shell" &&
-      commandMayHaveChangedExternalState(item.detail.command)
-    ) {
-      const agent = this.agents.get(agentId);
-      if (agent) {
-        this.onWorkspaceStateMayHaveChanged?.({ cwd: agent.cwd });
-      }
-    }
-
     return event;
   }
 
@@ -7959,22 +7950,5 @@ function matchesImportableSessionQuery(
   const cwdBasename = basename(session.cwd.replaceAll("\\", "/"));
   return [session.title, session.firstPromptPreview, session.lastPromptPreview, cwdBasename].some(
     (value) => value?.toLowerCase().includes(query),
-  );
-}
-
-export function commandMayHaveChangedExternalState(command: string): boolean {
-  const normalized = command.toLowerCase();
-  // Commands that operate on remote state and do NOT trigger local file
-  // watchers. Local git mutations (commit, checkout, merge, rebase, reset,
-  // pull) are already caught by watchers on .git/HEAD and refs/heads/.
-  return (
-    // GitHub PR operations (merge, close, create, edit, comment, review)
-    /\bgh\s+pr\s+(merge|close|create|edit|comment|review)\b/.test(normalized) ||
-    // Pushes to remote — local refs unchanged, but remote state (PR checks,
-    // mergeable status) may shift immediately after.
-    /\bgit\s+push\b/.test(normalized) ||
-    // Fetches update refs/remotes/ which our watchers do not watch, so
-    // ahead/behind counts can drift stale until the next refresh.
-    /\bgit\s+fetch\b/.test(normalized)
   );
 }

@@ -191,6 +191,7 @@ import {
 } from "@/screens/workspace/workspace-route-state";
 import { renderWorkspaceRouteGate } from "@/screens/workspace/workspace-route-state-views";
 import { useWorkspaceRecovery } from "@/workspace-recovery/use-workspace-recovery";
+import { useWorkspaceClipboardActions } from "@/hooks/use-workspace-clipboard-actions";
 import type { WorkspaceRecoveryModel } from "@/workspace-recovery/model";
 import {
   buildWorkspaceTabSnapshot,
@@ -1184,6 +1185,7 @@ function WorkspaceScreenContent({
   const workspaceActionsInBar =
     resolveWorkspaceActionPlacement(useWindowLayout()) === "vertical-bar";
   const toast = useToast();
+  const clipboardActions = useWorkspaceClipboardActions();
   const isMobile = useIsCompactFormFactor();
   const workspacePanelActive = usePanelStore((state) => state.mobilePanel.target === "agent");
   const canRenderDesktopPaneSplits = supportsDesktopPaneSplits();
@@ -2200,18 +2202,7 @@ function WorkspaceScreenContent({
     ],
   );
 
-  const handleCopyAgentId = useCallback(
-    async (agentId: string) => {
-      if (!agentId) return;
-      try {
-        await Clipboard.setStringAsync(agentId);
-        toast.copied(t("workspace.tabs.toasts.agentIdCopiedLabel"));
-      } catch {
-        toast.error(t("workspace.tabs.toasts.copyFailed"));
-      }
-    },
-    [toast, t],
-  );
+  const handleCopyAgentId = clipboardActions.copyAgentId;
 
   const handleCopyTerminalId = useCallback(
     async (terminalId: string) => {

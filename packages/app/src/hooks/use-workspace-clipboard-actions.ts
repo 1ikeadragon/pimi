@@ -15,6 +15,7 @@ export interface CopyableWorkspace {
 export interface WorkspaceClipboardActions {
   copyPath: (workspace: CopyableWorkspace) => void;
   copyBranchName: (workspace: CopyableWorkspace) => void;
+  copyAgentId: (agentId: string) => Promise<void>;
 }
 
 export function useWorkspaceClipboardActions(): WorkspaceClipboardActions {
@@ -54,5 +55,21 @@ export function useWorkspaceClipboardActions(): WorkspaceClipboardActions {
     [t, toast],
   );
 
-  return useMemo(() => ({ copyPath, copyBranchName }), [copyBranchName, copyPath]);
+  const copyAgentId = useCallback(
+    async (agentId: string) => {
+      if (!agentId) return;
+      try {
+        await Clipboard.setStringAsync(agentId);
+        toast.copied(t("workspace.tabs.toasts.agentIdCopiedLabel"));
+      } catch {
+        toast.error(t("workspace.tabs.toasts.copyFailed"));
+      }
+    },
+    [t, toast],
+  );
+
+  return useMemo(
+    () => ({ copyPath, copyBranchName, copyAgentId }),
+    [copyAgentId, copyBranchName, copyPath],
+  );
 }

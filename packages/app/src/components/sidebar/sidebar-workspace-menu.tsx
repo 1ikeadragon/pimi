@@ -1,4 +1,10 @@
-import { useMemo, type ComponentProps, type PropsWithChildren, type ReactNode } from "react";
+import {
+  useCallback,
+  useMemo,
+  type ComponentProps,
+  type PropsWithChildren,
+  type ReactNode,
+} from "react";
 import { PluginMenuItems } from "@/plugins/menus/plugin-menu-items";
 import { useTranslation } from "@/i18n/use-translation";
 import type { PressableStateCallbackType } from "react-native";
@@ -47,6 +53,8 @@ import {
 } from "@/components/sidebar/workspace-meta-row";
 import { useLabelMenuPages, LABEL_PAGE_ID } from "@/labels/picker";
 import { useWorkspaceChatTarget } from "@/labels/workspace-chat";
+import { useWorkspaceChat } from "@/chats/workspace-chat";
+import { useWorkspaceClipboardActions } from "@/hooks/use-workspace-clipboard-actions";
 import { useChatTaskMenu } from "@/tasks/use-chat-task-menu";
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
@@ -179,6 +187,11 @@ function SidebarWorkspaceMenuItems({
 }: SidebarWorkspaceMenuItemsProps & { surface: MenuSurface }): ReactNode {
   const { t } = useTranslation();
   const hasLabelTarget = useWorkspaceChatTarget(serverId, workspaceId ?? "") !== null;
+  const chatAgentId = useWorkspaceChat(serverId, workspaceId ?? "")?.agentId ?? null;
+  const clipboard = useWorkspaceClipboardActions();
+  const handleCopyAgentId = useCallback(() => {
+    if (chatAgentId) void clipboard.copyAgentId(chatAgentId);
+  }, [chatAgentId, clipboard]);
   const taskMenu = useChatTaskMenu(serverId ?? "", workspaceId ?? "");
   const archiveTrailing = useMemo(
     () => (archiveShortcutKeys ? <Shortcut chord={archiveShortcutKeys} /> : null),
@@ -216,6 +229,16 @@ function SidebarWorkspaceMenuItems({
           onSelect={onCopyBranchName}
         >
           {t("sidebar.workspace.actions.copyBranchName")}
+        </WorkspaceMenuItem>
+      ) : null}
+      {chatAgentId ? (
+        <WorkspaceMenuItem
+          surface={surface}
+          testID={`sidebar-workspace-menu-copy-agent-id-${workspaceKey}`}
+          leading={copyLeadingIcon}
+          onSelect={handleCopyAgentId}
+        >
+          {t("workspace.tabs.menu.copyAgentId")}
         </WorkspaceMenuItem>
       ) : null}
       {onRename ? (
