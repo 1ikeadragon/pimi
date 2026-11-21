@@ -1,6 +1,6 @@
 import type { UsageSpeed } from "./prices.js";
 
-export type UsageProvider = "claude" | "codex";
+export type UsageProvider = "claude" | "codex" | "opencode";
 
 export interface UsageEventRow {
   ts: number;

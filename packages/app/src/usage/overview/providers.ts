@@ -1,6 +1,7 @@
 const PROVIDER_LABELS: Record<string, string> = {
   claude: "Claude",
   codex: "Codex",
+  opencode: "OpenCode",
 };
 
 /** Provider ids are product names, so they are not translated. */

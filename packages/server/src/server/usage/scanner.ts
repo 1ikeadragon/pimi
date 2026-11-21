@@ -9,6 +9,7 @@ import type { PimiDatabase } from "../db/pimi-db.js";
 import { createClaudeParser } from "./parsers/claude.js";
 import { PRICES_VERSION, requestCostUsd } from "./prices.js";
 import { createCodexParser } from "./parsers/codex.js";
+import { readOpenCodeUsage } from "./parsers/opencode.js";
 import type {
   UsageEventRow,
   UsageLineParser,
@@ -38,6 +39,7 @@ export interface UsageScannerOptions {
   claudeRoot?: string;
   codexRoot?: string;
   codexArchivedRoot?: string;
+  openCodeDb?: string;
 }
 
 interface DiscoveredFile {
@@ -56,6 +58,12 @@ interface Cursor {
 
 export function defaultClaudeProjectsRoot(): string {
   return join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "projects");
+}
+
+// OpenCode keeps all sessions in one SQLite file under its XDG data dir.
+export function defaultOpenCodeDbPath(): string {
+  const dataHome = process.env.XDG_DATA_HOME?.trim() || join(homedir(), ".local", "share");
+  return join(dataHome, "opencode", "opencode.db");
 }
 
 function codexHome(): string {
@@ -81,6 +89,7 @@ export class UsageScanner {
   private readonly database: PimiDatabase;
   private readonly logger: Logger;
   private readonly roots: { provider: UsageProvider; root: string }[];
+  private readonly openCodeDb: string;
   private running: Promise<UsageScanSummary> | null = null;
   private startTimer: ReturnType<typeof setTimeout> | null = null;
   private lastFinishedAt = 0;
@@ -93,6 +102,7 @@ export class UsageScanner {
       { provider: "codex", root: options.codexRoot ?? defaultCodexSessionsRoot() },
       { provider: "codex", root: options.codexArchivedRoot ?? defaultCodexArchivedRoot() },
     ];
+    this.openCodeDb = options.openCodeDb ?? defaultOpenCodeDbPath();
   }
 
   get scanning(): boolean {
@@ -158,7 +168,12 @@ export class UsageScanner {
       }
       await new Promise((resolve) => setImmediate(resolve));
     }
-    this.pruneCursors(new Set(files.map((file) => file.path)));
+    try {
+      summary.events += await this.scanOpenCode();
+    } catch (error) {
+      this.logger.warn({ err: error, path: this.openCodeDb }, "usage.scan.file_failed");
+    }
+    this.pruneCursors(new Set([...files.map((file) => file.path), this.openCodeDb]));
     summary.durationMs = Date.now() - startedAt;
     this.logger.info(
       { ...summary, rssMb: Math.round(process.memoryUsage().rss / 1048576) },
@@ -184,7 +199,8 @@ export class UsageScanner {
     this.database.transaction(() => {
       for (const row of rows) {
         const cost = requestCostUsd({
-          provider: row.provider === "codex" ? "codex" : "claude",
+          provider:
+            row.provider === "codex" || row.provider === "opencode" ? row.provider : "claude",
           model: row.model === null ? null : String(row.model),
           input: Number(row.input),
           cacheRead: Number(row.cache_read),
@@ -249,6 +265,61 @@ export class UsageScanner {
         ? createClaudeParser(file.path)
         : createCodexParser(file.path, parserState);
 
+    const writer = this.createWriter();
+    let consumed = startOffset;
+    let bytes = 0;
+    const chunks = compressed ? zstdChunks(file.path) : fileChunks(file.path, startOffset);
+    for await (const item of readLines(chunks, startOffset)) {
+      bytes = item.bytesRead;
+      consumed = item.end;
+      if (item.line) handleLine(item.line, parser, writer.sink);
+      if (writer.pending() >= FLUSH_ROWS) writer.flush(null);
+    }
+    parser.finish?.(writer.sink);
+    // A compressed file is always read from its start, so its cursor only records that it was read.
+    writer.flush({
+      path: file.path,
+      size: Math.max(file.size, compressed ? file.size : consumed),
+      mtimeMs: file.mtimeMs,
+      offset: compressed ? file.size : consumed,
+      state: parser.state(),
+    });
+    return { bytes, events: writer.eventCount() };
+  }
+
+  // Reads OpenCode's SQLite store from the highest time_updated already read. The cursor row is
+  // keyed by the database path; its size and mtime cover the database and its WAL, so an idle
+  // OpenCode costs one stat per file and no query.
+  private async scanOpenCode(): Promise<number> {
+    const dbPath = this.openCodeDb;
+    let size = 0;
+    let mtimeMs = 0;
+    try {
+      for (const path of [dbPath, `${dbPath}-wal`]) {
+        const info = await stat(path).catch((error) => {
+          if (path !== dbPath && isMissing(error)) return null;
+          throw error;
+        });
+        if (info === null) continue;
+        size += info.size;
+        mtimeMs = Math.max(mtimeMs, Math.floor(info.mtimeMs));
+      }
+    } catch (error) {
+      if (isMissing(error)) return 0;
+      throw error;
+    }
+    const cursor = this.loadCursors().get(dbPath);
+    if (cursor && cursor.size === size && cursor.mtimeMs === mtimeMs) return 0;
+    const writer = this.createWriter();
+    const { lastUpdated } = readOpenCodeUsage(dbPath, cursor?.offset ?? 0, writer.sink, (updated) =>
+      writer.flush({ path: dbPath, size: 0, mtimeMs: 0, offset: updated, state: null }),
+    );
+    writer.flush({ path: dbPath, size, mtimeMs, offset: lastUpdated, state: null });
+    return writer.eventCount();
+  }
+
+  // Buffers parsed rows and writes them, with the source's cursor, in one transaction per flush.
+  private createWriter(): UsageWriter {
     const db = this.database.db;
     const insertEvent = db.prepare(
       `INSERT INTO usage_events (ts, provider, model, session_id, subagent_id, parent_session_id,
@@ -268,75 +339,79 @@ export class UsageScanner {
     let events: UsageEventRow[] = [];
     let tools: UsageToolCallRow[] = [];
     let eventCount = 0;
-    const sink: UsageSink = {
-      event: (row) => {
-        events.push(row);
-        eventCount += 1;
+    return {
+      sink: {
+        event: (row) => {
+          events.push(row);
+          eventCount += 1;
+        },
+        toolCall: (row) => tools.push(row),
       },
-      toolCall: (row) => tools.push(row),
+      pending: () => events.length,
+      eventCount: () => eventCount,
+      flush: (cursorUpdate) => {
+        if (events.length === 0 && tools.length === 0 && cursorUpdate === null) return;
+        const batchEvents = events;
+        const batchTools = tools;
+        events = [];
+        tools = [];
+        this.database.transaction(() => {
+          for (const row of batchEvents) {
+            insertEvent.run(
+              row.ts,
+              row.provider,
+              row.model,
+              row.sessionId,
+              row.subagentId,
+              row.parentSessionId,
+              row.cwd,
+              row.input,
+              row.cacheRead,
+              row.cacheWrite,
+              row.cacheWrite1h,
+              row.output,
+              row.reasoning,
+              row.total,
+              row.speed,
+              row.usGeo ? 1 : 0,
+              row.costUsd,
+              row.dedupeKey,
+            );
+          }
+          for (const row of batchTools) insertTool.run(row.callId, row.ts, row.provider, row.name);
+          if (cursorUpdate !== null) {
+            db.prepare(
+              `INSERT INTO usage_scan_cursors (path, size, mtime_ms, offset, state)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(path) DO UPDATE SET size = excluded.size, mtime_ms = excluded.mtime_ms,
+                 offset = excluded.offset, state = excluded.state`,
+            ).run(
+              cursorUpdate.path,
+              cursorUpdate.size,
+              cursorUpdate.mtimeMs,
+              cursorUpdate.offset,
+              cursorUpdate.state === null ? null : JSON.stringify(cursorUpdate.state),
+            );
+          }
+        });
+      },
     };
-    const flush = (cursorUpdate: { offset: number } | null): void => {
-      if (events.length === 0 && tools.length === 0 && cursorUpdate === null) return;
-      const batchEvents = events;
-      const batchTools = tools;
-      events = [];
-      tools = [];
-      this.database.transaction(() => {
-        for (const row of batchEvents) {
-          insertEvent.run(
-            row.ts,
-            row.provider,
-            row.model,
-            row.sessionId,
-            row.subagentId,
-            row.parentSessionId,
-            row.cwd,
-            row.input,
-            row.cacheRead,
-            row.cacheWrite,
-            row.cacheWrite1h,
-            row.output,
-            row.reasoning,
-            row.total,
-            row.speed,
-            row.usGeo ? 1 : 0,
-            row.costUsd,
-            row.dedupeKey,
-          );
-        }
-        for (const row of batchTools) insertTool.run(row.callId, row.ts, row.provider, row.name);
-        if (cursorUpdate !== null) {
-          const state = parser.state();
-          db.prepare(
-            `INSERT INTO usage_scan_cursors (path, size, mtime_ms, offset, state)
-             VALUES (?, ?, ?, ?, ?)
-             ON CONFLICT(path) DO UPDATE SET size = excluded.size, mtime_ms = excluded.mtime_ms,
-               offset = excluded.offset, state = excluded.state`,
-          ).run(
-            file.path,
-            Math.max(file.size, cursorUpdate.offset),
-            file.mtimeMs,
-            cursorUpdate.offset,
-            state === null ? null : JSON.stringify(state),
-          );
-        }
-      });
-    };
-
-    let consumed = startOffset;
-    let bytes = 0;
-    const chunks = compressed ? zstdChunks(file.path) : fileChunks(file.path, startOffset);
-    for await (const item of readLines(chunks, startOffset)) {
-      bytes = item.bytesRead;
-      consumed = item.end;
-      if (item.line) handleLine(item.line, parser, sink);
-      if (events.length >= FLUSH_ROWS) flush(null);
-    }
-    parser.finish?.(sink);
-    // A compressed file is always read from its start, so its cursor only records that it was read.
-    flush({ offset: compressed ? file.size : consumed });
-    return { bytes, events: eventCount };
   }
+}
+
+interface CursorWrite {
+  path: string;
+  size: number;
+  mtimeMs: number;
+  offset: number;
+  state: unknown;
+}
+
+interface UsageWriter {
+  sink: UsageSink;
+  pending(): number;
+  eventCount(): number;
+  flush(cursor: CursorWrite | null): void;
 }
 
 interface LineItem {

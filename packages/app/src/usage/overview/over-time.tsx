@@ -72,9 +72,9 @@ function axisFor(range: UsageRange, seen: ReadonlySet<string>, locale: string | 
 
 /**
  * Series slots follow this order, not usage rank, so a provider keeps its colour when the
- * ranking flips: chartSeries slot 0 is blue (Codex), slot 1 is orange (Claude).
+ * ranking flips: chartSeries slot 0 is blue (Codex), slot 1 is orange (Claude), slot 2 is the next palette colour (OpenCode).
  */
-const PROVIDER_SERIES_ORDER = ["codex", "claude"];
+const PROVIDER_SERIES_ORDER = ["codex", "claude", "opencode"];
 
 function seriesRank(provider: string): number {
   const rank = PROVIDER_SERIES_ORDER.indexOf(provider);
