@@ -2,6 +2,16 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.69 - 2026-11-21
+
+- Live shell output streams for OpenCode, Codex and ACP agents through one shared path, and stops when the command finishes. Claude Code rows show elapsed time.
+- The chat's sidebar row shows a PR the agent opened once its turn ends, whichever provider opened it.
+- Copy agent id from a chat's ⋯ menu in the sidebar.
+- OpenCode: crew leads can delegate, subagents can't delegate as the lead, Pimi's skills load, and Attack and desktop tools are available.
+- Pimi features use the small model each provider declares, Claude Haiku first. OpenCode chats without one use the chat's own model, as OpenCode does for titles.
+- Usage includes OpenCode, with the cost OpenCode records.
+- Live command output no longer moves a chat to the top of the sidebar.
+
 ## 0.17.68 - 2026-11-21
 
 - Closing a chat tab no longer archives the chat, and closed tabs stay closed after a restart. A chat whose agent is archived keeps its title and labels and offers Unarchive instead of opening blank.
