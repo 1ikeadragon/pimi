@@ -136,6 +136,14 @@ function rejectionMessage(stdout: string | undefined): string {
     : message;
 }
 
+/** `gh api graphql` exits non-zero when the response carries `errors`; stdout still holds them. */
+function hasGraphqlErrors(error: unknown): error is { stdout: string } {
+  if (typeof error !== "object" || error === null || !("stdout" in error)) return false;
+  if (typeof error.stdout !== "string") return false;
+  const parsed = GraphqlErrorsSchema.safeParse(tryJson(error.stdout));
+  return parsed.success && (parsed.data.errors?.length ?? 0) > 0;
+}
+
 function isRejection(error: unknown): error is { stdout?: string; stderr: string } {
   return (
     typeof error === "object" &&
@@ -157,6 +165,9 @@ export function createGitHubChangeRequestWriter(
         return await deps.run(args, forgeHost);
       } catch (error) {
         if (isRejection(error)) {
+          throw new ChangeRequestReadError("rejected", rejectionMessage(error.stdout));
+        }
+        if (hasGraphqlErrors(error)) {
           throw new ChangeRequestReadError("rejected", rejectionMessage(error.stdout));
         }
         throw deps.mapError(error, forgeHost);

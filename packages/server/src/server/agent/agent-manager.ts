@@ -6278,6 +6278,33 @@ export class AgentManager {
     return true;
   }
 
+  /**
+   * Timestamps of the stored rows a rebuild is about to replace, by seq. Providers whose replay
+   * carries no timestamps would otherwise stamp every old row with the rebuild time, which moves
+   * old prompts into the current period. Empty when every replayed event has its own timestamp.
+   */
+  private priorRowTimestamps(
+    agent: ActiveManagedAgent,
+    events: readonly { timestamp?: string }[],
+  ): Map<number, string> {
+    const prior = new Map<number, string>();
+    if (!this.timelineArchive || agent.internal || events.every((event) => event.timestamp)) {
+      return prior;
+    }
+    for (const row of this.timelineArchive.readAll(agent.id)) prior.set(row.seq, row.timestamp);
+    return prior;
+  }
+
+  /** A replayed event's own timestamp, else the one its row had before the rebuild. */
+  private replayTimestamp(
+    agentId: string,
+    event: { timestamp?: string },
+    prior: ReadonlyMap<number, string>,
+  ): { timestamp: string } | undefined {
+    const timestamp = event.timestamp ?? prior.get(this.timelineStore.getNextSeq(agentId));
+    return timestamp ? { timestamp } : undefined;
+  }
+
   /** Start the stored copy of a timeline that was just rebuilt from the provider. */
   private beginArchivedTimeline(agent: ActiveManagedAgent, complete: boolean): void {
     if (!this.timelineArchive || agent.internal) return;
@@ -6312,6 +6339,7 @@ export class AgentManager {
       providerSubagentEvents.unshift(...older.subagents);
     }
     await this.completeHistoryEvents(agent.id, historyEvents, { fresh: true });
+    const prior = this.priorRowTimestamps(agent, historyEvents);
     this.agentStreamCoalescer.flushAndDiscard(agent.id);
     this.timelineStore.delete(agent.id);
     this.timelineStore.initialize(agent.id, { timestamp: new Date().toISOString() });
@@ -6334,7 +6362,7 @@ export class AgentManager {
       const row = this.recordTimeline(
         agent.id,
         event.item,
-        event.timestamp ? { timestamp: event.timestamp } : undefined,
+        this.replayTimestamp(agent.id, event, prior),
       );
       if (broadcastTimeline) {
         this.dispatchStream(agent.id, event, {
@@ -6399,6 +6427,7 @@ export class AgentManager {
     // the whole history before it can be recorded.
     const windowed = await this.prepareWindowedHistory(agent, historyEvents, historySubagentEvents);
     await this.completeHistoryEvents(agent.id, historyEvents, { fresh: true });
+    const prior = this.priorRowTimestamps(agent, historyEvents);
     // The replay is the timeline, so the stored copy of an earlier one is replaced. A windowed
     // replay is incomplete until its older blocks have been read.
     this.beginArchivedTimeline(agent, !windowed);
@@ -6422,7 +6451,7 @@ export class AgentManager {
       const row = this.recordTimeline(
         agent.id,
         event.item,
-        event.timestamp ? { timestamp: event.timestamp } : undefined,
+        this.replayTimestamp(agent.id, event, prior),
       );
       if (deferredBroadcast) {
         timelineEvents.push({ event, row });

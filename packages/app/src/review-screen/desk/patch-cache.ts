@@ -67,16 +67,6 @@ export function peekPatch(key: string): PatchEntry | undefined {
   return entries.get(key);
 }
 
-export function patchCacheStats(): { files: number; bytes: number; inFlight: number } {
-  return { files: entries.size, bytes: totalBytes, inFlight: inFlight.size };
-}
-
-export function clearPatchCache(): void {
-  entries.clear();
-  totalBytes = 0;
-  emit();
-}
-
 function acquire(): Promise<void> {
   if (running < MAX_IN_FLIGHT) {
     running += 1;

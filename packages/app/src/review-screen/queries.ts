@@ -280,24 +280,37 @@ export function prefetchChangeRequest(
 }
 
 const HOVER_INTENT_MS = 150;
-// One hover prefetch at a time: a later hover waits for the earlier one instead of fanning out
-// `gh` calls (the daemon runs a handful at once and GitHub's budget is shared).
-let hoverQueue: Promise<unknown> = Promise.resolve();
+// Hover warms the overview and status only; the file snapshot is the expensive read and waits for
+// a press. One hover prefetch at a time (the daemon runs a handful of `gh` calls at once and
+// GitHub's budget is shared); rows hovered while one runs are dropped as stale beyond the newest.
+let hoverRunning = false;
+let hoverPending: (() => Promise<unknown>) | null = null;
+
+function drainHover(): void {
+  if (hoverRunning || !hoverPending) return;
+  const run = hoverPending;
+  hoverPending = null;
+  hoverRunning = true;
+  void run().finally(() => {
+    hoverRunning = false;
+    drainHover();
+  });
+}
 
 /**
- * REST-only warm-up of a hovered row: overview and file list. Returns the cancel for the hover
+ * REST-only warm-up of a hovered row: overview and status. Returns the cancel for the hover
  * intent timer; once the timer has fired the prefetch is not cancelled.
  */
 export function prefetchOnHover(queryClient: QueryClient, ref: ChangeRequestSource): () => void {
   const timer = setTimeout(() => {
     const client = getHostRuntimeStore().getClient(ref.serverId);
     if (!client) return;
-    hoverQueue = hoverQueue.then(() =>
+    hoverPending = () =>
       Promise.all([
         prefetchRead(queryClient, overviewQuery(ref, client)),
-        prefetchRead(queryClient, filesQuery(ref, client)),
-      ]),
-    );
+        prefetchRead(queryClient, statusQuery(ref, client)),
+      ]);
+    drainHover();
   }, HOVER_INTENT_MS);
   return () => clearTimeout(timer);
 }

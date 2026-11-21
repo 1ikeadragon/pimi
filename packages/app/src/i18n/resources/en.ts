@@ -135,7 +135,6 @@ export const en = {
     sourceLabel: "Review source",
     pullRequests: "Pull requests",
     worktrees: "Worktrees",
-    worktree: "Worktree",
     searchPullRequests: "Search or paste a pull request URL",
     searchWorktrees: "Find a worktree",
     clearSearch: "Clear search",
@@ -145,7 +144,6 @@ export const en = {
     filterAll: "All {{count}}",
     showAll: "Show all",
     refresh: "Refresh",
-    loading: "Loading...",
     emptyPullRequests: "No pull requests",
     emptyNeedsReview: "No pull requests need your review",
     emptyMine: "You have no open pull requests",
@@ -206,11 +204,9 @@ export const en = {
       unresolve: "Unresolve",
       resolveFailed: "Could not resolve the conversation: {{message}}",
       unresolveFailed: "Could not unresolve the conversation: {{message}}",
-      offline: "Offline",
       addReviewComment: "Add review comment",
       addNote: "Add note",
       commentNow: "Comment now",
-      commentingNow: "Commenting...",
       reviewChanges: "Review changes",
       reviewChangesCount: "Review changes ({{count}})",
       sheetTitle: "Review changes",
@@ -236,7 +232,6 @@ export const en = {
       goTo: "Go to",
       remove: "Remove",
       submitFailed: "Could not submit the review.",
-      askInChat: "Ask in chat",
     },
     conversation: {
       opened: "opened",
@@ -361,7 +356,6 @@ export const en = {
     errors: {
       noConnection: "No daemon connection",
       hostOffline: "Host is offline",
-      hostNotConnected: "Host is not connected",
       loadPullRequest: "Could not load the pull request",
       loadThreads: "Could not load review threads",
       loadChecks: "Could not load checks",
@@ -3313,6 +3307,11 @@ export const en = {
     },
   },
   usageRecap: {
+    errors: {
+      hostNotConnected: "Host is not connected",
+      unavailable: "Recap is unavailable",
+      noneWritten: "No recap was written",
+    },
     period: {
       thisWeek: "This week",
       lastWeek: "Last week",

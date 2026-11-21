@@ -1,6 +1,5 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
 // Contracts shared by the Review screen's pieces.
-import type { ChangeRequestFile } from "@pimi/protocol/messages";
 
 /** What a Review desk is reading. `serverId` is the daemon that answers every RPC for it. */
 export type ReviewSource =
@@ -75,13 +74,6 @@ export interface ReviewNavigation {
   goForward: () => void;
   /** Push a new history entry built from the current one. */
   push: (next: Partial<ReviewViewState>) => void;
-}
-
-/** One revision of the file list, as `forge.change_request.list_files` returned it. */
-export interface ReviewFileSnapshot {
-  baseSha: string;
-  headSha: string;
-  files: ChangeRequestFile[];
 }
 
 /** Files tab: file tree beside the diff. */

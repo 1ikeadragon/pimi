@@ -28,7 +28,7 @@ export function useReviewInbox(serverId: string) {
   const save = useInboxStore((state) => state.save);
   const live = query.data;
   useEffect(() => {
-    if (live) save(key, live);
+    if (live && !live.error) save(key, live);
   }, [key, live, save]);
   const data: Omit<ChangeRequestInbox, "requestId"> | undefined = live ?? stored;
   return { connected, query, data, refresh };

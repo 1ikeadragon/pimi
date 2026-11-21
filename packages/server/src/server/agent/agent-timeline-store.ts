@@ -82,6 +82,11 @@ export class InMemoryAgentTimelineStore {
     return this.requireState(agentId).projection.countRowsBefore(seq);
   }
 
+  /** The seq the next appended row gets. */
+  getNextSeq(agentId: string): number {
+    return this.requireState(agentId).nextSeq;
+  }
+
   /** Lowest seq of the loaded rows, or 0 when there are none. */
   getMinSeq(agentId: string): number {
     return this.requireState(agentId).minSeq;

@@ -250,7 +250,6 @@ export interface GitHubChangeRequestReaderDeps {
   mapReviewDecision: (value: unknown) => PullRequestReviewDecision;
   /** Converts a GraphQL CheckRun node to the `gh pr view` rollup shape `parseChecks` reads. */
   toRollupNode: (node: unknown) => unknown;
-  now: () => number;
 }
 
 export interface GitHubChangeRequestReader {
@@ -490,15 +489,17 @@ function buildOverview(
   };
 }
 
-/** A read-through cache with a TTL that also shares the request already in flight. */
-function createTimedCache<T>(now: () => number, ttlMs: number) {
-  const values = new Map<string, { at: number; value: T }>();
+const TIMED_CACHE_MAX_ENTRIES = 200;
+
+/** A bounded read-through cache with a TTL that also shares the request already in flight. */
+function createTimedCache<T extends {}>(ttlMs: number) {
+  const values = new LRUCache<string, T>({ max: TIMED_CACHE_MAX_ENTRIES, ttl: ttlMs });
   const inFlight = new Map<string, Promise<T>>();
   return {
     get(key: string, force: boolean | undefined, load: () => Promise<T>): Promise<T> {
       const cachedValue = values.get(key);
-      if (!force && cachedValue && now() - cachedValue.at < ttlMs) {
-        return Promise.resolve(cachedValue.value);
+      if (!force && cachedValue !== undefined) {
+        return Promise.resolve(cachedValue);
       }
       const existing = inFlight.get(key);
       if (existing && !force) {
@@ -506,7 +507,7 @@ function createTimedCache<T>(now: () => number, ttlMs: number) {
       }
       const pending = load()
         .then((value) => {
-          values.set(key, { at: now(), value });
+          values.set(key, value);
           return value;
         })
         .finally(() => {
@@ -536,9 +537,9 @@ export function createGitHubChangeRequestReader(
     ttl: SNAPSHOT_TTL_MS,
   });
   const inFlightSnapshots = new Map<string, Promise<Snapshot>>();
-  const pulls = createTimedCache<Pull>(deps.now, OVERVIEW_TTL_MS);
-  const statuses = createTimedCache<ChangeRequestStatus>(deps.now, OVERVIEW_TTL_MS);
-  const commitLists = createTimedCache<ChangeRequestCommitList>(deps.now, OVERVIEW_TTL_MS);
+  const pulls = createTimedCache<Pull>(OVERVIEW_TTL_MS);
+  const statuses = createTimedCache<ChangeRequestStatus>(OVERVIEW_TTL_MS);
+  const commitLists = createTimedCache<ChangeRequestCommitList>(OVERVIEW_TTL_MS);
 
   function readPull(ref: ChangeRequestReadOptions, force: boolean | undefined): Promise<Pull> {
     return pulls.get(refKey(ref), force, async () =>

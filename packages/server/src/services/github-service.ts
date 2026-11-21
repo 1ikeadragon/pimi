@@ -2233,7 +2233,6 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
     parseChecks: parseStatusCheckRollup,
     mapReviewDecision,
     toRollupNode: toBatchStatusCheckRollupNode,
-    now: deps.now,
   });
 
   const changeRequestWriter = createGitHubChangeRequestWriter({

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Recap, RecapNarrative } from "@pimi/protocol/recap";
 import { useFetchQuery } from "@/data/query";
 import { getHostRuntimeStore, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { i18n } from "@/i18n/i18next";
 import type { RecapRange } from "./period";
 
 // Recap is read from stored timelines, so a refetch is cheap; a current period keeps moving.
@@ -13,7 +14,7 @@ function recapKey(serverId: string, range: RecapRange) {
 
 function requireClient(serverId: string) {
   const client = getHostRuntimeStore().getClient(serverId);
-  if (!client) throw new Error("Host is not connected");
+  if (!client) throw new Error(i18n.t("usageRecap.errors.hostNotConnected"));
   return client;
 }
 
@@ -30,7 +31,8 @@ export function useRecapQuery(serverId: string, range: RecapRange) {
     queryKey: recapKey(serverId, range),
     queryFn: async (): Promise<Recap> => {
       const { error, recap } = await requireClient(serverId).getRecap(periodOf(range));
-      if (error !== null || recap === null) throw new Error(error ?? "Recap is unavailable");
+      if (error !== null || recap === null)
+        throw new Error(error ?? i18n.t("usageRecap.errors.unavailable"));
       return recap;
     },
     enabled: connected,
@@ -48,7 +50,8 @@ export function useWriteRecapNarrative(serverId: string, range: RecapRange) {
       const { error, narrative } = await requireClient(serverId).generateRecapNarrative(
         periodOf(range),
       );
-      if (error !== null || narrative === null) throw new Error(error ?? "No recap was written");
+      if (error !== null || narrative === null)
+        throw new Error(error ?? i18n.t("usageRecap.errors.noneWritten"));
       return narrative;
     },
     onSuccess: async (narrative) => {

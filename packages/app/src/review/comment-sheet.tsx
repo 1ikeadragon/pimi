@@ -49,7 +49,8 @@ function OpenReviewCommentSheet({
   const { onSaveEditor, onCancelEditor } = reviewActions;
   const handleSave = useCallback(() => onSaveEditor(editor.body), [onSaveEditor, editor.body]);
   const submit = reviewActions.submit;
-  const commentNow = editor.target.side === "new" ? submit?.commentNow : null;
+  // Editing an existing pending comment: posting it now would leave the draft to post again.
+  const commentNow = editor.target.side === "new" && !editor.commentId ? submit?.commentNow : null;
   const onCommentNow = commentNow?.onCommentNow;
   const handleCommentNow = useCallback(
     () => onCommentNow?.(editor.target, editor.body.trim()),
