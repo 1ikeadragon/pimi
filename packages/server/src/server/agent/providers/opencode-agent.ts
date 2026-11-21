@@ -1532,6 +1532,7 @@ export class OpenCodeAgentClient implements AgentClient {
         false,
         unbindBridge,
         connectServer,
+        this.bridge?.disabledToolsFor(launchContext?.pimiTools) ?? {},
       );
     } catch (error) {
       await connection.release();
@@ -1587,6 +1588,7 @@ export class OpenCodeAgentClient implements AgentClient {
         registeredAcquisition !== null,
         unbindBridge,
         connectServer,
+        this.bridge?.disabledToolsFor(launchContext?.pimiTools) ?? {},
       );
     } catch (error) {
       await connection.release();
@@ -3492,6 +3494,8 @@ class OpenCodeAgentSession implements AgentSession {
     private readonly externallyDriven = false,
     releaseBridge?: () => void,
     connectServer?: () => Promise<OpenCodeServerConnection>,
+    // OpenCode 1.x plugins cannot hide a tool per session; each prompt turns off the ones this session may not call.
+    private readonly disabledPimiTools: Record<string, false> = {},
   ) {
     this.config = config;
     this.server = {
@@ -3740,6 +3744,7 @@ class OpenCodeAgentSession implements AgentSession {
         directory: this.config.cwd,
         messageID: promptId,
         parts,
+        tools: this.disabledPimiTools,
         ...(systemPrompt ? { system: systemPrompt } : {}),
         ...(model ? { model } : {}),
         ...(effectiveMode ? { agent: effectiveMode } : {}),
@@ -4073,6 +4078,7 @@ class OpenCodeAgentSession implements AgentSession {
             directory: this.config.cwd,
             messageID: dispatchMessageId,
             parts,
+            tools: this.disabledPimiTools,
             ...(options?.outputSchema
               ? {
                   format: {

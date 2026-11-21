@@ -36,6 +36,8 @@ interface OpenCodeBridgeOptions {
 interface OpenCodeSessionBinding {
   env: Record<string, string>;
   tools?: PimiToolCatalog;
+  /** The tools of the session's native subagents, when they differ from `tools`. */
+  childTools?: PimiToolCatalog;
 }
 
 interface BindOpenCodeSessionInput extends OpenCodeSessionBinding {
@@ -96,12 +98,22 @@ export class OpenCodeBridge {
     this.manifestCatalog = catalog;
   }
 
+  /** The manifest tools a session may not call, keyed by OpenCode tool name, for a prompt's `tools` map. */
+  disabledToolsFor(allowed: Pick<PimiToolCatalog, "tools"> | undefined): Record<string, false> {
+    const disabled: Record<string, false> = {};
+    for (const name of this.manifestCatalog?.tools.keys() ?? []) {
+      if (!allowed?.tools.has(name)) disabled[`pimi_${name}`] = false;
+    }
+    return disabled;
+  }
+
   bindSession(input: BindOpenCodeSessionInput): () => void {
     if (this.sessions.has(input.sessionId))
       throw new Error(`OpenCode session ${input.sessionId} is already bound to a Pimi agent`);
     const binding: OpenCodeSessionBinding = {
       env: { ...input.env },
       ...(input.tools ? { tools: input.tools } : {}),
+      ...(input.childTools ? { childTools: input.childTools } : {}),
     };
     this.sessions.set(input.sessionId, binding);
     return () => {
@@ -179,11 +191,10 @@ export class OpenCodeBridge {
           sendJson(response, 404, { error: "OpenCode session is not bound to a Pimi agent" });
           return;
         }
+        const tools = toolsFor(binding, url);
         sendJson(response, 200, {
           env: binding.env,
-          ...(url.searchParams.has("tools")
-            ? { tools: [...(binding.tools?.tools.keys() ?? [])] }
-            : {}),
+          ...(url.searchParams.has("tools") ? { tools: [...(tools?.tools.keys() ?? [])] } : {}),
         });
         return;
       }
@@ -195,6 +206,7 @@ export class OpenCodeBridge {
         await this.executeTool({
           sessionId: decodeURIComponent(toolMatch[1]),
           toolName: decodeURIComponent(toolMatch[2]),
+          url,
           request,
           response,
         });
@@ -245,6 +257,7 @@ export class OpenCodeBridge {
   private async executeTool(input: {
     sessionId: string;
     toolName: string;
+    url: URL;
     request: IncomingMessage;
     response: ServerResponse;
   }): Promise<void> {
@@ -253,11 +266,12 @@ export class OpenCodeBridge {
       sendJson(input.response, 404, { error: "OpenCode session is not bound to a Pimi agent" });
       return;
     }
-    if (!binding.tools) {
+    const tools = toolsFor(binding, input.url);
+    if (!tools) {
       sendJson(input.response, 403, { error: "Pimi tools are disabled for this session" });
       return;
     }
-    if (!binding.tools.getTool(input.toolName)) {
+    if (!tools.getTool(input.toolName)) {
       throw new OpenCodeBridgeClientError(404, `Pimi tool not found: ${input.toolName}`);
     }
     const body = await readJsonBody(input.request);
@@ -265,7 +279,7 @@ export class OpenCodeBridge {
     input.request.once("aborted", () =>
       controller.abort(new Error("OpenCode tool request was aborted")),
     );
-    const result = await binding.tools.executeTool(input.toolName, body, {
+    const result = await tools.executeTool(input.toolName, body, {
       signal: controller.signal,
     });
     sendJson(input.response, 200, addModelVisibleStructuredContent(result));
@@ -280,6 +294,12 @@ export class OpenCodeBridge {
     if (!this.pluginUrl) throw new Error("OpenCode bridge plugin is not materialized");
     return this.pluginUrl;
   }
+}
+
+// The shared plugin names the calling session as `caller` when it is a native subagent of the bound
+// session, which runs with the subagent tools.
+function toolsFor(binding: OpenCodeSessionBinding, url: URL): PimiToolCatalog | undefined {
+  return url.searchParams.has("caller") ? (binding.childTools ?? binding.tools) : binding.tools;
 }
 
 export async function materializeOpenCodeV2Plugin(pimiHome: string): Promise<string> {
