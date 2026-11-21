@@ -1,7 +1,7 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
 // A review thread on the Conversation tab: where it sits, its comments in order, and what the
-// reader can do with it. A resolved thread folds to one line until pressed. Read-only for now;
-// reply and resolve attach to `ThreadActions` and the footer below the comments.
+// reader can do with it. A resolved thread folds to one line until pressed. Reply and resolve
+// write through `write/`; the rest of the actions are local.
 import { useCallback, useState } from "react";
 import { Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
@@ -25,6 +25,7 @@ import type { Theme } from "@/styles/theme";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { requestReviewFix } from "../agent-actions/fix-request";
 import type { ReviewJumpTo } from "../types";
+import { ResolveButton, ThreadReply } from "../write/thread-write";
 
 const ThemedChevronDown = withUnistyles(ChevronDown);
 const ThemedChevronRight = withUnistyles(ChevronRight);
@@ -57,6 +58,8 @@ export function ThreadCard({
   const outdated = entry.location?.isOutdated === true;
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen((value) => !value), []);
+  // Resolving from the card leaves it open; it folds on the next press of its header.
+  const keepOpen = useCallback(() => setOpen(true), []);
   const location = entry.location
     ? `${entry.location.path}${entry.location.line ? `:${entry.location.line}` : ""}`
     : t("reviewScreen.conversation.generalDiscussion");
@@ -98,7 +101,13 @@ export function ThreadCard({
       {folded ? null : (
         <>
           <ThreadComments entry={entry} />
-          <ThreadActions entry={entry} brandLabel={brandLabel} onJumpTo={onJumpTo} />
+          <ThreadReply entryId={entry.id} />
+          <ThreadActions
+            entry={entry}
+            brandLabel={brandLabel}
+            onJumpTo={onJumpTo}
+            onResolveToggle={keepOpen}
+          />
         </>
       )}
     </View>
@@ -125,10 +134,12 @@ function ThreadActions({
   entry,
   brandLabel,
   onJumpTo,
+  onResolveToggle,
 }: {
   entry: PrThreadEntry;
   brandLabel: string;
   onJumpTo: ReviewJumpTo;
+  onResolveToggle: () => void;
 }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -154,6 +165,11 @@ function ThreadActions({
   }, [t, toast, url]);
   return (
     <View style={styles.actions}>
+      <ResolveButton
+        entryId={entry.id}
+        resolved={entry.isResolved === true}
+        onToggle={onResolveToggle}
+      />
       <Button size="sm" variant="outline" onPress={fix} testID={`review-fix-${entry.id}`}>
         {t("reviewScreen.conversation.fixThis")}
       </Button>

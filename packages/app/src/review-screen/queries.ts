@@ -77,6 +77,26 @@ export function markChangeRequestRefresh(ref: ChangeRequestSource): void {
   }
 }
 
+/** Marks only the named reads of one pull request for a cache-skipping fetch. */
+function markRefresh(ref: ChangeRequestSource, kinds: readonly Kind[]): void {
+  for (const kind of kinds) refreshMarks.add(markKey(kind, changeRequestRefKey(ref)));
+}
+
+/**
+ * After a write: the timeline (and with `status`/`overview`, the decision and head) is re-read
+ * past the daemon's cache. Resolves when the mounted reads have refetched.
+ */
+export function refreshAfterWrite(
+  queryClient: QueryClient,
+  ref: ChangeRequestSource,
+  kinds: ReadonlyArray<"timeline" | "status" | "overview">,
+): Promise<unknown> {
+  markRefresh(ref, kinds);
+  return Promise.all(
+    kinds.map((kind) => queryClient.invalidateQueries({ queryKey: reviewKeys[kind](ref) })),
+  );
+}
+
 export function markInboxRefresh(serverId: string): void {
   refreshMarks.add(markKey("inbox", [serverId]));
 }

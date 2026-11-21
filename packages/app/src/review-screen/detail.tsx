@@ -33,6 +33,7 @@ import {
 } from "./types";
 import { useInboxSeed } from "./use-inbox";
 import { useReviewTimeline } from "./use-review-timeline";
+import { ReviewWriteProvider } from "./write/provider";
 
 export function ReviewDetail({
   source,
@@ -94,46 +95,52 @@ function PullRequestPage({
   const brandLabel = getForgePresentation(timeline.forge).brandLabel;
 
   return (
-    <View style={styles.detail} testID="review-detail">
-      <ReviewDetailBar
-        source={source}
-        identity={`${source.owner}/${source.name} #${source.number}`}
-        navigation={navigation}
-        onHome={onHome}
-        url={url}
-        brandLabel={brandLabel}
-        onRefresh={refresh}
-        refreshing={timeline.isRefreshing}
-      />
-      <ReviewPullRequestHeader
-        tab={tab}
-        onTabChange={onTabChange}
-        timeline={timeline}
-        seed={seed}
-      />
-      <View style={styles.body}>
-        {tab === "conversation" ? (
-          <ReviewConversation timeline={timeline} onJumpTo={onJumpTo} onOpenChecks={onOpenChecks} />
-        ) : null}
-        {tab === "commits" ? <ReviewCommits source={source} /> : null}
-        {tab === "checks" ? (
-          <ReviewChecks
-            source={source}
-            timeline={timeline}
-            selection={selection}
-            onSelectionChange={setSelection}
-            onJumpTo={onJumpTo}
-          />
-        ) : null}
-        {tab === "files" ? <ReviewDesk source={source} focus={focus} /> : null}
+    <ReviewWriteProvider source={source} timeline={timeline}>
+      <View style={styles.detail} testID="review-detail">
+        <ReviewDetailBar
+          source={source}
+          identity={`${source.owner}/${source.name} #${source.number}`}
+          navigation={navigation}
+          onHome={onHome}
+          url={url}
+          brandLabel={brandLabel}
+          onRefresh={refresh}
+          refreshing={timeline.isRefreshing}
+        />
+        <ReviewPullRequestHeader
+          tab={tab}
+          onTabChange={onTabChange}
+          timeline={timeline}
+          seed={seed}
+        />
+        <View style={styles.body}>
+          {tab === "conversation" ? (
+            <ReviewConversation
+              timeline={timeline}
+              onJumpTo={onJumpTo}
+              onOpenChecks={onOpenChecks}
+            />
+          ) : null}
+          {tab === "commits" ? <ReviewCommits source={source} /> : null}
+          {tab === "checks" ? (
+            <ReviewChecks
+              source={source}
+              timeline={timeline}
+              selection={selection}
+              onSelectionChange={setSelection}
+              onJumpTo={onJumpTo}
+            />
+          ) : null}
+          {tab === "files" ? <ReviewDesk source={source} focus={focus} /> : null}
+        </View>
+        <ReviewFixSheet
+          source={source}
+          selection={selection}
+          visible={fixOpen}
+          onClose={closeFixSheet}
+        />
       </View>
-      <ReviewFixSheet
-        source={source}
-        selection={selection}
-        visible={fixOpen}
-        onClose={closeFixSheet}
-      />
-    </View>
+    </ReviewWriteProvider>
   );
 }
 

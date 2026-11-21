@@ -1,7 +1,7 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
 // A forge thread opened from its marker or the detached strip: where it is, every comment in full.
 // Docked at 380 beside the diff while the Files tab is wide enough; below that (and on compact) it
-// is a modal sheet. Read-only; the reply box and resolve button attach under the comments.
+// is a modal sheet. Reply and resolve sit under the comments.
 import { useCallback, useEffect, useMemo } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { X } from "lucide-react-native";
@@ -15,6 +15,7 @@ import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { requestReviewFix } from "../agent-actions/fix-request";
 import { ThreadComments } from "../conversation/thread-card";
+import { ResolveButton, ThreadReply } from "../write/thread-write";
 import type { ForgeThread } from "./use-desk-data";
 
 export const THREAD_PANEL_WIDTH = 380;
@@ -54,7 +55,9 @@ function ThreadBody({ thread }: { thread: ForgeThread }) {
   return (
     <>
       <ThreadComments entry={thread.entry} />
+      <ThreadReply entryId={thread.entry.id} />
       <View style={styles.actions}>
+        <ResolveButton entryId={thread.entry.id} resolved={thread.isResolved} />
         <Button size="sm" variant="outline" onPress={fix} testID="review-thread-panel-fix">
           {t("reviewScreen.conversation.fixThis")}
         </Button>
@@ -165,5 +168,10 @@ const styles = StyleSheet.create((theme) => ({
   },
   badges: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1.5] },
   scroll: { paddingBottom: theme.spacing[4] },
-  actions: { flexDirection: "row", padding: theme.spacing[3] },
+  actions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing[2],
+    padding: theme.spacing[3],
+  },
 }));

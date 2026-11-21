@@ -1,7 +1,6 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
 // The Conversation tab: the description, then every comment and review in order, review threads
-// nested under the review that opened them. Read-only; the comment box and the thread actions that
-// write attach here. A 260 aside carries review state, checks and labels when the body is wide.
+// nested under the review that opened them. The comment box ends the list; thread actions write through `write/`. A 260 aside carries review state, checks and labels when the body is wide.
 import { useCallback, useMemo, useState } from "react";
 import { ScrollView, Text, View, type LayoutChangeEvent } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -19,6 +18,8 @@ import type { ReviewJumpTo } from "../types";
 import type { ReviewTimeline } from "../use-review-timeline";
 import { ConversationAside, ConversationSummary } from "./aside";
 import { ThreadCard } from "./thread-card";
+import { ReviewComposer } from "../write/composer";
+import { useReviewWriteContext } from "../write/use-review-writes";
 
 /** The body is wide enough for the 260 aside beside a 860 column. */
 const ASIDE_MIN_BODY_WIDTH = 1160;
@@ -64,6 +65,7 @@ export function ReviewConversation({
                 onJumpTo={onJumpTo}
               />
             ))}
+            <CommentBox />
             {timeline.threadsError ? (
               <Text style={styles.error}>{timeline.threadsError.message}</Text>
             ) : null}
@@ -78,6 +80,30 @@ export function ReviewConversation({
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+/** The comment box at the end of the list. Hidden when the forge has no PR comments. */
+function CommentBox() {
+  const { t } = useTranslation();
+  const write = useReviewWriteContext();
+  const createComment = write?.writes.createComment;
+  const onSubmit = useCallback(
+    (body: string, mutationId: string) => {
+      if (!createComment) throw new Error("no write context");
+      return createComment({ body, mutationId });
+    },
+    [createComment],
+  );
+  if (!write || !write.actions?.comment) return null;
+  return (
+    <ReviewComposer
+      placeholder={t("reviewScreen.write.commentPlaceholder")}
+      submitLabel={t("reviewScreen.write.comment")}
+      disabled={!write.connected}
+      onSubmit={onSubmit}
+      testID="review-comment-box"
+    />
   );
 }
 

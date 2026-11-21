@@ -38,6 +38,7 @@ import {
   type ChangeRequestStatus,
 } from "./queries";
 import type { ChangeRequestSource, CheckoutSource, ReviewCountsByPath } from "./types";
+import { isPendingTimelineId } from "./write/use-review-writes";
 
 type Overview = ChangeRequestOverview;
 type TimelineItem = ForgeChangeRequestGetTimelineResponse["payload"]["items"][number];
@@ -229,7 +230,16 @@ export function useReviewTimeline(
   const entries = useMemo(() => {
     const now = Date.now();
     return buildPrTimeline(
-      (timelineResult.data?.items ?? []).flatMap((item) => mapActivity(item, now, forge)),
+      (timelineResult.data?.items ?? []).flatMap((item) => {
+        // mapActivity returns fresh objects; a comment still being sent shows "Sending..." as its age.
+        const activities = mapActivity(item, now, forge);
+        for (const activity of activities) {
+          if (isPendingTimelineId(activity.id)) {
+            activity.age = i18n.t("reviewScreen.write.sending");
+          }
+        }
+        return activities;
+      }),
     );
   }, [timelineResult.data, forge]);
 
