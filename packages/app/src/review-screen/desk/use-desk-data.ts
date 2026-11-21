@@ -9,9 +9,14 @@ import type { ChangeRequestSource, ReviewCountsByPath } from "../types";
 import { filesQuery, type DeskFileList } from "../queries";
 import { useReviewTimeline } from "../use-review-timeline";
 
-/** Continuous scroll up to this many files and this much patch text; single-file mode above. */
-export const CONTINUOUS_MAX_FILES = 50;
-export const CONTINUOUS_MAX_PATCH_BYTES = 1024 * 1024;
+/**
+ * Continuous scroll up to this many files and this much patch text; single-file mode above.
+ * Compact screens keep the lower limit: less memory and a smaller canvas.
+ */
+const CONTINUOUS_LIMITS = {
+  full: { files: 300, patchBytes: 4 * 1024 * 1024 },
+  compact: { files: 50, patchBytes: 1024 * 1024 },
+} as const;
 
 export type { DeskFileList };
 
@@ -46,9 +51,9 @@ function describeError(error: unknown): string | null {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function chooseDiffMode(list: DeskFileList): "continuous" | "single" {
-  return list.totalFiles <= CONTINUOUS_MAX_FILES &&
-    list.patchBytesTotal <= CONTINUOUS_MAX_PATCH_BYTES
+export function chooseDiffMode(list: DeskFileList, isCompact: boolean): "continuous" | "single" {
+  const limits = isCompact ? CONTINUOUS_LIMITS.compact : CONTINUOUS_LIMITS.full;
+  return list.totalFiles <= limits.files && list.patchBytesTotal <= limits.patchBytes
     ? "continuous"
     : "single";
 }

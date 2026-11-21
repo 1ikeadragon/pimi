@@ -1,5 +1,5 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// Client-side patch cache for the Changes tab: LRU capped at 64 files or 8 MB (whichever first),
+// Client-side patch cache for the Changes tab: LRU capped at 320 files or 16 MB (whichever first),
 // fetched 8 paths per `get_file_diffs` call with at most 2 calls in flight (the daemon bounds `gh`
 // itself). Entries are keyed by head SHA, so a push never serves a stale patch.
 import { i18n } from "@/i18n/i18next";
@@ -8,8 +8,8 @@ import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import type { ChangeRequestFileDiff } from "@pimi/protocol/messages";
 import type { ChangeRequestSource } from "../types";
 
-export const PATCH_CACHE_MAX_FILES = 64;
-export const PATCH_CACHE_MAX_BYTES = 8 * 1024 * 1024;
+export const PATCH_CACHE_MAX_FILES = 320;
+export const PATCH_CACHE_MAX_BYTES = 16 * 1024 * 1024;
 const BATCH_SIZE = 8;
 const MAX_IN_FLIGHT = 2;
 

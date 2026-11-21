@@ -115,7 +115,7 @@ function ReadyDesk({
     () => new Map(list.files.map((file) => [file.path, file.blobSha])),
     [list.files],
   );
-  const eligibleMode = chooseDiffMode(list);
+  const eligibleMode = chooseDiffMode(list, isCompact);
   const [singleOverride, setSingleOverride] = useState(false);
   const mode = eligibleMode === "single" || singleOverride ? "single" : "continuous";
   const toggleMode = useCallback(() => setSingleOverride((current) => !current), []);
