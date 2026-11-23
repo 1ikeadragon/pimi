@@ -4799,6 +4799,17 @@ export class DaemonClient {
     });
   }
 
+  async listNestedCheckouts(
+    cwd: string,
+    requestId?: string,
+  ): Promise<{ cwd: string; checkouts: string[]; error: string | null; requestId: string }> {
+    return this.sendCorrelatedSessionRequest({
+      message: { type: "checkout.nested.list.request", cwd },
+      responseType: "checkout.nested.list.response",
+      requestId,
+    });
+  }
+
   observeCheckoutDiff(
     cwd: string,
     compare: { mode: "uncommitted" | "base" | "all"; baseRef?: string; ignoreWhitespace?: boolean },

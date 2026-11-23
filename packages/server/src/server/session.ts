@@ -3213,6 +3213,8 @@ export class Session {
         return this.handleDirectorySuggestionsRequest(msg);
       case "checkout.diff.get.request":
         return this.checkoutSession.handleReadDiffRequest(msg);
+      case "checkout.nested.list.request":
+        return this.checkoutSession.handleListNestedCheckoutsRequest(msg);
       case "subscribe_checkout_diff_request":
         return this.checkoutSession.handleSubscribeDiffRequest(msg, this.delivery);
       case "unsubscribe_checkout_diff_request":

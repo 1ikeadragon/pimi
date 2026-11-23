@@ -17,6 +17,7 @@ import {
   selectWorkspaceExists,
   selectWorkspaceFields,
   selectCheckoutWorkspaceKeys,
+  selectReviewFolders,
   selectWorkspaceStatusesForBadges,
   workspaceEqualityFns,
   type WorkspaceStructure,
@@ -129,6 +130,17 @@ export function useWorkspaceStructure(
         workspaceOrderByProject,
       }),
     [projectOrder, projects, workspaceOrderByProject],
+  );
+}
+
+export function useReviewFolders(serverId: string | null): {
+  folders: string[];
+  checkoutDirectories: string[];
+} {
+  return useStoreWithEqualityFn(
+    useSessionStore,
+    (state) => selectReviewFolders(state, serverId),
+    workspaceEqualityFns.deep,
   );
 }
 

@@ -2845,6 +2845,12 @@ export const CheckoutDiffGetRequestSchema = z.object({
   requestId: z.string(),
 });
 
+export const CheckoutNestedListRequestSchema = z.object({
+  type: z.literal("checkout.nested.list.request"),
+  cwd: z.string(),
+  requestId: z.string(),
+});
+
 export const UnsubscribeCheckoutDiffRequestSchema = z.object({
   type: z.literal("unsubscribe_checkout_diff_request"),
   subscriptionId: z.string(),
@@ -4048,6 +4054,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AgentPermissionResponseMessageSchema,
   CheckoutStatusRequestSchema,
   CheckoutDiffGetRequestSchema,
+  CheckoutNestedListRequestSchema,
   SubscribeCheckoutDiffRequestSchema,
   UnsubscribeCheckoutDiffRequestSchema,
   CheckoutCommitRequestSchema,
@@ -6162,6 +6169,17 @@ export const CheckoutDiffGetResponseSchema = z.object({
   }),
 });
 
+export const CheckoutNestedListResponseSchema = z.object({
+  type: z.literal("checkout.nested.list.response"),
+  payload: z.object({
+    cwd: z.string(),
+    /** Absolute paths of the Git checkouts directly inside cwd. */
+    checkouts: z.array(z.string()),
+    error: z.string().nullable(),
+    requestId: z.string(),
+  }),
+});
+
 export const CheckoutDiffUpdateSchema = z.object({
   type: z.literal("checkout_diff_update"),
   payload: CheckoutDiffSubscriptionPayloadSchema,
@@ -8112,6 +8130,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutStatusResponseSchema,
   CheckoutStatusUpdateSchema,
   CheckoutDiffGetResponseSchema,
+  CheckoutNestedListResponseSchema,
   SubscribeCheckoutDiffResponseSchema,
   CheckoutDiffUpdateSchema,
   CheckoutCommitResponseSchema,

@@ -17,6 +17,10 @@ type CheckoutQueryKey = readonly unknown[];
 // can share the same long-lived cache policy.
 export const COMMIT_FILE_DIFF_STALE_TIME = 5 * 60_000;
 
+export function nestedCheckoutsQueryKey(serverId: string, cwd: string) {
+  return ["nestedCheckouts", serverId, cwd] as const;
+}
+
 export function checkoutStatusQueryKey(serverId: string, cwd: string) {
   return ["checkoutStatus", serverId, cwd] as const;
 }

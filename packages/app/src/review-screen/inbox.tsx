@@ -14,10 +14,20 @@ import { PressHighlight } from "@/components/ui/press-highlight";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { SkeletonPulse, useSkeletonPulse } from "@/components/ui/skeleton";
 import { DiffStat } from "@/components/diff-stat";
+import { useFetchQueries } from "@/data/query";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { resolveWorkingDiffComparison } from "@/git/working-diff-comparison";
-import { getHostRuntimeStore } from "@/runtime/host-runtime";
-import { useCheckoutWorkspaceKeys, useWorkspace } from "@/stores/session-store-hooks";
+import { nestedCheckoutsQueryKey } from "@/git/query-keys";
+import {
+  getHostRuntimeStore,
+  useHostRuntimeClient,
+  useHostRuntimeIsConnected,
+} from "@/runtime/host-runtime";
+import {
+  useCheckoutWorkspaceKeys,
+  useReviewFolders,
+  useWorkspace,
+} from "@/stores/session-store-hooks";
 import type { Theme } from "@/styles/theme";
 import { INBOX_ROW_HEIGHT, INBOX_ROW_HEIGHT_COMPACT, InboxRow } from "./inbox-row";
 import { prefetchChangeRequest } from "./queries";
@@ -65,7 +75,7 @@ function matchesQuery(item: InboxItem, needle: string): boolean {
     item.author ?? "",
     item.headRefName ?? "",
   ]
-    .join("\n")
+    .join("\0")
     .toLowerCase();
   return haystack.includes(needle);
 }
@@ -331,16 +341,33 @@ function WorktreeInbox({
 }) {
   const { t } = useTranslation();
   const keys = useCheckoutWorkspaceKeys(serverId);
+  const nested = useNestedCheckouts(serverId);
+  const items = useMemo<WorktreeItem[]>(
+    () => [
+      ...keys.map((key) => ({ kind: "workspace" as const, key })),
+      ...nested.map((cwd) => ({ kind: "nested" as const, key: `nested:${cwd}`, cwd })),
+    ],
+    [keys, nested],
+  );
   const needle = query.trim().toLowerCase();
   const renderItem = useCallback(
-    ({ item, index }: { item: string; index: number }) => (
+    ({ item, index }: { item: WorktreeItem; index: number }) => (
       <Column separated={index > 0}>
-        <WorktreeRow serverId={serverId} workspaceKey={item} needle={needle} onOpen={onOpen} />
+        {item.kind === "workspace" ? (
+          <WorktreeRow
+            serverId={serverId}
+            workspaceKey={item.key}
+            needle={needle}
+            onOpen={onOpen}
+          />
+        ) : (
+          <NestedCheckoutRow serverId={serverId} cwd={item.cwd} needle={needle} onOpen={onOpen} />
+        )}
       </Column>
     ),
     [serverId, needle, onOpen],
   );
-  const keyExtractor = useCallback((key: string) => key, []);
+  const keyExtractor = useCallback((item: WorktreeItem) => item.key, []);
   const empty = useMemo(
     () => (
       <View style={styles.empty}>
@@ -353,12 +380,79 @@ function WorktreeInbox({
     <FlatList
       style={styles.list}
       contentContainerStyle={styles.listContent}
-      data={keys}
+      data={items}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       ListEmptyComponent={empty}
       testID="review-inbox-worktrees"
     />
+  );
+}
+
+type WorktreeItem =
+  | { kind: "workspace"; key: string }
+  | { kind: "nested"; key: string; cwd: string };
+
+/** Git checkouts inside plain-folder chats, which have no diff of their own. */
+function useNestedCheckouts(serverId: string): string[] {
+  const client = useHostRuntimeClient(serverId);
+  const isConnected = useHostRuntimeIsConnected(serverId);
+  const { folders, checkoutDirectories } = useReviewFolders(serverId);
+  const results = useFetchQueries(
+    folders.map((cwd) => ({
+      queryKey: nestedCheckoutsQueryKey(serverId, cwd),
+      queryFn: async () => (client ? (await client.listNestedCheckouts(cwd)).checkouts : []),
+      enabled: !!client && isConnected,
+      dataShape: "list" as const,
+      // An older daemon rejects the request; asking again will not change that.
+      retry: false,
+      staleTimeMs: 30_000,
+    })),
+  );
+  // Joined so the list keeps its identity across renders while the paths are unchanged.
+  const found = results.flatMap((result) => result.data ?? []).join("\0");
+  return useMemo(() => {
+    const listed = new Set(checkoutDirectories);
+    return [...new Set(found ? found.split("\0") : [])].filter((cwd) => !listed.has(cwd));
+  }, [found, checkoutDirectories]);
+}
+
+function NestedCheckoutRow({
+  serverId,
+  cwd,
+  needle,
+  onOpen,
+}: {
+  serverId: string;
+  cwd: string;
+  needle: string;
+  onOpen: (source: ReviewSource) => void;
+}) {
+  const handlePress = useCallback(() => {
+    const mode = resolveWorkingDiffComparison({ serverId, cwd });
+    onOpen({ kind: "checkout", serverId, cwd, compare: { mode } });
+  }, [onOpen, serverId, cwd]);
+  if (needle && !cwd.toLowerCase().includes(needle)) return null;
+  const slash = cwd.lastIndexOf("/");
+  return (
+    <PressHighlight
+      onPress={handlePress}
+      accessibilityRole="button"
+      style={worktreeRowStyle}
+      testID={`review-inbox-nested-${cwd}`}
+    >
+      <View style={styles.worktreeGlyph}>
+        <ThemedBranch size={16} uniProps={mutedMapping} />
+      </View>
+      <View style={styles.worktreeText}>
+        <Text style={styles.worktreeTitle} numberOfLines={1}>
+          {cwd.slice(slash + 1)}
+        </Text>
+        <Text style={styles.worktreeMeta} numberOfLines={1} ellipsizeMode="middle">
+          {cwd.slice(0, slash)}
+        </Text>
+      </View>
+    </PressHighlight>
   );
 }
 

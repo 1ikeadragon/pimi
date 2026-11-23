@@ -283,6 +283,26 @@ export function composeWorkspaceStructure(input: {
   };
 }
 
+/**
+ * Folders Review looks inside for Git checkouts: plain-folder workspace directories, and
+ * checkout directories, which are listed already and so are left out of what it finds.
+ */
+export function selectReviewFolders(
+  state: SessionsSnapshot,
+  serverId: string | null,
+): { folders: string[]; checkoutDirectories: string[] } {
+  const folders = new Set<string>();
+  const checkoutDirectories = new Set<string>();
+  const workspaces = serverId ? state.sessions[serverId]?.workspaces : undefined;
+  for (const workspace of workspaces?.values() ?? []) {
+    if (!workspace.workspaceDirectory) continue;
+    (workspace.workspaceKind === "directory" ? folders : checkoutDirectories).add(
+      workspace.workspaceDirectory,
+    );
+  }
+  return { folders: [...folders].sort(), checkoutDirectories: [...checkoutDirectories].sort() };
+}
+
 /** Workspaces that are Git checkouts; a plain folder has no diff to review. */
 export function selectCheckoutWorkspaceKeys(
   state: SessionsSnapshot,

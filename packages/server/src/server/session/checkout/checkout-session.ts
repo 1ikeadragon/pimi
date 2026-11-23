@@ -1,6 +1,9 @@
 import type pino from "pino";
+import pLimit from "p-limit";
 import type { SessionDelivery } from "../owned-subscriptions/index.js";
-import { isAbsolute } from "node:path";
+import { constants } from "node:fs";
+import { lstat, open, readdir, stat } from "node:fs/promises";
+import { isAbsolute, join, resolve } from "node:path";
 import { getErrorMessage } from "@pimi/protocol/error-utils";
 import { getForgeDefinitionOrNeutral } from "@pimi/protocol/forge-manifest";
 import { validateBranchSlug } from "@pimi/protocol/branch-slug";
@@ -117,6 +120,55 @@ export interface CheckoutSessionOptions {
   pimiHome: string;
   worktreesRoot: string | undefined;
   logger: pino.Logger;
+}
+
+const MAX_NESTED_CHECKOUTS = 200;
+const MAX_GIT_POINTER_BYTES = 1024;
+// Shared by every session so several folder scans at once stay bounded.
+const nestedCheckoutProbeLimit = pLimit(16);
+
+async function readGitPointer(path: string): Promise<string> {
+  // Non-blocking so a FIFO cannot stall the scan; only a regular file is read.
+  const file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
+  try {
+    if (!(await file.stat()).isFile()) throw new Error(`${path} is not a file`);
+    const buffer = Buffer.alloc(MAX_GIT_POINTER_BYTES);
+    const { bytesRead } = await file.read(buffer, 0, MAX_GIT_POINTER_BYTES, 0);
+    return buffer.toString("utf8", 0, bytesRead);
+  } finally {
+    await file.close();
+  }
+}
+
+/**
+ * When the checkout at `path` was last used: its index's modified time, which Git rewrites on add,
+ * commit and checkout. A linked worktree's `.git` file points at the directory holding its index.
+ * Null when `path` is not a checkout.
+ */
+async function readCheckoutUsedAt(path: string): Promise<number | null> {
+  const dotGit = join(path, ".git");
+  let gitDir = dotGit;
+  try {
+    if ((await lstat(dotGit)).isFile()) {
+      const pointer = /^gitdir: (.+)$/m.exec(await readGitPointer(dotGit))?.[1]?.trim();
+      if (!pointer) return null;
+      gitDir = resolve(path, pointer);
+    }
+  } catch {
+    return null;
+  }
+  // A Git directory has HEAD, and its repository (a linked worktree's lives in commondir) has
+  // objects; an empty, unrelated or orphaned folder lacks one of them.
+  if (!(await stat(join(gitDir, "HEAD")).catch(() => null))?.isFile()) return null;
+  const commonDir = await readGitPointer(join(gitDir, "commondir")).then(
+    (pointer) => resolve(gitDir, pointer.trim()),
+    () => gitDir,
+  );
+  if (!(await stat(join(commonDir, "objects")).catch(() => null))?.isDirectory()) return null;
+  const index = await stat(join(gitDir, "index")).catch(() => null);
+  if (index) return index.mtimeMs;
+  // A repository with nothing staged yet has no index.
+  return (await stat(gitDir).catch(() => null))?.mtimeMs ?? null;
 }
 
 /**
@@ -425,6 +477,41 @@ export class CheckoutSession {
     this.host.emit({
       type: "checkout.diff.get.response",
       payload: { ...snapshot, requestId: msg.requestId },
+    });
+  }
+
+  /**
+   * Lists the Git checkouts directly inside a folder, most recently used first, without running
+   * Git or watching them.
+   */
+  async handleListNestedCheckoutsRequest(
+    msg: Extract<SessionInboundMessage, { type: "checkout.nested.list.request" }>,
+  ): Promise<void> {
+    const cwd = expandTilde(msg.cwd);
+    let checkouts: string[] = [];
+    let error: string | null = null;
+    try {
+      const entries = await readdir(cwd, { withFileTypes: true });
+      const found = await Promise.all(
+        entries
+          .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+          .map(async (entry) => {
+            const path = join(cwd, entry.name);
+            const usedAt = await nestedCheckoutProbeLimit(() => readCheckoutUsedAt(path));
+            return usedAt === null ? null : { path, usedAt };
+          }),
+      );
+      checkouts = found
+        .filter((checkout) => checkout !== null)
+        .sort((a, b) => b.usedAt - a.usedAt)
+        .slice(0, MAX_NESTED_CHECKOUTS)
+        .map((checkout) => checkout.path);
+    } catch (err) {
+      error = getErrorMessage(err);
+    }
+    this.host.emit({
+      type: "checkout.nested.list.response",
+      payload: { cwd, checkouts, error, requestId: msg.requestId },
     });
   }
 
