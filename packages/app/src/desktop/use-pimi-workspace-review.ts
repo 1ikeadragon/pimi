@@ -16,10 +16,9 @@ export function usePimiWorkspaceReview(
 ): PimiWorkspaceReview | null {
   const show = getDesktopHost()?.showPimiWorkspace;
   const isLocal = useIsLocalDaemon(serverId);
-  const checkout = useWorkspaceFields(
-    serverId,
-    workspaceId,
-    (workspace) => workspace.workspaceDirectory,
+  // A plain folder has no diff to review, even when it holds repositories.
+  const checkout = useWorkspaceFields(serverId, workspaceId, (workspace) =>
+    workspace.workspaceKind === "directory" ? null : workspace.workspaceDirectory,
   );
   return useMemo(
     () =>

@@ -186,7 +186,7 @@ export interface PimiToolHostDependencies {
   github?: ForgeService;
   workspaceGitService?: Pick<
     WorkspaceGitService,
-    "getSnapshot" | "listWorktrees" | "resolveRepoRoot" | "invalidateWorktrees"
+    "getCheckout" | "getSnapshot" | "listWorktrees" | "resolveRepoRoot" | "invalidateWorktrees"
   >;
   findWorkspaceIdForCwd?: ArchiveDependencies["findWorkspaceIdForCwd"];
   listActiveWorkspaces?: ArchiveDependencies["listActiveWorkspaces"];
@@ -1398,10 +1398,10 @@ function createToolCatalog(
       {
         title: "Suggest Pimi Review",
         description:
-          "Offer the user a button to review the changes in your current Git worktree. Use when the user asks to review the diff or when substantial changes are ready for review. Include a short, concrete summary if helpful. The button opens Review only when the user clicks it.",
+          "Offer the user a button to review the changes in your current Git worktree. Use when the user asks to review the diff or when substantial changes are ready for review. Pass path when the changes are in another Git checkout, such as a repository inside the chat's folder. Include a short, concrete summary if helpful. The button opens Review only when the user clicks it.",
         inputSchema: PimiReviewSuggestionInput,
       },
-      async ({ summary }) => {
+      async ({ summary, path }) => {
         const agent = resolveCallerAgent();
         if (
           !callerAgentId ||
@@ -1413,13 +1413,21 @@ function createToolCatalog(
           throw new PimiToolInputError("Review suggestions are available in interactive chats.");
         }
         const workspace = await options.workspaceRegistry?.get(agent.workspaceId);
-        if (!workspace || workspace.archivedAt || !workspace.worktreeRoot) {
+        if (!workspace || workspace.archivedAt) {
           throw new PimiToolInputError("This chat has no available Git worktree to review.");
+        }
+        const reviewPath = path
+          ? await resolveReviewCheckout(options, resolvePathFromBase(workspace.cwd, path))
+          : workspace.worktreeRoot;
+        if (!reviewPath) {
+          throw new PimiToolInputError(
+            "This chat's folder is not a Git checkout. Pass path to the Git checkout you changed.",
+          );
         }
         const result = {
           pimiReviewSuggestion: {
             ...(summary ? { summary } : {}),
-            path: workspace.worktreeRoot,
+            path: reviewPath,
             source: { serverId: options.serverId, agentId: callerAgentId },
           },
         };
@@ -3911,6 +3919,21 @@ interface ArchiveWorktreeCommandContext {
   agentStorage: AgentStorage;
   terminalManager: TerminalManager | null;
   logger: Logger;
+}
+
+/** The root of the Git checkout containing `cwd`, the folder Review reads; a linked worktree is its own root. */
+async function resolveReviewCheckout(
+  options: PimiToolHostDependencies,
+  cwd: string,
+): Promise<string> {
+  if (!options.workspaceGitService) {
+    throw new Error("WorkspaceGitService is required to suggest a review path");
+  }
+  const checkout = await options.workspaceGitService.getCheckout(cwd);
+  if (!checkout.isGit || !checkout.worktreeRoot) {
+    throw new PimiToolInputError(`${cwd} is not a Git checkout.`);
+  }
+  return checkout.worktreeRoot;
 }
 
 function archiveWorktreeDependencies(

@@ -283,12 +283,21 @@ export function composeWorkspaceStructure(input: {
   };
 }
 
-export function selectWorkspaceKeys(state: SessionsSnapshot, serverId: string | null): string[] {
+/** Workspaces that are Git checkouts; a plain folder has no diff to review. */
+export function selectCheckoutWorkspaceKeys(
+  state: SessionsSnapshot,
+  serverId: string | null,
+): string[] {
   if (!serverId) {
     return EMPTY_WORKSPACE_KEYS;
   }
   const workspaces = state.sessions[serverId]?.workspaces;
-  return workspaces ? Array.from(workspaces.keys()) : EMPTY_WORKSPACE_KEYS;
+  if (!workspaces) return EMPTY_WORKSPACE_KEYS;
+  const keys: string[] = [];
+  for (const [key, workspace] of workspaces) {
+    if (workspace.workspaceKind !== "directory") keys.push(key);
+  }
+  return keys;
 }
 
 export function selectRecommendedProjectPaths(

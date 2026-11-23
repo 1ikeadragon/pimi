@@ -17,7 +17,7 @@ import { DiffStat } from "@/components/diff-stat";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { resolveWorkingDiffComparison } from "@/git/working-diff-comparison";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
-import { useWorkspace, useWorkspaceKeys } from "@/stores/session-store-hooks";
+import { useCheckoutWorkspaceKeys, useWorkspace } from "@/stores/session-store-hooks";
 import type { Theme } from "@/styles/theme";
 import { INBOX_ROW_HEIGHT, INBOX_ROW_HEIGHT_COMPACT, InboxRow } from "./inbox-row";
 import { prefetchChangeRequest } from "./queries";
@@ -330,7 +330,7 @@ function WorktreeInbox({
   onOpen: (source: ReviewSource) => void;
 }) {
   const { t } = useTranslation();
-  const keys = useWorkspaceKeys(serverId);
+  const keys = useCheckoutWorkspaceKeys(serverId);
   const needle = query.trim().toLowerCase();
   const renderItem = useCallback(
     ({ item, index }: { item: string; index: number }) => (

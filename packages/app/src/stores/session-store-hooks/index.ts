@@ -16,7 +16,7 @@ import {
   selectWorkspaceDirectory,
   selectWorkspaceExists,
   selectWorkspaceFields,
-  selectWorkspaceKeys,
+  selectCheckoutWorkspaceKeys,
   selectWorkspaceStatusesForBadges,
   workspaceEqualityFns,
   type WorkspaceStructure,
@@ -132,10 +132,10 @@ export function useWorkspaceStructure(
   );
 }
 
-export function useWorkspaceKeys(serverId: string | null): string[] {
+export function useCheckoutWorkspaceKeys(serverId: string | null): string[] {
   return useStoreWithEqualityFn(
     useSessionStore,
-    (state) => selectWorkspaceKeys(state, serverId),
+    (state) => selectCheckoutWorkspaceKeys(state, serverId),
     workspaceEqualityFns.deep,
   );
 }

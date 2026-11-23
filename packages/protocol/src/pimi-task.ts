@@ -296,6 +296,15 @@ export interface PimiReviewSummary {
 export const PIMI_REVIEW_SUGGESTION_TOOL = "suggest_pimi_review";
 export const PimiReviewSuggestionInput = z.object({
   summary: z.string().trim().min(1).max(300).optional(),
+  path: z
+    .string()
+    .trim()
+    .min(1)
+    .max(4096)
+    .optional()
+    .describe(
+      "A Git checkout folder (or a folder inside it) to review, absolute or relative to the chat's directory. Omit for the chat's own checkout.",
+    ),
 });
 export const PimiReviewSuggestion = PimiReviewSuggestionInput.extend({
   path: z.string().min(1),
