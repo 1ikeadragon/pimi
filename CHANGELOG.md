@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.72 - 2026-11-23
+
+- The Review inbox lists the Git repositories and worktrees inside a plain folder chat, most recently used first, so it is no longer empty when every chat lives in a folder holding many repositories.
+
 ## 0.17.71 - 2026-11-23
 
 - Review works when a chat's folder is a plain folder holding Git repositories: an agent's review suggestion can point at the nested repository or linked worktree it changed, and plain folders no longer get a Review button or inbox row that only showed "not a Git repository".
