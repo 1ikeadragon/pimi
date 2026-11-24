@@ -29,7 +29,7 @@ import {
 import { isTimelineResumeSnapshotAuthoritative } from "./timeline-sync-plan";
 import { replaceWithCanonicalStream } from "@/types/stream";
 import type { TurnLivenessTransition } from "./turn-liveness";
-import { isReaderFollowingEnd } from "./reader-follow";
+import { canTrimOldest, isReaderFollowingEnd, setReaderPagedBack } from "./reader-follow";
 
 export interface TimelineReplicaStorage {
   readTimeline(serverId: string, agentId: string): Promise<CachedTimeline | undefined>;
@@ -404,7 +404,7 @@ export function createViewedTimelineOwner(input: {
     setAgentTimelineCursor: (...args) => useSessionStore.getState().setAgentTimelineCursor(...args),
     recoverTimelineGap: (agentId, cursor) => sync.recoverGap(agentId, cursor),
     onCommitted: (agentId) => {
-      if (isReaderFollowingEnd(input.serverId, agentId)) {
+      if (canTrimOldest(input.serverId, agentId)) {
         useSessionStore.getState().trimAgentResidentWindow(input.serverId, agentId, "oldest");
       }
       input.replica.timelineUpdated(agentId);
@@ -427,15 +427,22 @@ export function createViewedTimelineOwner(input: {
         // acceptable for a reader who has left the bottom: for one following the end, the live
         // turn is the newest turn and dropping it discards every stream event that follows.
         if (payload.direction === "before") {
+          setReaderPagedBack(input.serverId, payload.agentId, true);
           if (!isReaderFollowingEnd(input.serverId, payload.agentId)) {
             useSessionStore
               .getState()
               .trimAgentResidentWindow(input.serverId, payload.agentId, "newest");
           }
-        } else if (isReaderFollowingEnd(input.serverId, payload.agentId)) {
-          useSessionStore
-            .getState()
-            .trimAgentResidentWindow(input.serverId, payload.agentId, "oldest");
+        } else {
+          // The latest tail replaces the window, so nothing older than it was paged back.
+          if (payload.direction === "tail") {
+            setReaderPagedBack(input.serverId, payload.agentId, false);
+          }
+          if (canTrimOldest(input.serverId, payload.agentId)) {
+            useSessionStore
+              .getState()
+              .trimAgentResidentWindow(input.serverId, payload.agentId, "oldest");
+          }
         }
         input.replica.timelineUpdated(payload.agentId);
       }

@@ -6,6 +6,16 @@
  */
 const awayFromEnd = new Set<string>();
 
+/**
+ * Chats whose reader loaded older history and has not left and returned to the bottom since.
+ * A backward page grows the array at its older end, so an oldest-end trim would drop the
+ * rows the reader just asked for, and the next scroll to the history start would fetch them
+ * again. Oldest trims wait until the reader returns, even for a reader who sits at the bottom
+ * because the loaded history is shorter than the viewport, so the array may stay over its cap
+ * meanwhile.
+ */
+const pagedBack = new Set<string>();
+
 function key(serverId: string, agentId: string): string {
   return `${serverId}:${agentId}`;
 }
@@ -17,4 +27,14 @@ export function setReaderFollowingEnd(serverId: string, agentId: string, followi
 
 export function isReaderFollowingEnd(serverId: string, agentId: string): boolean {
   return !awayFromEnd.has(key(serverId, agentId));
+}
+
+export function setReaderPagedBack(serverId: string, agentId: string, paged: boolean) {
+  if (paged) pagedBack.add(key(serverId, agentId));
+  else pagedBack.delete(key(serverId, agentId));
+}
+
+/** Whether the oldest turns may leave the array: the reader follows the end and has not paged back. */
+export function canTrimOldest(serverId: string, agentId: string): boolean {
+  return isReaderFollowingEnd(serverId, agentId) && !pagedBack.has(key(serverId, agentId));
 }

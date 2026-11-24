@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
-import { setReaderFollowingEnd } from "@/timeline/reader-follow";
+import { setReaderFollowingEnd, setReaderPagedBack } from "@/timeline/reader-follow";
 import { planTimelineCatchUpAfter, planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import type { NearBottom } from "./near-bottom";
@@ -12,7 +12,8 @@ const newerFetchesInFlight = new Set<string>();
  * Keeps the bounded resident window in step with the reader at the newer end.
  *
  * While the reader is away from the bottom, trims of the oldest turns are held back (they
- * would shift the viewport). On reaching the bottom this releases them, re-collapses the
+ * would shift the viewport), and they stay held after a backward page until the reader next
+ * returns to the bottom. On reaching the bottom this releases them, re-collapses the
  * mounted history, and, when the window is detached from the live tail by a deep backward
  * read, pages forward with `direction: "after"` until the tail is reached again.
  */
@@ -79,6 +80,7 @@ export function useResidentWindowFollow(input: {
       const returned = following && !wasNearBottom.current;
       wasNearBottom.current = following;
       if (!following) return;
+      if (returned) setReaderPagedBack(serverId, agentId, false);
       useSessionStore.getState().trimAgentResidentWindow(serverId, agentId, "oldest");
       if (returned) collapseHistoryWindow();
       loadNewerWhileDetached();
@@ -88,6 +90,7 @@ export function useResidentWindowFollow(input: {
     return () => {
       unsubscribe();
       setReaderFollowingEnd(serverId, agentId, true);
+      setReaderPagedBack(serverId, agentId, false);
     };
   }, [agentId, collapseHistoryWindow, enabled, nearBottom, onForwardLoadError, serverId]);
 }
