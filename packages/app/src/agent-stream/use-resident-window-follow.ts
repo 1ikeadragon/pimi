@@ -86,9 +86,21 @@ export function useResidentWindowFollow(input: {
       loadNewerWhileDetached();
     };
 
+    // A reader already at the bottom never produces the nearBottom change that `settle` waits
+    // for, so a window that detaches under them has no other way back to the live tail.
+    const unsubscribeDetach = useSessionStore.subscribe(
+      (state) => state.sessions[serverId]?.agentTimelineHasNewer.get(agentId) === true,
+      (detached, wasDetached) => {
+        if (!detached || wasDetached || !nearBottom.get()) return;
+        getHostRuntimeStore()
+          .fetchAgentTimeline(serverId, agentId, planTimelineTailFetch())
+          .catch(onForwardLoadError);
+      },
+    );
     const unsubscribe = nearBottom.subscribe(settle);
     return () => {
       unsubscribe();
+      unsubscribeDetach();
       setReaderFollowingEnd(serverId, agentId, true);
       setReaderPagedBack(serverId, agentId, false);
     };
