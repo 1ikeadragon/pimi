@@ -82,6 +82,13 @@ const SCHEMA_STEPS: readonly string[] = [
    ALTER TABLE usage_events ADD COLUMN us_geo INTEGER NOT NULL DEFAULT 0;
    DELETE FROM usage_events WHERE provider = 'codex';
    DELETE FROM usage_scan_cursors;`,
+  // 6: forked Codex rollouts used to count the history they copy from their source (about 243M
+  // tokens for three forks on one machine), so Codex rows are dropped and every Codex rollout still
+  // on disk is read again with the fork-copy filter. Rows of rollouts Codex has since deleted are
+  // not recoverable. Codex is the only reader that stores parser state, so `state IS NOT NULL`
+  // selects exactly the Codex cursors (Claude and OpenCode cursors keep their place).
+  `DELETE FROM usage_events WHERE provider = 'codex';
+   DELETE FROM usage_scan_cursors WHERE state IS NOT NULL;`,
 ];
 
 // pimi-timeline.db: chat timelines and their search index. Large and rebuildable from provider
