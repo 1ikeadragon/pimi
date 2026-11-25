@@ -38,7 +38,16 @@ export interface OpenCodeEventConsumerOptions {
 const FIRST_RECORD_WATCHDOG_MS = 5_000;
 const WATCHDOG_MS = 30_000;
 const MAX_BACKOFF_MS = 5_000;
-const FAILURE_WARNING_ATTEMPT = 4;
+const RECONNECT_BASE_MS = 100;
+export const FAILURE_WARNING_ATTEMPT = 4;
+
+/**
+ * Wait before reconnect number `consecutiveFailures` (1-based): 100ms, doubling, capped at
+ * `MAX_BACKOFF_MS`. Shared with the v2 session's event loop so both versions retry alike.
+ */
+export function reconnectDelayMs(consecutiveFailures: number): number {
+  return Math.min(RECONNECT_BASE_MS * 2 ** Math.max(0, consecutiveFailures - 1), MAX_BACKOFF_MS);
+}
 
 type OpenCodeEventStreamPhase = "first-record" | "stream";
 type OpenCodeConnectionOutcome = "ended" | "error" | "watchdog";
@@ -159,7 +168,7 @@ export class OpenCodeEventConsumer implements OpenCodeEventSource {
       this.lastOutcome = result.outcome;
       this.lastError = result.error === undefined ? undefined : errorMessage(result.error);
       reconnectAttempt = result.delivered ? 0 : reconnectAttempt + 1;
-      const delayMs = Math.min(100 * 2 ** Math.max(0, reconnectAttempt - 1), MAX_BACKOFF_MS);
+      const delayMs = reconnectDelayMs(reconnectAttempt);
       this.logConnectionFailure(result, this.attempt, reconnectAttempt, delayMs);
       await this.timing.wait(delayMs, this.connectionAbort.signal).catch(() => undefined);
     }

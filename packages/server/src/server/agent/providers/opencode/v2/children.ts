@@ -1,4 +1,4 @@
-import { V2Timeline } from "./timeline.js";
+import { V2Timeline, type TextDivergence } from "./timeline.js";
 
 import type { SessionInfo } from "@opencode/client";
 
@@ -16,6 +16,7 @@ interface ChildrenOptions {
   emit(event: AgentStreamEvent): void;
   reconcilePermissions(id: string): Promise<void>;
   bindChild?: (id: string) => void;
+  reportDivergence(divergence: TextDivergence): void;
 }
 export class SessionChildren {
   private readonly children = new Map<string, V2Timeline>();
@@ -60,7 +61,7 @@ export class SessionChildren {
     await this.options.reconcilePermissions(info.id);
     let timeline = this.children.get(info.id);
     if (!timeline) {
-      timeline = new V2Timeline();
+      timeline = new V2Timeline((divergence) => this.options.reportDivergence(divergence));
       this.children.set(info.id, timeline);
       this.options.bindChild?.(info.id);
     }
