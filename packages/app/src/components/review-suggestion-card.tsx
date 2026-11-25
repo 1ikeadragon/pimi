@@ -116,7 +116,7 @@ const ReviewSuggestionCardView = memo(function ReviewSuggestionCardView({
   const { stats, summary, branch, baseRef } = offer;
 
   let detail = summary ?? null;
-  if (!detail && branch) detail = baseRef ? `${branch} → ${baseRef}` : branch;
+  if (!detail && branch) detail = baseRef && baseRef !== branch ? `${branch} → ${baseRef}` : branch;
 
   let headline: string;
   if (nothingLeft) headline = t("agentStream.reviewSuggestion.stale");

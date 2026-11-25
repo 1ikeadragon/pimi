@@ -358,10 +358,12 @@ export function useWorktreeHeader(source: CheckoutSource | null): WorktreeHeader
   if (!source) return null;
   const branch =
     gitStatus?.currentBranch && gitStatus.currentBranch !== "HEAD" ? gitStatus.currentBranch : null;
+  const comparisonRef = baseRef?.replace(/^refs\/(?:heads|remotes)\//, "") ?? null;
   return {
     title: workspace?.title || workspace?.name || worktreeNameOf(source.cwd),
     branch,
-    baseRef: baseRef?.replace(/^refs\/(?:heads|remotes)\//, "") ?? null,
+    // A branch compared with itself has no base to show or to diff against.
+    baseRef: comparisonRef && comparisonRef !== branch ? comparisonRef : null,
     stat,
     pullRequest: ref,
   };
@@ -380,6 +382,7 @@ export function ReviewWorktreeHeader({
 }) {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
+  const hasBase = worktree.baseRef !== null;
   const options = useMemo<SegmentedControlOption<CheckoutSource["compare"]["mode"]>[]>(
     () => [
       {
@@ -387,10 +390,18 @@ export function ReviewWorktreeHeader({
         label: t("reviewScreen.compareUncommitted"),
         testID: "review-compare-uncommitted",
       },
-      { value: "base", label: t("reviewScreen.compareBase"), testID: "review-compare-base" },
+      ...(hasBase
+        ? [
+            {
+              value: "base" as const,
+              label: t("reviewScreen.compareBase"),
+              testID: "review-compare-base",
+            },
+          ]
+        : []),
       { value: "all", label: t("reviewScreen.compareAll"), testID: "review-compare-all" },
     ],
-    [t],
+    [hasBase, t],
   );
   const queryClient = useQueryClient();
   const pullRequest = worktree.pullRequest;
