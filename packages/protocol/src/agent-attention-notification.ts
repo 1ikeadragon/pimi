@@ -221,7 +221,7 @@ function resolveAgentAttentionFallbackBody(reason: AgentAttentionReason): string
 
 const MAX_CHAT_TITLE_CHARS = 80;
 
-function resolveChatTitle(chatTitle: string | null | undefined): string | null {
+export function resolveChatTitle(chatTitle: string | null | undefined): string | null {
   const clean = chatTitle?.replace(/\s+/g, " ").trim();
   if (!clean) return null;
   const chars = Array.from(clean);

@@ -103,6 +103,7 @@ import { PushNotifier, type PushKind, type PushPreview } from "./push/push-notif
 import {
   buildAgentAttentionNotificationPayload,
   findLatestPermissionRequest,
+  resolveChatTitle,
 } from "@pimi/protocol/agent-attention-notification";
 import { createGitHubService } from "../services/github-service.js";
 import type { ForgeService } from "../services/forge-service.js";
@@ -2775,16 +2776,18 @@ export class VoiceAssistantWebSocketServer {
       nowMs,
     });
     if (params.reason !== "error") {
+      // The raw title can run to hundreds of characters; every push path gets the capped one.
+      const pushTitle = resolveChatTitle(chatTitle);
       this.pushAttention(
         plan,
         notificationEntries,
         params.reason === "permission" ? "agent_permission" : "agent_finished",
         params.agentId,
-        chatTitle,
+        pushTitle,
         undefined,
         // Same text the connected clients show locally, so a push and a local notification
         // for one agent replace each other invisibly. Sealed per phone before it leaves.
-        { reason: params.reason, title: chatTitle ?? "", body: notification.body },
+        { reason: params.reason, title: pushTitle ?? "", body: notification.body },
       );
     }
 

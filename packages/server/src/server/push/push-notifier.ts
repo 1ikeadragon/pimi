@@ -12,6 +12,9 @@ const PREVIEW_KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 // One handle per paired phone; bounds the store and the fan-out when nobody is present.
 const MAX_HANDLES = 32;
 const SEND_TIMEOUT_MS = 5_000;
+// Body length for the second sealing attempt when the full message does not fit.
+const SHORT_BODY_CHARS = 120;
+const RECENT_TS_KEPT = 32;
 const WORKSPACE_ID_PATTERN = /^[\w-]{1,128}$/;
 
 /** One paired phone: its push handle and, when it wants previews, the key it seals them with. */
@@ -55,8 +58,9 @@ export class PushNotifier {
   private readonly logger: pino.Logger;
   private readonly getEndpoint: () => string | null;
   private devices: PushDevice[];
-  // Last timestamp sealed per handle; the phone accepts only strictly increasing values.
-  private readonly lastTs = new Map<string, number>();
+  // Recent timestamps sealed per handle. The phone rejects an exact repeat, so a collision (two
+  // pushes in one millisecond, or a clock stepped back) is bumped to the next free value.
+  private readonly recentTs = new Map<string, number[]>();
 
   constructor(options: PushNotifierOptions) {
     this.filePath = path.join(options.pimiHome, HANDLES_FILENAME);
@@ -112,7 +116,7 @@ export class PushNotifier {
     if (existing) {
       if (existing.previewKey === previewKey) return;
       existing.previewKey = previewKey;
-      this.lastTs.delete(handle);
+      this.recentTs.delete(handle);
     } else {
       // Newest wins when full: the oldest handle belongs to the phone least likely to still be paired.
       this.devices = [...this.devices, { handle, previewKey }].slice(-MAX_HANDLES);
@@ -123,14 +127,14 @@ export class PushNotifier {
   remove(handle: string): void {
     if (!this.hasHandle(handle)) return;
     this.devices = this.devices.filter((device) => device.handle !== handle);
-    this.lastTs.delete(handle);
+    this.recentTs.delete(handle);
     this.persist();
   }
 
   /** Forgets every phone, so a revoked device stops receiving pushes (and keeps no usable key). */
   clear(): void {
     this.devices = [];
-    this.lastTs.clear();
+    this.recentTs.clear();
     this.persist();
   }
 
@@ -150,12 +154,14 @@ export class PushNotifier {
       : this.devices;
     for (const device of targets) {
       const enc = input.preview ? this.seal(device, input.id, input.preview) : null;
+      // A device that holds a preview key never gets the chat name in the clear for an agent
+      // push: it travels sealed, and when sealing fails the push goes out generic.
+      const keyed = Boolean(input.preview && device.previewKey);
       void this.send(endpoint, {
         handle: device.handle,
         kind: input.kind,
         id: input.id,
-        // With a sealed preview the chat name travels inside the ciphertext, not beside it.
-        title: enc ? null : input.title,
+        title: enc || keyed ? null : input.title,
         workspaceId: input.workspaceId ?? null,
         enc,
       });
@@ -164,9 +170,24 @@ export class PushNotifier {
 
   private seal(device: PushDevice, agentId: string, preview: PushPreview): string | null {
     if (!device.previewKey) return null;
-    const ts = Math.max(Date.now(), (this.lastTs.get(device.handle) ?? 0) + 1);
-    this.lastTs.set(device.handle, ts);
-    return sealPushPreview({ key: device.previewKey, agentId, ts, ...preview });
+    const ts = this.nextTs(device.handle);
+    const seal = (body: string) =>
+      sealPushPreview({ key: device.previewKey as string, agentId, ts, ...preview, body });
+    const sealed = seal(preview.body);
+    if (sealed) return sealed;
+    // Too big for the push service (wide characters): retry with a shorter message.
+    const shortened = seal(Array.from(preview.body).slice(0, SHORT_BODY_CHARS).join(""));
+    if (!shortened)
+      this.logger.warn({ kind: "preview" }, "Preview too large to seal; sending generic");
+    return shortened;
+  }
+
+  private nextTs(handle: string): number {
+    const used = this.recentTs.get(handle) ?? [];
+    let ts = Date.now();
+    while (used.includes(ts)) ts += 1;
+    this.recentTs.set(handle, [...used, ts].slice(-RECENT_TS_KEPT));
+    return ts;
   }
 
   private async send(endpoint: string, push: PushSend): Promise<void> {
