@@ -748,6 +748,26 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
     });
   });
 
+  // Rows the data still holds but the virtualizer has not mounted are not gone.
+  // A disclosure's toggled row is held in place whatever the data says.
+  const isRowInData = useStableEvent((id: string) => {
+    if (disclosurePendingRef.current) return true;
+    const holdsRow = (rows: readonly { id: string }[]) => rows.some((row) => row.id === id);
+    return (
+      holdsRow(segments.historyVirtualized) ||
+      holdsRow(segments.historyMounted) ||
+      holdsRow(segments.liveHead)
+    );
+  });
+
+  // Measurements are kept per row id across commits, so rows a trim or replacement removed from
+  // the data would otherwise stay for the life of the view.
+  useEffect(() => {
+    for (const id of measuredRowHeights.current.keys()) {
+      if (!isRowInData(id)) measuredRowHeights.current.delete(id);
+    }
+  }, [isRowInData, segments.historyMounted, segments.historyVirtualized]);
+
   const reconcileReadingPosition = useStableEvent(() => {
     const container = scrollContainerRef.current;
     if (!isActiveRef.current || !container) return;
@@ -760,6 +780,7 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
       container.clientHeight,
       rows,
       props.readingRowReplacements,
+      isRowInData,
     );
     if (!shouldAnchor) {
       readingAnchor.reset();
