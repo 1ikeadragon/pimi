@@ -80,7 +80,15 @@ export interface ReviewNavigation {
 export interface ReviewDeskProps {
   source: ReviewSource;
   /** Set by the detail page when a thread or check asks the desk to move. `nonce` changes on every request so repeating a target still fires. */
-  focus: { path: string; line: number | null; nonce: number } | null;
+  focus: ReviewDeskFocus | null;
+}
+
+/** `line` numbers the `side` of the diff it is on; `new` unless the request names the removed side. */
+export interface ReviewDeskFocus {
+  path: string;
+  line: number | null;
+  side?: "old" | "new";
+  nonce: number;
 }
 
 export interface ReviewFixSheetProps {

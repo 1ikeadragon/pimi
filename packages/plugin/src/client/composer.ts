@@ -24,6 +24,19 @@ export type PluginAnnotationSource =
       readonly url: string;
       readonly selector: string;
       readonly tag: string;
+    }
+  | {
+      readonly kind: "diff";
+      /** The checkout Review compared. */
+      readonly cwd: string;
+      readonly path: string;
+      /** `old` lines are the base version's, `new` lines the working version's. */
+      readonly side: "old" | "new";
+      /** 1-based, inclusive. */
+      readonly startLine: number;
+      readonly endLine: number;
+      /** What the checkout was compared against, or null. */
+      readonly baseRef: string | null;
     };
 
 /** A quote the user annotated, waiting in a composer draft. */

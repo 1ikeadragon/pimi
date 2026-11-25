@@ -32,6 +32,7 @@ export type AnnotationCapture = Pick<
 >; /** An annotation before its draft has given it a chip slot. */
 export type NewAnnotation = Omit<AnnotationAttachment, "slot">;
 type FileSource = Extract<AnnotationSource, { kind: "file" }>;
+type DiffSource = Extract<AnnotationSource, { kind: "diff" }>;
 
 /** The last line holding selected text; a range ending at column 1 stops on the line before. */
 function lastSelectedLine(source: FileSource): number {
@@ -39,8 +40,8 @@ function lastSelectedLine(source: FileSource): number {
   return endsBeforeLine ? source.endLine - 1 : source.endLine;
 }
 
-function lineRange(source: FileSource, separator: string): string {
-  const last = lastSelectedLine(source);
+function lineRange(source: FileSource | DiffSource, separator: string): string {
+  const last = source.kind === "file" ? lastSelectedLine(source) : source.endLine;
   return last === source.startLine
     ? String(source.startLine)
     : `${source.startLine}${separator}${last}`;
@@ -71,6 +72,10 @@ function browserLabel(source: Extract<AnnotationSource, { kind: "browser" }>): s
 /** Where the quote came from, for the person: the file with its lines, a message, or a page. */
 export function annotationSourceLabel(source: AnnotationSource, t: TFunction): string {
   if (source.kind === "file") return `${source.path}:${lineRange(source, "–")}`;
+  if (source.kind === "diff") {
+    const lines = `${source.path}:${lineRange(source, "–")}`;
+    return source.side === "old" ? `${lines} ${t("chips.removedLines")}` : lines;
+  }
   if (source.kind === "browser") return browserLabel(source);
   return source.role === "user" ? t("chips.yourMessage") : t("chips.assistantMessage");
 }
@@ -83,6 +88,9 @@ export function annotationChipLabel(
     return `${basename(annotation.source.path)}:${lineRange(annotation.source, "–")}`;
   }
   if (annotation.source.kind === "browser") return browserLabel(annotation.source);
+  if (annotation.source.kind === "diff") {
+    return `${basename(annotation.source.path)}:${lineRange(annotation.source, "–")}`;
+  }
   const text = (annotation.note.trim() || annotation.quote).replace(/\s+/g, " ").trim();
   return text.length > CHIP_LABEL_LENGTH ? `${text.slice(0, CHIP_LABEL_LENGTH - 1)}…` : text;
 }
@@ -111,15 +119,27 @@ function singleLine(value: string): string {
   return value.replace(/[\r\n\u2028\u2029]+/g, " ");
 }
 
+/** The agent reads this in the envelope: which lines of which side, and what they were compared with. */
+function diffSourceDetail(source: DiffSource): string {
+  const parts = [
+    ...(source.side === "old" ? ["removed lines"] : []),
+    ...(source.baseRef ? [`vs ${singleLine(source.baseRef)}`] : []),
+  ];
+  return parts.length > 0 ? ` (${parts.join(", ")})` : "";
+}
+
 function serializedSource(source: AnnotationSource): string {
   if (source.kind === "file") return `${singleLine(source.path)}:${lineRange(source, "-")}`;
+  if (source.kind === "diff") {
+    return `${singleLine(source.path)}:${lineRange(source, "-")}${diffSourceDetail(source)}`;
+  }
   if (source.kind === "browser")
     return `<${singleLine(source.tag)}> ${singleLine(source.selector)} on ${singleLine(source.url)}`;
   return agentChatSourceLabel(source);
 }
 
 function agentTitleSource(source: AnnotationSource): string {
-  if (source.kind === "file") return basename(source.path);
+  if (source.kind === "file" || source.kind === "diff") return basename(source.path);
   if (source.kind === "browser") return `Browser element <${source.tag}>`;
   return agentChatSourceLabel(source);
 }

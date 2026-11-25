@@ -480,6 +480,8 @@ export const en = {
     annotationWithNote: "Annotation, {{source}}, note: {{note}}",
     goToCode: "Go to annotated code",
     goToText: "Go to annotated text",
+    goToDiff: "Go to annotated changes",
+    removedLines: "(removed)",
     editNote: "Edit note",
     removeAnnotation: "Remove annotation",
     sheetTitle: "Annotation",

@@ -26,6 +26,7 @@ import {
   EMPTY_REVIEW_SELECTION,
   type ChangeRequestSource,
   type CheckoutSource,
+  type ReviewDeskFocus,
   type ReviewDetailTab,
   type ReviewJumpTo,
   type ReviewNavigation,
@@ -42,16 +43,18 @@ export function ReviewDetail({
   tab,
   navigation,
   onHome,
+  focus,
 }: {
   source: ReviewSource;
   tab: ReviewDetailTab;
   navigation: ReviewNavigation;
   onHome: () => void;
+  focus: ReviewDeskFocus | null;
 }) {
   return source.kind === "change_request" ? (
     <PullRequestPage source={source} tab={tab} navigation={navigation} onHome={onHome} />
   ) : (
-    <WorktreePage source={source} navigation={navigation} onHome={onHome} />
+    <WorktreePage source={source} navigation={navigation} onHome={onHome} focus={focus} />
   );
 }
 
@@ -70,9 +73,7 @@ function PullRequestPage({
   const timeline = useReviewTimeline(source);
   const seed = useInboxSeed(source);
   const [selection, setSelection] = useState<ReviewSelection>(EMPTY_REVIEW_SELECTION);
-  const [focus, setFocus] = useState<{ path: string; line: number | null; nonce: number } | null>(
-    null,
-  );
+  const [focus, setFocus] = useState<ReviewDeskFocus | null>(null);
   const [fixOpen, setFixOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const openReview = useCallback(() => setReviewOpen(true), []);
@@ -165,10 +166,12 @@ function WorktreePage({
   source,
   navigation,
   onHome,
+  focus,
 }: {
   source: CheckoutSource;
   navigation: ReviewNavigation;
   onHome: () => void;
+  focus: ReviewDeskFocus | null;
 }) {
   const worktree = useWorktreeHeader(source);
   const { push } = navigation;
@@ -210,7 +213,7 @@ function WorktreePage({
         onOpenPullRequest={onOpenPullRequest}
       />
       <View style={styles.body}>
-        <ReviewDesk source={source} focus={null} />
+        <ReviewDesk source={source} focus={focus} />
       </View>
     </View>
   );

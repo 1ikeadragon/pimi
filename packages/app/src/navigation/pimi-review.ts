@@ -2,7 +2,7 @@
 import { router, type Href } from "expo-router";
 import { getDesktopHost } from "@/desktop/host";
 import { buildOpenProjectRoute } from "@/utils/host-routes";
-import type { ReviewSource } from "@/review-screen/types";
+import type { ReviewDeskFocus, ReviewSource } from "@/review-screen/types";
 
 export const PIMI_REVIEW_ROUTE = "/pimi-review";
 
@@ -79,12 +79,50 @@ export function parseReviewSource(params: ReviewRouteParams): ReviewSource | nul
   };
 }
 
-/** Open the inbox (no source) or a review. Pushing a source on top of the inbox lets Back return to it. */
-export function openPimiReview(source?: ReviewSource, serverId?: string): void {
+// Each request carries a sequence number, so asking for the same line twice still scrolls twice.
+let focusSequence = 0;
+
+/** Route params for a request to scroll a review to a file and line. */
+function focusToParams(focus: Omit<ReviewDeskFocus, "nonce">): Record<string, string> {
+  focusSequence += 1;
+  return {
+    focusPath: focus.path,
+    focusSeq: String(focusSequence),
+    ...(focus.line !== null ? { focusLine: String(focus.line) } : {}),
+    ...(focus.side ? { focusSide: focus.side } : {}),
+  };
+}
+
+/** The focus request a route carries, or null. The inverse of {@link focusToParams}. */
+export function parseReviewFocus(params: ReviewRouteParams): ReviewDeskFocus | null {
+  const path = single(params.focusPath);
+  const seq = single(params.focusSeq);
+  if (!path || !seq || !/^[1-9]\d{0,15}$/.test(seq)) return null;
+  const lineText = single(params.focusLine);
+  const line = lineText && /^[1-9]\d{0,9}$/.test(lineText) ? Number(lineText) : null;
+  const side = single(params.focusSide);
+  return {
+    path,
+    line,
+    ...(side === "old" || side === "new" ? { side } : {}),
+    nonce: Number(seq),
+  };
+}
+
+/**
+ * Open the inbox (no source) or a review. Pushing a source on top of the inbox lets Back return to
+ * it. `focus` scrolls a checkout review to a file and line once its diff is in.
+ */
+export function openPimiReview(
+  source?: ReviewSource,
+  serverId?: string,
+  focus?: Omit<ReviewDeskFocus, "nonce">,
+): void {
   getDesktopHost()?.dismissPimiWorkspace?.();
   let params: Record<string, string> = {};
   if (source) params = reviewSourceToParams(source);
   else if (serverId) params = { serverId };
+  if (source && focus) params = { ...params, ...focusToParams(focus) };
   router.navigate({ pathname: PIMI_REVIEW_ROUTE, params } as unknown as Href);
 }
 

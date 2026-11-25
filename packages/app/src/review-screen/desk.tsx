@@ -15,6 +15,7 @@ import type { ChangeRequestSource, CheckoutSource, ReviewDeskProps, ReviewSource
 import { AskInChat } from "./desk/ask-in-chat";
 import { useDeskCopy } from "./desk/copy";
 import { FileTree } from "./desk/file-tree";
+import { focusLineOnNewSide } from "./desk/focus-line";
 import { FilesBar } from "./desk/files-bar";
 import { ThreadPanel, ThreadSheet, THREAD_PANEL_DOCK_MIN_WIDTH } from "./desk/thread-panel";
 import { Chip, DetachedThreads } from "./desk/ui";
@@ -160,7 +161,13 @@ function ReadyDesk({
   // A thread or check asked to move: once per request, whichever tab it came from.
   const nonce = focus?.nonce;
   useEffect(() => {
-    if (focus && paths.includes(focus.path)) jumpTo(focus.path, focus.line);
+    if (focus && paths.includes(focus.path)) {
+      const line =
+        focus.line !== null && focus.side
+          ? focusLineOnNewSide(loadedFiles.get(focus.path), focus.side, focus.line)
+          : focus.line;
+      jumpTo(focus.path, line);
+    }
     // Keyed on the request's nonce: repeating the same target must still fire.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nonce]);

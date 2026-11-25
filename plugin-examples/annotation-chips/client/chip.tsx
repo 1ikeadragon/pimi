@@ -13,6 +13,13 @@ function basename(path: string): string {
 function describeSource(source: PluginAnnotationSource): string {
   if (source.kind === "chat") return source.role === "user" ? "Your message" : "Assistant";
   if (source.kind === "browser") return `<${source.tag}>`;
+  if (source.kind === "diff") {
+    const lines =
+      source.endLine === source.startLine
+        ? `${source.startLine}`
+        : `${source.startLine}-${source.endLine}`;
+    return `${basename(source.path)}:${lines}`;
+  }
   // A range ending at column 1 stops on the line before.
   const lastLine =
     source.endColumn === 1 && source.endLine > source.startLine

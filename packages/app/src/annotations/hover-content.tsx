@@ -29,7 +29,12 @@ export function AnnotationHoverContent({
 }) {
   const { t } = useTranslation();
   const note = annotation.note.trim();
-  const goToLabel = annotation.source.kind === "file" ? t("chips.goToCode") : t("chips.goToText");
+  const goToLabel = {
+    file: t("chips.goToCode"),
+    diff: t("chips.goToDiff"),
+    chat: t("chips.goToText"),
+    browser: t("chips.goToText"),
+  }[annotation.source.kind];
   return (
     <View style={styles.card}>
       <Text numberOfLines={1} style={styles.source}>
