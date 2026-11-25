@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
 import { resolveDesktopAppVersion } from "./app-version.js";
@@ -159,7 +160,7 @@ function logFilePath(): string {
 async function resolveDaemonBaseEnv(home: string): Promise<NodeJS.ProcessEnv> {
   try {
     const names = await readEnvScrubNames(home);
-    return scrubEnvNames(process.env, names);
+    return withVaultKeyHelper(scrubEnvNames(process.env, names));
   } catch (error) {
     log.error(
       "[desktop daemon]",
@@ -168,8 +169,21 @@ async function resolveDaemonBaseEnv(home: string): Promise<NodeJS.ProcessEnv> {
         error: error instanceof Error ? error.message : String(error),
       },
     );
-    return process.env;
+    return withVaultKeyHelper(process.env);
   }
+}
+
+/**
+ * Tells the daemon where the Touch ID key helper is. Without the variable the daemon offers no
+ * Touch ID unlock: only a desktop-started daemon on a Mac with the built helper has it.
+ */
+function withVaultKeyHelper(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (process.platform !== "darwin") return env;
+  const directory = app.isPackaged
+    ? path.join(process.resourcesPath, "desktop-helper")
+    : path.resolve(__dirname, "../../native/mac-vault/bin");
+  const helper = path.join(directory, "pimi-vault-key");
+  return existsSync(helper) ? { ...env, PIMI_VAULT_KEY_HELPER: helper } : env;
 }
 
 /**

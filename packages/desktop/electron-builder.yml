@@ -108,6 +108,9 @@ mac:
     # The Accessibility and capture helper that drives desktop targets (built by npm run build:mac-helper).
     - from: native/mac/bin/pimi-desktop-helper
       to: desktop-helper/pimi-desktop-helper
+    # Holds the vault key behind a Secure Enclave key for Touch ID unlock; the daemon runs it.
+    - from: native/mac-vault/bin/pimi-vault-key
+      to: desktop-helper/pimi-vault-key
   target:
     - dmg
     - zip

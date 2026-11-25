@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// Builds native/mac/bin/pimi-desktop-helper from the Swift sources in native/mac with swiftc.
+// Builds native/mac/bin/pimi-desktop-helper and native/mac-vault/bin/pimi-vault-key from the Swift
+// sources next to them with swiftc. The vault key helper is separate because the desktop helper
+// holds Accessibility permission and the vault key must not sit behind it.
 // Apple frameworks only: no SwiftPM, no packages, no third-party code. macOS only.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
@@ -12,18 +14,7 @@ if (process.platform !== "darwin") {
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const macDir = path.resolve(here, "..", "native", "mac");
-const outDir = path.join(macDir, "bin");
-const output = path.join(outDir, "pimi-desktop-helper");
-
-const sources = readdirSync(macDir)
-  .filter((name) => name.endsWith(".swift"))
-  .sort()
-  .map((name) => path.join(macDir, name));
-if (sources.length === 0) {
-  console.error(`build-mac-helper: no Swift sources in ${macDir}.`);
-  process.exit(1);
-}
+const nativeDir = path.resolve(here, "..", "native");
 
 const probe = spawnSync("swiftc", ["--version"], { encoding: "utf8" });
 if (probe.error || probe.status !== 0) {
@@ -33,25 +24,41 @@ if (probe.error || probe.status !== 0) {
   process.exit(1);
 }
 
-mkdirSync(outDir, { recursive: true });
-// Only the helper is replaced: bin/ also holds the betterleaks download.
-const build = spawnSync(
-  "swiftc",
-  [
-    "-O",
-    "-parse-as-library",
-    "-swift-version",
-    "5",
-    "-target",
-    "arm64-apple-macos13.0",
-    ...sources,
-    "-o",
-    output,
-  ],
-  { stdio: "inherit" },
-);
-if (build.status !== 0 || !existsSync(output)) {
-  console.error("build-mac-helper: swiftc failed.");
-  process.exit(build.status ?? 1);
+function buildHelper(directory, binaryName) {
+  const sourceDir = path.join(nativeDir, directory);
+  const outDir = path.join(sourceDir, "bin");
+  const output = path.join(outDir, binaryName);
+  const sources = readdirSync(sourceDir)
+    .filter((name) => name.endsWith(".swift"))
+    .sort()
+    .map((name) => path.join(sourceDir, name));
+  if (sources.length === 0) {
+    console.error(`build-mac-helper: no Swift sources in ${sourceDir}.`);
+    process.exit(1);
+  }
+  mkdirSync(outDir, { recursive: true });
+  // Only the helper is replaced: bin/ also holds the betterleaks download.
+  const build = spawnSync(
+    "swiftc",
+    [
+      "-O",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-target",
+      "arm64-apple-macos13.0",
+      ...sources,
+      "-o",
+      output,
+    ],
+    { stdio: "inherit" },
+  );
+  if (build.status !== 0 || !existsSync(output)) {
+    console.error(`build-mac-helper: swiftc failed for ${binaryName}.`);
+    process.exit(build.status ?? 1);
+  }
+  console.log(`build-mac-helper: wrote ${path.relative(process.cwd(), output)}`);
 }
-console.log(`build-mac-helper: wrote ${path.relative(process.cwd(), output)}`);
+
+buildHelper("mac", "pimi-desktop-helper");
+buildHelper("mac-vault", "pimi-vault-key");

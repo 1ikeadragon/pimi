@@ -17,3 +17,4 @@ native/*/bin/betterleaks.exe
 
 # Built by scripts/build-mac-helper.mjs
 native/mac/bin/pimi-desktop-helper
+native/mac-vault/bin/pimi-vault-key
