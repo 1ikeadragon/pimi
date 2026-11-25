@@ -63,7 +63,8 @@ import {
 } from "@/stores/workspace-draft-submission-store";
 import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { KeyboardActionId } from "@/keyboard/keyboard-action-dispatcher";
-import { useFormPreferences } from "@/hooks/use-form-preferences";
+import { useFormPreferences, type FormPreferences } from "@/hooks/use-form-preferences";
+import { mergeProjectDefaults, projectDefaultsKey } from "@/create-agent-preferences/preferences";
 import type { CreateAgentInitialValues } from "@/hooks/use-agent-form-state";
 import { toErrorMessage } from "@/utils/error-messages";
 import {
@@ -112,6 +113,7 @@ import {
 import { buildNewWorkspaceProjectIconTargets } from "./new-workspace/project-icon-targets";
 import { useNewWorkspaceProjectPicker } from "./new-workspace/project-picker";
 import { useNewWorkspaceForm } from "./new-workspace/form";
+import { useRememberedBaseRef } from "./new-workspace/remembered-base-ref";
 import { ImportSessionButton } from "./new-workspace/import-session-button";
 import { useImportSession } from "@/hooks/use-import-session";
 import {
@@ -200,23 +202,41 @@ interface WorkspaceIsolationState {
 // the authoritative placement arrives, unsupported projects fall back to local.
 function useWorkspaceIsolation(input: {
   worktreeSupport: "supported" | "unsupported" | "unknown";
+  projectKey: string | null;
 }): WorkspaceIsolationState {
-  const { worktreeSupport } = input;
-  // The last isolation choice is remembered alongside the other New Workspace
-  // form preferences (provider, model, mode). A manual in-screen pick overrides
-  // the remembered default until the screen remounts.
+  const { worktreeSupport, projectKey } = input;
+  // The last isolation choice is remembered per project, falling back to the global last choice
+  // that sits alongside the other New Workspace form preferences (provider, model, mode). A
+  // manual in-screen pick overrides both until the screen remounts or the project changes.
   const { preferences, updatePreferences } = useFormPreferences();
-  const [manualIsolation, setManualIsolation] = useState<"local" | "worktree" | null>(null);
-  const isolation = manualIsolation ?? preferences.isolation ?? "local";
+  const [manual, setManual] = useState<{
+    projectKey: string | null;
+    isolation: "local" | "worktree";
+  } | null>(null);
+  const manualIsolation = manual?.projectKey === projectKey ? manual.isolation : undefined;
+  const rememberedIsolation = projectKey
+    ? preferences.projectDefaults?.[projectKey]?.isolation
+    : undefined;
+  const isolation = manualIsolation ?? rememberedIsolation ?? preferences.isolation ?? "local";
   const canCreateWorktree = worktreeSupport !== "unsupported";
   const isWorktree = isolation === "worktree" && canCreateWorktree;
 
   const setIsolation = useCallback(
     (value: "local" | "worktree") => {
-      setManualIsolation(value);
-      void updatePreferences({ isolation: value });
+      setManual({ projectKey, isolation: value });
+      updatePreferences((current) => {
+        const next: FormPreferences = { ...current, isolation: value };
+        if (!projectKey) return next;
+        return mergeProjectDefaults({
+          preferences: next,
+          projectKey,
+          updates: { isolation: value },
+        });
+      }).catch((error: unknown) => {
+        console.warn("[NewWorkspace] could not save the isolation choice", error);
+      });
     },
-    [updatePreferences],
+    [projectKey, updatePreferences],
   );
 
   return {
@@ -226,6 +246,14 @@ function useWorkspaceIsolation(input: {
     canCreateWorktree,
     showRefPicker: isWorktree,
   };
+}
+
+function resolveProjectDefaultsKey(
+  project: HostProjectListItem | null,
+  serverId: string,
+): string | null {
+  const projectId = project ? getHostProjectId(project, serverId) : null;
+  return projectId ? projectDefaultsKey(serverId, projectId) : null;
 }
 
 function normalizeBranchDetails(
@@ -1038,10 +1066,26 @@ export function NewWorkspaceScreen({
     ? getWorktreeSupportForHostProject({ project: selectedProject, serverId: selectedServerId })
     : "unsupported";
   const isPending = isNewWorkspacePending({ pendingAction, isDraftHandoffActive });
+  const projectKey = resolveProjectDefaultsKey(selectedProject, selectedServerId);
   const { effectiveIsolation, setIsolation, canCreateWorktree, showRefPicker } =
     useWorkspaceIsolation({
       worktreeSupport,
+      projectKey,
     });
+
+  const {
+    refName: rememberedRefName,
+    remember: rememberBaseRef,
+    forget: forgetBaseRef,
+    resolveForCreate: resolveRememberedBase,
+  } = useRememberedBaseRef({
+    client,
+    serverId: selectedServerId,
+    cwd: selectedSourceDirectory,
+    projectKey,
+    isConnected,
+    active: showRefPicker,
+  });
 
   const branchSuggestionsQuery = useQuery({
     queryKey: [
@@ -1086,8 +1130,10 @@ export function NewWorkspaceScreen({
   }, [forgeSearchAuthenticated, githubPrSearchQuery.data?.items]);
 
   const baseItem = useMemo(
-    () => selectedItem ?? (checkoutStatus ? defaultBasePickerItem(checkoutStatus) : null),
-    [checkoutStatus, selectedItem],
+    () =>
+      selectedItem ??
+      (checkoutStatus ? defaultBasePickerItem(checkoutStatus, rememberedRefName) : null),
+    [checkoutStatus, rememberedRefName, selectedItem],
   );
   const { options, itemById, selectedOptionId }: PickerOptionData = useMemo(
     () =>
@@ -1111,10 +1157,21 @@ export function NewWorkspaceScreen({
 
       dispatchPickerSelection({ type: "picker-selected", item });
       chatDraft.setAttachments(nextAttachments);
+      // A PR pick is a one-off checkout, never a default for the next chat in this project.
+      if (item.kind === "branch") rememberBaseRef(item.refName);
       setPickerOpen(false);
     },
-    [chatDraft],
+    [chatDraft, rememberBaseRef],
   );
+
+  const handleUseCurrentBranch = useCallback(() => {
+    chatDraft.setAttachments(
+      syncPickerPrAttachment({ attachments: chatDraft.attachments, item: null }),
+    );
+    dispatchPickerSelection({ type: "selection-cleared" });
+    forgetBaseRef();
+    setPickerOpen(false);
+  }, [chatDraft, forgetBaseRef]);
 
   const handleSelectOption = useCallback(
     (id: string) => {
@@ -1127,14 +1184,18 @@ export function NewWorkspaceScreen({
 
   const clearPickerSelectionForTargetChange = useCallback(
     (currentTargetId: string, nextTargetId: string) => {
+      if (currentTargetId === nextTargetId) return;
+      // A picked ref belongs to the project it was picked in; the new target resolves its own
+      // remembered or default base.
+      dispatchPickerSelection({ type: "target-changed" });
       const nextAttachments = clearPickerPrAttachmentForTargetChange({
         attachments: chatDraft.attachments,
         currentTargetId,
         nextTargetId,
       });
-      if (nextAttachments === chatDraft.attachments) return;
-      chatDraft.setAttachments(nextAttachments);
-      dispatchPickerSelection({ type: "target-changed" });
+      if (nextAttachments !== chatDraft.attachments) {
+        chatDraft.setAttachments(nextAttachments);
+      }
     },
     [chatDraft],
   );
@@ -1258,9 +1319,13 @@ export function NewWorkspaceScreen({
             cwd: selectedSourceDirectory,
           })
         : null;
+      const usesRememberedBase = createsWorktree && !selectedItem;
+      const rememberedRefForCreate = usesRememberedBase
+        ? await resolveRememberedBase(connectedClient, selectedSourceDirectory)
+        : null;
       const checkoutRequest = checkoutStatusForCreate
         ? pickerItemToCheckoutRequest(
-            selectedItem ?? defaultBasePickerItem(checkoutStatusForCreate),
+            selectedItem ?? defaultBasePickerItem(checkoutStatusForCreate, rememberedRefForCreate),
           )
         : undefined;
       const normalizedWorkspace = await createMultiplicityWorkspace({
@@ -1289,6 +1354,7 @@ export function NewWorkspaceScreen({
       effectiveIsolation,
       mergeWorkspaces,
       queryClient,
+      resolveRememberedBase,
       selectedItem,
       selectedProject,
       selectedServerId,
@@ -1560,6 +1626,8 @@ export function NewWorkspaceScreen({
       setSearchQuery: setPickerSearchQuery,
       emptyText: pickerEmptyText,
       showRefPicker,
+      hasRememberedBase: rememberedRefName !== null,
+      onUseCurrentBranch: handleUseCurrentBranch,
     },
     launch: {
       serverId: selectedServerId,

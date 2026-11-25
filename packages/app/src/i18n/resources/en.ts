@@ -2032,6 +2032,8 @@ export const en = {
       createWorktreeFailed: "Failed to create worktree",
       composerStateRequired: "Composer state is required",
       selectModel: "Select a model",
+      rememberedBaseMissing:
+        "{{ref}} no longer exists. Create again to branch from the current branch.",
     },
     tooltips: {
       project: "Choose the project",
@@ -2047,6 +2049,7 @@ export const en = {
       noMatchingRefs: "No matching refs.",
       searchPlaceholder: "Search branches and PRs",
       title: "Start from",
+      useCurrentBranch: "Use current branch",
     },
     launch: {
       title: "What to launch",
