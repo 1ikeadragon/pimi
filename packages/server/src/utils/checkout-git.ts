@@ -2799,9 +2799,22 @@ export async function getCommitFileDiff({
 export interface CheckoutShortstat {
   additions: number;
   deletions: number;
+  /** Files git reports as changed, plus every untracked file. */
+  filesChanged: number;
+  /** `additions` is a lower bound: untracked files past the listing cap, or too large, binary or unreadable, add no lines. */
+  incomplete: boolean;
 }
 
-function parseCheckoutShortstat(text: string): CheckoutShortstat | null {
+/** What the tracked half of a shortstat reports; the untracked half is added by the caller. */
+type TrackedShortstat = Pick<CheckoutShortstat, "additions" | "deletions" | "filesChanged">;
+
+interface UntrackedShortstat {
+  additions: number;
+  files: number;
+  incomplete: boolean;
+}
+
+function parseCheckoutShortstat(text: string): TrackedShortstat | null {
   const trimmed = text.trim();
   if (!trimmed) {
     return null;
@@ -2822,7 +2835,9 @@ function parseCheckoutShortstat(text: string): CheckoutShortstat | null {
     return null;
   }
 
-  return { additions, deletions };
+  const filesMatch = trimmed.match(/(\d+)\s+files?\s+changed/);
+  const filesChanged = filesMatch ? Number.parseInt(filesMatch[1], 10) : 0;
+  return { additions, deletions, filesChanged };
 }
 
 const UNTRACKED_SHORTSTAT_MAX_FILES = 500;
@@ -2831,7 +2846,7 @@ async function countUntrackedAdditions(
   cwd: string,
   context?: CheckoutContext,
   throwOnGitError = false,
-): Promise<number> {
+): Promise<UntrackedShortstat> {
   try {
     const { stdout } = await getRunGitCommand(context)(
       ["ls-files", "-z", "--others", "--exclude-standard"],
@@ -2843,12 +2858,15 @@ async function countUntrackedAdditions(
     const files = stdout.split("\0").filter(Boolean);
 
     let additions = 0;
+    let incomplete = files.length > UNTRACKED_SHORTSTAT_MAX_FILES;
     for (const file of files.slice(0, UNTRACKED_SHORTSTAT_MAX_FILES)) {
       const absolutePath = resolve(cwd, file);
       try {
         const metadata = await statFile(absolutePath);
-        if (metadata.size > PER_FILE_DIFF_MAX_BYTES) continue;
-        if (await isLikelyBinaryFile(absolutePath)) continue;
+        if (metadata.size > PER_FILE_DIFF_MAX_BYTES || (await isLikelyBinaryFile(absolutePath))) {
+          incomplete = true;
+          continue;
+        }
         const content = await readFile(absolutePath, "utf-8");
         if (content.length === 0) continue;
         const normalized = content.replace(/\r\n/g, "\n");
@@ -2856,14 +2874,15 @@ async function countUntrackedAdditions(
         additions += normalized.endsWith("\n") ? lineCount - 1 : lineCount;
       } catch {
         // Skip unreadable files.
+        incomplete = true;
       }
     }
-    return additions;
+    return { additions, files: files.length, incomplete };
   } catch (error) {
     if (throwOnGitError) {
       throw error;
     }
-    return 0;
+    return { additions: 0, files: 0, incomplete: false };
   }
 }
 
@@ -2919,7 +2938,7 @@ async function getCheckoutShortstatUncached(
       return null;
     }
 
-    const [{ stdout }, untrackedAdditions] = await Promise.all([
+    const [{ stdout }, untracked] = await Promise.all([
       getRunGitCommand(context)(["diff", "--shortstat", mergeBase], {
         cwd,
         envOverlay: READ_ONLY_GIT_ENV,
@@ -2930,10 +2949,20 @@ async function getCheckoutShortstatUncached(
     const tracked = parseCheckoutShortstat(stdout);
 
     if (tracked) {
-      return { additions: tracked.additions + untrackedAdditions, deletions: tracked.deletions };
+      return {
+        additions: tracked.additions + untracked.additions,
+        deletions: tracked.deletions,
+        filesChanged: tracked.filesChanged + untracked.files,
+        incomplete: untracked.incomplete,
+      };
     }
-    if (untrackedAdditions > 0) {
-      return { additions: untrackedAdditions, deletions: 0 };
+    if (untracked.additions > 0) {
+      return {
+        additions: untracked.additions,
+        deletions: 0,
+        filesChanged: untracked.files,
+        incomplete: untracked.incomplete,
+      };
     }
     return null;
   } catch (error) {

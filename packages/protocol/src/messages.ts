@@ -537,6 +537,7 @@ import type {
   AgentPersistenceHandle,
   AgentPermissionResolutionMarker,
   AgentHandoffMarker,
+  AgentReviewSuggestionMarker,
   AgentProviderSwitchMarker,
   ProviderStatus,
   AgentRuntimeInfo,
@@ -1191,6 +1192,23 @@ export const AgentPermissionResolutionMarkerSchema: z.ZodType<
   resolvedBy: z.object({ agentId: z.string(), title: z.string() }),
 });
 
+/** Offers Review on a checkout a turn changed. */
+export const AgentReviewSuggestionMarkerSchema: z.ZodType<AgentReviewSuggestionMarker, unknown> =
+  z.object({
+    path: z.string(),
+    branch: z.string().nullable(),
+    baseRef: z.string().nullable(),
+    stats: z
+      .object({
+        filesChanged: z.number(),
+        additions: z.number(),
+        deletions: z.number(),
+        incomplete: z.boolean(),
+      })
+      .nullable(),
+    origin: z.object({ agentId: z.string() }),
+  });
+
 // zod-aot 0.20.4 miscompiles this as a nested discriminated union by omitting
 // the inner tool_call branch from the generated outer dispatch.
 export const AgentTimelineItemPayloadSchema: z.ZodType<AgentTimelineItem, unknown> = z.union([
@@ -1241,6 +1259,7 @@ export const AgentTimelineItemPayloadSchema: z.ZodType<AgentTimelineItem, unknow
     providerSwitch: AgentProviderSwitchMarkerSchema.optional(),
     handoff: AgentHandoffMarkerSchema.optional(),
     permissionResolution: AgentPermissionResolutionMarkerSchema.optional(),
+    reviewSuggestion: AgentReviewSuggestionMarkerSchema.optional(),
   }),
   z.object({
     type: z.literal("compaction"),

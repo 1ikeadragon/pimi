@@ -11,6 +11,7 @@ import type { CheckoutContext } from "../utils/checkout-git.js";
 import {
   type BranchCheckoutResolution,
   type BranchSuggestion,
+  type CheckoutShortstat,
   type CheckoutSnapshotFacts,
   type CheckoutDiffCompare,
   type CheckoutDiffResult,
@@ -171,7 +172,7 @@ export interface WorkspaceGitRuntimeSnapshot {
     aheadOfOrigin: number | null;
     behindOfOrigin: number | null;
     hasRemote: boolean;
-    diffStat: { additions: number; deletions: number } | null;
+    diffStat: CheckoutShortstat | null;
   };
   forge: {
     featuresEnabled: boolean;

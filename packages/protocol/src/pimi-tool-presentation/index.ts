@@ -60,6 +60,11 @@ export function getPimiToolTargetAgentId(
   return readString(resolvePimiCall(toolName, detail)?.toolInput.agentId) ?? null;
 }
 
+/** The leaf name of the Pimi tool a call runs, looking through `call_pimi_tool`; null for any other tool. */
+export function resolvePimiToolLeaf(toolName: string, detail: ToolCallDetail): string | null {
+  return resolvePimiCall(toolName, detail)?.leafName ?? null;
+}
+
 /** The Pimi tool a call runs and its input. A call made through the loader names both in its input. */
 function resolvePimiCall(
   toolName: string,

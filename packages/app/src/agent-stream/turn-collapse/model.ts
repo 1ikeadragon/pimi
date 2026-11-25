@@ -106,6 +106,8 @@ function staysVisibleWhenCollapsed(item: StreamItem): boolean {
     item.kind === "assistant_images" ||
     // Another agent decided for this one; that must not fold away with the turn's own work.
     (item.kind === "notification" && item.permissionResolution !== undefined) ||
+    // The daemon's offer to review what the turn changed is the turn's outcome, not its work.
+    (item.kind === "notification" && item.reviewSuggestion !== undefined) ||
     (item.kind === "tool_call" &&
       item.payload.source === "agent" &&
       item.payload.data.status === "completed" &&

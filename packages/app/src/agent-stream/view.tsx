@@ -43,6 +43,7 @@ import { readPimiDelegationToolCall } from "@/utils/pimi-delegation";
 import {
   PimiCreatedTaskCard,
   PimiReviewSuggestionCard,
+  PimiReviewSuggestionNotificationCard,
   readPimiCreatedTask,
   readPimiReviewSuggestion,
 } from "@/components/pimi-task-proposal-card";
@@ -1165,6 +1166,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               return (
                 <PermissionResolutionNote
                   marker={item.permissionResolution}
+                  serverId={resolvedServerId}
+                />
+              );
+            }
+            if (item.reviewSuggestion) {
+              return (
+                <PimiReviewSuggestionNotificationCard
+                  marker={item.reviewSuggestion}
                   serverId={resolvedServerId}
                 />
               );

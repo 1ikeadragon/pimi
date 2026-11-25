@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   AgentImageRefSchema,
   AgentPermissionResolutionMarkerSchema,
+  AgentReviewSuggestionMarkerSchema,
   AgentHandoffMarkerSchema,
   AgentProviderSwitchMarkerSchema,
   AgentStatusSchema,
@@ -158,6 +159,7 @@ const StoredTimelineItemSchema = z.discriminatedUnion("kind", [
     providerSwitch: AgentProviderSwitchMarkerSchema.optional(),
     handoff: AgentHandoffMarkerSchema.optional(),
     permissionResolution: AgentPermissionResolutionMarkerSchema.optional(),
+    reviewSuggestion: AgentReviewSuggestionMarkerSchema.optional(),
   }),
   z.strictObject({
     ...TimelineItemBaseShape,
@@ -558,12 +560,19 @@ function deserializeTimelineItem(item: StoredTimelineItem): StreamItem {
 }
 
 function notificationMarkers(
-  item: Pick<NotificationItem, "providerSwitch" | "handoff" | "permissionResolution">,
-): Pick<NotificationItem, "providerSwitch" | "handoff" | "permissionResolution"> {
+  item: Pick<
+    NotificationItem,
+    "providerSwitch" | "handoff" | "permissionResolution" | "reviewSuggestion"
+  >,
+): Pick<
+  NotificationItem,
+  "providerSwitch" | "handoff" | "permissionResolution" | "reviewSuggestion"
+> {
   return {
     ...(item.providerSwitch ? { providerSwitch: item.providerSwitch } : {}),
     ...(item.handoff ? { handoff: item.handoff } : {}),
     ...(item.permissionResolution ? { permissionResolution: item.permissionResolution } : {}),
+    ...(item.reviewSuggestion ? { reviewSuggestion: item.reviewSuggestion } : {}),
   };
 }
 

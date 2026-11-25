@@ -3,6 +3,7 @@ import type {
   AgentImageRef,
   AgentProvider,
   AgentPermissionResolutionMarker,
+  AgentReviewSuggestionMarker,
   AgentHandoffMarker,
   AgentProviderSwitchMarker,
   AgentTimelineItem,
@@ -831,6 +832,8 @@ export interface NotificationItem {
   handoff?: AgentHandoffMarker;
   /** Present when this notification records another agent answering a permission prompt. */
   permissionResolution?: AgentPermissionResolutionMarker;
+  /** Present when this notification offers Review on a checkout the turn changed. */
+  reviewSuggestion?: AgentReviewSuggestionMarker;
 }
 
 export interface CompactionItem {
@@ -1660,6 +1663,7 @@ function reduceTimelineEvent(
         ...(item.providerSwitch ? { providerSwitch: item.providerSwitch } : {}),
         ...(item.handoff ? { handoff: item.handoff } : {}),
         ...(item.permissionResolution ? { permissionResolution: item.permissionResolution } : {}),
+        ...(item.reviewSuggestion ? { reviewSuggestion: item.reviewSuggestion } : {}),
       };
       return appendNotification(state, notification);
     }
