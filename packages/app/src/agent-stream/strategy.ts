@@ -91,6 +91,9 @@ export interface StreamRenderInput {
   // The history row under the top of the viewport, for surfaces that mark where the reader
   // is in the transcript. Only the web viewport measures it today.
   onReadingPositionChange?: (rowId: string | null) => void;
+  // The newest history row the viewport shows, so a trim of the newest turns can keep it. Only
+  // the web viewport measures it today.
+  onNewestVisibleRowChange?: (rowId: string | null) => void;
   onNearHistoryStart: () => boolean | Promise<boolean>;
   isLoadingOlderHistory: boolean;
   hasOlderHistory: boolean;

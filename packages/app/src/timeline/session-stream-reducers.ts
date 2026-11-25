@@ -1705,6 +1705,7 @@ export function createAgentStreamReducerQueue(
   input: CreateAgentStreamReducerQueueInput,
 ): AgentStreamReducerQueue {
   const pendingByAgentId = new Map<string, AgentStreamReducerEvent[]>();
+  const detachedAgentIds = new Set<string>();
   let scheduledFlushId: number | null = null;
 
   const cancelScheduledFlush = () => {
@@ -1725,9 +1726,20 @@ export function createAgentStreamReducerQueue(
       cancelScheduledFlush();
     }
 
+    const snapshot = input.getSnapshot(agentId);
+    // A detached window discards live rows because the daemon still has them and the reader
+    // returns through a forward page. Say so once per detach so a stuck stream is diagnosable.
+    if (!snapshot.isDetached) {
+      detachedAgentIds.delete(agentId);
+    } else if (!detachedAgentIds.has(agentId)) {
+      detachedAgentIds.add(agentId);
+      console.warn(
+        `Discarding live stream events for agent ${agentId}: the timeline window is detached from the live tail`,
+      );
+    }
     const result = processAgentStreamEvents({
       events,
-      ...input.getSnapshot(agentId),
+      ...snapshot,
     });
 
     input.commit(agentId, result, events);

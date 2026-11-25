@@ -37,6 +37,16 @@ export function createReadingAnchor() {
     getRowId,
     getReadingRowId: (scrollTop: number) =>
       readingRow(scrollTop)?.id ?? geometry.at(-1)?.id ?? null,
+    // Rows are in top-to-bottom order, so the last one that starts above the viewport's
+    // bottom edge is the newest the reader can see, however tall it is.
+    getNewestVisibleRowId: (scrollTop: number, viewport: number) => {
+      for (let index = geometry.length - 1; index >= 0; index -= 1) {
+        const row = geometry[index];
+        if (row.top >= scrollTop + viewport) continue;
+        return row.top + row.height > scrollTop ? row.id : null;
+      }
+      return null;
+    },
     project,
     reset() {
       anchor = null;
@@ -55,14 +65,18 @@ export function createReadingAnchor() {
       viewport: number,
       rows: readonly RowGeometry[],
       replacements = NO_REPLACEMENTS,
+      isRowInData: (id: string) => boolean,
     ): number {
       geometry = rows;
       viewportHeight = viewport;
-      const previous = anchor && rows.find((row) => row.id === getRowId(replacements));
+      const anchorId = getRowId(replacements);
+      const previous = anchorId === null ? undefined : rows.find((row) => row.id === anchorId);
       // The first virtualized commit can precede its mounted range. Keep the
       // pinned reader until it mounts, rather than adopting an unrelated row.
-      if (anchor && !previous) return scrollTop;
-      const correctedTop = project(scrollTop, previous ?? undefined, replacements);
+      // An anchor that left the data (a trim or a replacement dropped it) will never mount,
+      // so waiting for it would keep a scrollTop the shrunken content has already clamped.
+      if (anchorId !== null && !previous && isRowInData(anchorId)) return scrollTop;
+      const correctedTop = project(scrollTop, previous, replacements);
       // A prepend can expose the bottom of an estimated row above the reader.
       // Do not transfer ownership to it until the user moves the reading position.
       const next = previous ?? anchorRow(correctedTop);

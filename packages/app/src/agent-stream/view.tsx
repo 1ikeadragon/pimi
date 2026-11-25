@@ -136,6 +136,7 @@ import { recordRenderProfileReasons } from "@/utils/render-profiler";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { reportMountedRows } from "@/utils/memory-probe";
 import { useResidentWindowFollow } from "./use-resident-window-follow";
+import { setReaderNewestVisibleSeq } from "@/timeline/reader-follow";
 import { useStreamHistoryWindow } from "./use-stream-history-window";
 import { PluginTimelineItemView, useInstalledTimelineTransform } from "@/plugins/timeline";
 
@@ -380,6 +381,30 @@ function ScrollToBottomButton({
       </Animated.View>
     </View>
   );
+}
+
+// A row without a position (a plan card, a local row) shares its turn with the nearest earlier
+// row that has one, and a trim only cuts at turn starts, so that row's seq protects it.
+function seqAtOrBefore(rows: readonly StreamLayoutItem[], index: number): number | null {
+  for (let cursor = index; cursor >= 0; cursor -= 1) {
+    const seq = rows[cursor].item.timelineCursor?.seq;
+    if (seq !== undefined) return seq;
+  }
+  return null;
+}
+
+function resolveNewestVisibleSeq(
+  history: readonly StreamLayoutItem[],
+  liveHead: readonly StreamLayoutItem[],
+  rowId: string | null,
+): number | null {
+  if (rowId === null) return null;
+  const liveHeadIndex = liveHead.findIndex((row) => row.item.id === rowId);
+  if (liveHeadIndex >= 0) {
+    return seqAtOrBefore(liveHead, liveHeadIndex) ?? seqAtOrBefore(history, history.length - 1);
+  }
+  const historyIndex = history.findIndex((row) => row.item.id === rowId);
+  return historyIndex < 0 ? null : seqAtOrBefore(history, historyIndex);
 }
 
 const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamViewProps>(
@@ -1393,6 +1418,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       chatOutline.reportReadingPosition(row?.item.timelineCursor?.seq ?? null);
     });
 
+    const handleNewestVisibleRowChange = useStableEvent((rowId: string | null) => {
+      setReaderNewestVisibleSeq(
+        resolvedServerId,
+        agentId,
+        resolveNewestVisibleSeq(streamLayout.history, streamLayout.liveHead, rowId),
+      );
+    });
+
     const renderHistoryRow = useCallback(
       (item: StreamItem) =>
         renderStreamRow({
@@ -1526,6 +1559,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
                     isAuthoritativeHistoryReady,
                     onNearBottomChange: nearBottom.set,
                     onReadingPositionChange: handleReadingPositionChange,
+                    onNewestVisibleRowChange: handleNewestVisibleRowChange,
                     onNearHistoryStart: loadOlder,
                     isLoadingOlderHistory: isLoadingOlder,
                     hasOlderHistory: hasOlder,

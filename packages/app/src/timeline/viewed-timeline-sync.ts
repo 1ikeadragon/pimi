@@ -29,7 +29,12 @@ import {
 import { isTimelineResumeSnapshotAuthoritative } from "./timeline-sync-plan";
 import { replaceWithCanonicalStream } from "@/types/stream";
 import type { TurnLivenessTransition } from "./turn-liveness";
-import { isReaderFollowingEnd } from "./reader-follow";
+import {
+  canTrimOldest,
+  getReaderNewestVisibleSeq,
+  isReaderFollowingEnd,
+  setReaderPagedBack,
+} from "./reader-follow";
 
 export interface TimelineReplicaStorage {
   readTimeline(serverId: string, agentId: string): Promise<CachedTimeline | undefined>;
@@ -404,8 +409,10 @@ export function createViewedTimelineOwner(input: {
     setAgentTimelineCursor: (...args) => useSessionStore.getState().setAgentTimelineCursor(...args),
     recoverTimelineGap: (agentId, cursor) => sync.recoverGap(agentId, cursor),
     onCommitted: (agentId) => {
-      if (isReaderFollowingEnd(input.serverId, agentId)) {
-        useSessionStore.getState().trimAgentResidentWindow(input.serverId, agentId, "oldest");
+      if (canTrimOldest(input.serverId, agentId)) {
+        useSessionStore
+          .getState()
+          .trimAgentResidentWindow(input.serverId, agentId, { end: "oldest" });
       }
       input.replica.timelineUpdated(agentId);
     },
@@ -422,16 +429,28 @@ export function createViewedTimelineOwner(input: {
         drainQueuedAgentMessage: input.drainQueuedAgentMessage,
       });
       if (accepted) {
-        // Rows added at the newer end push the oldest turns out; a backward page pushes the
-        // newest turns out and leaves the reader detached from the live tail.
+        // Rows added at the newer end push the oldest turns out. A backward page pushes the
+        // newest turns out and leaves the reader detached from the live tail, which is only
+        // acceptable for a reader who has left the bottom: for one following the end, the live
+        // turn is the newest turn and dropping it discards every stream event that follows.
         if (payload.direction === "before") {
-          useSessionStore
-            .getState()
-            .trimAgentResidentWindow(input.serverId, payload.agentId, "newest");
-        } else if (isReaderFollowingEnd(input.serverId, payload.agentId)) {
-          useSessionStore
-            .getState()
-            .trimAgentResidentWindow(input.serverId, payload.agentId, "oldest");
+          setReaderPagedBack(input.serverId, payload.agentId, true);
+          if (!isReaderFollowingEnd(input.serverId, payload.agentId)) {
+            useSessionStore.getState().trimAgentResidentWindow(input.serverId, payload.agentId, {
+              end: "newest",
+              keepThroughSeq: getReaderNewestVisibleSeq(input.serverId, payload.agentId),
+            });
+          }
+        } else {
+          // The latest tail replaces the window, so nothing older than it was paged back.
+          if (payload.direction === "tail") {
+            setReaderPagedBack(input.serverId, payload.agentId, false);
+          }
+          if (canTrimOldest(input.serverId, payload.agentId)) {
+            useSessionStore
+              .getState()
+              .trimAgentResidentWindow(input.serverId, payload.agentId, { end: "oldest" });
+          }
         }
         input.replica.timelineUpdated(payload.agentId);
       }
