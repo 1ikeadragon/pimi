@@ -4,6 +4,7 @@
 
 ## 0.17.74 - 2026-11-25
 
+- Vault is off by default; turn it on in Settings > Vault.
 - Android push notifications show the agent's last message, or the question it is waiting on, instead of fixed text. Previews are end-to-end encrypted: the relay and Google see only ciphertext and no longer see the chat name. Turn them off, or hide them while the phone is locked, in Settings > General. Update the phone together with, or before, the Mac: an older phone can't register for push with this daemon. A pairing reset also stops pushes to the phones it revoked.
 - Vault: a client could unlock an already unlocked vault with any passphrase and become operator; the passphrase is now always checked. URL-encoded secrets that keep `/` are redacted. Approval cards quote arguments and name the chat, forms explain what's wrong and keep what you typed, and the approval toast stays quiet on the Vault page.
 - Review offers appear for repositories with no remote, without a meaningless "main → main" or "vs base". Range notes show their gutter bar, and notes whose lines were deleted are listed as outdated instead of drawn on other lines. The "Send to chat" button fits long titles.

@@ -4020,6 +4020,11 @@ export const en = {
       },
     },
     vault: {
+      enable: "Vault",
+      disabledHint:
+        "Off. Agents get no vault tools and are never told about the vault. Turn it on to store secrets that agents can use without seeing them.",
+      enabledHint:
+        "On. Turning it off locks the vault and hides it from agents; your vault file is kept.",
       statusTitle: "Status",
       info: "Agents can use a secret through vault_run but never read it. Secret values are encrypted with your passphrase, which the daemon keeps only in memory while unlocked.",
       loading: "Loading the vault",

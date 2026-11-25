@@ -39,6 +39,13 @@ export class VaultSession {
 
   dispatch(msg: SessionInboundMessage, source?: object): Promise<void> | undefined {
     if (!isVaultRequest(msg)) return undefined;
+    if (!this.vault.enabled) {
+      this.emitFailure(
+        msg,
+        new VaultError("disabled", "The vault is turned off. Turn it on in Settings, Vault."),
+      );
+      return Promise.resolve();
+    }
     return this.handle(msg, source);
   }
 

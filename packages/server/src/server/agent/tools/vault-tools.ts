@@ -86,7 +86,7 @@ export function registerVaultTools(
   resolveCallerAgent: () => ManagedAgent | null,
 ): void {
   const { vaultService: vault, workspaceRegistry } = options;
-  if (scope !== "agent" || !vault) return;
+  if (scope !== "agent" || !vault?.enabled) return;
   registerTool(
     VAULT_LIST_TOOL,
     {

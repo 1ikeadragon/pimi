@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { VaultEnvNameSchema, VaultSecretNameSchema } from "@pimi/protocol/vault/types";
 import { useFetchQuery } from "@/data/query";
+import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 
 // The daemon pushes `status.vault_changed` on every change, so these only need a finite stale time
@@ -11,6 +12,21 @@ const VAULT_STALE_MS = 30_000;
 
 function vaultRoot(serverId: string) {
   return ["vault", serverId] as const;
+}
+
+/** Whether the host turned the vault on, from its live config; null until the config is loaded. */
+export function useVaultEnabled(serverId: string | null): boolean | null {
+  const { config } = useDaemonConfig(serverId);
+  return config === null ? null : config.vault.enabled;
+}
+
+/** The on/off switch for the host's vault. The vault file is not touched either way. */
+export function useVaultEnabledSetting(serverId: string) {
+  const { patchConfig } = useDaemonConfig(serverId);
+  const mutation = useMutation({
+    mutationFn: (enabled: boolean) => patchConfig({ vault: { enabled } }),
+  });
+  return { error: mutation.error, pending: mutation.isPending, setEnabled: mutation.mutate };
 }
 
 export interface SecretNameIssues {

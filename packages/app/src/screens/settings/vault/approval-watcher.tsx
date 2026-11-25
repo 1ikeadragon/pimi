@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/toast-context";
 import { useTranslation } from "@/i18n/use-translation";
 import { useHostRuntimeConnectionStatuses, useHosts } from "@/runtime/host-runtime";
+import { useVaultEnabled, vaultErrorCode } from "./use-vault";
 import { useSessionStore } from "@/stores/session-store";
 import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
 
@@ -25,72 +26,83 @@ function useOnlineHostIds(): string[] {
 
 /**
  * Tells you when an agent starts waiting for vault approval, wherever you are in the app, so a
- * blocked agent is noticed. A host's first report after connecting only sets the baseline: a
- * request already pending then is not announced again on every reconnect.
+ * blocked agent is noticed. Hosts with the vault off are not asked anything.
  */
-export function VaultApprovalWatcher(): null {
+export function VaultApprovalWatcher(): ReactElement {
+  const onlineIds = useOnlineHostIds();
+  return (
+    <>
+      {onlineIds.map((serverId) => (
+        <HostApprovalWatcher key={serverId} serverId={serverId} />
+      ))}
+    </>
+  );
+}
+
+function HostApprovalWatcher({ serverId }: { serverId: string }): ReactElement | null {
+  const enabled = useVaultEnabled(serverId);
+  return enabled ? <EnabledHostApprovalWatcher serverId={serverId} /> : null;
+}
+
+/**
+ * A host's first report after connecting only sets the baseline: a request already pending then
+ * is not announced again on every reconnect.
+ */
+function EnabledHostApprovalWatcher({ serverId }: { serverId: string }): null {
   const { t } = useTranslation();
   const router = useRouter();
   const toast = useToast();
-  const onlineIds = useOnlineHostIds();
-  const onlineKey = onlineIds.join("|");
-  const pendingByHost = useRef(new Map<string, number>());
+  const pending = useRef<number | undefined>(undefined);
   // Read when a request arrives, so moving between pages does not resubscribe the feed.
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
 
   const open = useCallback(
-    (serverId: string) => router.push(buildSettingsHostSectionRoute(serverId, "vault")),
+    (id: string) => router.push(buildSettingsHostSectionRoute(id, "vault")),
     [router],
   );
 
   useEffect(() => {
-    const releases: Array<() => void> = [];
-    for (const serverId of onlineKey ? onlineKey.split("|") : []) {
-      const client = useSessionStore.getState().sessions[serverId]?.client ?? null;
-      if (!client) continue;
-      const check = async () => {
-        try {
-          const { status } = await client.vaultGetStatus();
-          const previous = pendingByHost.current.get(serverId);
-          pendingByHost.current.set(serverId, status.pendingRequests);
-          if (previous === undefined || status.pendingRequests <= previous) return;
-          // The Vault page already lists the request.
-          if (pathnameRef.current === buildSettingsHostSectionRoute(serverId, "vault")) return;
-          toast.show(
-            <ApprovalToast
-              serverId={serverId}
-              message={t("vaultApprovals.toast")}
-              actionLabel={t("vaultApprovals.open")}
-              onOpen={open}
-            />,
-            { variant: "warning", durationMs: APPROVAL_TOAST_MS },
-          );
-        } catch (error) {
-          console.warn("[Vault] Failed to read approval status", error);
-        }
-      };
-      const observation = client.observeEvents(["status.vault_changed"]);
-      observation.subscribe({
-        snapshot: () => void check(),
-        update: (message) => {
-          if (message.type === "status" && message.payload.status === "vault_changed") void check();
-        },
-      });
-      releases.push(() => {
-        pendingByHost.current.delete(serverId);
-        void observation
-          .release()
-          .catch((error: unknown) =>
-            console.warn("[Vault] Failed to release approval feed", error),
-          );
-      });
-    }
-    return () => {
-      for (const release of releases) release();
+    const client = useSessionStore.getState().sessions[serverId]?.client ?? null;
+    if (!client) return;
+    const check = async () => {
+      try {
+        const { status } = await client.vaultGetStatus();
+        const previous = pending.current;
+        pending.current = status.pendingRequests;
+        if (previous === undefined || status.pendingRequests <= previous) return;
+        // The Vault page already lists the request.
+        if (pathnameRef.current === buildSettingsHostSectionRoute(serverId, "vault")) return;
+        toast.show(
+          <ApprovalToast
+            serverId={serverId}
+            message={t("vaultApprovals.toast")}
+            actionLabel={t("vaultApprovals.open")}
+            onOpen={open}
+          />,
+          { variant: "warning", durationMs: APPROVAL_TOAST_MS },
+        );
+      } catch (error) {
+        // Turning the vault off locks it, and that change event arrives before this host's config.
+        if (vaultErrorCode(error) === "vault_disabled") return;
+        console.warn("[Vault] Failed to read approval status", error);
+      }
     };
-  }, [onlineKey, open, t, toast]);
+    const observation = client.observeEvents(["status.vault_changed"]);
+    observation.subscribe({
+      snapshot: () => void check(),
+      update: (message) => {
+        if (message.type === "status" && message.payload.status === "vault_changed") void check();
+      },
+    });
+    return () => {
+      pending.current = undefined;
+      void observation
+        .release()
+        .catch((error: unknown) => console.warn("[Vault] Failed to release approval feed", error));
+    };
+  }, [serverId, open, t, toast]);
 
   return null;
 }

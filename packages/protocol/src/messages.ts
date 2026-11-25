@@ -423,6 +423,13 @@ const MutableBrowserToolsConfigSchema = z
     enabled: z.boolean().default(true),
   })
   .passthrough();
+// Off by default: while off, agents get no vault tools or prompt text and the vault's requests are
+// refused. The vault file is never touched by this switch.
+const MutableVaultConfigSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+  })
+  .passthrough();
 const MutableRelayConfigSchema = z
   .object({
     enabled: z.boolean(),
@@ -482,6 +489,7 @@ export const MutableDaemonConfigSchema = z
     catalogRefreshTimeoutMs: z.number().int().positive().optional(),
     usage: z.object({ enabled: z.boolean() }),
     browserTools: MutableBrowserToolsConfigSchema.default({ enabled: true }),
+    vault: MutableVaultConfigSchema.default({ enabled: false }),
     providers: z.record(z.string(), MutableDaemonProviderConfigSchema).default({}),
     metadataGeneration: MutableMetadataGenerationConfigSchema.default({
       providers: [],
@@ -533,6 +541,7 @@ export const MutableDaemonConfigPatchSchema = z
     mcp: z.object({ injectIntoAgents: z.boolean().optional() }).passthrough().optional(),
     usage: z.object({ enabled: z.boolean() }).optional(),
     browserTools: MutableBrowserToolsConfigSchema.partial().optional(),
+    vault: MutableVaultConfigSchema.partial().optional(),
     providers: z
       .record(z.string(), MutableDaemonProviderConfigSchema.partial().passthrough())
       .optional(),

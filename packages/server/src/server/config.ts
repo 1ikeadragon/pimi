@@ -516,6 +516,10 @@ function resolveBrowserToolsEnabled(persisted: ReturnType<typeof loadPersistedCo
   return persisted.daemon?.browserTools?.enabled ?? true;
 }
 
+function resolveVaultEnabled(persisted: ReturnType<typeof loadPersistedConfig>): boolean {
+  return persisted.daemon?.vault?.enabled === true;
+}
+
 /**
  * Both profile lists stay `undefined` when absent rather than defaulting to an
  * empty array: for terminal profiles that is what selects the built-in
@@ -543,6 +547,7 @@ function resolveStaticLoadConfigSettings(
       cli?.mcpInjectIntoAgents ?? persisted.daemon?.mcp?.injectIntoAgents ?? true,
     usageEnabled: resolveUsageEnabled(persisted),
     browserToolsEnabled: resolveBrowserToolsEnabled(persisted),
+    vaultEnabled: resolveVaultEnabled(persisted),
     autoArchiveAfterMerge: persisted.daemon?.autoArchiveAfterMerge ?? false,
     limitFallback: persisted.daemon?.limitFallback ?? { enabled: false, chain: [] },
     supplyChain: persisted.daemon?.supplyChain ?? DEFAULT_PACKAGE_POLICY,
@@ -574,6 +579,7 @@ export type ResolvedDaemonSettings = Pick<
   | "mcpInjectIntoAgents"
   | "usageEnabled"
   | "browserToolsEnabled"
+  | "vaultEnabled"
   | "git"
   | "autoArchiveAfterMerge"
   | "limitFallback"

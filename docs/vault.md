@@ -4,6 +4,15 @@ The vault lets an agent use a secret without being handed it. Secrets are never 
 
 Read [SECURITY.md](../SECURITY.md#local-daemon-trust-boundary) and [permissions.md](permissions.md) first. The vault is built on a hostile premise those docs state: agents run as your OS user, with no sandbox.
 
+## Turning it on
+
+The vault is off by default. Settings > Vault has the switch; it is `daemon.vault.enabled` in `config.json` and applies live, with no daemon restart. While it is off:
+
+- Agents get no `vault_list` or `vault_run` tool and the system prompt never mentions the vault. A chat started before the switch changed keeps its tool list until it ends; its `vault_run` calls fail because turning the vault off locks it.
+- Every `vault.*` request is refused with `vault_disabled`, and the app shows only the switch.
+- The environment is not scrubbed and nothing is redacted: off means the vault file is ignored. Turning it on again removes the vault's variables from the daemon environment; variables already removed stay removed until the daemon restarts.
+- `vault.json` and `audit.jsonl` are left as they are.
+
 ## Threat model
 
 An agent can read `$PIMI_HOME/local-credential`, so it can connect to the daemon with full authority. The desktop app is ad-hoc signed with `hardenedRuntime` off (`packages/desktop/electron-builder.yml:96-98`), so the macOS keychain and Electron `safeStorage` would hand the same agent the key. That is why the vault is sealed with a passphrase you type, not a key the machine holds.

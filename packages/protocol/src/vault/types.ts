@@ -149,6 +149,7 @@ export const VaultErrorCodeSchema = z.enum([
   "invalid_argument",
   "corrupt",
   "source_unavailable",
+  "disabled",
 ]);
 export type VaultErrorCode = z.infer<typeof VaultErrorCodeSchema>;
 

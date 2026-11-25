@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { readVaultHeader } from "./store.js";
 
 // The environment the daemon launches agents, terminals and commands with starts as the daemon's
@@ -5,8 +7,27 @@ import { readVaultHeader } from "./store.js";
 // reach any child, whether or not that spawn site knows about the vault. An explicit provider
 // overlay still wins because overlays are applied on top of whatever remains.
 
-/** Names recorded in the vault header. Readable while the vault is locked. */
+/**
+ * Whether the user turned the vault on (`daemon.vault.enabled` in config.json). Read straight from
+ * the file so the desktop can ask before the daemon runs; a missing or unreadable file is off.
+ */
+export async function readVaultEnabled(pimiHome: string): Promise<boolean> {
+  try {
+    const raw = await readFile(path.join(pimiHome, "config.json"), "utf-8");
+    const parsed: unknown = JSON.parse(raw.replace(/^\uFEFF/, ""));
+    const daemon = (parsed as { daemon?: { vault?: { enabled?: unknown } } } | null)?.daemon;
+    return daemon?.vault?.enabled === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Names recorded in the vault header, or none while the vault is off: off means the vault's file is
+ * ignored, so nothing is removed from the environment. Readable while the vault is locked.
+ */
 export async function readEnvScrubNames(pimiHome: string): Promise<string[]> {
+  if (!(await readVaultEnabled(pimiHome))) return [];
   return (await readVaultHeader(pimiHome))?.envScrubNames ?? [];
 }
 

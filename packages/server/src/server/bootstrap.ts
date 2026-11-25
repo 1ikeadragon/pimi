@@ -487,6 +487,7 @@ export interface PimiDaemonConfig {
   mcpInjectIntoAgents?: boolean;
   usageEnabled?: boolean;
   browserToolsEnabled?: boolean;
+  vaultEnabled?: boolean;
   git?: {
     maxProcessesPerSecond: number;
     maxProcessConcurrency: number;
@@ -656,6 +657,7 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
       : {}),
     usage: { enabled: config.usageEnabled !== false },
     browserTools: { enabled: config.browserToolsEnabled ?? true },
+    vault: { enabled: config.vaultEnabled === true },
     providers,
     metadataGeneration: resolveMetadataGeneration(config.metadataGeneration),
     autoArchiveAfterMerge: config.autoArchiveAfterMerge ?? false,
@@ -1273,15 +1275,26 @@ export async function createPimiDaemon(
   const initialAgentManagerState = providerSnapshotManager.getAgentManagerProviderState();
   const vaultService = new VaultService({
     pimiHome: config.pimiHome,
+    isEnabled: () => daemonConfigStore.get().vault.enabled,
     env: process.env,
     bitwarden: new BitwardenCli({ env: process.env }),
     logger,
   });
   await vaultService.load();
+  // Off means off: turning it off locks the vault (dropping keys and the redactor) and turning
+  // it on removes the vault's variables from the daemon environment, which startup skipped.
+  daemonConfigStore.onFieldChange("vault.enabled", () => {
+    if (vaultService.enabled) {
+      void removeVaultManagedEnvironment(config.pimiHome, logger);
+    } else {
+      void vaultService.lock().catch((error) => logger.error({ err: error }, "Vault lock failed"));
+    }
+  });
   const agentManager: AgentManager = new AgentManager({
     vault: {
       redactor: vaultService,
-      instructions: () => (vaultService.state === "uninitialized" ? [] : [VAULT_INSTRUCTIONS]),
+      instructions: () =>
+        vaultService.enabled && vaultService.state !== "uninitialized" ? [VAULT_INSTRUCTIONS] : [],
     },
     handoff: createHandoffServices({
       transcripts: transcriptStore,

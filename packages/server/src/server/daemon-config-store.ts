@@ -21,6 +21,7 @@ interface SupportedMutableConfigPatch {
   mcp?: { injectIntoAgents?: boolean };
   usage?: { enabled: boolean };
   browserTools?: { enabled?: boolean };
+  vault?: { enabled?: boolean };
   providers?: MutableDaemonConfig["providers"];
   replaceProviders?: MutableDaemonConfigPatch["replaceProviders"];
   removeProviders?: string[];
@@ -228,6 +229,7 @@ const RELOADABLE_PATHS = [
   "daemon.mcp.injectIntoAgents",
   "daemon.usage.enabled",
   "daemon.browserTools.enabled",
+  "daemon.vault.enabled",
   "daemon.hostnames",
   "daemon.cors.allowedOrigins",
   "daemon.trustedProxies",
@@ -261,6 +263,7 @@ const PERSISTED_TO_MUTABLE_PATH = new Map<string, string>([
   ["daemon.mcp.injectIntoAgents", "mcp.injectIntoAgents"],
   ["daemon.usage.enabled", "usage.enabled"],
   ["daemon.browserTools.enabled", "browserTools.enabled"],
+  ["daemon.vault.enabled", "vault.enabled"],
   ["daemon.hostnames", "hostnames"],
   ["daemon.cors.allowedOrigins", "cors.allowedOrigins"],
   ["daemon.trustedProxies", "trustedProxies"],
@@ -360,6 +363,17 @@ function pickPolicyPatch(
   };
 }
 
+function pickFeatureSwitchPatch(
+  patch: MutableDaemonConfigPatch,
+): Pick<SupportedMutableConfigPatch, "browserTools" | "vault"> {
+  return {
+    ...(patch.browserTools?.enabled !== undefined
+      ? { browserTools: { enabled: patch.browserTools.enabled } }
+      : {}),
+    ...(patch.vault?.enabled !== undefined ? { vault: { enabled: patch.vault.enabled } } : {}),
+  };
+}
+
 function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMutableConfigPatch {
   return {
     ...pickRelayPatch(patch.relay),
@@ -367,9 +381,7 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
     ...(patch.mcp?.injectIntoAgents !== undefined
       ? { mcp: { injectIntoAgents: patch.mcp.injectIntoAgents } }
       : {}),
-    ...(patch.browserTools?.enabled !== undefined
-      ? { browserTools: { enabled: patch.browserTools.enabled } }
-      : {}),
+    ...pickFeatureSwitchPatch(patch),
     ...(patch.providers !== undefined ? { providers: patch.providers } : {}),
     ...(patch.replaceProviders !== undefined ? { replaceProviders: patch.replaceProviders } : {}),
     ...(patch.removeProviders !== undefined ? { removeProviders: patch.removeProviders } : {}),
@@ -902,6 +914,9 @@ function mergeMutableDaemonPatch(
   if (patch.usage) next.usage = patch.usage;
   if (patch.browserTools?.enabled !== undefined) {
     next.browserTools = { ...next.browserTools, enabled: patch.browserTools.enabled };
+  }
+  if (patch.vault?.enabled !== undefined) {
+    next.vault = { ...next.vault, enabled: patch.vault.enabled };
   }
   if (patch.autoArchiveAfterMerge !== undefined) {
     next.autoArchiveAfterMerge = patch.autoArchiveAfterMerge;

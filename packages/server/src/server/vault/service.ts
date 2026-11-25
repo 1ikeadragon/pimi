@@ -97,6 +97,8 @@ export interface VaultServiceOptions {
   /** The user's `bw` CLI. Without it Bitwarden-backed secrets cannot be loaded. */
   bitwarden: BitwardenCli;
   pimiHome: string;
+  /** Whether the user turned the vault on; read on every use so a Settings change applies live. */
+  isEnabled: () => boolean;
   /** The environment the daemon spawns children from; names the vault manages are removed from it. */
   env: NodeJS.ProcessEnv;
   logger: pino.Logger;
@@ -194,13 +196,19 @@ export class VaultService implements OutputRedactor {
   private readonly tickets = new Map<string, number>();
   private readonly externalValues = new Map<string, { value: string; expiresAt: number }>();
   private readonly listeners = new Set<() => void>();
+  private readonly isEnabled: () => boolean;
 
   constructor(options: VaultServiceOptions) {
     this.store = new VaultStore(options.pimiHome);
     this.audit = new VaultAudit(options.pimiHome);
     this.env = options.env;
+    this.isEnabled = options.isEnabled;
     this.bitwarden = options.bitwarden;
     this.logger = options.logger.child({ module: "vault" });
+  }
+
+  get enabled(): boolean {
+    return this.isEnabled();
   }
 
   /** Reads the file header. A corrupt file leaves the vault locked and reports on unlock. */

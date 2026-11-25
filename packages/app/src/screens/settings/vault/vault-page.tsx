@@ -6,6 +6,7 @@ import { SettingsCard, SettingsRow } from "@/components/settings";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/i18n/use-translation";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { settingsStyles } from "@/styles/settings";
@@ -19,6 +20,8 @@ import { SecretsSection } from "./secrets-section";
 import {
   useVaultAction,
   useVaultAudit,
+  useVaultEnabled,
+  useVaultEnabledSetting,
   useVaultEnvCandidates,
   useVaultGrants,
   useVaultRequests,
@@ -29,6 +32,53 @@ import {
 } from "./use-vault";
 
 export function HostVaultPage({ serverId }: { serverId: string }) {
+  const { t } = useTranslation();
+  const connected = useHostRuntimeIsConnected(serverId);
+  const enabled = useVaultEnabled(serverId);
+  if (!connected) {
+    return (
+      <Alert
+        size="md"
+        variant="warning"
+        title={t("settings.vault.offlineTitle")}
+        description={t("settings.vault.offlineDescription")}
+      />
+    );
+  }
+  if (enabled === null) return <Alert size="sm" title={t("settings.vault.loading")} />;
+  return (
+    <View>
+      <VaultEnabledSwitch serverId={serverId} enabled={enabled} />
+      {enabled ? <EnabledVaultPage serverId={serverId} /> : null}
+    </View>
+  );
+}
+
+function VaultEnabledSwitch({ serverId, enabled }: { serverId: string; enabled: boolean }) {
+  const { t } = useTranslation();
+  const { error, pending, setEnabled } = useVaultEnabledSetting(serverId);
+  return (
+    <View style={styles.stack}>
+      <SettingsCard>
+        <SettingsRow
+          label={t("settings.vault.enable")}
+          hint={enabled ? t("settings.vault.enabledHint") : t("settings.vault.disabledHint")}
+          error={error ? vaultErrorMessage(error) : undefined}
+        >
+          <Switch
+            value={enabled}
+            disabled={pending}
+            onValueChange={setEnabled}
+            accessibilityLabel={t("settings.vault.enable")}
+            testID="vault-enabled-switch"
+          />
+        </SettingsRow>
+      </SettingsCard>
+    </View>
+  );
+}
+
+function EnabledVaultPage({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   useVaultSync(serverId);
   const connected = useHostRuntimeIsConnected(serverId);
