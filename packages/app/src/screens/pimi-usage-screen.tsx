@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "@/i18n/use-translation";
 import { ScrollView, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { BackHeader } from "@/components/headers/back-header";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
@@ -25,16 +24,7 @@ import { isPimiAndroid } from "@/utils/pimi-mobile";
 type UsageTab = "overview" | "limits" | "sessions" | "recap";
 const PIMI_BACKGROUND = { "pimi-background": "" };
 
-/**
- * Settings renders this screen for one host: `hostServerId` pins the host and replaces the picker,
- * the close button goes away, and `onBack` swaps the titlebar for a back header on compact.
- */
-interface PimiUsageScreenProps {
-  hostServerId?: string;
-  onBack?: () => void;
-}
-
-export function PimiUsageScreen({ hostServerId, onBack }: PimiUsageScreenProps = {}) {
+export function PimiUsageScreen() {
   const focused = useIsFocused();
   const covered = usePimiWorkspaceSection() !== null;
   const { t } = useTranslation();
@@ -49,13 +39,12 @@ export function PimiUsageScreen({ hostServerId, onBack }: PimiUsageScreenProps =
     [t],
   );
   const close = useMemo(
-    () =>
-      hostServerId ? undefined : (
-        <ToolbarButton label={t("usageOverview.close")} onPress={closePimiUsage}>
-          <DensityIcon icon={X} size="sm" color="foregroundMuted" />
-        </ToolbarButton>
-      ),
-    [t, hostServerId],
+    () => (
+      <ToolbarButton label={t("usageOverview.close")} onPress={closePimiUsage}>
+        <DensityIcon icon={X} size="sm" color="foregroundMuted" />
+      </ToolbarButton>
+    ),
+    [t],
   );
   const {
     tab: requestedTab,
@@ -84,15 +73,7 @@ export function PimiUsageScreen({ hostServerId, onBack }: PimiUsageScreenProps =
   if (!focused || covered) return <View style={styles.screen} />;
   return (
     <View style={styles.screen} dataSet={PIMI_BACKGROUND} testID="pimi-usage">
-      {onBack ? (
-        <BackHeader title={t("usageOverview.title")} onBack={onBack} />
-      ) : (
-        <MenuHeader
-          title={t("usageOverview.title")}
-          rightContent={close}
-          inPimiTitlebar={!hostServerId}
-        />
-      )}
+      <MenuHeader title={t("usageOverview.title")} rightContent={close} inPimiTitlebar />
       <View style={styles.toolbar}>
         <SegmentedControl options={visibleTabs} value={tab} onValueChange={setTab} />
       </View>
@@ -105,25 +86,16 @@ export function PimiUsageScreen({ hostServerId, onBack }: PimiUsageScreenProps =
           }
         />
       )}
-      {tab === "overview" && <OverviewTab pinnedServerId={hostServerId} />}
-      {tab === "limits" && <ProviderLimits pinnedServerId={hostServerId} />}
-      {tab === "recap" && <RecapTab pinnedServerId={hostServerId} />}
+      {tab === "overview" && <OverviewTab />}
+      {tab === "limits" && <ProviderLimits />}
+      {tab === "recap" && <RecapTab />}
     </View>
   );
 }
 
-/** The host a tab shows: the pinned one inside Settings, otherwise the saved pick. */
-function useTabHost(pinnedServerId: string | undefined) {
-  const selection = useUsageHostSelection();
-  if (pinnedServerId) return { serverId: pinnedServerId, connectedHosts: [], select: noSelect };
-  return selection;
-}
-
-function noSelect(): void {}
-
-function OverviewTab({ pinnedServerId }: { pinnedServerId?: string }) {
+function OverviewTab() {
   const { t } = useTranslation();
-  const { serverId } = useTabHost(pinnedServerId);
+  const { serverId } = useUsageHostSelection();
   return (
     <ScrollView style={styles.scroll}>
       <View style={styles.limits} testID="pimi-usage-overview">
@@ -137,16 +109,16 @@ function OverviewTab({ pinnedServerId }: { pinnedServerId?: string }) {
   );
 }
 
-function RecapTab({ pinnedServerId }: { pinnedServerId?: string }) {
+function RecapTab() {
   const { t } = useTranslation();
-  const { serverId } = useTabHost(pinnedServerId);
+  const { serverId } = useUsageHostSelection();
   if (!serverId) return <UsageMessage text={t("providerUsage.noHosts")} />;
   return <UsageRecap key={serverId} serverId={serverId} />;
 }
 
-function ProviderLimits({ pinnedServerId }: { pinnedServerId?: string }) {
+function ProviderLimits() {
   const { t } = useTranslation();
-  const { serverId, connectedHosts, select } = useTabHost(pinnedServerId);
+  const { serverId, connectedHosts, select } = useUsageHostSelection();
   return (
     <ScrollView style={styles.scroll}>
       <View style={styles.limits} testID="pimi-usage-limits">
