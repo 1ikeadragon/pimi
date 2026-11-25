@@ -79,9 +79,10 @@ const styles = StyleSheet.create((theme) => ({
 export function useHostUsageWithControls(hostSelection: UsageHostSelection): {
   view: UsageView;
   refresh: () => void;
+  refreshError: string | null;
   controls: ReactElement | null;
 } {
-  const { view, refresh } = useHostUsage(hostSelection.serverId);
+  const { view, refresh, refreshError } = useHostUsage(hostSelection.serverId);
   const hasControls = hasHostChoice(hostSelection) || view.kind !== "unavailable";
   const controls = useMemo(
     () =>
@@ -95,5 +96,5 @@ export function useHostUsageWithControls(hostSelection: UsageHostSelection): {
       ) : null,
     [hasControls, hostSelection, refresh, view],
   );
-  return { view, refresh, controls };
+  return { view, refresh, refreshError, controls };
 }

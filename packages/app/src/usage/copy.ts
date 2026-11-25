@@ -6,7 +6,7 @@ import { formatAgo } from "./format";
 // Messages for usage failures outside the UI. Rendered copy uses useTranslation.
 export const usageCopy = {
   problem: (problem: UsageProblem, now: Date = new Date(), t: TFunction = i18n.t): string => {
-    if (problem.kind === "no_quota") return problem.detail;
+    if (problem.kind === "no_quota" || problem.kind === "login_unreadable") return problem.detail;
     const remedy = problem.refreshedBy
       ? t("providerUsage.runToRefresh", { command: problem.refreshedBy })
       : t("providerUsage.signInAgain");

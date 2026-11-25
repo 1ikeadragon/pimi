@@ -36,6 +36,13 @@ export interface UsageSink {
   toolCall(row: UsageToolCallRow): void;
 }
 
+// What a parser could not use during one read. The scanner sums these per scan, so unreadable
+// input shows up in the scan summary instead of vanishing.
+export interface UsageParseDiagnostics {
+  malformedLines: number;
+  forkCopiesSuppressed: number;
+}
+
 // One parser instance reads one transcript file from a byte offset. `state` is what the next
 // incremental read of the same file needs to continue (for example the current model).
 export interface UsageLineParser {
@@ -46,6 +53,7 @@ export interface UsageLineParser {
   // Called once after the last line of a read, for output the parser held back.
   finish?(sink: UsageSink): void;
   state(): unknown;
+  diagnostics(): UsageParseDiagnostics;
 }
 
 export function toNumber(value: unknown): number {

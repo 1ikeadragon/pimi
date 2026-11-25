@@ -301,14 +301,33 @@ export function claudeKeychainAccount(
   return CLAUDE_KEYCHAIN_ACCOUNT_PATTERN.test(user) ? user : CLAUDE_KEYCHAIN_FALLBACK_ACCOUNT;
 }
 
+// `security` exits 44 (errSecItemNotFound) when the keychain has no such item. Every other failure
+// (a locked keychain, a denied prompt, the 2 s timeout) means the login may exist but cannot be
+// read, which is not the same as being signed out.
+const SECURITY_EXIT_ITEM_NOT_FOUND = 44;
+
+/** The keychain could not be read, as opposed to holding no Claude login. */
+export class ClaudeKeychainError extends Error {
+  constructor(reason: string, options?: ErrorOptions) {
+    super(`Could not read Claude's login from the macOS Keychain: ${reason}`, options);
+    this.name = "ClaudeKeychainError";
+  }
+}
+
 async function runSecurityCommand(args: string[]): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync("security", args, {
       timeout: CLAUDE_KEYCHAIN_TIMEOUT_MS,
     });
     return stdout.trim() || null;
-  } catch {
-    return null;
+  } catch (error) {
+    const failure = error as { code?: unknown; killed?: boolean; stderr?: unknown };
+    if (failure.code === SECURITY_EXIT_ITEM_NOT_FOUND) return null;
+    const stderr = typeof failure.stderr === "string" ? failure.stderr.trim().split("\n")[0] : "";
+    const reason = failure.killed
+      ? `timed out after ${CLAUDE_KEYCHAIN_TIMEOUT_MS} ms`
+      : `security exited with ${String(failure.code)}${stderr ? `: ${stderr}` : ""}`;
+    throw new ClaudeKeychainError(reason, { cause: error });
   }
 }
 
@@ -378,12 +397,20 @@ export async function discover(
     scope.kind === "global" ? await globalRoutes(lookup) : await sessionRoutes(scope, lookup);
   const accounts: UsageAccount[] = [];
   for (const input of candidates) {
-    const credentials = await resolveClaudeCredentials(input, lookup);
-    if (!credentials) continue;
     const harness = { pi: "Pi", omp: "OMP", claude: "Claude", keychain: "Claude" }[
       input.route.store
     ];
     const fallback = { key: hashAccountKey(JSON.stringify(input.route)), harness, input };
+    let credentials: ClaudeCredentialRecord | null;
+    try {
+      credentials = await resolveClaudeCredentials(input, lookup);
+    } catch (error) {
+      if (!(error instanceof ClaudeKeychainError)) throw error;
+      // The login may exist; fetching reports why it cannot be read instead of dropping the card.
+      accounts.push(fallback);
+      continue;
+    }
+    if (!credentials) continue;
     if (credentials.expires !== undefined && credentials.expires <= (lookup.now ?? Date.now)()) {
       accounts.push(fallback);
       continue;
@@ -420,9 +447,15 @@ function claudeKeychainRoute(lookup: ClaudeCredentialLookup) {
 
 async function claudeRoute(lookup: ClaudeCredentialLookup): Promise<UsageInput> {
   const route = claudeKeychainRoute(lookup);
-  return (await keychainCredentialRecord(lookup, route))
-    ? { route }
-    : { route: { store: "claude", path: claudeCredentialPath(lookup) } };
+  const file = { route: { store: "claude" as const, path: claudeCredentialPath(lookup) } };
+  try {
+    return (await keychainCredentialRecord(lookup, route)) ? { route } : file;
+  } catch (error) {
+    if (!(error instanceof ClaudeKeychainError)) throw error;
+    // An unreadable keychain may still hold the login; keep the card and let its fetch say why.
+    // A readable credentials file is the better route in the meantime.
+    return (await readCredentialFile(file.route.path)) ? file : { route };
+  }
 }
 
 async function globalRoutes(lookup: ClaudeCredentialLookup): Promise<UsageInput[]> {
@@ -491,6 +524,21 @@ function toCredentialRecord(credentials: ClaudeCredentials): ClaudeCredentialRec
     : null;
 }
 
+/** The login's credentials, or the report to show when the keychain holding them cannot be read. */
+async function loadCredentials(
+  input: UsageInput,
+  lookup: ClaudeCredentialLookup,
+): Promise<{ credentials: ClaudeCredentialRecord } | { report: UsageReport }> {
+  try {
+    const credentials = await resolveClaudeCredentials(input, lookup);
+    if (!credentials) throw new Error("Claude login store no longer exists");
+    return { credentials };
+  } catch (error) {
+    if (!(error instanceof ClaudeKeychainError)) throw error;
+    return { report: unavailable({ kind: "login_unreadable", detail: error.message }) };
+  }
+}
+
 export async function fetchUsage(
   input: UsageInput,
   fetchApi: typeof fetch = fetch,
@@ -552,8 +600,9 @@ export async function fetchUsage(
     return ClaudeUsageResponseSchema.parse(await res.json());
   }
 
-  const credentials = await resolveClaudeCredentials(input, credentialLookup);
-  if (!credentials) throw new Error("Claude login store no longer exists");
+  const login = await loadCredentials(input, credentialLookup);
+  if ("report" in login) return login.report;
+  const { credentials } = login;
   const refreshedBy =
     input.route.store === "claude" || input.route.store === "keychain"
       ? "claude"

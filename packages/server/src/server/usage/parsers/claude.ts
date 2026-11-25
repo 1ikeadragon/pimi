@@ -6,6 +6,7 @@ import {
   toNumber,
   type UsageEventRow,
   type UsageLineParser,
+  type UsageParseDiagnostics,
   type UsageSink,
 } from "../types.js";
 
@@ -91,14 +92,17 @@ function buildEvent(
 // never again in the parent.
 export function createClaudeParser(path: string): UsageLineParser {
   const fileId = path.includes("/subagents/") ? basename(path, ".jsonl") : null;
+  const diagnostics: UsageParseDiagnostics = { malformedLines: 0, forkCopiesSuppressed: 0 };
   return {
     needles: [Buffer.from('"type":"assistant"')],
     state: () => null,
+    diagnostics: () => diagnostics,
     handle(raw: string, sink: UsageSink): void {
       let line: unknown;
       try {
         line = JSON.parse(raw);
       } catch {
+        diagnostics.malformedLines += 1;
         return;
       }
       if (!isRecord(line) || line.type !== "assistant") return;

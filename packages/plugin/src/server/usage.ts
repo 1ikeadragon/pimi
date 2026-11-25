@@ -41,18 +41,32 @@ export interface UsageDetail {
 export type UsageProblem =
   | { kind: "expired"; expiresAt: string; refreshedBy?: string }
   | { kind: "rejected"; status: number; refreshedBy?: string }
-  | { kind: "no_quota"; detail: string };
+  | { kind: "no_quota"; detail: string }
+  | { kind: "login_unreadable"; detail: string };
+
+export interface AvailableUsageReport {
+  status: "available";
+  planLabel?: string;
+  windows: UsageWindow[];
+  balances?: UsageBalance[];
+  details?: UsageDetail[];
+}
+
+/**
+ * Numbers recorded earlier by something other than a live fetch, offered with a failed report. The
+ * app shows them with `capturedAt` and `origin`, never as the current state.
+ */
+export interface UsageSnapshot {
+  capturedAt: string;
+  /** Where the numbers came from, e.g. "last Codex session". */
+  origin: string;
+  report: AvailableUsageReport;
+}
 
 export type UsageReport =
-  | {
-      status: "available";
-      planLabel?: string;
-      windows: UsageWindow[];
-      balances?: UsageBalance[];
-      details?: UsageDetail[];
-    }
-  | { status: "unavailable"; problem: UsageProblem }
-  | { status: "error"; error: string };
+  | AvailableUsageReport
+  | { status: "unavailable"; problem: UsageProblem; snapshot?: UsageSnapshot }
+  | { status: "error"; error: string; snapshot?: UsageSnapshot };
 
 export interface UsageAccount {
   /** Stable across token rotation; [A-Za-z0-9._-]{1,128}. Never a credential or raw email. */
@@ -199,6 +213,8 @@ export function hashAccountKey(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-export function unavailable(problem: UsageProblem): UsageReport {
+export function unavailable(
+  problem: UsageProblem,
+): Extract<UsageReport, { status: "unavailable" }> {
   return { status: "unavailable", problem };
 }

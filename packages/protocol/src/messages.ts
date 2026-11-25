@@ -7432,6 +7432,8 @@ export const UsageProblemSchema = z.discriminatedUnion("kind", [
     refreshedBy: z.string().optional(),
   }),
   z.object({ kind: z.literal("no_quota"), detail: z.string() }),
+  // A login exists but its credentials could not be read (a locked keychain, a bad file).
+  z.object({ kind: z.literal("login_unreadable"), detail: z.string() }),
 ]);
 const AvailableUsageReportSchema = z.object({
   status: z.literal("available"),
@@ -7440,10 +7442,27 @@ const AvailableUsageReportSchema = z.object({
   balances: z.array(ProviderUsageBalanceSchema).optional(),
   details: z.array(ProviderUsageDetailSchema).optional(),
 });
+// Numbers recorded earlier by something other than a live fetch, such as the last Codex session's
+// own rate-limit readings. Always shown with `capturedAt`, never as the current state.
+export const UsageSnapshotSchema = z.object({
+  capturedAt: z.iso.datetime(),
+  origin: z.string(),
+  report: AvailableUsageReportSchema,
+});
+const UnavailableUsageReportSchema = z.object({
+  status: z.literal("unavailable"),
+  problem: UsageProblemSchema,
+  snapshot: UsageSnapshotSchema.optional(),
+});
+const ErrorUsageReportSchema = z.object({
+  status: z.literal("error"),
+  error: z.string(),
+  snapshot: UsageSnapshotSchema.optional(),
+});
 export const UsageReportSchema = z.discriminatedUnion("status", [
   AvailableUsageReportSchema,
-  z.object({ status: z.literal("unavailable"), problem: UsageProblemSchema }),
-  z.object({ status: z.literal("error"), error: z.string() }),
+  UnavailableUsageReportSchema,
+  ErrorUsageReportSchema,
 ]);
 export const UsageReportEntrySchema = z.object({
   id: z.string(),
@@ -7455,16 +7474,22 @@ export const UsageReportEntrySchema = z.object({
   report: UsageReportSchema,
   // Successful completion time; fetchedAt remains the attempt timestamp for ordering.
   successfulAt: z.string().optional(),
+  // The numbers behind a failed card, with when they were recorded. `origin` is set when they were
+  // read from a local record (the last Codex session) rather than fetched live.
   lastSuccessful: z
-    .object({ fetchedAt: z.string(), report: AvailableUsageReportSchema })
+    .object({
+      fetchedAt: z.string(),
+      report: AvailableUsageReportSchema,
+      origin: z.string().optional(),
+    })
     .optional(),
   loginErrors: z
     .array(
       z.object({
         harness: z.string(),
         report: z.discriminatedUnion("status", [
-          z.object({ status: z.literal("unavailable"), problem: UsageProblemSchema }),
-          z.object({ status: z.literal("error"), error: z.string() }),
+          UnavailableUsageReportSchema,
+          ErrorUsageReportSchema,
         ]),
       }),
     )
@@ -7508,6 +7533,37 @@ export const UsageBreakdownRowSchema = z.object({
   label: z.string(),
   usage: UsageAggregateSchema,
 });
+// What the last transcript scan could and could not read, so a gap in the numbers has a visible
+// cause. Counts cover that one scan; files it skipped as unchanged are not in them.
+export const UsageScanReportSchema = z.object({
+  // Epoch ms the scan ended.
+  finishedAt: z.number(),
+  // Set when the scan itself failed; the counts below are then zero.
+  error: z.string().nullable(),
+  files: z.number(),
+  filesRead: z.number(),
+  bytesRead: z.number(),
+  events: z.number(),
+  durationMs: z.number(),
+  roots: z.array(
+    z.object({
+      path: z.string(),
+      provider: z.string(),
+      // "missing" is a login the user never made; only "unreadable" is a problem.
+      status: z.enum(["ok", "missing", "unreadable"]),
+      error: z.string().nullable(),
+    }),
+  ),
+  // The first failures, capped; `failedFilesDropped` counts the rest.
+  failedFiles: z.array(z.object({ path: z.string(), error: z.string() })),
+  failedFilesDropped: z.number(),
+  // Lines that matched a usage record but were not valid JSON.
+  malformedLines: z.number(),
+  // Lines over the size limit that were skipped unread.
+  oversizeLines: z.number(),
+  // Codex events copied into a forked chat from its source, skipped to avoid counting them twice.
+  forkCopiesSuppressed: z.number(),
+});
 export const UsageGetSummaryResponseMessageSchema = z.object({
   type: z.literal("usage.get_summary.response"),
   payload: z.object({
@@ -7523,6 +7579,8 @@ export const UsageGetSummaryResponseMessageSchema = z.object({
           z.object({ day: z.string(), total: z.number(), costUsd: z.number().nullable() }),
         ),
         scanning: z.boolean(),
+        // Null until the first scan since the daemon started has finished.
+        scan: UsageScanReportSchema.nullable(),
       })
       .nullable(),
   }),
@@ -7541,6 +7599,7 @@ export const UsageGetBreakdownResponseMessageSchema = z.object({
         rows: z.array(UsageBreakdownRowSchema),
         firstEventAt: z.number().nullable(),
         scanning: z.boolean(),
+        scan: UsageScanReportSchema.nullable(),
       })
       .nullable(),
   }),
@@ -7582,8 +7641,8 @@ export const UsageRescanResponseMessageSchema = z.object({
   payload: z.object({
     requestId: z.string(),
     error: z.string().nullable(),
-    events: z.number(),
-    filesRead: z.number(),
+    // Null when the request itself failed before a scan ran; a scan that failed carries its error.
+    scan: UsageScanReportSchema.nullable(),
   }),
 });
 
@@ -8482,6 +8541,7 @@ export type UsageListReportsResponseMessage = z.infer<typeof UsageListReportsRes
 export type UsageRange = z.infer<typeof UsageRangeSchema>;
 export type UsageGroupBy = z.infer<typeof UsageGroupBySchema>;
 export type UsageAggregate = z.infer<typeof UsageAggregateSchema>;
+export type UsageScanReport = z.infer<typeof UsageScanReportSchema>;
 export type UsageBreakdownRow = z.infer<typeof UsageBreakdownRowSchema>;
 export type UsageAgentTreeChat = z.infer<typeof UsageAgentTreeChatSchema>;
 export type UsageAgentTreeSubagent = z.infer<typeof UsageAgentTreeSubagentSchema>;

@@ -113,3 +113,18 @@ export function buildDetectedProviderOverrides(input: {
   }
   return overrides;
 }
+
+/**
+ * The config directories the providers launch with, for reading what they wrote there. Only
+ * providers built on Claude or Codex have one, and only when the launch environment names it: a
+ * provider that leaves it unset uses the default home directory, which is scanned anyway.
+ */
+export function launchConfigDirs(
+  scopes: ReadonlyArray<{ baseProvider: string; env: Record<string, string> }>,
+): Array<{ provider: "claude" | "codex"; dir: string }> {
+  return scopes.flatMap(({ baseProvider, env }) => {
+    const harness = HARNESSES.find((candidate) => candidate.provider === baseProvider);
+    const dir = harness ? env[harness.envKey]?.trim() : undefined;
+    return harness && dir ? [{ provider: harness.provider, dir: resolve(dir) }] : [];
+  });
+}

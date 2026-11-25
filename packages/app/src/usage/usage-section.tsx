@@ -14,11 +14,13 @@ export function UsageBody({
   serverId,
   view,
   display,
+  refreshError,
   onRefresh,
 }: {
   serverId: string;
   view: UsageView;
   display: UsageDisplay;
+  refreshError: string | null;
   onRefresh: () => void;
 }) {
   const { t } = useTranslation();
@@ -54,11 +56,30 @@ export function UsageBody({
     );
   }
 
+  // The failed refresh keeps the reports already on screen, so the failure sits above them.
+  const failure = refreshError ? (
+    <Alert
+      size="sm"
+      variant="error"
+      title={t("providerUsage.refreshFailed")}
+      description={refreshError}
+    />
+  ) : null;
   if (view.reports.length === 0) {
-    return <UsageMessage text={t("providerUsage.empty")} />;
+    return (
+      <View>
+        {failure}
+        <UsageMessage text={t("providerUsage.empty")} />
+      </View>
+    );
   }
 
-  return <UsageList serverId={serverId} reports={view.reports} display={display} />;
+  return (
+    <View>
+      {failure}
+      <UsageList serverId={serverId} reports={view.reports} display={display} />
+    </View>
+  );
 }
 
 export function UsageMessage({ text }: { text: string }) {
