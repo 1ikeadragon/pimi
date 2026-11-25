@@ -2,6 +2,12 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.76 - 2026-11-26
+
+- Settings is reorganized: This device, then the host's Agents, Security, Workspace and This host groups. Vault sits first under Security and its row shows Off, Locked, Unlocked or how many requests wait; the chat menu always has a Vault item. Search now covers every page, and opening a result no longer stacks screens, so Back leaves Settings. Desktop is now Notifications, Usage left Settings (it keeps its own screen), and a new Trust & access page gathers browser tools, package updates and agent access.
+- Vault: turning it on is one card. An agent's command waits instead of failing when the vault is locked, the command needs approval, or Bitwarden values aren't loaded; one card above the composer unlocks, approves or loads them, and you get a notification. The vault locks itself after 15 idle minutes (configurable).
+- Vault: unlock with Touch ID on the Mac, or Face ID or fingerprint on the phone (both opt-in). Bitwarden asks for the master password once, syncs, and lets you search items to bind. Import secrets by pasting .env lines or from a Passwords app CSV export; Apple Passwords can't be read live.
+
 ## 0.17.75 - 2026-11-25
 
 - Background shells show their output. Open a job in the Background work panel, or its launching row in the chat, to watch it live; when it ends the chat gets a row with its final output. Works for Claude Code and OpenCode.
