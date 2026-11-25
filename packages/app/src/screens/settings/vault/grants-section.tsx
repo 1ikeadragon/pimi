@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useTranslation } from "@/i18n/use-translation";
 import { settingsStyles } from "@/styles/settings";
+import { formatArgv } from "./format-argv";
 import { useVaultAction, vaultErrorMessage } from "./use-vault";
 
 interface GrantsSectionProps {
@@ -64,7 +65,7 @@ function GrantRow({
 }) {
   const { t } = useTranslation();
   const remove = useCallback(() => onRemove(grant.id), [grant.id, onRemove]);
-  const command = [grant.executable, ...grant.argvPrefix].join(" ");
+  const command = formatArgv([grant.executable, ...grant.argvPrefix]);
   const anyArguments = grant.argvPrefix.length === 0;
   const secrets = grant.bindings
     .map((binding) => `${binding.secret} → ${binding.envName}`)

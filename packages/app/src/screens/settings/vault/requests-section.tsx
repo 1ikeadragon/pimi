@@ -11,6 +11,7 @@ import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/i18n/use-translation";
 import { settingsStyles } from "@/styles/settings";
+import { formatArgv } from "./format-argv";
 import { useVaultAction, vaultErrorMessage } from "./use-vault";
 
 interface RequestsSectionProps {
@@ -80,11 +81,11 @@ function RequestRow({ request, operator, pending, onResolve }: RequestRowProps) 
   const deny = useCallback(() => decide("deny"), [decide]);
   const once = useCallback(() => decide("once"), [decide]);
   const always = useCallback(() => decide("always"), [decide]);
-  const fixedPart = [request.argv[0], ...args.slice(0, prefixLength)].join(" ");
+  const fixedPart = formatArgv([request.argv[0], ...args.slice(0, prefixLength)]);
   return (
     <View style={styles.row} testID={`vault-request-${request.id}`}>
       <Text style={styles.command} selectable>
-        {request.argv.join(" ")}
+        {formatArgv(request.argv)}
       </Text>
       <Text style={settingsStyles.rowHint}>
         {t("settings.vault.requests.detail", {
