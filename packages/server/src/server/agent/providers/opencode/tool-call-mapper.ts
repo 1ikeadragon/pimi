@@ -36,6 +36,17 @@ function withShellExitCode(
   return typeof exit === "number" && Number.isFinite(exit) ? { ...detail, exitCode: exit } : detail;
 }
 
+// A shell tool that returns while its shell still runs leaves a background shell behind; the
+// shell's id is the background work item's id.
+function withBackgroundShellId(
+  detail: ToolCallDetail,
+  metadata: Record<string, unknown> | undefined,
+): ToolCallDetail {
+  if (detail.type !== "shell" || metadata?.status !== "running") return detail;
+  const shellId = metadata.shellID;
+  return typeof shellId === "string" ? { ...detail, backgroundId: shellId } : detail;
+}
+
 export function mapOpencodeToolCall(params: OpencodeToolCallParams): ToolCallTimelineItem | null {
   const parsed = OpencodeRawToolCallSchema.safeParse(params);
   if (!parsed.success) {
@@ -53,10 +64,12 @@ export function mapOpencodeToolCall(params: OpencodeToolCallParams): ToolCallTim
   const error = raw.error ?? null;
   const rawStatus = typeof raw.status === "string" ? raw.status : undefined;
   const status = normalizeToolCallStatus(rawStatus, error, output);
-  const detail = withShellExitCode(
+  const shellDetail = withShellExitCode(
     deriveOpencodeToolDetail(name, input, output, raw.metadata),
     raw.metadata,
   );
+  const detail =
+    status === "completed" ? withBackgroundShellId(shellDetail, raw.metadata) : shellDetail;
 
   if (status === "failed") {
     return {

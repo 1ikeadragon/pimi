@@ -516,6 +516,9 @@ export class OpenCodeV2Session implements AgentSession {
   stopBackgroundWork(id: string) {
     return this.background.stopItem(id);
   }
+  readBackgroundWorkOutput(id: string, cursor: number | null) {
+    return this.background.readOutput(id, cursor);
+  }
   interrupt() {
     return this.turns.interrupt();
   }

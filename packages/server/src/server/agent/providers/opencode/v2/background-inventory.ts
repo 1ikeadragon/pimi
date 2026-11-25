@@ -2,6 +2,10 @@ import type { OpenCodeEvent, SessionMessageInfo, ShellInfo } from "@opencode/cli
 import type { AgentStreamEvent } from "../../../agent-sdk-types.js";
 import type { V2Api } from "./api.js";
 import { messages } from "./history.js";
+import {
+  BACKGROUND_OUTPUT_PAGE_LIMIT,
+  type BackgroundWorkOutputPage,
+} from "../../../background-work/output.js";
 
 type InventoryEvent = Extract<AgentStreamEvent, { type: "background_work" }>;
 type RelevantEvent = Extract<
@@ -76,6 +80,32 @@ export class OpenCodeBackgroundInventory {
       this.refresh();
     });
   }
+  /** One page of a shell's output; only shells of this session are readable. */
+  async readOutput(id: string, cursor: number | null): Promise<BackgroundWorkOutputPage> {
+    const client = this.client;
+    if (!client) throw new Error("Background shell is no longer available");
+    const location = { directory: this.cwd };
+    const shell = await client.shell.get({ id, location });
+    if (shell.data.metadata.sessionID !== this.id)
+      throw new Error("Background shell is no longer available");
+    let from = cursor ?? 0;
+    let page = (
+      await client.shell.output({ id, location, cursor: from, limit: BACKGROUND_OUTPUT_PAGE_LIMIT })
+    ).data;
+    const behind = page.size - from > BACKGROUND_OUTPUT_PAGE_LIMIT;
+    if (behind) {
+      from = page.size - BACKGROUND_OUTPUT_PAGE_LIMIT;
+      page = (
+        await client.shell.output({
+          id,
+          location,
+          cursor: from,
+          limit: BACKGROUND_OUTPUT_PAGE_LIMIT,
+        })
+      ).data;
+    }
+    return { output: page.output, cursor: page.cursor, skipped: behind };
+  }
   private notify() {
     for (const listener of this.listeners) listener();
   }
@@ -129,6 +159,7 @@ export class OpenCodeBackgroundInventory {
         kind: item.kind,
         description: item.description,
         ...(item.command ? { command: item.command } : {}),
+        ...(item.hasOutput ? { hasOutput: true } : {}),
       }));
       this.current = { type: "background_work", provider: "opencode", items };
       this.emit(this.current);
@@ -300,6 +331,7 @@ export class OpenCodeBackgroundInventory {
           description: this.descriptions.get(shell.id) ?? null,
           command: shell.command || undefined,
           canStop: true,
+          hasOutput: true,
         })),
     };
     this.emit(this.current);
