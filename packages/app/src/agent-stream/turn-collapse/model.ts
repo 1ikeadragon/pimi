@@ -8,6 +8,7 @@ import {
 import { summarizeToolCalls, type OverviewSummary } from "@/tool-calls/detail-level/overview/model";
 import { readPimiDelegationToolCall } from "@/utils/pimi-delegation";
 import { isPimiActionTool, isPimiPermissionResponseTool } from "@pimi/protocol/pimi-task";
+import { resolvePimiToolLeaf } from "@pimi/protocol/pimi-tool-presentation/index";
 
 export interface TurnSummary {
   tools: OverviewSummary;
@@ -106,10 +107,15 @@ function staysVisibleWhenCollapsed(item: StreamItem): boolean {
     item.kind === "assistant_images" ||
     // Another agent decided for this one; that must not fold away with the turn's own work.
     (item.kind === "notification" && item.permissionResolution !== undefined) ||
+    // The daemon's offer to review what the turn changed is the turn's outcome, not its work.
+    (item.kind === "notification" && item.reviewSuggestion !== undefined) ||
     (item.kind === "tool_call" &&
       item.payload.source === "agent" &&
       item.payload.data.status === "completed" &&
-      (isPimiActionTool(item.payload.data.name) ||
+      (isPimiActionTool(
+        resolvePimiToolLeaf(item.payload.data.name, item.payload.data.detail) ??
+          item.payload.data.name,
+      ) ||
         // The other half of a permission note: this agent decided for another one.
         isPimiPermissionResponseTool(item.payload.data.name) ||
         readPimiDelegationToolCall(item.payload.data) !== null))

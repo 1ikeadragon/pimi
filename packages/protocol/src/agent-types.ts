@@ -1,5 +1,6 @@
 import type { AgentMessage } from "./agent-message.js";
 import type { AgentAttachment } from "./messages.js";
+import type { PimiReviewSummary } from "./pimi-task.js";
 
 export type AgentProvider = string;
 
@@ -474,6 +475,21 @@ export interface AgentPermissionResolutionMarker {
   resolvedBy: { agentId: string; title: string };
 }
 
+/**
+ * Offers the user Review on a checkout a turn changed. The daemon writes it once the turn ends,
+ * so it appears whether or not the agent suggested a review itself.
+ */
+export interface AgentReviewSuggestionMarker {
+  /** The Git checkout folder Review opens. */
+  path: string;
+  branch: string | null;
+  /** The branch the changes are compared against. */
+  baseRef: string | null;
+  /** `null` when the checkout's diff size is not known. */
+  stats: PimiReviewSummary | null;
+  origin: { agentId: string };
+}
+
 export interface AgentTaskItem {
   text: string;
   completed: boolean;
@@ -506,6 +522,7 @@ export type AgentTimelineItem =
       providerSwitch?: AgentProviderSwitchMarker;
       handoff?: AgentHandoffMarker;
       permissionResolution?: AgentPermissionResolutionMarker;
+      reviewSuggestion?: AgentReviewSuggestionMarker;
     }
   | CompactionTimelineItem
   | PluginTimelineItem;

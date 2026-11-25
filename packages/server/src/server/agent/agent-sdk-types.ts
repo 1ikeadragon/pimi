@@ -7,6 +7,7 @@ import type {
   AgentPermissionResolutionMarker,
   AgentProviderNotice,
   AgentHandoffMarker,
+  AgentReviewSuggestionMarker,
   AgentProviderSwitchMarker,
   AgentTaskItem,
   AgentTurnLimit,
@@ -426,6 +427,7 @@ export type AgentTimelineItem =
       providerSwitch?: AgentProviderSwitchMarker;
       handoff?: AgentHandoffMarker;
       permissionResolution?: AgentPermissionResolutionMarker;
+      reviewSuggestion?: AgentReviewSuggestionMarker;
     }
   | CompactionTimelineItem
   | PluginTimelineItem;

@@ -6002,7 +6002,8 @@ export class Session {
     let diffStat: { additions: number; deletions: number } | null = null;
     const snapshot = this.workspaceRuntimeStore.get(workspace.cwd);
     if (snapshot?.git.diffStat) {
-      diffStat = snapshot.git.diffStat;
+      const { additions, deletions } = snapshot.git.diffStat;
+      diffStat = { additions, deletions };
     }
 
     const worktreeSlug =
@@ -6089,7 +6090,9 @@ export class Session {
     return {
       ...base,
       name: resolveWorkspaceName({ title: workspace.title, derivedDisplayName: displayName }),
-      diffStat: snapshot.git.diffStat ?? null,
+      diffStat: snapshot.git.diffStat
+        ? { additions: snapshot.git.diffStat.additions, deletions: snapshot.git.diffStat.deletions }
+        : null,
       gitRuntime: this.buildWorkspaceGitRuntimePayload(snapshot) ?? undefined,
       githubRuntime: this.buildWorkspaceGitHubRuntimePayload(snapshot),
       // Reuse the forge already resolved on the snapshot (probe-aware; GitHub-only

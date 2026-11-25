@@ -144,6 +144,7 @@ import { LabelService } from "./labels/service.js";
 import { migrateWorkspaceLabels } from "./labels/migrate.js";
 import { TaskService } from "./task/service.js";
 import { ActionItemsService } from "./action-items/service.js";
+import { ReviewSuggestionService } from "./review-suggestion/service.js";
 import { generateActionItemChanges } from "./action-items/generate.js";
 import { describeTask } from "./task/describe.js";
 import { RecapService } from "./recap/service.js";
@@ -1826,6 +1827,13 @@ export async function createPimiDaemon(
       }),
   });
   await actionItemsService.start();
+  const reviewSuggestionService = new ReviewSuggestionService({
+    logger,
+    agentManager,
+    workspaceRegistry,
+    workspaceGitService,
+  });
+  reviewSuggestionService.start();
   const recapService = new RecapService({
     sources: {
       pimiDatabase,
@@ -2482,6 +2490,7 @@ export async function createPimiDaemon(
     await speechService.stop();
     unsubscribeTaskCleanup();
     actionItemsService.stop();
+    reviewSuggestionService.stop();
     await automationService.stop().catch(() => undefined);
     await flowService.stop().catch(() => undefined);
     await heartbeatService.stop().catch(() => undefined);

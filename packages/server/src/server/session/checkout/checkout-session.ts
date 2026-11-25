@@ -23,6 +23,7 @@ import type {
 } from "../../messages.js";
 import type {
   CheckoutDiffSnapshotPayload,
+  CheckoutDiffListener,
   CheckoutDiffSubscription,
   CheckoutDiffSubscriptionRequest,
 } from "../../checkout-diff-manager.js";
@@ -106,7 +107,7 @@ export interface CheckoutDiffSubscriber {
   ): Promise<CheckoutDiffSnapshotPayload>;
   subscribe(
     params: CheckoutDiffSubscriptionRequest,
-    listener: (snapshot: CheckoutDiffSnapshotPayload) => void,
+    listener: CheckoutDiffListener,
   ): Promise<CheckoutDiffSubscription>;
   scheduleRefreshForCwd(cwd: string): void;
 }
@@ -527,7 +528,10 @@ export class CheckoutSession {
       );
     });
     let ready = false;
-    let pending: CheckoutDiffSnapshotPayload | null = null;
+    // Updates that arrive before the response is sent; a property, so the closure's writes stay visible below.
+    const early: {
+      pending: { snapshot: CheckoutDiffSnapshotPayload; fingerprint: string } | null;
+    } = { pending: null };
     const emitSnapshot = (snapshot: CheckoutDiffSnapshotPayload) =>
       owner.emit({
         type: "checkout_diff_update",
@@ -536,10 +540,10 @@ export class CheckoutSession {
     try {
       bootstrap = this.checkoutDiffManager.subscribe(
         { cwd: expandTilde(msg.cwd), compare: msg.compare, signal: owner.signal },
-        (snapshot) => {
+        (snapshot, fingerprint) => {
           if (owner.signal.aborted) return;
           if (ready) emitSnapshot(snapshot);
-          else pending = snapshot;
+          else early.pending = { snapshot, fingerprint };
         },
       );
       const subscription = await bootstrap;
@@ -558,7 +562,10 @@ export class CheckoutSession {
       ready = true;
       // A refresh that finished while the subscription opened is the initial snapshot again
       // unless the tree changed since; sending it twice costs a second multi-megabyte frame.
-      if (pending && !isSameDiffSnapshot(pending, subscription.initial)) emitSnapshot(pending);
+      const { pending } = early;
+      if (pending && pending.fingerprint !== subscription.initialFingerprint) {
+        emitSnapshot(pending.snapshot);
+      }
     } catch (error) {
       await owner.release();
       throw error;
@@ -1503,11 +1510,4 @@ function toPullRequestTimelinePayloadItem(
   item: PullRequestTimelineItem,
 ): PullRequestTimelinePayloadItem {
   return item;
-}
-
-function isSameDiffSnapshot(
-  left: CheckoutDiffSnapshotPayload,
-  right: CheckoutDiffSnapshotPayload,
-): boolean {
-  return left === right || JSON.stringify(left) === JSON.stringify(right);
 }

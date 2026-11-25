@@ -658,6 +658,10 @@ export const en = {
       handoffExcerpt: "Recent history sent",
       handoffVerbatim: "Full history sent",
     },
+    reviewSuggestion: {
+      title: "Suggested review",
+      open: "Open Review",
+    },
     empty: "Start chatting with this agent...",
     scrollToBottom: "Scroll to bottom",
     historyLoadFailed: "Couldn't load agent history",

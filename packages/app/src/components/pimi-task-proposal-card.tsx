@@ -2,9 +2,10 @@ import { Button } from "@/components/ui/button";
 import { checkoutReviewSource, openPimiReview } from "@/navigation/pimi-review";
 import { useTranslation } from "@/i18n/use-translation";
 import { pushPimiTask } from "@/navigation/pimi-tasks";
+import type { AgentReviewSuggestionMarker } from "@pimi/protocol/agent-types";
 import { PimiReviewSuggestionResult, type PimiReviewSuggestion } from "@pimi/protocol/pimi-task";
 import { TaskStatusSchema } from "@pimi/protocol/task/types";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { z, type ZodType } from "zod";
@@ -76,6 +77,7 @@ export function readPimiReviewSuggestion(output: unknown): PimiReviewSuggestion 
 }
 
 export function PimiReviewSuggestionCard({ suggestion }: { suggestion: PimiReviewSuggestion }) {
+  const { t } = useTranslation();
   const openReview = useCallback(
     () =>
       openPimiReview(
@@ -86,14 +88,29 @@ export function PimiReviewSuggestionCard({ suggestion }: { suggestion: PimiRevie
   return (
     <View style={styles.card} testID="pimi-review-suggestion">
       <Text accessibilityRole="header" style={styles.title}>
-        Suggested review
+        {t("agentStream.reviewSuggestion.title")}
       </Text>
       {suggestion.summary && <Text style={styles.brief}>{suggestion.summary}</Text>}
       <Button onPress={openReview} size="sm" style={styles.action}>
-        Open Review
+        {t("agentStream.reviewSuggestion.open")}
       </Button>
     </View>
   );
+}
+
+/** The card for the daemon's end-of-turn offer, which names the checkout and the agent that changed it. */
+export function PimiReviewSuggestionNotificationCard({
+  marker,
+  serverId,
+}: {
+  marker: AgentReviewSuggestionMarker;
+  serverId: string;
+}) {
+  const suggestion = useMemo(
+    () => ({ path: marker.path, source: { serverId, agentId: marker.origin.agentId } }),
+    [marker.path, marker.origin.agentId, serverId],
+  );
+  return <PimiReviewSuggestionCard suggestion={suggestion} />;
 }
 
 const styles = StyleSheet.create((theme) => ({

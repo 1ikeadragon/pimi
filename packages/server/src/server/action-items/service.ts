@@ -31,7 +31,7 @@ export class ActionItemsError extends Error {
 
 // A turn's end waits this long before the model call, so a queued follow-up prompt that starts
 // the next turn right away is read together with it.
-const SETTLE_MS = 2500;
+export const SETTLE_MS = 2500;
 // Text of new messages sent in one model call. More than this is read in further calls, in order.
 const CALL_CHARS = 24_000;
 // The share of a call's text budget the tool digest may use: a quarter, chosen so a chat that is
@@ -51,7 +51,7 @@ const EMPTY_USAGE: ActionItemsUsage = { runs: 0, inputTokens: 0, outputTokens: 0
 const NO_SMALL_MODEL =
   "This chat's provider has no small model. Choose a model for Action items in Settings.";
 
-interface ChatKind {
+export interface ChatKind {
   background?: boolean | undefined;
   internal?: boolean | undefined;
   labels: Record<string, string>;
@@ -59,7 +59,7 @@ interface ChatKind {
 
 // A top-level chat the user talks to: not a subagent, background agent, Pimi helper or automation
 // step. Heartbeats are checked separately, since they attach to a chat after it exists.
-function isUserChat(agent: ChatKind): boolean {
+export function isUserChat(agent: ChatKind): boolean {
   return (
     !agent.background &&
     !agent.internal &&
