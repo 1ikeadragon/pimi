@@ -981,6 +981,10 @@ export const en = {
         checkFailedTitle: "Couldn't check chat",
       },
     },
+    emptyState: {
+      directoryMissing: "This chat's folder is missing. Reload chat data before opening tabs.",
+      noTabs: "No tabs are available yet. Use New tab to create an agent or terminal.",
+    },
     hoverCard: {
       scriptsAccessibility: "Scripts",
       copyPath: "Copy path",
@@ -2297,6 +2301,8 @@ export const en = {
     openFolder: "Open folder in IDE",
     open: "Open",
     unsavedLayout: "Save your changes before switching layouts.",
+    openProject: "Open a project to use IDE Mode.",
+    modeSwitcher: "Layout mode",
     unreachable: "Could not open {{path}} in IDE",
     folderNotHomeRelative: "Enter an absolute path or one relative to this folder.",
   },

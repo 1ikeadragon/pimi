@@ -164,7 +164,21 @@ interface WorkspaceLayoutStore {
   sheetsByWorkspace: Record<string, readonly SheetTab[]>;
   layoutByWorkspace: Record<string, WorkspaceLayout>;
   workbenchByWorkspace: Record<string, WorkspaceWorkbench>;
+  /**
+   * The mode the window is in: Agent, IDE or Attack Mode belongs to the window, not to one chat.
+   * `null` until a chat has been shown (older saved layouts have none); the first chat shown then
+   * donates its own mode.
+   */
+  windowWorkbenchMode: WorkbenchMode | null;
+  /** A deliberate mode change: switches this chat and makes the mode the window's. */
   switchWorkbench: (workspaceKey: string, mode: WorkbenchMode) => "ok" | "unsaved" | "unavailable";
+  /** Records the window's mode without touching any chat, for a pick with no chat on screen. */
+  setWindowWorkbenchMode: (mode: WorkbenchMode) => void;
+  /**
+   * Brings a chat that is being shown to the window's mode. Chats the user is not looking at keep
+   * their own mode until they are shown, so a switch never rebuilds every retained chat at once.
+   */
+  followWindowWorkbench: (workspaceKey: string) => "ok" | "unsaved" | "unavailable";
   toggleWorkbenchChat: (workspaceKey: string) => "ok" | "unsaved" | "unavailable";
   /** Attack mode: collapses the findings pane (narrow windows show findings as an overlay) or restores it. */
   setAttackFindingsPaneHidden: (workspaceKey: string, hidden: boolean) => void;
@@ -267,7 +281,10 @@ interface WorkspaceFocusRestorationState {
 // Preserve four user-created split levels beneath that bookkeeping node.
 const MAX_TREE_DEPTH = 5;
 
-const WORKSPACE_LAYOUT_PERSIST_VERSION = 4;
+// COMPAT(window-workbench-mode): layouts saved before version 5 keep a mode per chat and no window
+// mode. They load with `windowWorkbenchMode` unset; the first chat shown donates its mode, which is
+// the chat the user was last looking at (the last-selected chat is not readable synchronously here).
+const WORKSPACE_LAYOUT_PERSIST_VERSION = 5;
 type WorkspaceLayoutPersistedState = z.infer<typeof WorkspaceLayoutPersistedStateSchema>;
 
 function replacePaneInNode(node: SplitNode, paneId: string, replacement: SplitPane): SplitNode {
@@ -699,6 +716,11 @@ function ensurePersistedExplorerSidebarPane(input: {
   };
 }
 
+/** IDE Mode's editor centre is "main" and may sit empty; no other mode has such a pane. */
+function emptyCenterPaneIdForMode(mode: WorkbenchMode | undefined): string | null {
+  return mode === "editor" ? DEFAULT_PANE_ID : null;
+}
+
 function getWorkbenchPlacement(
   state: WorkspaceLayoutStore,
   workspaceKey: string,
@@ -903,6 +925,24 @@ function resolveSheetPolicy(
  * The parent a newly opened tab links to. A sheet tab is not in the layout, so a target opened
  * from inside a sheet inherits that sheet's own parent instead.
  */
+/**
+ * The tab the user was looking at, for opens that arrive without a parent (deep links). Closing
+ * the opened tab then returns here instead of an arbitrary neighbour. A launcher is skipped: the
+ * opened tab replaces it, so it cannot be a parent.
+ */
+function resolveFocusedParentTabId(
+  state: Pick<WorkspaceLayoutStore, "layoutByWorkspace">,
+  workspaceKey: string,
+): string | null {
+  const layout = state.layoutByWorkspace[workspaceKey];
+  const pane = layout ? findPaneById(layout.root, layout.focusedPaneId) : null;
+  const tab =
+    layout && pane?.focusedTabId
+      ? collectAllTabs(layout.root).find((candidate) => candidate.tabId === pane.focusedTabId)
+      : null;
+  return tab && tab.target.kind !== "new_tab" ? tab.tabId : null;
+}
+
 function resolveOpenParentTabId(
   state: Pick<WorkspaceLayoutStore, "sheetsByWorkspace">,
   workspaceKey: string,
@@ -1086,6 +1126,7 @@ function restoreAgentIdSets(byWorkspace: Record<string, string[]> | undefined) {
 
 const PERSISTED_SLICES = [
   "layoutByWorkspace",
+  "windowWorkbenchMode",
   "workbenchByWorkspace",
   "pinnedAgentIdsByWorkspace",
   "hiddenAgentIdsByWorkspace",
@@ -1117,6 +1158,7 @@ function createPersistedStateProjection() {
     }
     const state: WorkspaceLayoutPersistedState = {
       layoutByWorkspace,
+      ...(source.windowWorkbenchMode ? { windowWorkbenchMode: source.windowWorkbenchMode } : {}),
       workbenchByWorkspace: source.workbenchByWorkspace,
       pinnedAgentIdsByWorkspace: serializeAgentIdSets(source.pinnedAgentIdsByWorkspace),
       hiddenAgentIdsByWorkspace: serializeAgentIdSets(source.hiddenAgentIdsByWorkspace),
@@ -1145,6 +1187,65 @@ function advancePanelRevision(
       [workspaceKey]: { ...revisions, [tabId]: (revisions[tabId] ?? 0) + 1 },
     },
   };
+}
+
+interface WorkbenchStoreAccess {
+  get: () => WorkspaceLayoutStore;
+  set: (partial: Partial<WorkspaceLayoutStore>) => void;
+  ids: WorkspaceLayoutIdSource;
+}
+
+/** Puts one chat's tree into `mode`. Callers decide whether that mode becomes the window's. */
+function applyWorkbench(
+  { get, set, ids }: WorkbenchStoreAccess,
+  workspaceKey: string,
+  mode: WorkbenchMode,
+): "ok" | "unsaved" | "unavailable" {
+  const state = get();
+  if (!workspaceKey || state.layoutMode !== "split-panes") return "unavailable";
+  const prior = state.workbenchByWorkspace[workspaceKey];
+  if ((prior?.mode ?? "agent") === mode) return "ok";
+  const layout = getWorkspaceLayout(state.layoutByWorkspace, workspaceKey);
+  if (
+    collectAllTabs(layout.root).some(
+      ({ tabId }) => getWorkspacePanelAttributes(workspaceKey, tabId).modified,
+    )
+  )
+    return "unsaved";
+  const current = {
+    layout,
+    explorerPaneId: resolveExplorerSidebarPaneId(
+      layout,
+      state.explorerSidebarPaneIdByWorkspace[workspaceKey],
+    ),
+    sidePaneId: state.sidePaneIdByWorkspace[workspaceKey] ?? null,
+  };
+  const template = prior?.alternates[mode];
+  let next: WorkbenchPreset;
+  if (template) next = restoreWorkbench(template, layout, mode);
+  else if (mode === "attack") next = createAttackWorkbench(current);
+  else next = createEditorWorkbench(current, ids);
+  const { [mode]: _showing, ...alternates } = prior?.alternates ?? {};
+  set({
+    ...withoutFocusRestoration(state, workspaceKey),
+    layoutByWorkspace: { ...state.layoutByWorkspace, [workspaceKey]: next.layout },
+    workbenchByWorkspace: {
+      ...state.workbenchByWorkspace,
+      [workspaceKey]: {
+        mode,
+        alternates: { ...alternates, [prior?.mode ?? "agent"]: current },
+      },
+    },
+    explorerSidebarPaneIdByWorkspace: {
+      ...state.explorerSidebarPaneIdByWorkspace,
+      [workspaceKey]: next.explorerPaneId,
+    },
+    sidePaneIdByWorkspace: {
+      ...state.sidePaneIdByWorkspace,
+      [workspaceKey]: next.sidePaneId,
+    },
+  });
+  return "ok";
 }
 
 export function createWorkspaceLayoutStore(
@@ -1192,59 +1293,38 @@ export function createWorkspaceLayoutStore(
               state.pendingOpenByWorkspace;
             return { pendingOpenByWorkspace };
           });
-          return get().openTab(pending);
+          return get().openTab({
+            ...pending,
+            parentTabId:
+              pending.parentTabId ?? resolveFocusedParentTabId(get(), workspaceKey) ?? undefined,
+          });
         },
         layoutMode: "split-panes",
         sheetsByWorkspace: {},
         focusRequest: null,
         layoutByWorkspace: {},
         workbenchByWorkspace: {},
-        switchWorkbench: (workspaceKey, mode) => {
+        windowWorkbenchMode: null,
+        setWindowWorkbenchMode: (mode) => {
+          set((state) =>
+            state.windowWorkbenchMode === mode ? state : { windowWorkbenchMode: mode },
+          );
+        },
+        followWindowWorkbench: (workspaceKey) => {
           const state = get();
           if (!workspaceKey || state.layoutMode !== "split-panes") return "unavailable";
-          const prior = state.workbenchByWorkspace[workspaceKey];
-          if ((prior?.mode ?? "agent") === mode) return "ok";
-          const layout = getWorkspaceLayout(state.layoutByWorkspace, workspaceKey);
-          if (
-            collectAllTabs(layout.root).some(
-              ({ tabId }) => getWorkspacePanelAttributes(workspaceKey, tabId).modified,
-            )
-          )
-            return "unsaved";
-          const current = {
-            layout,
-            explorerPaneId: resolveExplorerSidebarPaneId(
-              layout,
-              state.explorerSidebarPaneIdByWorkspace[workspaceKey],
-            ),
-            sidePaneId: state.sidePaneIdByWorkspace[workspaceKey] ?? null,
-          };
-          const template = prior?.alternates[mode];
-          let next: WorkbenchPreset;
-          if (template) next = restoreWorkbench(template, layout, mode);
-          else if (mode === "attack") next = createAttackWorkbench(current);
-          else next = createEditorWorkbench(current, ids);
-          const { [mode]: _showing, ...alternates } = prior?.alternates ?? {};
-          set({
-            ...withoutFocusRestoration(state, workspaceKey),
-            layoutByWorkspace: { ...state.layoutByWorkspace, [workspaceKey]: next.layout },
-            workbenchByWorkspace: {
-              ...state.workbenchByWorkspace,
-              [workspaceKey]: {
-                mode,
-                alternates: { ...alternates, [prior?.mode ?? "agent"]: current },
-              },
-            },
-            explorerSidebarPaneIdByWorkspace: {
-              ...state.explorerSidebarPaneIdByWorkspace,
-              [workspaceKey]: next.explorerPaneId,
-            },
-            sidePaneIdByWorkspace: {
-              ...state.sidePaneIdByWorkspace,
-              [workspaceKey]: next.sidePaneId,
-            },
-          });
-          return "ok";
+          const windowMode = state.windowWorkbenchMode;
+          if (windowMode === null) {
+            // First chat shown since the window mode was introduced: it donates its mode.
+            set({ windowWorkbenchMode: state.workbenchByWorkspace[workspaceKey]?.mode ?? "agent" });
+            return "ok";
+          }
+          return applyWorkbench({ get, set, ids }, workspaceKey, windowMode);
+        },
+        switchWorkbench: (workspaceKey, mode) => {
+          const result = applyWorkbench({ get, set, ids }, workspaceKey, mode);
+          if (result === "ok") get().setWindowWorkbenchMode(mode);
+          return result;
         },
         setAttackFindingsPaneHidden: (workspaceKey, hidden) => {
           set((state) => {
@@ -1659,11 +1739,18 @@ export function createWorkspaceLayoutStore(
               layout,
               state.explorerSidebarPaneIdByWorkspace[normalizedWorkspaceKey],
             );
+            const emptyCenterPaneId = emptyCenterPaneIdForMode(
+              state.workbenchByWorkspace[normalizedWorkspaceKey]?.mode,
+            );
             const closingPane = findPaneContainingTab(layout.root, normalizedTabId);
             const closingTab = collectAllTabs(layout.root).find(
               (tab) => tab.tabId === normalizedTabId,
             );
-            if (closingPane?.tabIds.length === 1 && closingTab?.target.kind === "new_tab") {
+            if (
+              closingPane?.tabIds.length === 1 &&
+              closingTab?.target.kind === "new_tab" &&
+              closingPane.id !== emptyCenterPaneId
+            ) {
               const nextLayout =
                 closingPane.id === explorerSidebarPaneId
                   ? setPaneHiddenInLayout({
@@ -1692,6 +1779,7 @@ export function createWorkspaceLayoutStore(
               layout,
               tabId: normalizedTabId,
               explorerSidebarPaneId,
+              emptyCenterPaneId,
             });
             const nextLayoutBeforeFocusNormalization =
               closedLayout &&
@@ -1855,6 +1943,34 @@ export function createWorkspaceLayoutStore(
             set(promoted?.patch ?? withoutSheet(next, normalizedWorkspaceKey, normalizedTabId));
             return promoted?.tabId ?? null;
           }
+          // IDE Mode keeps chats in the side pane. A chat picked from a launcher in the editor
+          // centre (or any pane that is not the side pane) opens there, and the launcher closes
+          // so the centre shows "Open file" again.
+          if (
+            get().workbenchByWorkspace[normalizedWorkspaceKey]?.mode === "editor" &&
+            isWorkbenchChatTarget(normalizedTarget)
+          ) {
+            const layout = getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey);
+            const pane = findPaneContainingTab(layout.root, normalizedTabId);
+            const explorerPaneId = resolveExplorerSidebarPaneId(
+              layout,
+              get().explorerSidebarPaneIdByWorkspace[normalizedWorkspaceKey],
+            );
+            const rememberedSidePaneId = get().sidePaneIdByWorkspace[normalizedWorkspaceKey];
+            if (pane && pane.id !== explorerPaneId && pane.id !== rememberedSidePaneId) {
+              const sidePaneId = get().ensureSidePane(normalizedWorkspaceKey, { focus: false });
+              if (sidePaneId && sidePaneId !== pane.id) {
+                get().closeTab(normalizedWorkspaceKey, normalizedTabId);
+                return get().openTab({
+                  workspaceKey: normalizedWorkspaceKey,
+                  target: normalizedTarget,
+                  intent: "new",
+                  placement: { mode: "pane", paneId: sidePaneId },
+                  state: tabState,
+                });
+              }
+            }
+          }
           const result = replaceTabTargetInLayout({
             layout: getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey),
             tabId: normalizedTabId,
@@ -1975,6 +2091,9 @@ export function createWorkspaceLayoutStore(
                   state.workbenchByWorkspace[normalizedWorkspaceKey]?.mode === "attack"
                     ? ATTACK_HOLDING_PANE_ID
                     : null,
+                emptyCenterPaneId: emptyCenterPaneIdForMode(
+                  state.workbenchByWorkspace[normalizedWorkspaceKey]?.mode,
+                ),
               },
               snapshot,
             );
@@ -2614,6 +2733,7 @@ export function createWorkspaceLayoutStore(
                 explorerSidebarPaneIdByWorkspace[workspaceKey],
               ),
               ids.createNodeId,
+              emptyCenterPaneIdForMode(result.data.workbenchByWorkspace?.[workspaceKey]?.mode),
             );
             const explorerSidebar = ensurePersistedExplorerSidebarPane({
               layout: restoredLayout,
@@ -2628,6 +2748,7 @@ export function createWorkspaceLayoutStore(
           return {
             ...currentState,
             layoutByWorkspace,
+            windowWorkbenchMode: result.data.windowWorkbenchMode ?? null,
             workbenchByWorkspace: result.data.workbenchByWorkspace ?? {},
             pinnedAgentIdsByWorkspace: restoreAgentIdSets(result.data.pinnedAgentIdsByWorkspace),
             hiddenAgentIdsByWorkspace: restoreAgentIdSets(result.data.hiddenAgentIdsByWorkspace),

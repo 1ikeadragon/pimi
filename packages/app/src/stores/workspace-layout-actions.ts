@@ -10,7 +10,7 @@ import {
   normalizeWorkspaceTabTarget,
   workspaceTabTargetsEqual,
 } from "@/workspace-tabs/identity";
-import { createNewWorkspaceTab } from "@/workspace-tabs/new-tab";
+import { createFallbackNewWorkspaceTab, createNewWorkspaceTab } from "@/workspace-tabs/new-tab";
 
 export interface SplitPane {
   id: string;
@@ -75,6 +75,8 @@ interface InsertChildIntoGroupInput {
 interface DetachTabFromTreeInput {
   tabId: string;
   preserveEmptyPaneId?: string | null;
+  /** A pane that stays in the tree with no tabs instead of being refilled with a launcher. */
+  leaveEmptyPaneId?: string | null;
 }
 
 interface DetachTabFromTreeResult {
@@ -190,6 +192,12 @@ interface CloseTabInLayoutInput {
   layout: WorkspaceLayout;
   tabId: string;
   explorerSidebarPaneId: string | null;
+  /**
+   * IDE Mode's editor centre. It stays when its last tab closes and is left empty so it shows
+   * "Open file", rather than being refilled with a launcher. The caller knows the mode; this
+   * helper does not.
+   */
+  emptyCenterPaneId?: string | null;
 }
 
 interface ClosePaneInLayoutInput {
@@ -266,6 +274,8 @@ export interface WorkspaceTabReconcileState {
   explorerSidebarPaneId: string | null;
   /** Attack mode parks auto-opened agent and terminal tabs in its holding pane. */
   entityTabPaneId?: string | null;
+  /** IDE Mode's editor centre, which stays empty when its last tab is closed. */
+  emptyCenterPaneId?: string | null;
 }
 
 export interface WorkspaceTabSnapshot {
@@ -338,7 +348,7 @@ function ensureRetainedPaneHasTab(pane: SplitPaneInternal): SplitPaneInternal {
   if (pane.tabs.length > 0) {
     return pane;
   }
-  const newTab = createNewWorkspaceTab();
+  const newTab = createFallbackNewWorkspaceTab();
   return normalizePaneAfterTabChange({
     ...pane,
     tabs: [newTab],
@@ -775,7 +785,7 @@ function reorderTabsForPane(input: ReorderTabsForPaneInput): SplitPaneInternal {
 function removePaneByPath(root: SplitNodeInternal, path: number[]): SplitNodeInternal {
   if (path.length === 0) {
     invariant(root.kind === "pane", "Expected pane at root while removing pane");
-    return createPaneNode({ id: root.pane.id, tabs: [createNewWorkspaceTab()] });
+    return createPaneNode({ id: root.pane.id, tabs: [createFallbackNewWorkspaceTab()] });
   }
 
   const parentPath = path.slice(0, -1);
@@ -821,6 +831,9 @@ function detachTabFromTree(
   });
 
   const nextRoot = replaceNodeAtPath(root, panePath, () => ({ kind: "pane", pane: nextPane }));
+  if (nextPane.tabs.length === 0 && nextPane.id === input.leaveEmptyPaneId) {
+    return { root: nextRoot, tab, sourcePaneId: paneNode.pane.id };
+  }
   if (nextPane.tabs.length > 0 || nextPane.id === input.preserveEmptyPaneId) {
     return {
       root:
@@ -1155,16 +1168,17 @@ export function stripEphemeralTabsFromLayout(layout: WorkspaceLayout): Workspace
 function restoreEmptyPanesInNode(
   node: SplitNodeInternal,
   explorerSidebarPaneId: string | null,
+  emptyCenterPaneId: string | null,
 ): SplitNodeInternal {
   if (node.kind === "pane") {
-    return node.pane.tabs.length > 0
+    return node.pane.tabs.length > 0 || node.pane.id === emptyCenterPaneId
       ? node
       : createPaneNode({
           id: node.pane.id,
           tabs:
             node.pane.id === explorerSidebarPaneId
               ? createDefaultExplorerSidebarTabs()
-              : [createNewWorkspaceTab()],
+              : [createFallbackNewWorkspaceTab()],
           hidden: node.pane.hidden,
         });
   }
@@ -1172,7 +1186,7 @@ function restoreEmptyPanesInNode(
     id: node.group.id,
     direction: node.group.direction,
     children: node.group.children.map((child) =>
-      restoreEmptyPanesInNode(child, explorerSidebarPaneId),
+      restoreEmptyPanesInNode(child, explorerSidebarPaneId, emptyCenterPaneId),
     ),
     sizes: node.group.sizes,
   });
@@ -1190,11 +1204,15 @@ function findOrdinaryPane(
   return null;
 }
 
-/** Restores the workspace canvas and empty tabs without changing Explorer or saved content. */
+/**
+ * Restores the workspace canvas and empty tabs without changing Explorer or saved content.
+ * `emptyCenterPaneId` is IDE Mode's editor centre, which stays empty (it shows "Open file").
+ */
 export function restoreWorkspaceLayout(
   layout: WorkspaceLayout,
   explorerSidebarPaneId: string | null,
   createNodeId = defaultWorkspaceLayoutIds.createNodeId,
+  emptyCenterPaneId: string | null = null,
 ): WorkspaceLayout {
   const normalized = normalizeLayout(layout);
   let root = asInternalNode(normalized.root);
@@ -1231,7 +1249,7 @@ export function restoreWorkspaceLayout(
   return {
     ...normalized,
     focusedPaneId,
-    root: restoreEmptyPanesInNode(root, explorerSidebarPaneId),
+    root: restoreEmptyPanesInNode(root, explorerSidebarPaneId, emptyCenterPaneId),
   };
 }
 
@@ -1538,8 +1556,12 @@ export function closeTabInLayout(input: CloseTabInLayoutInput): WorkspaceLayout 
   if (!pane) {
     return null;
   }
+  // Only the last pane the user can see (or the Explorer shell) is kept with a launcher. "main" is
+  // an ordinary pane: closing its last tab beside other panes removes it instead of inventing a
+  // launcher next to them.
+  const isEmptyCenter = pane.id === input.emptyCenterPaneId;
   const preserveEmptyPaneId =
-    pane.id === DEFAULT_PANE_ID ||
+    isEmptyCenter ||
     pane.id === input.explorerSidebarPaneId ||
     isLastVisibleOrdinaryPane(input.layout, pane.id, input.explorerSidebarPaneId)
       ? pane.id
@@ -1555,6 +1577,7 @@ export function closeTabInLayout(input: CloseTabInLayoutInput): WorkspaceLayout 
   const nextRoot = detachTabFromTree(internalLayout.root, {
     tabId: input.tabId,
     preserveEmptyPaneId,
+    leaveEmptyPaneId: isEmptyCenter ? pane.id : null,
   }).root;
   const parentTabIdByTabId = normalizeParentTabMap({
     raw: input.layout.parentTabIdByTabId,
@@ -2358,6 +2381,7 @@ function collapseStaleEntityTabs(input: {
   visibleAgentIds: Set<string>;
   knownTerminalIds: Set<string>;
   explorerSidebarPaneId: string | null;
+  emptyCenterPaneId?: string | null;
 }): WorkspaceLayout {
   const { snapshot, visibleAgentIds, knownTerminalIds } = input;
   let nextLayout = input.layout;
@@ -2368,6 +2392,7 @@ function collapseStaleEntityTabs(input: {
           layout: nextLayout,
           tabId: tab.tabId,
           explorerSidebarPaneId: input.explorerSidebarPaneId,
+          emptyCenterPaneId: input.emptyCenterPaneId,
         }) ?? nextLayout;
     }
     if (
@@ -2380,6 +2405,7 @@ function collapseStaleEntityTabs(input: {
           layout: nextLayout,
           tabId: tab.tabId,
           explorerSidebarPaneId: input.explorerSidebarPaneId,
+          emptyCenterPaneId: input.emptyCenterPaneId,
         }) ?? nextLayout;
     }
   }
@@ -2525,6 +2551,7 @@ export function reconcileWorkspaceTabs(
           layout: nextLayout,
           tabId: tab.tabId,
           explorerSidebarPaneId: state.explorerSidebarPaneId,
+          emptyCenterPaneId: state.emptyCenterPaneId,
         }) ?? nextLayout;
     }
   }
@@ -2535,6 +2562,7 @@ export function reconcileWorkspaceTabs(
     visibleAgentIds,
     knownTerminalIds,
     explorerSidebarPaneId: state.explorerSidebarPaneId,
+    emptyCenterPaneId: state.emptyCenterPaneId,
   });
 
   nextLayout = addMissingEntityTabs({
