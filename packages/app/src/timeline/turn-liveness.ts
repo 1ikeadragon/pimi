@@ -1,6 +1,8 @@
 export interface ActiveTurnIdentity {
   turnId: string | null;
   startedAt: Date | null;
+  /** The provider's model request has had no output since this time. Absent when the source cannot say. */
+  awaitingModelSince?: Date | null;
 }
 
 export type TurnLiveness =
@@ -9,6 +11,7 @@ export type TurnLiveness =
       phase: "open";
       turnId: string | null;
       startedAt: Date | null;
+      awaitingModelSince: Date | null;
       cancellationRequestId: number | null;
     };
 
@@ -51,6 +54,7 @@ export interface TurnPresentation {
   isActive: boolean;
   isCancelling: boolean;
   startedAt: Date | null;
+  awaitingModelSince: Date | null;
   turnId: string | null;
 }
 
@@ -63,6 +67,7 @@ export function resolveTurnPresentation(
       isActive: true,
       isCancelling: liveness.cancellationRequestId !== null,
       startedAt: liveness.startedAt,
+      awaitingModelSince: liveness.awaitingModelSince,
       turnId: liveness.turnId,
     };
   }
@@ -70,6 +75,7 @@ export function resolveTurnPresentation(
     isActive: hasActiveSubmission,
     isCancelling: liveness.cancellationRequestId !== null,
     startedAt: null,
+    awaitingModelSince: null,
     turnId: null,
   };
 }
@@ -84,6 +90,16 @@ function closeTurn(current: TurnLiveness, turnId: string | null): TurnLiveness {
   return targetsDifferentIdentifiedTurn ? current : TURN_LIVENESS_IDLE;
 }
 
+// Only a snapshot carries the wait. A stream event that opens the same turn leaves it alone.
+function carriedWait(
+  current: TurnLiveness,
+  activeTurn: ActiveTurnIdentity,
+  sameTurn: boolean,
+): Date | null {
+  if (activeTurn.awaitingModelSince !== undefined) return activeTurn.awaitingModelSince;
+  return sameTurn && current.phase === "open" ? current.awaitingModelSince : null;
+}
+
 function openTurn(current: TurnLiveness, activeTurn: ActiveTurnIdentity): TurnLiveness {
   const sameTurn =
     current.phase === "open" && activeTurn.turnId !== null && current.turnId === activeTurn.turnId;
@@ -91,6 +107,7 @@ function openTurn(current: TurnLiveness, activeTurn: ActiveTurnIdentity): TurnLi
     phase: "open",
     turnId: activeTurn.turnId,
     startedAt: sameTurn ? (current.startedAt ?? activeTurn.startedAt) : activeTurn.startedAt,
+    awaitingModelSince: carriedWait(current, activeTurn, sameTurn),
     cancellationRequestId:
       sameTurn || current.phase === "idle" ? current.cancellationRequestId : null,
   };

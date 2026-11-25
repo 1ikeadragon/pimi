@@ -471,6 +471,15 @@ export type AgentStreamEvent =
       thinkingOptionId: string | null;
     }
   | {
+      /**
+       * The provider sent a model request and has seen no output for it (`since`, ISO time), or
+       * that wait ended (`null`). Daemon-only: it becomes `activeTurn.awaitingModelSince`.
+       */
+      type: "model_wait_changed";
+      provider: AgentProvider;
+      since: string | null;
+    }
+  | {
       type: "turn_failed";
       provider: AgentProvider;
       error: string;

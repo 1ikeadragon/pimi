@@ -2,9 +2,10 @@ import { OpenCodeBackgroundInventory } from "./background-inventory.js";
 import { SessionChildren } from "./children.js";
 import { SessionTurns } from "./turns.js";
 import { V2Timeline } from "./timeline.js";
+import { ModelWait } from "./model-wait.js";
 import { waitForLocationReady, awaitPimiPlugin } from "./readiness.js";
 
-import type { SessionInfo, SessionMessageInfo } from "@opencode/client";
+import type { OpenCodeEvent, SessionInfo, SessionMessageInfo } from "@opencode/client";
 
 import { setTimeout as delay } from "node:timers/promises";
 import { randomUUID } from "node:crypto";
@@ -48,6 +49,9 @@ export class OpenCodeV2Session implements AgentSession {
   private readonly listeners = new Set<(event: AgentStreamEvent) => void>();
   private readonly usageSessionKey = randomUUID();
   private readonly timeline = new V2Timeline();
+  private readonly modelWait = new ModelWait((since) =>
+    this.emit({ type: "model_wait_changed", provider: "opencode", since }),
+  );
   private readonly abort = new AbortController();
   private readonly permissions: SessionPermissions;
   private readonly turns: SessionTurns;
@@ -324,8 +328,10 @@ export class OpenCodeV2Session implements AgentSession {
       event.type === "turn_completed" ||
       event.type === "turn_failed" ||
       event.type === "turn_canceled"
-    )
+    ) {
+      this.modelWait.end();
       this.shellTail.stopAll();
+    }
     this.toolOutput.observe(event);
     for (const listener of this.listeners) listener(event);
   }
@@ -554,6 +560,17 @@ export class OpenCodeV2Session implements AgentSession {
       return;
     }
     if (!("sessionID" in event.data) || event.data.sessionID !== this.id) return;
+    this.modelWait.observe(event);
+    if (event.type === "session.retry.scheduled") {
+      // v1 shows the same item for its `session.status` retry. OpenCode retries without a limit,
+      // so without it a failing gateway reads as a turn that is merely working.
+      this.emitTimeline({
+        type: "timeline",
+        provider: "opencode",
+        item: { type: "error", message: retryMessage(event) },
+      });
+      return;
+    }
     if (event.type === "session.text.started" || event.type === "session.reasoning.started") {
       if (event.type === "session.text.started" && this.turns.hasStructuredOutput) return;
       this.timeline.startPart({
@@ -593,6 +610,8 @@ export class OpenCodeV2Session implements AgentSession {
         for await (const event of this.client.event.subscribe({ signal })) {
           if (this.closed || signal.aborted) return;
           if (event.type === "server.connected") {
+            // Output events missed during a gap cannot be attributed, so the wait cannot be trusted.
+            this.modelWait.end();
             this.timeline.resetStreams();
             await this.reconcileConnection();
             signal.throwIfAborted();
@@ -674,4 +693,14 @@ export class OpenCodeV2Session implements AgentSession {
     }
     this.listeners.clear();
   }
+}
+
+function retryMessage(event: Extract<OpenCodeEvent, { type: "session.retry.scheduled" }>): string {
+  const { attempt, at, error } = event.data;
+  const detail = error.message.trim();
+  const status = error.status === undefined ? "" : ` (HTTP ${error.status})`;
+  // Both timestamps are the OpenCode server's clock, so the delay is free of clock skew with Pimi.
+  const delaySeconds = Math.max(0, Math.round((at - event.created) / 1000));
+  const base = `Provider retry (attempt ${attempt}): ${detail || error.type}${status}`;
+  return `${base}. Retrying in ${delaySeconds}s`;
 }

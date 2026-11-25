@@ -46,6 +46,8 @@ export interface WorkingStatusLineProps {
   label: string;
   specific: boolean;
   urgent: boolean;
+  /** Since when the model has had a request out with no output; the line shows the elapsed time. */
+  modelWaitSince: Date | null;
   /** Calls and thoughts in the live run; 0 when the run is absent. */
   stepCount: number;
   failedCount: number;
@@ -288,6 +290,7 @@ export const WorkingStatusLine = memo(function WorkingStatusLine({
   label,
   specific,
   urgent,
+  modelWaitSince,
   stepCount,
   failedCount,
   canExpand,
@@ -330,6 +333,17 @@ export const WorkingStatusLine = memo(function WorkingStatusLine({
           testID="turn-working-toggle"
         >
           <StatusLabel text={shown.label} emphasized={waiting} animate={active && !reduceMotion} />
+          {modelWaitSince && shown.label === label ? (
+            <>
+              <Text style={stylesheet.elapsed}>·</Text>
+              <LiveElapsed
+                startedAt={modelWaitSince}
+                active={active}
+                style={stylesheet.elapsed}
+                testID="turn-working-model-wait"
+              />
+            </>
+          ) : null}
           {canExpand ? (
             <StepsSummary
               stepCount={waiting ? 0 : stepCount}

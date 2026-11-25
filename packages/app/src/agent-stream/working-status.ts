@@ -12,6 +12,8 @@ export interface WorkingStatus {
   specific: boolean;
   /** Applies at once, bypassing the line's dwell time and sticky label. */
   urgent: boolean;
+  /** Set while the provider's model request has produced no output; the line shows how long. */
+  modelWaitSince: Date | null;
 }
 
 export interface ResolveWorkingStatusInput {
@@ -21,6 +23,8 @@ export interface ResolveWorkingStatusInput {
   providerLabel: string;
   /** Null while only the submission is pending and the server has not opened the turn. */
   turnStartedAt: Date | null;
+  /** Since when the provider has had a model request out with no output; null when it has not. */
+  awaitingModelSince: Date | null;
   /** Newest stream item (head, else tail). Tool calls land in the tail, so both lanes matter. */
   latest: StreamItem | undefined;
   /** Id of the open turn; keeps a finished turn's last item from describing this one. */
@@ -32,7 +36,7 @@ export interface ResolveWorkingStatusInput {
 const noIcon = () => () => null;
 
 function working(label: string, specific: boolean): WorkingStatus {
-  return { kind: "working", label, specific, urgent: false };
+  return { kind: "working", label, specific, urgent: false, modelWaitSince: null };
 }
 
 function toolCallLabel(
@@ -59,6 +63,10 @@ function toolCallLabel(
   return presentation.target ? `${presentation.verb} ${presentation.target}` : presentation.verb;
 }
 
+function waitingForModel(since: Date, t: TFunction): WorkingStatus {
+  return { ...working(t("agentStream.working.waitingForModel"), true), modelWaitSince: since };
+}
+
 export function resolveWorkingStatus(input: ResolveWorkingStatusInput): WorkingStatus {
   const { t } = input;
   if (input.isCancelling) {
@@ -67,6 +75,7 @@ export function resolveWorkingStatus(input: ResolveWorkingStatusInput): WorkingS
       label: t("agentStream.working.stopping"),
       specific: true,
       urgent: true,
+      modelWaitSince: null,
     };
   }
   if (input.hasPendingPermission) {
@@ -75,6 +84,7 @@ export function resolveWorkingStatus(input: ResolveWorkingStatusInput): WorkingS
       label: t("agentStream.working.waitingApproval"),
       specific: true,
       urgent: true,
+      modelWaitSince: null,
     };
   }
   if (input.agentStatus === "initializing") {
@@ -83,7 +93,12 @@ export function resolveWorkingStatus(input: ResolveWorkingStatusInput): WorkingS
   if (input.turnStartedAt === null) {
     return working(t("agentStream.working.sending"), true);
   }
+  if (input.awaitingModelSince) return waitingForModel(input.awaitingModelSince, t);
+  return latestItemStatus(input);
+}
 
+function latestItemStatus(input: ResolveWorkingStatusInput): WorkingStatus {
+  const { t } = input;
   const last = input.latest;
   if (last && last.kind !== "tool_call" && last.turnId !== input.activeTurnId) {
     return working(t("agentStream.working.working"), false);

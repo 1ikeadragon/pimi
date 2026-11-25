@@ -155,6 +155,9 @@ export function toAgentPayload(
       ? {
           turnId: agent.activeTurnId,
           startedAt: agent.activeTurnStartedAt?.toISOString() ?? null,
+          ...(agent.awaitingModelSince
+            ? { awaitingModelSince: agent.awaitingModelSince.toISOString() }
+            : {}),
         }
       : null,
     capabilities: cloneCapabilities(agent.capabilities),

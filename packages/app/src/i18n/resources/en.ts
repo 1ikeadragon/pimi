@@ -673,6 +673,7 @@ export const en = {
       hideSteps: "Hide steps",
       starting: "Starting {{provider}}…",
       sending: "Sending",
+      waitingForModel: "Waiting for model",
       thinking: "Thinking",
       writing: "Writing",
       compacting: "Compacting",

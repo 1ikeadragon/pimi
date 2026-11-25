@@ -45,7 +45,11 @@ function mergeSnapshotTurn(previous: Agent | undefined, incoming: Agent): Agent 
   if (!previous) return incoming;
   const activeTurn =
     incoming.turn.phase === "open"
-      ? { turnId: incoming.turn.turnId, startedAt: incoming.turn.startedAt }
+      ? {
+          turnId: incoming.turn.turnId,
+          startedAt: incoming.turn.startedAt,
+          awaitingModelSince: incoming.turn.awaitingModelSince,
+        }
       : null;
   const turn = reduceTurnLiveness(previous.turn, { type: "snapshot", activeTurn });
   return turn === incoming.turn ? incoming : { ...incoming, turn };
