@@ -8,6 +8,8 @@ export const PIMI_REVIEW_ROUTE = "/pimi-review";
 
 const FORGE_HOST = /^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/;
 const REPO_SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9._-]{0,99}$/;
+// Agent ids are UUIDs; the pattern bounds what a URL can put in the route, nothing more.
+const AGENT_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const COMPARE_MODES = new Set(["uncommitted", "base", "all"]);
 
 type ReviewRouteParams = Record<string, string | string[] | undefined>;
@@ -32,6 +34,7 @@ export function reviewSourceToParams(source: ReviewSource): Record<string, strin
     cwd: source.cwd,
     mode: source.compare.mode,
     ...(source.compare.baseRef ? { baseRef: source.compare.baseRef } : {}),
+    ...(source.origin ? { originAgentId: source.origin.agentId } : {}),
   };
 }
 
@@ -70,12 +73,17 @@ export function parseReviewSource(params: ReviewRouteParams): ReviewSource | nul
   }
   const cwd = single(params.cwd);
   const mode = single(params.mode);
+  const originAgentId = single(params.originAgentId);
   if (!cwd || !mode || !COMPARE_MODES.has(mode)) return null;
   return {
     kind: "checkout",
     serverId,
     cwd,
     compare: { mode: mode as "uncommitted" | "base" | "all", baseRef: single(params.baseRef) },
+    // Only a shape check: whether the chat exists is read from the session store when it is used.
+    ...(originAgentId && AGENT_ID.test(originAgentId)
+      ? { origin: { agentId: originAgentId } }
+      : {}),
   };
 }
 
@@ -153,12 +161,15 @@ export function checkoutReviewSource(input: {
   serverId: string;
   cwd: string;
   baseRef?: string;
+  /** The chat that offered the review. */
+  originAgentId?: string;
 }): ReviewSource {
   return {
     kind: "checkout",
     serverId: input.serverId,
     cwd: input.cwd,
     compare: { mode: "all", ...(input.baseRef ? { baseRef: input.baseRef } : {}) },
+    ...(input.originAgentId ? { origin: { agentId: input.originAgentId } } : {}),
   };
 }
 

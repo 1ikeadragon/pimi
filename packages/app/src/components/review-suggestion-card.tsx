@@ -31,6 +31,8 @@ interface ReviewOffer {
   /** The checkout folder Review opens. */
   path: string;
   baseRef?: string | null;
+  /** The chat that made the offer; the review's notes go back to it. */
+  originAgentId: string;
   branch?: string | null;
   /** The diff size when the offer was made; null when it was not known. */
   stats: PimiReviewSummary | null;
@@ -39,13 +41,18 @@ interface ReviewOffer {
 }
 
 function useReviewOffer(offer: ReviewOffer) {
-  const { serverId, path, baseRef } = offer;
+  const { serverId, path, baseRef, originAgentId } = offer;
   const openReview = useCallback(
     () =>
       openPimiReview(
-        checkoutReviewSource({ serverId, cwd: path, ...(baseRef ? { baseRef } : {}) }),
+        checkoutReviewSource({
+          serverId,
+          cwd: path,
+          originAgentId,
+          ...(baseRef ? { baseRef } : {}),
+        }),
       ),
-    [serverId, path, baseRef],
+    [serverId, path, baseRef, originAgentId],
   );
   // Cache only: a timeline can hold many offers, and none of them is worth a status fetch.
   const status = useCheckoutStatusCacheOnly({ serverId, cwd: path }).data;
@@ -177,6 +184,7 @@ export function PimiReviewSuggestionCard({ suggestion }: { suggestion: PimiRevie
     () => ({
       serverId: suggestion.source.serverId,
       path: suggestion.path,
+      originAgentId: suggestion.source.agentId,
       stats: null,
       summary: suggestion.summary,
     }),
@@ -203,11 +211,12 @@ export function PimiReviewSuggestionNotificationCard({
     () => ({
       serverId,
       path: marker.path,
+      originAgentId: marker.origin.agentId,
       baseRef: marker.baseRef,
       branch: marker.branch,
       stats: marker.stats,
     }),
-    [serverId, marker.path, marker.baseRef, marker.branch, marker.stats],
+    [serverId, marker.path, marker.origin.agentId, marker.baseRef, marker.branch, marker.stats],
   );
   return superseded ? (
     <ReviewSuggestionNote offer={offer} />

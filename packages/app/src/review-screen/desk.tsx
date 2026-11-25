@@ -17,6 +17,7 @@ import { useDeskCopy } from "./desk/copy";
 import { FileTree } from "./desk/file-tree";
 import { focusLineOnNewSide } from "./desk/focus-line";
 import { FilesBar } from "./desk/files-bar";
+import { NotesPanel, NotesSheet } from "./desk/notes-panel";
 import { ThreadPanel, ThreadSheet, THREAD_PANEL_DOCK_MIN_WIDTH } from "./desk/thread-panel";
 import { Chip, DetachedThreads } from "./desk/ui";
 import {
@@ -32,6 +33,8 @@ import {
   type FilesModel,
   type FilesView,
 } from "./desk/use-files-model";
+import type { ForgeThread } from "./desk/use-desk-data";
+import { useDeskNotes } from "./desk/use-desk-notes";
 import { useReviewMarkers } from "./desk/use-review-markers";
 import { useLineCommentPoster } from "./desk/use-line-comment";
 import { Notice } from "./notice";
@@ -220,12 +223,22 @@ function ReadyDesk({
     [selectInTree],
   );
   const { openThread, onOpenThread, onCloseThread } = markers;
+  const deskNotes = useDeskNotes({
+    reviewDraftKey: markers.reviewDraftKey,
+    outdatedNotes: markers.outdatedNotes,
+    paths,
+    loadedFiles,
+    jumpTo,
+    closeThread: onCloseThread,
+  });
+  const { closeNotes } = deskNotes;
   const openDetached = useCallback(
     (path: string, id: string) => {
       moveTo(path);
+      closeNotes();
       onOpenThread(id);
     },
-    [moveTo, onOpenThread],
+    [closeNotes, moveTo, onOpenThread],
   );
   // The panel resizes the diff; ask for the thread's line again once it is open so it stays in view.
   const openThreadId = openThread?.id ?? null;
@@ -311,13 +324,19 @@ function ReadyDesk({
         <AskInChat
           source={source}
           reviewDraftKey={markers.reviewDraftKey}
-          draftCount={markers.draftCount}
+          notes={deskNotes.orderedNotes}
+          outdatedIds={deskNotes.outdatedIds}
           loadedFiles={loadedFiles}
           baseRef={model.baseRef}
+          onViewNotes={deskNotes.openNotes}
         />
       </View>
-      {openThread && docked ? <ThreadPanel thread={openThread} onClose={onCloseThread} /> : null}
-      {openThread && !docked ? <ThreadSheet thread={openThread} onClose={onCloseThread} /> : null}
+      <SideSlot
+        thread={openThread}
+        onCloseThread={onCloseThread}
+        notes={deskNotes}
+        docked={docked}
+      />
       <ReviewCommentSheet
         enabled
         editor={markers.controller.sheetEditor}
@@ -325,6 +344,33 @@ function ReadyDesk({
         onChangeBody={markers.controller.onChangeEditorBody}
       />
     </View>
+  );
+}
+
+/** The dock beside the diff, or its sheet: an open thread, else the notes list. */
+function SideSlot({
+  thread,
+  onCloseThread,
+  notes,
+  docked,
+}: {
+  thread: ForgeThread | null;
+  onCloseThread: () => void;
+  notes: ReturnType<typeof useDeskNotes>;
+  docked: boolean;
+}) {
+  if (thread) {
+    return docked ? (
+      <ThreadPanel thread={thread} onClose={onCloseThread} />
+    ) : (
+      <ThreadSheet thread={thread} onClose={onCloseThread} />
+    );
+  }
+  if (!notes.open) return null;
+  return docked ? (
+    <NotesPanel {...notes.list} onClose={notes.closeNotes} />
+  ) : (
+    <NotesSheet {...notes.list} onClose={notes.closeNotes} />
   );
 }
 

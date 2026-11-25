@@ -20,7 +20,7 @@ import {
   SerializedReviewDraftStateSchema,
   updateCommentInState,
 } from "@/review/state";
-import { CONTEXT_RADIUS } from "@/review/anchor";
+import { CONTEXT_RADIUS, noteStartLine } from "@/review/anchor";
 import { generateMessageId } from "@/types/stream";
 import { buildNumberedDiffHunks, type NumberedDiffLine } from "@/utils/diff-layout";
 import type { AgentAttachment } from "@pimi/protocol/messages";
@@ -258,7 +258,11 @@ export function buildReviewAttachmentSnapshot(
       filePath: draftComment.filePath,
       side: draftComment.side,
       lineNumber: draftComment.lineNumber,
-      body: draftComment.body,
+      // The attachment names one line; a range's first line travels in the text so it is not lost.
+      body:
+        noteStartLine(draftComment) < draftComment.lineNumber
+          ? `Lines ${noteStartLine(draftComment)}-${draftComment.lineNumber}: ${draftComment.body}`
+          : draftComment.body,
       context: {
         hunkHeader: target.hunkHeader,
         targetLine,

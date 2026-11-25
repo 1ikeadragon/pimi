@@ -16,6 +16,8 @@ export type ReviewSource =
       serverId: string;
       cwd: string;
       compare: { mode: "uncommitted" | "base" | "all"; baseRef?: string };
+      /** The chat that offered this review; notes go back to it. */
+      origin?: { agentId: string };
     };
 
 export type ChangeRequestSource = Extract<ReviewSource, { kind: "change_request" }>;
