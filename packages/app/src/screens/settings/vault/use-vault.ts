@@ -60,12 +60,12 @@ export function vaultErrorCode(error: unknown): string | null {
 }
 
 /** Keeps every vault query on this page current from the host's change events. */
-export function useVaultSync(serverId: string): void {
+export function useVaultSync(serverId: string, enabled = true): void {
   const client = useHostRuntimeClient(serverId);
   const connected = useHostRuntimeIsConnected(serverId);
   const queryClient = useQueryClient();
   useEffect(() => {
-    if (!client || !connected) return;
+    if (!enabled || !client || !connected) return;
     const observation = client.observeEvents(["status.vault_changed"]);
     const invalidate = () => {
       void queryClient.invalidateQueries({ queryKey: vaultRoot(serverId) });
@@ -81,7 +81,7 @@ export function useVaultSync(serverId: string): void {
         .release()
         .catch((error: unknown) => console.warn("[Vault] Failed to release change feed", error));
     };
-  }, [client, connected, queryClient, serverId]);
+  }, [client, connected, enabled, queryClient, serverId]);
 }
 
 function requireClient(client: DaemonClient | null): DaemonClient {
@@ -89,16 +89,39 @@ function requireClient(client: DaemonClient | null): DaemonClient {
   return client;
 }
 
-export function useVaultStatus(serverId: string) {
+export function useVaultStatus(serverId: string, enabled = true) {
   const client = useHostRuntimeClient(serverId);
   const connected = useHostRuntimeIsConnected(serverId);
   return useFetchQuery({
     queryKey: [...vaultRoot(serverId), "status"],
-    enabled: connected && client !== null,
+    enabled: enabled && connected && client !== null,
     dataShape: "value",
     staleTimeMs: VAULT_STALE_MS,
     queryFn: async () => (await requireClient(client).vaultGetStatus()).status,
   });
+}
+
+/** What a link to the vault says about it. */
+export type VaultSummary =
+  | { kind: "off" }
+  | { kind: "uninitialized" }
+  | { kind: "locked" }
+  | { kind: "unlocked" }
+  | { kind: "waiting"; count: number };
+
+/**
+ * The vault's state for a row that links to it. Null until the host's config and, when the vault
+ * is on, its status have loaded. A host with the vault off fetches nothing.
+ */
+export function useVaultSummary(serverId: string): VaultSummary | null {
+  const enabled = useVaultEnabled(serverId);
+  useVaultSync(serverId, enabled === true);
+  const status = useVaultStatus(serverId, enabled === true).data;
+  if (enabled === null) return null;
+  if (!enabled) return { kind: "off" };
+  if (!status) return null;
+  if (status.pendingRequests > 0) return { kind: "waiting", count: status.pendingRequests };
+  return { kind: status.state };
 }
 
 export function useVaultSecrets(serverId: string, enabled: boolean) {

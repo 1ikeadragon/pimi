@@ -8,6 +8,7 @@ import {
   Ellipsis,
   Globe,
   Import as ImportIcon,
+  KeyRound,
   Layers,
   Pencil,
   Settings,
@@ -40,6 +41,7 @@ import {
 import { usePluginWorkspaceMenu } from "@/plugins";
 import { useChatLabelMenu } from "@/labels/chat-label-menu";
 import { useChatTaskMenu } from "@/tasks/use-chat-task-menu";
+import { VaultMenuItem } from "@/screens/settings/vault/vault-menu-item";
 import { openExplorerSidebarView } from "@/workspace-tabs/explorer-sidebar";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 
@@ -50,6 +52,7 @@ const ThemedImport = withUnistyles(ImportIcon);
 const ThemedSettings = withUnistyles(Settings);
 const ThemedPencil = withUnistyles(Pencil);
 const ThemedLayers = withUnistyles(Layers);
+const ThemedKeyRound = withUnistyles(KeyRound);
 
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
@@ -58,6 +61,7 @@ const MENU_IMPORT_ICON = <ThemedImport size={16} uniProps={mutedColorMapping} />
 const MENU_COPY_ICON = <ThemedCopy size={16} uniProps={mutedColorMapping} />;
 const MENU_RENAME_ICON = <ThemedPencil size={16} uniProps={mutedColorMapping} />;
 const MENU_INSTRUCTIONS_ICON = <ThemedLayers size={16} uniProps={mutedColorMapping} />;
+const MENU_VAULT_ICON = <ThemedKeyRound size={16} uniProps={mutedColorMapping} />;
 const MENU_SETTINGS_ICON = <ThemedSettings size={16} uniProps={mutedColorMapping} />;
 function WorkspaceHeaderMenuTriggerIcon() {
   return (
@@ -106,6 +110,7 @@ export interface WorkspaceHeaderWorkspaceActions {
 }
 
 function WorkspaceHeaderWorkspaceActionItems({
+  serverId,
   labelsTrigger,
   taskRows,
   currentBranchName,
@@ -119,7 +124,7 @@ function WorkspaceHeaderWorkspaceActionItems({
   onOpenSetupTab,
   onRenameChat,
   onShowInstructions,
-}: Omit<WorkspaceHeaderWorkspaceActions, "serverId" | "workspaceId"> & {
+}: Omit<WorkspaceHeaderWorkspaceActions, "workspaceId"> & {
   labelsTrigger: ReactNode;
   taskRows: ReactNode;
 }) {
@@ -168,6 +173,7 @@ function WorkspaceHeaderWorkspaceActionItems({
       >
         {t("workspace.header.actions.instructions")}
       </DropdownMenuItem>
+      <VaultMenuItem serverId={serverId} leading={MENU_VAULT_ICON} />
       {showWorkspaceSetup ? (
         <>
           <DropdownMenuSeparator />
@@ -221,6 +227,7 @@ export function WorkspaceHeaderMenuDesktop(props: WorkspaceHeaderWorkspaceAction
       <DropdownMenuContent align="start" width={220} testID="workspace-header-menu" pages={pages}>
         <WorkspaceHeaderWorkspaceActionItems
           {...actions}
+          serverId={serverId}
           labelsTrigger={labelMenu.trigger}
           taskRows={taskMenu.rows}
         />
@@ -413,6 +420,7 @@ export function WorkspaceHeaderMenuMobile({
         ) : null}
         <WorkspaceHeaderWorkspaceActionItems
           {...workspaceActions}
+          serverId={normalizedServerId}
           labelsTrigger={labelMenu.trigger}
           taskRows={taskMenu.rows}
         />

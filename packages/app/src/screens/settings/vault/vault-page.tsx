@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/i18n/use-translation";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { settingsStyles } from "@/styles/settings";
 import { AuditSection } from "./audit-section";
 import { BitwardenSection } from "./bitwarden-section";
@@ -49,8 +50,32 @@ export function HostVaultPage({ serverId }: { serverId: string }) {
   return (
     <View>
       <VaultEnabledSwitch serverId={serverId} enabled={enabled} />
-      {enabled ? <EnabledVaultPage serverId={serverId} /> : null}
+      {enabled ? <EnabledVaultPage serverId={serverId} /> : <VaultPreview />}
     </View>
+  );
+}
+
+const PREVIEW_PARTS = ["requests", "secrets", "grants", "env", "bitwarden", "audit"] as const;
+
+/**
+ * What the live page holds, as plain rows, whenever the live sections cannot show: off, not set
+ * up, or locked. The same ids mark the live sections, so search lands on the page either way.
+ */
+function VaultPreview() {
+  const { t } = useTranslation();
+  return (
+    <SettingsSection title={t("settings.vault.preview.title")}>
+      <SettingsCard testID="vault-preview">
+        {PREVIEW_PARTS.map((part) => (
+          <SettingsRow
+            key={part}
+            settingId={`vault.${part}`}
+            label={t(`settings.vault.${part}.title`)}
+            hint={t(`settings.vault.preview.${part}`)}
+          />
+        ))}
+      </SettingsCard>
+    </SettingsSection>
   );
 }
 
@@ -61,6 +86,7 @@ function VaultEnabledSwitch({ serverId, enabled }: { serverId: string; enabled: 
     <View style={styles.stack}>
       <SettingsCard>
         <SettingsRow
+          settingId="vault.enabled"
           label={t("settings.vault.enable")}
           hint={enabled ? t("settings.vault.enabledHint") : t("settings.vault.disabledHint")}
           error={error ? vaultErrorMessage(error) : undefined}
@@ -108,8 +134,22 @@ function EnabledVaultPage({ serverId }: { serverId: string }) {
     );
   }
   if (!status.data) return <Alert size="sm" title={t("settings.vault.loading")} />;
-  if (status.data.state === "uninitialized") return <CreateVault serverId={serverId} />;
-  if (status.data.state === "locked") return <UnlockVault serverId={serverId} />;
+  if (status.data.state === "uninitialized") {
+    return (
+      <>
+        <CreateVault serverId={serverId} />
+        <VaultPreview />
+      </>
+    );
+  }
+  if (status.data.state === "locked") {
+    return (
+      <>
+        <UnlockVault serverId={serverId} />
+        <VaultPreview />
+      </>
+    );
+  }
   return <UnlockedVault serverId={serverId} status={status.data} refetchStatus={retry} />;
 }
 
@@ -234,12 +274,24 @@ function UnlockedVault({
           <Text style={settingsStyles.rowHint}>{t("settings.vault.authorizeHint")}</Text>
         )}
       </SettingsSection>
-      <RequestsSection serverId={serverId} requests={requests.data ?? []} operator={operator} />
-      <SecretsSection serverId={serverId} secrets={secrets.data ?? []} operator={operator} />
-      <GrantsSection serverId={serverId} grants={grants.data ?? []} operator={operator} />
-      <EnvSection serverId={serverId} candidates={candidates.data ?? []} operator={operator} />
-      <BitwardenSection serverId={serverId} operator={operator} />
-      <AuditSection entries={audit.data ?? []} />
+      <SettingAnchor id="vault.requests">
+        <RequestsSection serverId={serverId} requests={requests.data ?? []} operator={operator} />
+      </SettingAnchor>
+      <SettingAnchor id="vault.secrets">
+        <SecretsSection serverId={serverId} secrets={secrets.data ?? []} operator={operator} />
+      </SettingAnchor>
+      <SettingAnchor id="vault.grants">
+        <GrantsSection serverId={serverId} grants={grants.data ?? []} operator={operator} />
+      </SettingAnchor>
+      <SettingAnchor id="vault.env">
+        <EnvSection serverId={serverId} candidates={candidates.data ?? []} operator={operator} />
+      </SettingAnchor>
+      <SettingAnchor id="vault.bitwarden">
+        <BitwardenSection serverId={serverId} operator={operator} />
+      </SettingAnchor>
+      <SettingAnchor id="vault.audit">
+        <AuditSection entries={audit.data ?? []} />
+      </SettingAnchor>
     </View>
   );
 }

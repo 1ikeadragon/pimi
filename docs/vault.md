@@ -6,7 +6,7 @@ Read [SECURITY.md](../SECURITY.md#local-daemon-trust-boundary) and [permissions.
 
 ## Turning it on
 
-The vault is off by default. Settings > Vault has the switch; it is `daemon.vault.enabled` in `config.json` and applies live, with no daemon restart. While it is off:
+The vault is off by default. Settings > Vault (under the Security group) has the switch, and the chat's ⋯ menu always has a Vault item that opens it (or the waiting request); it is `daemon.vault.enabled` in `config.json` and applies live, with no daemon restart. While it is off:
 
 - Agents get no `vault_list` or `vault_run` tool and the system prompt never mentions the vault. A chat started before the switch changed keeps its tool list until it ends; its `vault_run` calls fail because turning the vault off locks it.
 - Every `vault.*` request is refused with `vault_disabled`, and the app shows only the switch.
