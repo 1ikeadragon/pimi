@@ -778,5 +778,6 @@ function retryMessage(event: Extract<OpenCodeEvent, { type: "session.retry.sched
   // Both timestamps are the OpenCode server's clock, so the delay is free of clock skew with Pimi.
   const delaySeconds = Math.max(0, Math.round((at - event.created) / 1000));
   const base = `Provider retry (attempt ${attempt}): ${detail || error.type}${status}`;
-  return `${base}. Retrying in ${delaySeconds}s`;
+  const separator = /[.!?]$/.test(base) ? "" : ".";
+  return `${base}${separator} Retrying in ${delaySeconds}s`;
 }
