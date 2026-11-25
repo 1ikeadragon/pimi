@@ -37,6 +37,8 @@ interface SecretInputFormProps {
   pending: boolean;
   error: string | null;
   onSubmit: (value: string) => void;
+  /** Called when the user edits a field, so a failed attempt's error goes away. */
+  onEdit?: () => void;
   testID: string;
 }
 
@@ -52,6 +54,7 @@ export function SecretInputForm({
   pending,
   error,
   onSubmit,
+  onEdit,
   testID,
 }: SecretInputFormProps) {
   const { t } = useTranslation();
@@ -60,10 +63,19 @@ export function SecretInputForm({
   const tooShort = state.value.length > 0 && state.value.length < minLength;
   const mismatch = !matches && state.confirmation.length > 0;
   const canSubmit = state.value.length >= minLength && matches && !pending;
-  const changeValue = useCallback((value: string) => dispatch({ type: "value", value }), []);
+  const changeValue = useCallback(
+    (value: string) => {
+      dispatch({ type: "value", value });
+      onEdit?.();
+    },
+    [onEdit],
+  );
   const changeConfirmation = useCallback(
-    (value: string) => dispatch({ type: "confirmation", value }),
-    [],
+    (value: string) => {
+      dispatch({ type: "confirmation", value });
+      onEdit?.();
+    },
+    [onEdit],
   );
   const submit = useCallback(() => {
     if (!canSubmit) return;

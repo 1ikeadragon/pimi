@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, type ReactElement } from "react";
 import { Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/toast-context";
@@ -35,6 +35,10 @@ export function VaultApprovalWatcher(): null {
   const onlineIds = useOnlineHostIds();
   const onlineKey = onlineIds.join("|");
   const pendingByHost = useRef(new Map<string, number>());
+  // Read when a request arrives, so moving between pages does not resubscribe the feed.
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
 
   const open = useCallback(
     (serverId: string) => router.push(buildSettingsHostSectionRoute(serverId, "vault")),
@@ -52,6 +56,8 @@ export function VaultApprovalWatcher(): null {
           const previous = pendingByHost.current.get(serverId);
           pendingByHost.current.set(serverId, status.pendingRequests);
           if (previous === undefined || status.pendingRequests <= previous) return;
+          // The Vault page already lists the request.
+          if (pathnameRef.current === buildSettingsHostSectionRoute(serverId, "vault")) return;
           toast.show(
             <ApprovalToast
               serverId={serverId}

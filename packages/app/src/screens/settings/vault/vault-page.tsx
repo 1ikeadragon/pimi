@@ -72,7 +72,6 @@ function CreateVault({ serverId }: { serverId: string }) {
     <View style={styles.stack}>
       <Alert
         size="sm"
-        variant="info"
         title={t("settings.vault.create.title")}
         description={t("settings.vault.create.description")}
       />
@@ -85,6 +84,7 @@ function CreateVault({ serverId }: { serverId: string }) {
           pending={create.isPending}
           error={create.error ? vaultErrorMessage(create.error) : null}
           onSubmit={create.mutate}
+          onEdit={create.reset}
           testID="vault-create"
         />
       </SettingsCard>
@@ -109,6 +109,7 @@ function UnlockVault({ serverId }: { serverId: string }) {
           pending={unlock.isPending}
           error={unlock.error ? vaultErrorMessage(unlock.error) : null}
           onSubmit={unlock.mutate}
+          onEdit={unlock.reset}
           testID="vault-unlock"
         />
       </SettingsCard>
@@ -174,6 +175,7 @@ function UnlockedVault({
               pending={authorize.isPending}
               error={authorize.error ? vaultErrorMessage(authorize.error) : null}
               onSubmit={authorize.mutate}
+              onEdit={authorize.reset}
               testID="vault-authorize"
             />
           )}
