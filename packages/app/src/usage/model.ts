@@ -35,6 +35,12 @@ export function usageWindowRowLabel(input: {
 /** A user-requested refresh of one report. The previous report stays on screen throughout. */
 export type UsageRefresh = "idle" | "pending" | "failed";
 
+/** The message of a failed mutation, or null while there is no failure to show. */
+export function failureMessage(error: unknown): string | null {
+  if (!error) return null;
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function resolveUsageRefresh(mutation: {
   isPending: boolean;
   error: unknown;

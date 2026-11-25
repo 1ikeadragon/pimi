@@ -1,10 +1,11 @@
 import { createReadStream } from "node:fs";
 import { open, opendir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve as absolutePath } from "node:path";
+import { join, resolve as absolutePath, sep } from "node:path";
 import type { Transform } from "node:stream";
 import * as zlib from "node:zlib";
 import type { Logger } from "pino";
+import type { UsageScanReport } from "@pimi/protocol/messages";
 import type { PimiDatabase } from "../db/pimi-db.js";
 import { createClaudeParser } from "./parsers/claude.js";
 import { PRICES_VERSION, requestCostUsd } from "./prices.js";
@@ -25,13 +26,13 @@ const FLUSH_ROWS = 5000;
 const INITIAL_SCAN_DELAY_MS = 5000;
 const MAX_DEPTH = 6;
 
-export interface UsageScanSummary {
-  files: number;
-  filesRead: number;
-  bytesRead: number;
-  events: number;
-  durationMs: number;
-}
+// ---
+// The scan report lists failed files so a gap in the numbers has a named cause. A user whose
+// rollouts are all unreadable (a permission change on the config directory) has thousands of
+// failures; the first 20 name the cause and the rest add nothing, so the rest are only counted.
+const MAX_REPORTED_FAILED_FILES = 20;
+
+export type UsageScanSummary = Omit<UsageScanReport, "finishedAt" | "error">;
 
 export interface UsageScannerOptions {
   database: PimiDatabase;
@@ -49,6 +50,17 @@ export interface UsageScannerOptions {
 export interface ProviderConfigDir {
   provider: "claude" | "codex";
   dir: string;
+}
+
+type UsageScanRoot = UsageScanReport["roots"][number];
+type UsageScanFailure = UsageScanReport["failedFiles"][number];
+
+interface FileScanResult {
+  bytes: number;
+  events: number;
+  malformedLines: number;
+  oversizeLines: number;
+  forkCopiesSuppressed: number;
 }
 
 interface ScanRoot {
@@ -108,6 +120,7 @@ export class UsageScanner {
   private running: Promise<UsageScanSummary> | null = null;
   private startTimer: ReturnType<typeof setTimeout> | null = null;
   private lastFinishedAt = 0;
+  private report: UsageScanReport | null = null;
 
   constructor(options: UsageScannerOptions) {
     this.database = options.database;
@@ -147,12 +160,32 @@ export class UsageScanner {
     this.scan().catch((error) => this.logger.error({ err: error }, "usage.scan.failed"));
   }
 
+  // What the most recent scan found, or why it failed. Null until the first scan ends.
+  get lastReport(): UsageScanReport | null {
+    return this.report;
+  }
+
   scan(): Promise<UsageScanSummary> {
     if (this.running) return this.running;
-    const run = this.runScan().finally(() => {
-      this.running = null;
-      this.lastFinishedAt = Date.now();
-    });
+    const run = this.runScan()
+      .then(
+        (summary) => {
+          this.report = { ...summary, finishedAt: Date.now(), error: null };
+          return summary;
+        },
+        (error: unknown) => {
+          this.report = {
+            ...emptySummary(),
+            finishedAt: Date.now(),
+            error: error instanceof Error ? error.message : String(error),
+          };
+          throw error;
+        },
+      )
+      .finally(() => {
+        this.running = null;
+        this.lastFinishedAt = Date.now();
+      });
     this.running = run;
     return run;
   }
@@ -161,16 +194,20 @@ export class UsageScanner {
     const startedAt = Date.now();
     this.repriceIfPricesChanged();
     const files: DiscoveredFile[] = [];
+    const failures: UsageScanFailure[] = [];
+    const roots: UsageScanSummary["roots"] = [];
     for (const { provider, root } of await this.resolveRoots()) {
-      await discover(root, provider, files, 0);
+      const status = await discoverRoot({ root, provider, files, failures });
+      if (status.status === "unreadable") {
+        this.logger.warn({ path: root, err: status.error }, "usage.scan.root_unreadable");
+      }
+      roots.push(status);
     }
     const cursors = this.loadCursors();
     const summary: UsageScanSummary = {
+      ...emptySummary(),
       files: files.length,
-      filesRead: 0,
-      bytesRead: 0,
-      events: 0,
-      durationMs: 0,
+      roots,
     };
     for (const file of files) {
       const cursor = cursors.get(file.path);
@@ -180,9 +217,13 @@ export class UsageScanner {
         summary.filesRead += 1;
         summary.bytesRead += read.bytes;
         summary.events += read.events;
+        summary.malformedLines += read.malformedLines;
+        summary.oversizeLines += read.oversizeLines;
+        summary.forkCopiesSuppressed += read.forkCopiesSuppressed;
       } catch (error) {
         if (isMissing(error)) continue;
         this.logger.warn({ err: error, path: file.path }, "usage.scan.file_failed");
+        failures.push({ path: file.path, error: errorMessage(error) });
       }
       await new Promise((resolve) => setImmediate(resolve));
     }
@@ -190,11 +231,23 @@ export class UsageScanner {
       summary.events += await this.scanOpenCode();
     } catch (error) {
       this.logger.warn({ err: error, path: this.openCodeDb }, "usage.scan.file_failed");
+      failures.push({ path: this.openCodeDb, error: errorMessage(error) });
     }
-    this.pruneCursors(new Set([...files.map((file) => file.path), this.openCodeDb]));
+    const unreadable = roots
+      .filter((root) => root.status === "unreadable")
+      .map((root) => root.path);
+    this.pruneCursors(new Set([...files.map((file) => file.path), this.openCodeDb]), unreadable);
+    summary.failedFiles = failures.slice(0, MAX_REPORTED_FAILED_FILES);
+    summary.failedFilesDropped = failures.length - summary.failedFiles.length;
     summary.durationMs = Date.now() - startedAt;
     this.logger.info(
-      { ...summary, rssMb: Math.round(process.memoryUsage().rss / 1048576) },
+      {
+        ...summary,
+        // The report carries these; the log line keeps counts so one line stays one line.
+        roots: roots.length,
+        failedFiles: failures.length,
+        rssMb: Math.round(process.memoryUsage().rss / 1048576),
+      },
       "usage.scan.done",
     );
     return summary;
@@ -278,9 +331,16 @@ export class UsageScanner {
     return map;
   }
 
-  private pruneCursors(present: Set<string>): void {
+  // Cursors of files that no longer exist are dropped. A root that could not be listed keeps its
+  // cursors: its files are not gone, only unseen, and dropping them would read them all again.
+  private pruneCursors(present: Set<string>, unreadableRoots: readonly string[]): void {
     const stored = this.database.db.prepare("SELECT path FROM usage_scan_cursors").all();
-    const gone = stored.map((row) => String(row.path)).filter((path) => !present.has(path));
+    const gone = stored
+      .map((row) => String(row.path))
+      .filter(
+        (path) =>
+          !present.has(path) && !unreadableRoots.some((root) => path.startsWith(`${root}${sep}`)),
+      );
     if (gone.length === 0) return;
     const remove = this.database.db.prepare("DELETE FROM usage_scan_cursors WHERE path = ?");
     this.database.transaction(() => {
@@ -291,18 +351,22 @@ export class UsageScanner {
   private async scanFile(
     file: DiscoveredFile,
     cursor: Cursor | undefined,
-  ): Promise<{ bytes: number; events: number }> {
+  ): Promise<FileScanResult> {
     const compressed = file.path.endsWith(".zst");
-    const resumable = !compressed && cursor !== undefined && cursor.offset <= file.size;
-    const startOffset = resumable ? cursor.offset : 0;
+    let resumeFrom =
+      !compressed && cursor !== undefined && cursor.offset <= file.size ? cursor : null;
     let parserState: unknown = null;
-    if (resumable && cursor.state) {
+    if (resumeFrom?.state) {
       try {
-        parserState = JSON.parse(cursor.state);
-      } catch {
-        parserState = null;
+        parserState = JSON.parse(resumeFrom.state);
+      } catch (error) {
+        // Continuing mid-file without the parser's state would misattribute what follows. Rows are
+        // keyed, so reading the file again from its start is safe.
+        this.logger.warn({ err: error, path: file.path }, "usage.scan.cursor_state_unreadable");
+        resumeFrom = null;
       }
     }
+    const startOffset = resumeFrom?.offset ?? 0;
     const parser: UsageLineParser =
       file.provider === "claude"
         ? createClaudeParser(file.path)
@@ -311,11 +375,13 @@ export class UsageScanner {
     const writer = this.createWriter();
     let consumed = startOffset;
     let bytes = 0;
+    let oversizeLines = 0;
     const chunks = compressed ? zstdChunks(file.path) : fileChunks(file.path, startOffset);
     for await (const item of readLines(chunks, startOffset)) {
       bytes = item.bytesRead;
       consumed = item.end;
-      if (item.line) handleLine(item.line, parser, writer.sink);
+      if (item.line === null) oversizeLines += 1;
+      else handleLine(item.line, parser, writer.sink);
       if (writer.pending() >= FLUSH_ROWS) writer.flush(null);
     }
     parser.finish?.(writer.sink);
@@ -327,7 +393,14 @@ export class UsageScanner {
       offset: compressed ? file.size : consumed,
       state: parser.state(),
     });
-    return { bytes, events: writer.eventCount() };
+    const { malformedLines, forkCopiesSuppressed } = parser.diagnostics();
+    return {
+      bytes,
+      events: writer.eventCount(),
+      malformedLines,
+      oversizeLines,
+      forkCopiesSuppressed,
+    };
   }
 
   // Reads OpenCode's SQLite store from the highest time_updated already read. The cursor row is
@@ -560,32 +633,82 @@ function isMissing(error: unknown): boolean {
   return (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
 }
 
-async function discover(
-  dir: string,
-  provider: UsageProvider,
-  out: DiscoveredFile[],
-  depth: number,
-): Promise<void> {
-  if (depth > MAX_DEPTH) return;
-  let handle: Awaited<ReturnType<typeof opendir>>;
+interface DiscoverInput {
+  root: string;
+  provider: UsageProvider;
+  files: DiscoveredFile[];
+  failures: UsageScanFailure[];
+}
+
+// Lists a root's transcripts. A root that does not exist is normal (no login of that kind); one
+// that exists but cannot be listed is reported, because its usage is then missing from the ledger.
+async function discoverRoot(input: DiscoverInput): Promise<UsageScanRoot> {
+  const { root, provider } = input;
   try {
-    handle = await opendir(dir);
-  } catch {
+    await discover(input, root, 0);
+    return { path: root, provider, status: "ok", error: null };
+  } catch (error) {
+    if (isMissing(error)) return { path: root, provider, status: "missing", error: null };
+    return { path: root, provider, status: "unreadable", error: errorMessage(error) };
+  }
+}
+
+// Failures below the root are recorded and the walk continues, so one unreadable project folder
+// does not hide the rest. The root itself throws to discoverRoot.
+async function discover(input: DiscoverInput, dir: string, depth: number): Promise<void> {
+  const { provider, failures } = input;
+  if (depth > MAX_DEPTH) {
+    failures.push({ path: dir, error: `Nested deeper than ${MAX_DEPTH} levels; not read` });
     return;
   }
-  for await (const entry of handle) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      // Claude keeps per-project "memory" notes next to transcripts; they hold no usage.
-      if (entry.name === "memory" || entry.name === "tool-results") continue;
-      await discover(path, provider, out, depth + 1);
-    } else if (entry.isFile() && isTranscript(entry.name, provider)) {
-      try {
-        const info = await stat(path);
-        out.push({ path, provider, size: info.size, mtimeMs: Math.floor(info.mtimeMs) });
-      } catch {
-        // File vanished between listing and stat.
+  try {
+    for await (const entry of await opendir(dir)) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // Claude keeps per-project "memory" notes next to transcripts; they hold no usage.
+        if (entry.name === "memory" || entry.name === "tool-results") continue;
+        await discover(input, path, depth + 1);
+      } else if (entry.isFile() && isTranscript(entry.name, provider)) {
+        await collectFile(input, path);
       }
     }
+  } catch (error) {
+    if (depth === 0) throw error;
+    if (!isMissing(error)) failures.push({ path: dir, error: errorMessage(error) });
   }
+}
+
+async function collectFile(input: DiscoverInput, path: string): Promise<void> {
+  try {
+    const info = await stat(path);
+    input.files.push({
+      path,
+      provider: input.provider,
+      size: info.size,
+      mtimeMs: Math.floor(info.mtimeMs),
+    });
+  } catch (error) {
+    // A file that vanished between listing and stat is not a failure.
+    if (!isMissing(error)) input.failures.push({ path, error: errorMessage(error) });
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function emptySummary(): UsageScanSummary {
+  return {
+    files: 0,
+    filesRead: 0,
+    bytesRead: 0,
+    events: 0,
+    durationMs: 0,
+    roots: [],
+    failedFiles: [],
+    failedFilesDropped: 0,
+    malformedLines: 0,
+    oversizeLines: 0,
+    forkCopiesSuppressed: 0,
+  };
 }

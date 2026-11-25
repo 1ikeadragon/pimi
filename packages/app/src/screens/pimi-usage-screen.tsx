@@ -162,12 +162,18 @@ function ProviderLimits({ pinnedServerId }: { pinnedServerId?: string }) {
 
 function HostLimits({ serverId, hosts, onSelect }: UsageHostSelection) {
   const selection = useMemo(() => ({ serverId, hosts, onSelect }), [serverId, hosts, onSelect]);
-  const { view, refresh, controls } = useHostUsageWithControls(selection);
+  const { view, refresh, refreshError, controls } = useHostUsageWithControls(selection);
   const { display } = useUsageDisplay(view.kind === "ready" ? view.reports : []);
   return (
     <>
       {controls}
-      <UsageBody serverId={serverId} view={view} display={display} onRefresh={refresh} />
+      <UsageBody
+        serverId={serverId}
+        view={view}
+        display={display}
+        refreshError={refreshError}
+        onRefresh={refresh}
+      />
     </>
   );
 }

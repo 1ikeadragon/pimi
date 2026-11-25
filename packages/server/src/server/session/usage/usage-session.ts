@@ -123,6 +123,7 @@ export class UsageSession {
             today: reader.today(msg.timezoneOffsetMinutes),
             days: reader.lastDays(msg.timezoneOffsetMinutes, 7),
             scanning: scanner.scanning,
+            scan: scanner.lastReport,
           },
         },
       });
@@ -157,6 +158,7 @@ export class UsageSession {
             ...result,
             firstEventAt: reader.firstEventAt(),
             scanning: scanner.scanning,
+            scan: scanner.lastReport,
           },
         },
       });
@@ -199,20 +201,23 @@ export class UsageSession {
   ): Promise<void> {
     try {
       const { scanner } = this.requireLedger();
-      const summary = await scanner.scan();
+      await scanner.scan();
       this.options.emit({
         type: "usage.rescan.response",
         payload: {
           requestId: msg.requestId,
           error: null,
-          events: summary.events,
-          filesRead: summary.filesRead,
+          scan: scanner.lastReport,
         },
       });
     } catch (error) {
       this.options.emit({
         type: "usage.rescan.response",
-        payload: { requestId: msg.requestId, error: errorMessage(error), events: 0, filesRead: 0 },
+        payload: {
+          requestId: msg.requestId,
+          error: errorMessage(error),
+          scan: this.options.ledger?.scanner.lastReport ?? null,
+        },
       });
     }
   }

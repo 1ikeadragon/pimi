@@ -71,7 +71,7 @@ function UsagePopoverBody(): ReactNode {
 function HostUsagePopoverBody({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const ctx = useMenuContext("UsagePopover");
-  const { view, refresh } = useHostUsage(serverId);
+  const { view, refresh, refreshError } = useHostUsage(serverId);
   const reports = view.kind === "ready" ? view.reports : [];
   const { display } = useUsageDisplay(reports);
   const { rescan } = useUsageRescan(serverId);
@@ -86,7 +86,13 @@ function HostUsagePopoverBody({ serverId }: { serverId: string }) {
       {view.kind === "ready" && reports.length > 0 ? (
         <PopoverLimits reports={reports} displayAs={display.displayAs} />
       ) : (
-        <UsageBody serverId={serverId} view={view} display={display} onRefresh={refresh} />
+        <UsageBody
+          serverId={serverId}
+          view={view}
+          display={display}
+          refreshError={refreshError}
+          onRefresh={refresh}
+        />
       )}
       <PopoverToday serverId={serverId} />
       <Button variant="outline" onPress={openFull} testID="usage-popover-open">

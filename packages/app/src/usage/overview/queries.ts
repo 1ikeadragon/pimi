@@ -9,6 +9,7 @@ import type {
 } from "@pimi/protocol/messages";
 import { useFetchQueries, useFetchQuery } from "@/data/query";
 import { getHostRuntimeStore, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { failureMessage } from "../model";
 import { timezoneOffsetMinutes } from "./format";
 
 export type UsageSummary = NonNullable<UsageGetSummaryResponseMessage["payload"]["summary"]>;
@@ -122,15 +123,24 @@ export function useUsageAgentTreeQuery(input: {
  * Scans provider transcripts now and refetches every history query when it finishes. The first
  * scan on a host is the backfill, so it can take seconds on a large history.
  */
-export function useUsageRescan(serverId: string | null): { rescan: () => void; scanning: boolean } {
+export function useUsageRescan(serverId: string | null): {
+  rescan: () => void;
+  scanning: boolean;
+  /** Why the last scan request failed; null while it runs, after it succeeds, or before it ran. */
+  error: string | null;
+} {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: () => requireClient(serverId ?? "").rescanUsage(),
+    mutationFn: async () => {
+      const result = await requireClient(serverId ?? "").rescanUsage();
+      if (result.error !== null) throw new Error(result.error);
+      return result;
+    },
     onSettled: () => queryClient.invalidateQueries({ queryKey: historyKey(serverId ?? "") }),
   });
   const { mutate } = mutation;
   const rescan = useCallback(() => {
     if (serverId !== null) mutate();
   }, [mutate, serverId]);
-  return { rescan, scanning: mutation.isPending };
+  return { rescan, scanning: mutation.isPending, error: failureMessage(mutation.error) };
 }

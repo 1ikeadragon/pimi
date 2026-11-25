@@ -20,6 +20,7 @@ import {
   useUsageRescan,
   type UsageBreakdown as UsageBreakdownData,
 } from "./queries";
+import { UsageScanNotice } from "./scan-notice";
 import { UsageStatTiles } from "./stat-tiles";
 import { UsageTopChats } from "./top-chats";
 
@@ -132,7 +133,7 @@ export function UsageOverview({ serverId }: { serverId: string }) {
     (next: string | null) => setState((s) => ({ ...s, provider: next })),
     [],
   );
-  const { rescan, scanning: rescanning } = useUsageRescan(serverId);
+  const { rescan, scanning: rescanning, error: rescanError } = useUsageRescan(serverId);
   useEffect(rescan, [rescan]);
 
   const everyone = useUsageBreakdownQuery({ serverId, range, groupBy: "provider", provider: null });
@@ -155,7 +156,16 @@ export function UsageOverview({ serverId }: { serverId: string }) {
     [locale, main.data, tree.data],
   );
 
-  if (main.isError) return <UsageMessage text={t("usageOverview.empty.unavailable")} />;
+  if (main.isError) {
+    return (
+      <View style={styles.stack}>
+        <UsageMessage
+          text={t("usageOverview.empty.unavailableWithReason", { reason: main.error.message })}
+        />
+        <UsageScanNotice scan={null} rescanError={rescanError} />
+      </View>
+    );
+  }
   if (!main.data) return <UsageMessage text={t("usageOverview.empty.scanning")} />;
   const breakdown = main.data;
   if (breakdown.firstEventAt === null) {
@@ -165,6 +175,7 @@ export function UsageOverview({ serverId }: { serverId: string }) {
         <UsageMessage
           text={t(busy ? "usageOverview.empty.scanning" : "usageOverview.empty.noHistory")}
         />
+        <UsageScanNotice scan={breakdown.scan} rescanError={rescanError} />
         <Button variant="outline" onPress={rescan}>
           {t("usageOverview.empty.rescan")}
         </Button>
@@ -192,6 +203,7 @@ export function UsageOverview({ serverId }: { serverId: string }) {
             .filter(Boolean)
             .join(" · ")}
         </Text>
+        <UsageScanNotice scan={breakdown.scan} rescanError={rescanError} />
         <OverviewSections
           serverId={serverId}
           state={state}

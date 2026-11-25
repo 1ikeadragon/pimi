@@ -20,6 +20,7 @@ import { useAppSettings } from "@/hooks/use-settings";
 import { useUsageSetting } from "./setting";
 import { usageCopy } from "./copy";
 import {
+  failureMessage,
   replaceReport,
   resolveAgentUsageView,
   resolveUsageRefresh,
@@ -200,7 +201,12 @@ function hideAccountLabels(
 }
 
 /** Usage reports for one host, as shown on its settings page. */
-export function useHostUsage(serverId: string): { view: UsageView; refresh: () => void } {
+export function useHostUsage(serverId: string): {
+  view: UsageView;
+  refresh: () => void;
+  /** Why the last explicit refresh failed; null while it is pending, succeeded, or never ran. */
+  refreshError: string | null;
+} {
   const setting = useUsageSetting(serverId);
   const streamerMode = useStreamerMode();
   const queryClient = useQueryClient();
@@ -212,9 +218,12 @@ export function useHostUsage(serverId: string): { view: UsageView; refresh: () =
     dataShape: "list",
     staleTimeMs: REPORTS_STALE_TIME_MS,
   });
-  const refresh = useCallback(() => {
-    void refreshReports(queryClient, serverId).catch(() => undefined);
-  }, [queryClient, serverId]);
+  const refreshMutation = useMutation({
+    mutationFn: () => refreshReports(queryClient, serverId),
+  });
+  const { mutate: startRefresh } = refreshMutation;
+  const refresh = useCallback(() => startRefresh(), [startRefresh]);
+  const refreshError = failureMessage(refreshMutation.error);
   const { t } = useTranslation();
   const hostLabel = useHosts().find((host) => host.serverId === serverId)?.label ?? serverId;
   const view = resolveUsageView(
@@ -226,7 +235,7 @@ export function useHostUsage(serverId: string): { view: UsageView; refresh: () =
     },
     t,
   );
-  return { view, refresh };
+  return { view, refresh, refreshError };
 }
 
 const NO_PROVIDER_ACCOUNTS: ReadonlyMap<string, string> = new Map();
