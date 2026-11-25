@@ -413,7 +413,7 @@ export const VIEW_NODE_FIELDS: Record<ViewNodeType, string> = {
   progress: "label, value, max; optional tone",
   text: 'content; optional tone, emphasis "normal", "strong" or "subtle"',
   badge: "label; optional tone",
-  flow: `nodes [{id, label, optional detail, lane, kind, tone}], edges [{from, to, optional label}] naming node ids; optional direction "right" (default) or "down", lanes [{id, label}]. A kind is one of ${flowKindSchema.options.join(", ")}. Cycles are allowed; an edge from a node to itself is not`,
+  flow: `nodes [{id, label, optional detail, lane, kind, tone}], edges [{from, to, optional label}] naming node ids; optional direction "right" or "down" (kept as written; when omitted Pimi picks one from the shape of the graph), lanes [{id, label}]. A kind is one of ${flowKindSchema.options.join(", ")}. Cycles are allowed; an edge from a node to itself is not`,
   sequence: `participants [{id, label}] in column order, steps in time order. A step is a message {from, to, label, optional reply (true draws a dashed return arrow), tone}, a note {note}, or a group {group, steps}: a labelled frame around a loop, an optional part, or one branch of an alternative. from and to name participant ids and may be the same participant`,
 };
 export const VIEW_TONES = toneSchema.options;

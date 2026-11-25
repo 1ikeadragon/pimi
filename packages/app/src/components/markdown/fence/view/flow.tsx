@@ -386,8 +386,8 @@ const ThemedFlowIcons = withUnistyles(FlowIcons);
 const mapIconColor = (theme: Theme) => ({ color: theme.colors.surface1 });
 
 /**
- * A flow diagram. It is laid out for the width it is given; when even the better of its two
- * directions is wider than that, it scrolls sideways like a wide table.
+ * A flow diagram. It is laid out for the width it is given and drawn scaled down to fit, to no
+ * less than the scene's floor; below that it scrolls sideways like a wide table.
  */
 export function FlowView({ node }: { node: FlowNode }) {
   const [width, setWidth] = useState(0);
@@ -422,40 +422,56 @@ export function FlowView({ node }: { node: FlowNode }) {
     () => ({ width: scene.width, height: scene.height }),
     [scene.height, scene.width],
   );
+  const { scale } = scene;
+  const frameStyle = useMemo(
+    () => inlineUnistylesStyle({ width: scene.width * scale, height: scene.height * scale }),
+    [scale, scene.height, scene.width],
+  );
+  const canvasStyle = useMemo(
+    () =>
+      inlineUnistylesStyle({
+        width: scene.width,
+        height: scene.height,
+        ...(scale === 1 ? null : { transform: [{ scale }], transformOrigin: "top left" }),
+      }),
+    [scale, scene.height, scene.width],
+  );
+  // The frame takes the drawn size so the chat list measures the scaled height; the canvas keeps
+  // the layout size and is shrunk about its corner, as the chat visual viewport does.
   const canvas = (
-    <View
-      style={[styles.canvas, inlineUnistylesStyle({ width: scene.width, height: scene.height })]}
-    >
-      <ThemedFlowPainter
-        scene={scene}
-        highlighted={inspected}
-        marching={onScreen}
-        uniProps={mapFlowColors}
-      />
-      <ThemedFlowIcons scene={scene} highlighted={inspected} uniProps={mapIconColor} />
-      <SceneInteraction
-        targets={scene.targets}
-        bounds={bounds}
-        hitTest={hitTest}
-        inspected={inspected}
-        onSelect={select}
-        onInspect={inspect}
-        renderPopover={renderPopover}
-        clearBox
-        testIDPrefix="chat-view-flow-node"
-      />
+    <View style={frameStyle}>
+      <View style={[styles.canvas, canvasStyle]}>
+        <ThemedFlowPainter
+          scene={scene}
+          highlighted={inspected}
+          marching={onScreen}
+          uniProps={mapFlowColors}
+        />
+        <ThemedFlowIcons scene={scene} highlighted={inspected} uniProps={mapIconColor} />
+        <SceneInteraction
+          targets={scene.targets}
+          bounds={bounds}
+          hitTest={hitTest}
+          inspected={inspected}
+          onSelect={select}
+          onInspect={inspect}
+          renderPopover={renderPopover}
+          clearBox
+          scale={scale}
+          testIDPrefix="chat-view-flow-node"
+        />
+      </View>
     </View>
   );
   let body: ReactNode = null;
   if (width > 0) {
-    body =
-      scene.width > width ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator>
-          {canvas}
-        </ScrollView>
-      ) : (
-        canvas
-      );
+    body = scene.scrolls ? (
+      <ScrollView horizontal showsHorizontalScrollIndicator>
+        {canvas}
+      </ScrollView>
+    ) : (
+      canvas
+    );
   }
   return (
     <View ref={container} style={styles.flow} onLayout={measure} testID="chat-view-flow">
@@ -474,7 +490,7 @@ export function FlowView({ node }: { node: FlowNode }) {
 const styles = StyleSheet.create((theme) => ({
   flow: { alignSelf: "stretch", minWidth: 0 },
   // ltr: the scene is positioned in pixels from the left edge.
-  canvas: { direction: "ltr" },
+  canvas: { direction: "ltr", position: "absolute", top: 0, left: 0 },
   icon: { position: "absolute", pointerEvents: "none" },
   popover: { gap: theme.spacing[1], maxWidth: 260, paddingVertical: theme.spacing[1] },
   title: {

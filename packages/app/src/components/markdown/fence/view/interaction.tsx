@@ -159,6 +159,7 @@ export function SceneInteraction({
   onInspect,
   renderPopover,
   clearBox = false,
+  scale = 1,
   testIDPrefix = "chat-visualization-point",
 }: {
   targets: readonly InteractionTarget[];
@@ -170,6 +171,12 @@ export function SceneInteraction({
   /** The popover's content for a target, or null when that target has nothing to show. */
   renderPopover: (index: number) => ReactNode;
   clearBox?: boolean;
+  /**
+   * How much an ancestor draws the scene smaller than its layout. A web pointer position is read
+   * against the scaled bounding rect, so it is divided back into scene pixels; native touches
+   * already arrive in the view's own coordinates.
+   */
+  scale?: number;
   testIDPrefix?: string;
 }) {
   const hovering = useRef(false);
@@ -180,7 +187,10 @@ export function SceneInteraction({
       // offsetX is relative to whichever child is under the pointer, so the position is taken
       // against the surface that owns the scene's coordinates.
       const surface = (currentTarget as unknown as Element).getBoundingClientRect();
-      const index = hitTest(nativeEvent.clientX - surface.left, nativeEvent.clientY - surface.top);
+      const index = hitTest(
+        (nativeEvent.clientX - surface.left) / scale,
+        (nativeEvent.clientY - surface.top) / scale,
+      );
       if (index === null) {
         onInspect(null, false);
         return;
@@ -188,7 +198,7 @@ export function SceneInteraction({
       onSelect(index);
       onInspect(targets[index].key, true);
     },
-    [hitTest, onInspect, onSelect, targets],
+    [hitTest, onInspect, onSelect, scale, targets],
   );
   // Leaving closes only what a hovering pointer opened. A tap's selection stays until the next
   // tap: a finger lifting off also leaves, and touch-emulating browsers send a mouse leave from
@@ -206,8 +216,8 @@ export function SceneInteraction({
       if (isWeb && typeof x !== "number") {
         const click = nativeEvent as unknown as MouseEvent;
         const surface = (currentTarget as unknown as Element).getBoundingClientRect();
-        x = click.clientX - surface.left;
-        y = click.clientY - surface.top;
+        x = (click.clientX - surface.left) / scale;
+        y = (click.clientY - surface.top) / scale;
       }
       const index = hitTest(x, y);
       // A tap on empty space lets go of the target, so a touch reader can clear a focus.
@@ -218,7 +228,7 @@ export function SceneInteraction({
       onSelect(index);
       onInspect(targets[index].key, true);
     },
-    [hitTest, onInspect, onSelect, targets],
+    [hitTest, onInspect, onSelect, scale, targets],
   );
   const target = targets[inspected];
   const content = target ? renderPopover(inspected) : null;
