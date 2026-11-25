@@ -18,6 +18,7 @@ import {
 import { PluginIconView } from "@/plugins/icons";
 import { settingsStyles } from "@/styles/settings";
 import type { Theme } from "@/styles/theme";
+import { SettingAnchor } from "@/settings-index/anchor";
 
 const MENU_ICON_SIZE = 16;
 
@@ -29,26 +30,28 @@ export function FilesSection() {
   const { t } = useTranslation();
   const { rows, choose, askAgain } = useFilePanelSettings();
   return (
-    <SettingsSection title={t("settings.files.title")} testID="file-panel-settings">
-      {rows.length === 0 ? (
-        <View style={settingsStyles.card} testID="file-panel-settings-empty">
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>{t("settings.files.empty")}</Text>
+    <SettingAnchor id="editor.files">
+      <SettingsSection title={t("settings.files.title")} testID="file-panel-settings">
+        {rows.length === 0 ? (
+          <View style={settingsStyles.card} testID="file-panel-settings-empty">
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>{t("settings.files.empty")}</Text>
+            </View>
           </View>
-        </View>
-      ) : (
-        <SettingsCard testID="file-panel-settings-card">
-          {rows.map((row) => (
-            <FilePanelSettingsRowView
-              key={row.selectorKey}
-              row={row}
-              onChoose={choose}
-              onAskAgain={askAgain}
-            />
-          ))}
-        </SettingsCard>
-      )}
-    </SettingsSection>
+        ) : (
+          <SettingsCard testID="file-panel-settings-card">
+            {rows.map((row) => (
+              <FilePanelSettingsRowView
+                key={row.selectorKey}
+                row={row}
+                onChoose={choose}
+                onAskAgain={askAgain}
+              />
+            ))}
+          </SettingsCard>
+        )}
+      </SettingsSection>
+    </SettingAnchor>
   );
 }
 

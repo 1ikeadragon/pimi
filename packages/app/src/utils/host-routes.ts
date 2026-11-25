@@ -517,8 +517,7 @@ export const SETTINGS_SECTION_SLUGS = [
   "chat",
   "editor",
   "shortcuts",
-  "desktop",
-  "resources",
+  "notifications",
   "about",
 ] as const;
 
@@ -534,11 +533,12 @@ export const HOST_SECTION_SLUGS = [
   "metadata",
   "voice",
   "providers",
-  "usage",
   "terminals",
   "plugins",
   "vault",
+  "trust",
   "host",
+  "resources",
 ] as const;
 
 export type HostSectionSlug = (typeof HOST_SECTION_SLUGS)[number];

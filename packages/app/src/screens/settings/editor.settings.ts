@@ -11,5 +11,17 @@ export const editorSettings = defineSettingsPage(
           keywords: ["vim", "modal", "keybindings", "keys", "normal mode", "code editor"],
         }
       : null,
+    isWeb
+      ? {
+          id: "editor.inlineDiff",
+          title: t("settings.editor.inlineDiff"),
+          keywords: ["diff", "changes", "git", "highlight", "modified lines", "head"],
+        }
+      : null,
+    {
+      id: "editor.files",
+      title: t("settings.files.title"),
+      keywords: ["file panels", "open with", "viewer", "default app", "file types"],
+    },
   ],
 );

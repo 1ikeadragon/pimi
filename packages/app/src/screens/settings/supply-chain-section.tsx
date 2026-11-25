@@ -93,7 +93,7 @@ export function SupplyChainSection({ serverId }: { serverId: string }) {
         <SettingsRow
           label={t("settings.supplyChain.updates")}
           hint={hint}
-          settingId="providers.supplyChain"
+          settingId="trust.supplyChain"
         >
           <SegmentedControl
             options={options}

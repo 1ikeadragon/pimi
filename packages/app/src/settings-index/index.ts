@@ -9,13 +9,21 @@ import { openLocationSettings } from "@/screens/settings/open-location/open-loca
 import { appearanceSettings } from "@/screens/settings/appearance/appearance.settings";
 import {
   hostAgentsSettings,
+  hostConnectionSettings,
   hostConnectionsSettings,
+  hostMetadataSettings,
   hostPairDeviceSettings,
+  hostPluginsSettings,
+  hostProvidersSettings,
+  hostResourcesSettings,
   hostSettings,
-  hostSupplyChainSettings,
+  hostTerminalPageSettings,
   hostTerminalsSettings,
+  hostTrustSettings,
+  hostVoiceSettings,
   hostWorkspacesSettings,
 } from "@/screens/settings/host.settings";
+import { vaultSettings } from "@/screens/settings/vault/vault.settings";
 import { sidebarSettings } from "@/screens/settings/sidebar/sidebar.settings";
 import { terminalSettings } from "@/screens/settings/terminal/terminal.settings";
 import { browserSettings } from "@/desktop/browser/settings/browser.settings";
@@ -56,11 +64,19 @@ const SETTINGS_PAGES: readonly SettingsPage[] = [
   diagnosticsSettings,
   hostSettings,
   hostConnectionsSettings,
+  hostConnectionSettings,
   hostPairDeviceSettings,
   hostAgentsSettings,
   hostWorkspacesSettings,
   hostTerminalsSettings,
-  hostSupplyChainSettings,
+  hostTerminalPageSettings,
+  hostTrustSettings,
+  hostProvidersSettings,
+  hostMetadataSettings,
+  hostVoiceSettings,
+  hostPluginsSettings,
+  hostResourcesSettings,
+  vaultSettings,
 ];
 
 function sameLocation(left: SettingsLocation, right: SettingsLocation): boolean {

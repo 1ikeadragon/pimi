@@ -128,6 +128,7 @@ function HostVoiceControls({ serverId }: { serverId: string }) {
       <SettingsSection title={t("settings.voice.dictation.title")} testID="voice-dictation">
         <SettingsCard>
           <FeatureSwitchRow
+            settingId="voice.dictation"
             label={t("settings.voice.dictation.enabled")}
             hint={t("settings.voice.dictation.enabledHint")}
             envVar={envOverrides["features.dictation.enabled"]}
@@ -144,6 +145,7 @@ function HostVoiceControls({ serverId }: { serverId: string }) {
       >
         <SettingsCard>
           <FeatureSwitchRow
+            settingId="voice.voiceMode"
             label={t("settings.voice.voiceMode.enabled")}
             hint={t("settings.voice.voiceMode.enabledHint")}
             envVar={envOverrides["features.voiceMode.enabled"]}
@@ -185,12 +187,14 @@ function siteLabel(t: TFunction, siteId: SpeechSiteId): string {
 }
 
 function FeatureSwitchRow({
+  settingId,
   label,
   hint,
   envVar,
   value,
   onChange,
 }: {
+  settingId: string;
   label: string;
   hint: string;
   envVar: string | undefined;
@@ -199,7 +203,11 @@ function FeatureSwitchRow({
 }) {
   const { t } = useTranslation();
   return (
-    <SettingsRow label={label} hint={envVar ? t("settings.voice.setBy", { name: envVar }) : hint}>
+    <SettingsRow
+      settingId={settingId}
+      label={label}
+      hint={envVar ? t("settings.voice.setBy", { name: envVar }) : hint}
+    >
       <Switch
         value={value}
         onValueChange={onChange}

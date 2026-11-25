@@ -13,6 +13,7 @@ import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { PimiModelControls, type PimiModelChoice } from "@/screens/settings/pimi-model-row";
 import { settingsStyles } from "@/styles/settings";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
+import { SettingAnchor } from "@/settings-index/anchor";
 
 type LimitFallback = MutableDaemonConfig["limitFallback"];
 type ChainEntry = LimitFallback["chain"][number];
@@ -133,86 +134,88 @@ export function LimitFallbackSection({ serverId }: { serverId: string }) {
     addHint = t("settings.providers.limitFallback.empty");
   }
   return (
-    <SettingsSection
-      title={t("settings.providers.limitFallback.title")}
-      info={info}
-      testID="host-page-limit-fallback"
-    >
-      <SettingsCard>
-        <SettingsRow
-          label={t("settings.providers.limitFallback.enableTitle")}
-          hint={t("settings.providers.limitFallback.enableHint")}
-          error={saveError ?? undefined}
-          testID="limit-fallback-enabled-row"
-        >
-          <Switch
-            value={saved.enabled}
-            disabled={isSaving}
-            onValueChange={handleEnabled}
-            accessibilityLabel={t("settings.providers.limitFallback.enableTitle")}
-            testID="limit-fallback-enabled"
-          />
-        </SettingsRow>
-        {saved.enabled
-          ? chain.map((entry, index) => (
-              <ChainRow
-                key={rowKeys[index]}
-                index={index}
-                count={chain.length}
-                entry={entry}
-                serverId={serverId}
-                snapshot={snapshot}
-                disabled={isSaving}
-                onChange={handleChange}
-                onMove={handleMove}
-                onRemove={handleRemove}
-              />
-            ))
-          : null}
-        {saved.enabled && adding ? (
+    <SettingAnchor id="providers.limitFallback">
+      <SettingsSection
+        title={t("settings.providers.limitFallback.title")}
+        info={info}
+        testID="host-page-limit-fallback"
+      >
+        <SettingsCard>
           <SettingsRow
-            label={t("settings.providers.limitFallback.entry", { n: chain.length + 1 })}
-            testID="limit-fallback-new-row"
+            label={t("settings.providers.limitFallback.enableTitle")}
+            hint={t("settings.providers.limitFallback.enableHint")}
+            error={saveError ?? undefined}
+            testID="limit-fallback-enabled-row"
           >
-            <View style={styles.rowControls}>
-              <PimiModelControls
-                label={t("settings.providers.limitFallback.entry", { n: chain.length + 1 })}
-                serverId={serverId}
-                snapshot={snapshot}
-                value={null}
-                placeholder={t("settings.providers.limitFallback.selectModel")}
-                onChange={handleAddChoice}
-                withoutThinking
-                disabled={isSaving}
-                testID="limit-fallback-new"
-              />
-              <Button
-                variant="ghost"
-                leftIcon={removeIcon}
-                onPress={handleCancelAdd}
-                accessibilityLabel={t("settings.providers.limitFallback.remove")}
-                testID="limit-fallback-new-cancel"
-              />
-            </View>
+            <Switch
+              value={saved.enabled}
+              disabled={isSaving}
+              onValueChange={handleEnabled}
+              accessibilityLabel={t("settings.providers.limitFallback.enableTitle")}
+              testID="limit-fallback-enabled"
+            />
           </SettingsRow>
-        ) : null}
-        {saved.enabled && !adding ? (
-          <View style={[settingsStyles.row, styles.addRow]}>
-            <Text style={settingsStyles.rowHint}>{addHint}</Text>
-            <Button
-              size="sm"
-              variant="outline"
-              leftIcon={plusIcon}
-              disabled={atMax || isSaving}
-              onPress={handleStartAdd}
-              testID="limit-fallback-add"
+          {saved.enabled
+            ? chain.map((entry, index) => (
+                <ChainRow
+                  key={rowKeys[index]}
+                  index={index}
+                  count={chain.length}
+                  entry={entry}
+                  serverId={serverId}
+                  snapshot={snapshot}
+                  disabled={isSaving}
+                  onChange={handleChange}
+                  onMove={handleMove}
+                  onRemove={handleRemove}
+                />
+              ))
+            : null}
+          {saved.enabled && adding ? (
+            <SettingsRow
+              label={t("settings.providers.limitFallback.entry", { n: chain.length + 1 })}
+              testID="limit-fallback-new-row"
             >
-              {t("settings.providers.limitFallback.add")}
-            </Button>
-          </View>
-        ) : null}
-      </SettingsCard>
-    </SettingsSection>
+              <View style={styles.rowControls}>
+                <PimiModelControls
+                  label={t("settings.providers.limitFallback.entry", { n: chain.length + 1 })}
+                  serverId={serverId}
+                  snapshot={snapshot}
+                  value={null}
+                  placeholder={t("settings.providers.limitFallback.selectModel")}
+                  onChange={handleAddChoice}
+                  withoutThinking
+                  disabled={isSaving}
+                  testID="limit-fallback-new"
+                />
+                <Button
+                  variant="ghost"
+                  leftIcon={removeIcon}
+                  onPress={handleCancelAdd}
+                  accessibilityLabel={t("settings.providers.limitFallback.remove")}
+                  testID="limit-fallback-new-cancel"
+                />
+              </View>
+            </SettingsRow>
+          ) : null}
+          {saved.enabled && !adding ? (
+            <View style={[settingsStyles.row, styles.addRow]}>
+              <Text style={settingsStyles.rowHint}>{addHint}</Text>
+              <Button
+                size="sm"
+                variant="outline"
+                leftIcon={plusIcon}
+                disabled={atMax || isSaving}
+                onPress={handleStartAdd}
+                testID="limit-fallback-add"
+              >
+                {t("settings.providers.limitFallback.add")}
+              </Button>
+            </View>
+          ) : null}
+        </SettingsCard>
+      </SettingsSection>
+    </SettingAnchor>
   );
 }
 

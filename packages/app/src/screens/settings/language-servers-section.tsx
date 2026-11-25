@@ -16,6 +16,7 @@ import {
   parseServerArgs,
   type LanguageServerDraft,
 } from "./language-server-modal";
+import { SettingAnchor } from "@/settings-index/anchor";
 
 type Status = CodeNavigationServerStatus["status"];
 
@@ -168,45 +169,47 @@ export function LanguageServersSection({ serverId }: { serverId: string }) {
   }
 
   return (
-    <View testID="language-servers-section">
-      <SettingsSection
-        title={t("settings.languageServers.title")}
-        info={t("settings.languageServers.description")}
-      >
-        {loadError ? (
-          <SettingsCard>
-            <Text style={styles.failure}>
-              {t("settings.languageServers.loadError", { error: loadError })}
-            </Text>
-          </SettingsCard>
-        ) : null}
-        {ordered ? (
-          <SettingsCard testID="language-server-list">
-            {ordered.map((server) => (
-              <LanguageServerRow
-                key={server.language}
-                server={server}
-                highlighted={server.language === focused}
-                test={tests[server.language]}
-                onTest={runTest}
-                onEdit={setEditing}
-                onReset={saveOverrides}
-              />
-            ))}
-          </SettingsCard>
-        ) : (
-          <LoadingSpinner size="large" color={styles.spinnerColor.color} />
-        )}
-      </SettingsSection>
-      <LanguageServerModal
-        visible={editing !== null}
-        language={editing?.label ?? ""}
-        initialDraft={editingDraft}
-        onClose={handleModalClose}
-        onSave={handleModalSave}
-        onTest={handleModalTest}
-      />
-    </View>
+    <SettingAnchor id="terminals.languageServers">
+      <View testID="language-servers-section">
+        <SettingsSection
+          title={t("settings.languageServers.title")}
+          info={t("settings.languageServers.description")}
+        >
+          {loadError ? (
+            <SettingsCard>
+              <Text style={styles.failure}>
+                {t("settings.languageServers.loadError", { error: loadError })}
+              </Text>
+            </SettingsCard>
+          ) : null}
+          {ordered ? (
+            <SettingsCard testID="language-server-list">
+              {ordered.map((server) => (
+                <LanguageServerRow
+                  key={server.language}
+                  server={server}
+                  highlighted={server.language === focused}
+                  test={tests[server.language]}
+                  onTest={runTest}
+                  onEdit={setEditing}
+                  onReset={saveOverrides}
+                />
+              ))}
+            </SettingsCard>
+          ) : (
+            <LoadingSpinner size="large" color={styles.spinnerColor.color} />
+          )}
+        </SettingsSection>
+        <LanguageServerModal
+          visible={editing !== null}
+          language={editing?.label ?? ""}
+          initialDraft={editingDraft}
+          onClose={handleModalClose}
+          onSave={handleModalSave}
+          onTest={handleModalTest}
+        />
+      </View>
+    </SettingAnchor>
   );
 }
 

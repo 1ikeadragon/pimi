@@ -47,6 +47,7 @@ import { useProviderSettingsStore } from "@/stores/provider-settings-store";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { filterSelectableModels } from "@/provider-selection/model-catalog";
 import { ChevronRight, MoreHorizontal, Trash2 } from "lucide-react-native";
+import { SettingAnchor } from "@/settings-index/anchor";
 
 type ProviderDefinition = ReturnType<typeof buildProviderDefinitions>[number];
 type ProviderEntry = NonNullable<ReturnType<typeof useProvidersSnapshot>["entries"]>[number];
@@ -622,30 +623,32 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
       <HarnessUpdatesSection serverId={serverId} />
 
       {hasServer && isConnected ? (
-        <SettingsSection
-          title={t("settings.providers.addProvider")}
-          testID="host-page-add-provider-card"
-          style={styles.addProviderSection}
-          trailing={addCustomProviderAction}
-        >
-          <SettingsCard>
-            <SettingsRow
-              label={t("settings.providers.catalog.title")}
-              hint={t("settings.providers.catalog.hint")}
-            >
-              <Button variant="outline" onPress={openCatalog} testID="provider-catalog-open">
-                {t("settings.providers.catalog.action")}
-              </Button>
-            </SettingsRow>
-          </SettingsCard>
-          <ProviderCatalogSheet
-            visible={catalogOpen}
-            onClose={closeCatalog}
-            serverId={serverId}
-            installingProviderId={installingProviderId}
-            onInstall={handleInstall}
-          />
-        </SettingsSection>
+        <SettingAnchor id="providers.addProvider">
+          <SettingsSection
+            title={t("settings.providers.addProvider")}
+            testID="host-page-add-provider-card"
+            style={styles.addProviderSection}
+            trailing={addCustomProviderAction}
+          >
+            <SettingsCard>
+              <SettingsRow
+                label={t("settings.providers.catalog.title")}
+                hint={t("settings.providers.catalog.hint")}
+              >
+                <Button variant="outline" onPress={openCatalog} testID="provider-catalog-open">
+                  {t("settings.providers.catalog.action")}
+                </Button>
+              </SettingsRow>
+            </SettingsCard>
+            <ProviderCatalogSheet
+              visible={catalogOpen}
+              onClose={closeCatalog}
+              serverId={serverId}
+              installingProviderId={installingProviderId}
+              onInstall={handleInstall}
+            />
+          </SettingsSection>
+        </SettingAnchor>
       ) : null}
       {customSheet}
     </>

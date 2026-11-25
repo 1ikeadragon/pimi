@@ -120,6 +120,7 @@ export function MetadataGenerationPage({ serverId }: { serverId: string }) {
       >
         <SettingsCard>
           <SettingsRow
+            settingId="metadata.selection"
             label={t("settings.metadataGeneration.selection")}
             hint={
               mode === "automatic"
@@ -162,6 +163,7 @@ export function MetadataGenerationPage({ serverId }: { serverId: string }) {
             </SettingsRow>
           ) : null}
           <SettingsRow
+            settingId="metadata.actionItems"
             label={t("settings.metadataGeneration.actionItems")}
             hint={t("settings.metadataGeneration.actionItemsHint")}
           >

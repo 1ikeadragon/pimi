@@ -8,6 +8,7 @@ import { ExternalLink } from "@/components/ui/external-link";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { useHarnessUpdates } from "@/hooks/use-harness-updates";
 import { settingsStyles } from "@/styles/settings";
+import { SettingAnchor } from "@/settings-index/anchor";
 
 const updateGuides: Record<ProviderHarnessUpdateChannel, string> = {
   "claude-stable": "https://code.claude.com/docs/en/setup#update-claude-code",
@@ -45,46 +46,48 @@ export function HarnessUpdatesSection({ serverId }: { serverId: string }) {
   if (isError) emptyLabel = "harnessUpdates.failed";
   if (isFetching) emptyLabel = "harnessUpdates.checking";
   return (
-    <SettingsSection
-      title={t("harnessUpdates.title")}
-      testID="provider-harness-updates"
-      trailing={checkButton}
-    >
-      <View style={settingsStyles.card}>
-        {isError || updates.length === 0 ? (
-          <View style={settingsStyles.row}>
-            <Text style={settingsStyles.rowHint} accessibilityLiveRegion="polite">
-              {t(emptyLabel)}
-            </Text>
-          </View>
-        ) : null}
-        {updates.map(
-          ({ provider, label, channel, installedVersion, latestVersion, status }, index) => (
-            <View
-              key={provider}
-              style={[settingsStyles.row, index > 0 && settingsStyles.rowBorder]}
-            >
-              <View style={settingsStyles.rowContent}>
-                <Text style={settingsStyles.rowTitle}>
-                  {channel === "claude-stable"
-                    ? t("harnessUpdates.stableChannel", { label })
-                    : label}
-                </Text>
-                <Text style={settingsStyles.rowHint}>
-                  {t("harnessUpdates.installed", { version: installedVersion })}
-                </Text>
-                <Text
-                  style={[settingsStyles.rowHint, status === "update_available" && styles.update]}
-                >
-                  {t(`harnessUpdates.status.${status}`, { version: latestVersion })}
-                </Text>
-              </View>
-              <ExternalLink href={updateGuides[channel]} label={t("harnessUpdates.guide")} />
+    <SettingAnchor id="providers.harnessUpdates">
+      <SettingsSection
+        title={t("harnessUpdates.title")}
+        testID="provider-harness-updates"
+        trailing={checkButton}
+      >
+        <View style={settingsStyles.card}>
+          {isError || updates.length === 0 ? (
+            <View style={settingsStyles.row}>
+              <Text style={settingsStyles.rowHint} accessibilityLiveRegion="polite">
+                {t(emptyLabel)}
+              </Text>
             </View>
-          ),
-        )}
-      </View>
-    </SettingsSection>
+          ) : null}
+          {updates.map(
+            ({ provider, label, channel, installedVersion, latestVersion, status }, index) => (
+              <View
+                key={provider}
+                style={[settingsStyles.row, index > 0 && settingsStyles.rowBorder]}
+              >
+                <View style={settingsStyles.rowContent}>
+                  <Text style={settingsStyles.rowTitle}>
+                    {channel === "claude-stable"
+                      ? t("harnessUpdates.stableChannel", { label })
+                      : label}
+                  </Text>
+                  <Text style={settingsStyles.rowHint}>
+                    {t("harnessUpdates.installed", { version: installedVersion })}
+                  </Text>
+                  <Text
+                    style={[settingsStyles.rowHint, status === "update_available" && styles.update]}
+                  >
+                    {t(`harnessUpdates.status.${status}`, { version: latestVersion })}
+                  </Text>
+                </View>
+                <ExternalLink href={updateGuides[channel]} label={t("harnessUpdates.guide")} />
+              </View>
+            ),
+          )}
+        </View>
+      </SettingsSection>
+    </SettingAnchor>
   );
 }
 

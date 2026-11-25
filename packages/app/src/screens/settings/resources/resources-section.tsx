@@ -250,7 +250,10 @@ function ResourcesView({ serverId }: { serverId: string }) {
         testID="resources-network"
       >
         <SettingsCard>
-          <SettingsRow label={t("settings.resources.resolveNames")}>
+          <SettingsRow
+            settingId="resources.resolveNames"
+            label={t("settings.resources.resolveNames")}
+          >
             <Switch
               value={resolveNames}
               onValueChange={toggleNames}
@@ -616,14 +619,14 @@ function LogsSection({ serverId, log }: { serverId: string; log: NetworkActivity
   return (
     <SettingsSection title={t("settings.resources.logs")} testID="resources-logs">
       <SettingsCard>
-        <SettingsRow label={t("settings.resources.save")}>
+        <SettingsRow settingId="resources.saveLogs" label={t("settings.resources.save")}>
           <Switch
             value={enabled}
             onValueChange={toggleEnabled}
             accessibilityLabel={t("settings.resources.save")}
           />
         </SettingsRow>
-        <SettingsRow label={t("settings.resources.days")}>
+        <SettingsRow settingId="resources.retention" label={t("settings.resources.days")}>
           <View style={styles.stepper}>
             <Button
               variant="outline"

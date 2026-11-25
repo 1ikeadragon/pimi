@@ -1,6 +1,5 @@
 import { useHardwareKeyboardPresent } from "@/keyboard";
 import { overridable, Slot } from "@/extension-points";
-import { UsageIcon } from "@/usage/icon";
 import { useAddHost } from "@/hosts/add-host";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
@@ -29,8 +28,8 @@ import {
   Boxes,
   Keyboard,
   Activity,
+  Bell,
   Info,
-  Monitor,
   Plus,
   FolderGit2,
   SquareTerminal,
@@ -39,6 +38,7 @@ import {
   Mic,
   Blocks,
   KeyRound,
+  ShieldCheck,
   MessageSquare,
   ChevronRight,
 } from "lucide-react-native";
@@ -68,7 +68,6 @@ import { WindowChromeRegion, WindowChromeSafeArea } from "@/utils/desktop-window
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { BackHeader } from "@/components/headers/back-header";
 import { PageLayout } from "@/components/page-layout";
-import { PimiUsageScreen } from "@/screens/pimi-usage-screen";
 import { KeyboardShortcutsSection } from "@/screens/settings/keyboard-shortcuts-section";
 import { EditorSection } from "@/screens/settings/editor-section";
 import { FilesSection } from "@/screens/settings/files-section";
@@ -95,6 +94,7 @@ import type { SettingsLocation } from "@/settings-index/types";
 import { SettingAnchor, SettingsPageKeyProvider, settingsPageKey } from "@/settings-index/anchor";
 import {
   APP_SETTINGS_PAGES,
+  HOST_PAGE_GROUPS,
   HOST_SETTINGS_PAGES,
   hostSettingsPageTitle,
   isAppSettingsPageAvailable,
@@ -109,11 +109,13 @@ import {
   HostSettingsPage,
   HostProvidersPage,
   HostTerminalsPage,
+  HostTrustPage,
 } from "@/screens/settings/host-page";
 import { PluginSettingsContent } from "@/plugins/settings";
 import { usePluginDisplayName } from "@/plugins/plugin-list";
 import { HostPluginsPage } from "@/screens/settings/plugins-page";
 import { HostVaultPage } from "@/screens/settings/vault/vault-page";
+import { VaultSidebarState } from "@/screens/settings/vault/vault-state";
 import { MetadataGenerationPage } from "@/screens/settings/metadata-generation-page";
 import { ResourcesSection } from "@/screens/settings/resources/resources-section";
 import { HostVoicePage } from "@/screens/settings/voice/voice-page";
@@ -163,8 +165,7 @@ const SECTION_ICONS: Record<SettingsSectionSlug, SettingsIcon> = {
   chat: MessageSquare,
   editor: Code2,
   shortcuts: Keyboard,
-  desktop: Monitor,
-  resources: Activity,
+  notifications: Bell,
   about: Info,
 };
 
@@ -172,9 +173,9 @@ function GeneralPage() {
   return (
     <>
       <GeneralSection />
-      {Platform.OS === "android" ? <PushNotificationsSection /> : null}
       {isElectronRuntime() ? (
         <>
+          <DesktopPowerSection />
           <OpenLocationSection />
           <IntegrationsSection />
         </>
@@ -212,12 +213,16 @@ function EditorPage() {
   );
 }
 
-function DesktopPage() {
+function NotificationsPage() {
   return (
     <>
-      <DesktopNotificationsSection />
-      <DesktopPowerSection />
-      <DesktopPermissionsSection />
+      {Platform.OS === "android" ? <PushNotificationsSection /> : null}
+      {isElectronRuntime() ? (
+        <>
+          <DesktopNotificationsSection />
+          <DesktopPermissionsSection />
+        </>
+      ) : null}
     </>
   );
 }
@@ -228,7 +233,7 @@ const SECTION_CONTENT: Partial<Record<SettingsSectionSlug, ComponentType>> = {
   chat: ChatPage,
   editor: EditorPage,
   shortcuts: KeyboardShortcutsSection,
-  desktop: DesktopPage,
+  notifications: NotificationsPage,
 };
 
 // Titles, availability and search words come from the page catalog, which the palette indexes too.
@@ -240,7 +245,6 @@ type HostSectionItem = HostPageDeclaration & { icon: SettingsIcon };
 
 const HOST_SECTION_ICONS: Record<HostSectionSlug, SettingsIcon> = {
   providers: Boxes,
-  usage: UsageIcon,
   metadata: Sparkles,
   agents: Bot,
   voice: Mic,
@@ -248,7 +252,9 @@ const HOST_SECTION_ICONS: Record<HostSectionSlug, SettingsIcon> = {
   terminals: SquareTerminal,
   plugins: Blocks,
   vault: KeyRound,
+  trust: ShieldCheck,
   host: Server,
+  resources: Activity,
 };
 
 const HOST_SECTION_ITEMS: HostSectionItem[] = HOST_SETTINGS_PAGES.map((page) =>
@@ -258,7 +264,6 @@ const HOST_SECTION_ITEMS: HostSectionItem[] = HOST_SETTINGS_PAGES.map((page) =>
 function renderHostSettingsContent(
   view: Extract<SettingsView, { kind: "host" }>,
   onHostRemoved: () => void,
-  onBack: (() => void) | undefined,
 ): ReactNode {
   switch (view.section) {
     case "projects":
@@ -271,16 +276,18 @@ function renderHostSettingsContent(
       return <HostVoicePage serverId={view.serverId} />;
     case "providers":
       return <HostProvidersPage serverId={view.serverId} />;
-    case "usage":
-      return <PimiUsageScreen hostServerId={view.serverId} onBack={onBack} />;
     case "terminals":
       return <HostTerminalsPage serverId={view.serverId} />;
     case "plugins":
       return <HostPluginsPage serverId={view.serverId} />;
     case "vault":
       return <HostVaultPage serverId={view.serverId} />;
+    case "trust":
+      return <HostTrustPage serverId={view.serverId} />;
     case "host":
       return <HostSettingsPage serverId={view.serverId} onHostRemoved={onHostRemoved} />;
+    case "resources":
+      return <ResourcesSection serverId={view.serverId} />;
   }
 }
 
@@ -787,6 +794,8 @@ interface SidebarHostSectionButtonProps {
   icon: ComponentType<{ size: number; color: string; strokeWidth?: number }>;
   isSelected: boolean;
   onSelect: (section: HostSectionSlug) => void;
+  /** The host a row that shows its own state, such as the vault's, reads it from. */
+  hostServerId: string | null;
 }
 
 function SidebarHostSectionButton({
@@ -795,6 +804,7 @@ function SidebarHostSectionButton({
   icon: IconComponent,
   isSelected,
   onSelect,
+  hostServerId,
 }: SidebarHostSectionButtonProps) {
   const { theme, rt } = useUnistyles();
   const handlePress = useCallback(() => {
@@ -821,6 +831,7 @@ function SidebarHostSectionButton({
       <Text style={labelStyle} numberOfLines={1}>
         {label}
       </Text>
+      {itemId === "vault" && hostServerId ? <VaultSidebarState serverId={hostServerId} /> : null}
     </Pressable>
   );
 }
@@ -948,9 +959,12 @@ function SettingsSidebar({
   const enableBuiltInDaemonOption = useEnableBuiltInDaemonOption();
   const isDesktopApp = isElectronRuntime();
   const hardwareKeyboardPresent = useHardwareKeyboardPresent();
-  const items = SIDEBAR_SECTION_ITEMS.filter((item) =>
-    isAppSettingsPageAvailable(item, { isDesktopApp, hardwareKeyboardPresent }),
+  const items = SIDEBAR_SECTION_ITEMS.filter(
+    (item) =>
+      item.id !== "about" &&
+      isAppSettingsPageAvailable(item, { isDesktopApp, hardwareKeyboardPresent }),
   );
+  const aboutItems = SIDEBAR_SECTION_ITEMS.filter((item) => item.id === "about");
   const insets = useSafeAreaInsets();
   const isDesktop = layout === "desktop";
   const sidebarScroll = useSettingsSidebarScroll(isDesktop);
@@ -979,33 +993,40 @@ function SettingsSidebar({
     />
   );
 
+  const renderHostSection = (item: HostSectionItem) => (
+    <SidebarHostSectionButton
+      key={item.id}
+      itemId={item.id}
+      label={hostSettingsPageTitle(item.id, t)}
+      icon={item.icon}
+      isSelected={selectedHostSection === item.id}
+      onSelect={onSelectHostSection}
+      hostServerId={activeHostServerId}
+    />
+  );
+
   const search = useSettingsSearch();
   const slotContext = useMemo(() => ({ compact: !isDesktop }), [isDesktop]);
   const sidebarGroups = (
     <>
-      <SidebarGroup label={t("settings.groups.pimi")}>
-        {items.filter((item) => item.group === "pimi").map(renderSection)}
-      </SidebarGroup>
+      <SidebarGroup label={t("settings.groups.device")}>{items.map(renderSection)}</SidebarGroup>
       {hasHosts ? (
-        <SidebarGroup label={t("settings.groups.host")}>
-          <HostPicker
-            activeServerId={activeHostServerId}
-            sortedHosts={sortedHosts}
-            onSelectHost={onSelectHost}
-            onAddHost={onAddHost}
-            enableBuiltInDaemonOption={enableBuiltInDaemonOption}
-          />
-          {HOST_SECTION_ITEMS.map((item) => (
-            <SidebarHostSectionButton
-              key={item.id}
-              itemId={item.id}
-              label={hostSettingsPageTitle(item.id, t)}
-              icon={item.icon}
-              isSelected={selectedHostSection === item.id}
-              onSelect={onSelectHostSection}
+        <>
+          <SidebarGroup label={t("settings.groups.host")}>
+            <HostPicker
+              activeServerId={activeHostServerId}
+              sortedHosts={sortedHosts}
+              onSelectHost={onSelectHost}
+              onAddHost={onAddHost}
+              enableBuiltInDaemonOption={enableBuiltInDaemonOption}
             />
+          </SidebarGroup>
+          {HOST_PAGE_GROUPS.map((group) => (
+            <SidebarGroup key={group} label={t(`settings.groups.${group}`)}>
+              {HOST_SECTION_ITEMS.filter((item) => item.group === group).map(renderHostSection)}
+            </SidebarGroup>
           ))}
-        </SidebarGroup>
+        </>
       ) : (
         <SidebarGroup>
           <Pressable
@@ -1044,9 +1065,7 @@ function SettingsSidebar({
           ) : null}
         </SidebarGroup>
       )}
-      <SidebarGroup label={t("settings.groups.system")}>
-        {items.filter((item) => item.group === "system").map(renderSection)}
-      </SidebarGroup>
+      <SidebarGroup>{aboutItems.map(renderSection)}</SidebarGroup>
       <Slot id="settings.sidebar" context={slotContext} />
     </>
   );
@@ -1268,11 +1287,7 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
         />
       );
     if (view.kind === "host") {
-      return renderHostSettingsContent(
-        view,
-        handleHostRemoved,
-        isCompactLayout ? handleBackFromDetail : undefined,
-      );
+      return renderHostSettingsContent(view, handleHostRemoved);
     }
     if (view.kind === "project") {
       return (
@@ -1289,8 +1304,6 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
       if (!item || !isAppSettingsPageAvailable(item, { isDesktopApp, hardwareKeyboardPresent }))
         return null;
       switch (view.section) {
-        case "resources":
-          return <ResourcesSection serverId={activeHostServerId} />;
         case "about":
           return (
             <AboutSection
@@ -1347,19 +1360,12 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
     );
   }
 
-  // Usage scrolls and sizes itself, so it takes the pane instead of PageLayout's scroll column.
-  const fullPane = view.kind === "host" && view.section === "usage";
-
   if (isCompactLayout) {
     return (
       <View style={styles.container}>
-        {fullPane ? (
-          pageContent
-        ) : (
-          <PageLayout title={detailTitle} onBack={handleBackFromDetail}>
-            {pageContent}
-          </PageLayout>
-        )}
+        <PageLayout title={detailTitle} onBack={handleBackFromDetail}>
+          {pageContent}
+        </PageLayout>
       </View>
     );
   }
@@ -1384,17 +1390,13 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
         </WindowChromeRegion>
         <WindowChromeRegion corners="top-right">
           <View style={desktopStyles.contentPane} testID="settings-detail-pane">
-            {fullPane ? (
-              pageContent
-            ) : (
-              <PageLayout
-                title={detailTitle}
-                titleTestID="settings-detail-header-title"
-                testID="settings-detail-scroll-body"
-              >
-                {pageContent}
-              </PageLayout>
-            )}
+            <PageLayout
+              title={detailTitle}
+              titleTestID="settings-detail-header-title"
+              testID="settings-detail-scroll-body"
+            >
+              {pageContent}
+            </PageLayout>
           </View>
         </WindowChromeRegion>
       </View>

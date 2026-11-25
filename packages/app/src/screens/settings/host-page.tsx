@@ -59,6 +59,7 @@ import {
 import type { ConnectionProbeState } from "@/utils/connection-selection";
 import { ProvidersSection } from "@/screens/settings/providers-section";
 import { SupplyChainSection } from "@/screens/settings/supply-chain-section";
+import { VaultSummaryRow } from "@/screens/settings/vault/vault-summary-row";
 import { HostAppearanceSection } from "@/screens/settings/host-appearance-section";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { useSessionStore } from "@/stores/session-store";
@@ -67,7 +68,7 @@ import { settingsStyles } from "@/styles/settings";
 import type { HostConnection, HostProfile } from "@/types/host-connection";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { isVersionMismatch } from "@/desktop/updates/desktop-updates";
-import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import { buildProfilesRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import { resolveAppVersion } from "@/utils/app-version";
 import { formatConnectionStatus, getConnectionStatusTone } from "@/utils/daemons";
 import { formatLatency } from "@/utils/latency";
@@ -309,21 +310,73 @@ export function HostAgentsPage({ serverId }: { serverId: string }) {
   return (
     <View>
       {isConnected ? (
-        <SettingsSection title={t("settings.hostSections.agents")}>
-          <PimiToolsCard serverId={serverId} />
-          <BrowserToolsOptInCard serverId={serverId} />
-          <AppendSystemPromptCard serverId={serverId} />
-          <RestartRecoveryCard serverId={serverId} />
-          <IdleRuntimeCleanupCard serverId={serverId} />
-          <AutoArchiveMergedWorkspacesCard serverId={serverId} />
-          <EnableTerminalAgentHooksCard serverId={serverId} />
-        </SettingsSection>
+        <>
+          <SettingsSection title={t("settings.host.agents.sections.tools")}>
+            <PimiToolsCard serverId={serverId} />
+            <VaultHint serverId={serverId} />
+          </SettingsSection>
+          <SettingsSection title={t("settings.host.agents.sections.instructions")}>
+            <AppendSystemPromptCard serverId={serverId} />
+          </SettingsSection>
+          <SettingsSection title={t("settings.host.agents.sections.lifecycle")}>
+            <RestartRecoveryCard serverId={serverId} />
+            <IdleRuntimeCleanupCard serverId={serverId} />
+            <AutoArchiveMergedWorkspacesCard serverId={serverId} />
+          </SettingsSection>
+          <SettingsSection title={t("settings.host.agents.sections.terminalAgents")}>
+            <EnableTerminalAgentHooksCard serverId={serverId} />
+          </SettingsSection>
+          <SettingsSection title={t("settings.host.agents.sections.profiles")}>
+            <AgentProfilesLink />
+          </SettingsSection>
+        </>
       ) : (
         <View style={[settingsStyles.card, styles.emptyCard]}>
           <Text style={styles.emptyText}>{t("settings.host.agents.unavailable")}</Text>
         </View>
       )}
-      <AgentSkillsSection serverId={serverId} />
+      <SettingAnchor id="agents.skills">
+        <AgentSkillsSection serverId={serverId} />
+      </SettingAnchor>
+    </View>
+  );
+}
+
+function VaultHint({ serverId }: { serverId: string }) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const open = useCallback(
+    () => router.push(buildSettingsHostSectionRoute(serverId, "vault")),
+    [router, serverId],
+  );
+  return (
+    <Pressable accessibilityRole="link" onPress={open} testID="host-page-vault-hint">
+      <Text style={settingsStyles.rowHint}>{t("settings.host.orchestration.vaultHint")}</Text>
+    </Pressable>
+  );
+}
+
+function AgentProfilesLink() {
+  const { t } = useTranslation();
+  const { theme } = useUnistyles();
+  const router = useRouter();
+  const open = useCallback(() => router.push(buildProfilesRoute()), [router]);
+  return (
+    <View style={settingsStyles.card}>
+      <SettingAnchor id="agents.profiles">
+        <Pressable
+          style={settingsStyles.row}
+          onPress={open}
+          accessibilityRole="button"
+          testID="host-page-agent-profiles-row"
+        >
+          <View style={settingsStyles.rowContent}>
+            <Text style={settingsStyles.rowTitle}>{t("settings.host.agents.profiles.title")}</Text>
+            <Text style={settingsStyles.rowHint}>{t("settings.host.agents.profiles.hint")}</Text>
+          </View>
+          <ChevronRight size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
+        </Pressable>
+      </SettingAnchor>
     </View>
   );
 }
@@ -335,10 +388,41 @@ export function HostProvidersPage({ serverId }: { serverId: string }) {
     return <HostNotFound />;
   }
 
+  return <ProvidersSection serverId={serverId} />;
+}
+
+export function HostTrustPage({ serverId }: { serverId: string }) {
+  const { t } = useTranslation();
+  const host = useHostProfile(serverId);
+  const isConnected = useHostRuntimeIsConnected(serverId);
+  const isLocalDaemon = useIsLocalDaemon(serverId);
+
+  if (!host) {
+    return <HostNotFound />;
+  }
+
   return (
     <View>
-      <ProvidersSection serverId={serverId} />
-      <SupplyChainSection serverId={serverId} />
+      <SettingsSection title={t("settings.hostSections.vault")}>
+        <VaultSummaryRow serverId={serverId} />
+      </SettingsSection>
+      {isConnected ? (
+        <>
+          <SettingsSection title={t("settings.trust.browser")}>
+            <BrowserToolsOptInCard serverId={serverId} />
+          </SettingsSection>
+          <SupplyChainSection serverId={serverId} />
+          {!isLocalDaemon && isElectronRuntime() ? (
+            <SettingsSection title={t("settings.trust.agentAccess")}>
+              <AgentAccessSection host={host} />
+            </SettingsSection>
+          ) : null}
+        </>
+      ) : (
+        <View style={[settingsStyles.card, styles.emptyCard]}>
+          <Text style={styles.emptyText}>{t("settings.trust.unavailable")}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -363,9 +447,13 @@ export function HostSettingsPage({
       <HostStatusBadges serverId={serverId} />
       <HostConnectionError serverId={serverId} />
 
-      <HostAppearanceSection host={host} />
+      <SettingAnchor id="host.appearance">
+        <HostAppearanceSection host={host} />
+      </SettingAnchor>
 
-      <ConnectionsSection host={host} />
+      <SettingAnchor id="host.connections">
+        <ConnectionsSection host={host} />
+      </SettingAnchor>
 
       <RemoteDevMachineSection />
 
@@ -375,11 +463,15 @@ export function HostSettingsPage({
 
       {isLocalDaemon ? <LocalDaemonSection /> : null}
 
-      {!isLocalDaemon && isElectronRuntime() ? <AgentAccessSection host={host} /> : null}
+      {!isLocalDaemon ? (
+        <SettingAnchor id="host.update">
+          <UpdateDaemonCard key={host.serverId} host={host} />
+        </SettingAnchor>
+      ) : null}
 
-      {!isLocalDaemon ? <UpdateDaemonCard key={host.serverId} host={host} /> : null}
-
-      <RemoveHostSection host={host} isLocalDaemon={isLocalDaemon} onRemoved={onHostRemoved} />
+      <SettingAnchor id="host.remove">
+        <RemoveHostSection host={host} isLocalDaemon={isLocalDaemon} onRemoved={onHostRemoved} />
+      </SettingAnchor>
     </View>
   );
 }
@@ -403,7 +495,7 @@ function AgentAccessSection({ host }: { host: HostProfile }) {
   }
   return (
     <View style={settingsStyles.card} testID="host-page-agent-access-card">
-      <View style={settingsStyles.row}>
+      <SettingAnchor id="trust.agentAccess" style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
           <Text style={settingsStyles.rowTitle}>{t("settings.host.agentAccess.title")}</Text>
           <Text style={settingsStyles.rowHint}>{t("settings.host.agentAccess.hint")}</Text>
@@ -415,7 +507,7 @@ function AgentAccessSection({ host }: { host: HostProfile }) {
           accessibilityLabel={t("settings.host.agentAccess.title")}
           testID="host-page-agent-access-switch"
         />
-      </View>
+      </SettingAnchor>
     </View>
   );
 }
@@ -1685,7 +1777,9 @@ export function HostTerminalsPage({ serverId }: { serverId: string }) {
 
   return (
     <View>
-      <TerminalProfilesSection serverId={serverId} />
+      <SettingAnchor id="terminals.profiles">
+        <TerminalProfilesSection serverId={serverId} />
+      </SettingAnchor>
       <LanguageServersSection serverId={serverId} />
     </View>
   );

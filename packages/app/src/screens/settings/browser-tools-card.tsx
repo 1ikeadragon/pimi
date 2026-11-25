@@ -5,6 +5,7 @@ import { useTranslation } from "@/i18n/use-translation";
 import { Switch } from "@/components/ui/switch";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { settingsStyles } from "@/styles/settings";
 import {
   createBrowserToolsPatch,
@@ -42,7 +43,7 @@ export function BrowserToolsOptInCard({ serverId }: { serverId: string }) {
 
   return (
     <View style={settingsStyles.card} testID="host-page-browser-tools-card">
-      <View style={settingsStyles.row}>
+      <SettingAnchor id="trust.browserTools" style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
           <Text style={settingsStyles.rowTitle}>{state.title}</Text>
           <Text style={settingsStyles.rowHint}>{state.warning}</Text>
@@ -64,7 +65,7 @@ export function BrowserToolsOptInCard({ serverId }: { serverId: string }) {
           accessibilityLabel="Enable browser tools"
           testID="host-page-browser-tools-switch"
         />
-      </View>
+      </SettingAnchor>
     </View>
   );
 }

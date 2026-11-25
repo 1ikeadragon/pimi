@@ -3826,9 +3826,12 @@ export const en = {
     },
     loading: "Loading settings...",
     groups: {
-      pimi: "Pimi",
+      device: "This device",
       host: "Host",
-      system: "System",
+      agents: "Agents",
+      security: "Security",
+      workspace: "Workspace",
+      thisHost: "This host",
     },
     hostPicker: {
       switchHost: "Switch host",
@@ -3850,8 +3853,7 @@ export const en = {
       editor: "Editor & terminal",
       terminal: "Terminal",
       shortcuts: "Shortcuts",
-      desktop: "Desktop",
-      resources: "Resources",
+      notifications: "Notifications",
       about: "About",
     },
     layout: {
@@ -3901,6 +3903,8 @@ export const en = {
       title: "Editor",
       vimKeybindings: "Vim keybindings",
       vimHint: "Applies to source files on web and desktop.",
+      inlineDiff: "Inline diff",
+      inlineDiffHint: "Mark lines changed since the last commit in the source editor.",
     },
     files: {
       title: "Files",
@@ -3930,17 +3934,24 @@ export const en = {
       sentDescription: "Pimi handed the notification to the operating system.",
       sendFailedTitle: "Unable to send test notification",
     },
+    trust: {
+      browser: "Browser",
+      agentAccess: "Agent access",
+      unavailable: "Connect to this host to manage trust and access",
+      vaultOpen: "Open",
+    },
     hostSections: {
       projects: "Projects",
       agents: "Agents",
       metadata: "Pimi models",
       voice: "Voice & dictation",
       providers: "Providers",
-      usage: "Usage",
       terminals: "Terminals & language servers",
       plugins: "Plugins",
       vault: "Vault",
-      host: "Host",
+      trust: "Trust & access",
+      host: "Connection",
+      resources: "Resources",
     },
     resources: {
       title: "Resources",
@@ -3975,7 +3986,7 @@ export const en = {
       nothingYet: "Nothing yet",
       more: "More",
       save: "Save",
-      days: "Days",
+      days: "Log retention (days)",
       fewerDays: "Fewer days",
       moreDays: "More days",
       notSaving: "Not saving",
@@ -4023,6 +4034,27 @@ export const en = {
       },
     },
     vault: {
+      state: {
+        off: "Off",
+        uninitialized: "Not set up",
+        locked: "Locked",
+        unlocked: "Unlocked",
+        waiting: "{{count}} waiting",
+      },
+      menu: {
+        open: "Vault",
+        review: "Review vault request ({{count}})",
+      },
+      preview: {
+        title: "What Vault adds",
+        requests: "Agents ask here before using a secret in a new way.",
+        secrets:
+          "Values agents use through vault_run and never read. Stored encrypted on this host.",
+        grants: "Commands you approved so they run without asking again.",
+        env: "Variables Pimi hides from agent terminals and can store as secrets.",
+        bitwarden: "Use items from your Bitwarden vault as secrets.",
+        audit: "A record of what agents asked for and what you decided.",
+      },
       enable: "Vault",
       disabledHint:
         "Off. Agents get no vault tools and are never told about the vault. Turn it on to store secrets that agents can use without seeing them.",
@@ -4324,7 +4356,7 @@ export const en = {
       },
     },
     general: {
-      title: "General",
+      title: "Privacy & setup",
       sending: "Sending",
       notifications: {
         title: "Notifications",
@@ -4757,6 +4789,7 @@ export const en = {
       orchestration: {
         title: "Orchestration",
         unavailable: "Connect to this host to manage orchestration",
+        vaultHint: "Agents can use secrets through Vault",
         enableTools: {
           title: "Enable Pimi tools",
           hint: "Agents will be able to manage worktrees, agents and automations",
@@ -4779,6 +4812,17 @@ export const en = {
       },
       agents: {
         unavailable: "Connect to this host to manage agents",
+        sections: {
+          tools: "Tools",
+          instructions: "Instructions",
+          lifecycle: "Lifecycle",
+          terminalAgents: "Terminal agents",
+          profiles: "Profiles",
+        },
+        profiles: {
+          title: "Agent profiles",
+          hint: "Saved provider, model and mode combinations for starting agents",
+        },
         resumeOnStartup: {
           title: "Resume agents after restart",
           info: "Reopen agents that were working when the host stopped and send the resume prompt. Applies after graceful restarts and crashes.",

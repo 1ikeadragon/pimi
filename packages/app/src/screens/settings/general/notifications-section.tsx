@@ -18,14 +18,14 @@ export function PushNotificationsSection() {
     <SettingsSection title={t("settings.general.notifications.title")}>
       <SettingsCard>
         <SettingsSwitch
-          settingId="general.pushPreviews"
+          settingId="notifications.pushPreviews"
           label={t("settings.general.notifications.previews.label")}
           hint={t("settings.general.notifications.previews.hint")}
           value={settings.pushPreviews}
           onValueChange={changePreviews}
         />
         <SettingsSwitch
-          settingId="general.pushPreviewsHideWhenLocked"
+          settingId="notifications.pushPreviewsHideWhenLocked"
           label={t("settings.general.notifications.hideWhenLocked.label")}
           hint={t("settings.general.notifications.hideWhenLocked.hint")}
           value={settings.pushPreviewsHideWhenLocked}

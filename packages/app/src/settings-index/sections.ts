@@ -1,4 +1,5 @@
 import type { TFunction } from "i18next";
+import { Platform } from "react-native";
 import type { HostSectionSlug, SettingsSectionSlug } from "@/utils/host-routes";
 import type { SettingsIndexContext } from "./types";
 
@@ -11,35 +12,38 @@ interface PageDeclaration<Slug extends string> {
   id: Slug;
   titleKey: string;
   keywords: readonly string[];
-  desktopOnly?: boolean;
+  /** Pages with rows only on some runtimes, such as notifications, hide themselves elsewhere. */
+  available?(ctx: Pick<SettingsIndexContext, "isDesktopApp">): boolean;
   hardwareKeyboardOnly?: boolean;
-  /** The Settings sidebar group of an app page: this device ("pimi") or the app itself ("system"). */
-  group?: "pimi" | "system";
+}
+
+/** The sidebar's labelled sub-groups of host pages, in display order. */
+export const HOST_PAGE_GROUPS = ["agents", "security", "workspace", "thisHost"] as const;
+export type HostPageGroup = (typeof HOST_PAGE_GROUPS)[number];
+
+interface HostPageShape extends PageDeclaration<HostSectionSlug> {
+  group: HostPageGroup;
 }
 
 export const APP_SETTINGS_PAGES = [
   {
     id: "general",
     titleKey: "settings.sections.general",
-    group: "pimi",
     keywords: ["preferences", "options", "cli", "command line", "setup"],
   },
   {
     id: "appearance",
     titleKey: "settings.sections.appearance",
-    group: "pimi",
     keywords: ["look", "theme", "dark", "light", "colors", "fonts", "display", "sidebar items"],
   },
   {
     id: "chat",
     titleKey: "settings.sections.chat",
-    group: "pimi",
     keywords: ["conversation", "messages", "agent view", "send", "composer"],
   },
   {
     id: "editor",
     titleKey: "settings.sections.editor",
-    group: "pimi",
     keywords: [
       "code",
       "vim",
@@ -57,27 +61,18 @@ export const APP_SETTINGS_PAGES = [
   {
     id: "shortcuts",
     titleKey: "settings.sections.shortcuts",
-    group: "pimi",
     keywords: ["keybindings", "hotkeys", "keys", "rebind", "keyboard"],
     hardwareKeyboardOnly: true,
   },
   {
-    id: "desktop",
-    titleKey: "settings.sections.desktop",
-    group: "system",
-    keywords: ["notifications", "alerts", "sounds", "microphone", "permissions", "privacy"],
-    desktopOnly: true,
-  },
-  {
-    id: "resources",
-    titleKey: "settings.sections.resources",
-    group: "system",
-    keywords: ["network", "requests", "traffic", "cpu", "memory", "processes", "connections"],
+    id: "notifications",
+    titleKey: "settings.sections.notifications",
+    keywords: ["alerts", "sounds", "microphone", "permissions", "privacy", "push", "desktop"],
+    available: ({ isDesktopApp }) => isDesktopApp || Platform.OS === "android",
   },
   {
     id: "about",
     titleKey: "settings.sections.about",
-    group: "system",
     keywords: [
       "version",
       "update",
@@ -96,48 +91,34 @@ export const HOST_SETTINGS_PAGES = [
   {
     id: "providers",
     titleKey: "settings.hostSections.providers",
+    group: "agents",
     keywords: ["models", "claude", "codex", "copilot", "opencode", "api key", "login"],
   },
   {
     id: "metadata",
     titleKey: "settings.hostSections.metadata",
+    group: "agents",
     keywords: ["titles", "branch names", "commit messages", "generation"],
   },
   {
     id: "agents",
     titleKey: "settings.hostSections.agents",
-    keywords: ["profiles", "defaults", "permissions", "subagents", "archive", "worktrees"],
+    group: "agents",
+    keywords: ["tools", "instructions", "lifecycle", "archive", "terminal agents"],
   },
   {
     id: "voice",
     titleKey: "settings.hostSections.voice",
+    group: "agents",
     keywords: ["dictation", "speech", "microphone", "whisper", "tts", "stt"],
-  },
-  {
-    id: "projects",
-    titleKey: "settings.hostSections.projects",
-    keywords: ["repositories", "repos", "folders"],
-  },
-  {
-    id: "usage",
-    titleKey: "settings.hostSections.usage",
-    keywords: ["limits", "quota", "tokens", "cost"],
-  },
-  {
-    id: "terminals",
-    titleKey: "settings.hostSections.terminals",
-    keywords: ["shell", "profiles", "console", "language servers", "lsp", "code intelligence"],
-  },
-  {
-    id: "plugins",
-    titleKey: "settings.hostSections.plugins",
-    keywords: ["extensions", "mods", "install"],
   },
   {
     id: "vault",
     titleKey: "settings.hostSections.vault",
+    group: "security",
     keywords: [
       "secrets",
+      "security",
       "credentials",
       "api key",
       "token",
@@ -149,9 +130,35 @@ export const HOST_SETTINGS_PAGES = [
     ],
   },
   {
+    id: "trust",
+    titleKey: "settings.hostSections.trust",
+    group: "security",
+    keywords: ["security", "permissions", "browser", "supply chain", "packages", "agent access"],
+  },
+  {
+    id: "projects",
+    titleKey: "settings.hostSections.projects",
+    group: "workspace",
+    keywords: ["repositories", "repos", "folders"],
+  },
+  {
+    id: "terminals",
+    titleKey: "settings.hostSections.terminals",
+    group: "workspace",
+    keywords: ["shell", "profiles", "console", "language servers", "lsp", "code intelligence"],
+  },
+  {
+    id: "plugins",
+    titleKey: "settings.hostSections.plugins",
+    group: "workspace",
+    keywords: ["extensions", "mods", "install"],
+  },
+  {
     id: "host",
     titleKey: "settings.hostSections.host",
+    group: "thisHost",
     keywords: [
+      "host",
       "daemon",
       "restart",
       "remove host",
@@ -166,7 +173,13 @@ export const HOST_SETTINGS_PAGES = [
       "qr",
     ],
   },
-] as const satisfies readonly PageDeclaration<HostSectionSlug>[];
+  {
+    id: "resources",
+    titleKey: "settings.hostSections.resources",
+    group: "thisHost",
+    keywords: ["network", "requests", "traffic", "cpu", "memory", "processes", "logs"],
+  },
+] as const satisfies readonly HostPageShape[];
 
 export type AppPageDeclaration = (typeof APP_SETTINGS_PAGES)[number];
 export type HostPageDeclaration = (typeof HOST_SETTINGS_PAGES)[number];
@@ -188,7 +201,7 @@ export function isAppSettingsPageAvailable(
   ctx: Pick<SettingsIndexContext, "isDesktopApp" | "hardwareKeyboardPresent">,
 ): boolean {
   if (page.hardwareKeyboardOnly && !ctx.hardwareKeyboardPresent) return false;
-  return !page.desktopOnly || ctx.isDesktopApp;
+  return page.available?.(ctx) ?? true;
 }
 
 export function hostSettingsPageTitle(id: HostSectionSlug, t: TFunction): string {

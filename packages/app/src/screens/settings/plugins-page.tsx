@@ -25,6 +25,7 @@ import { useFetchQuery } from "@/data/query";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { resolvePluginPageState } from "@/screens/settings/plugins-page-state";
 import { openPluginInstallForm } from "@/screens/settings/plugin-install-form-model";
 import {
@@ -102,6 +103,7 @@ function PluginSafeModeRow() {
   const toggle = useCallback((value: boolean) => setPluginUiSafeMode(value), []);
   return (
     <SettingsRow
+      settingId="plugins.safeMode"
       label={t("settings.plugins.ui.safeModeTitle")}
       hint={forced ? t("settings.plugins.ui.safeModeUrl") : t("settings.plugins.ui.safeModeHint")}
       testID="plugin-safe-mode-row"
@@ -523,7 +525,7 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
           description={t("settings.plugins.trustedDescription")}
         />
         <View style={settingsStyles.card}>
-          <View style={settingsStyles.row}>
+          <SettingAnchor id="plugins.enabled" style={settingsStyles.row}>
             <View style={settingsStyles.rowContent}>
               <Text style={settingsStyles.rowTitle}>{t("settings.plugins.globalTitle")}</Text>
               <Text style={settingsStyles.rowHint}>{t("settings.plugins.globalHint")}</Text>
@@ -534,12 +536,12 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
               disabled={mutation.isPending}
               accessibilityLabel={t("settings.plugins.globalTitle")}
             />
-          </View>
+          </SettingAnchor>
         </View>
         <SettingsCard>
           <PluginSafeModeRow />
         </SettingsCard>
-        <View style={[settingsStyles.card, styles.install]}>
+        <SettingAnchor id="plugins.install" style={[settingsStyles.card, styles.install]}>
           <Field label={t("settings.plugins.sourceLabel")} trailing={sourceDocsLink}>
             <FormTextInput
               initialValue=""
@@ -557,7 +559,7 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
               ? t("settings.plugins.installing")
               : t("settings.plugins.install")}
           </Button>
-        </View>
+        </SettingAnchor>
         {feedback ? (
           <Alert
             size="sm"

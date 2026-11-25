@@ -2,7 +2,7 @@ import { hasDesktopTargetBridge } from "@/attack/use-desktop-target";
 import { defineSettingsPage } from "@/settings-index/define";
 
 export const notificationsSettings = defineSettingsPage(
-  { kind: "section", section: "desktop" },
+  { kind: "section", section: "notifications" },
   ({ t }) => [
     {
       id: "notifications.permission",
@@ -23,18 +23,20 @@ export const notificationsSettings = defineSettingsPage(
 );
 
 export const powerSettings = defineSettingsPage(
-  { kind: "section", section: "desktop" },
-  ({ t }) => [
-    {
-      id: "power.alwaysKeepAwake",
-      title: t("settings.power.alwaysKeepAwake"),
-      keywords: ["caffeinate", "sleep", "awake", "display", "insomnia", "battery", "screen"],
-    },
+  { kind: "section", section: "general" },
+  ({ t, isDesktopApp }) => [
+    isDesktopApp
+      ? {
+          id: "power.alwaysKeepAwake",
+          title: t("settings.power.alwaysKeepAwake"),
+          keywords: ["caffeinate", "sleep", "awake", "display", "insomnia", "battery", "screen"],
+        }
+      : null,
   ],
 );
 
 export const permissionsSettings = defineSettingsPage(
-  { kind: "section", section: "desktop" },
+  { kind: "section", section: "notifications" },
   ({ t }) => [
     {
       id: "permissions.microphone",
