@@ -16,7 +16,11 @@ import {
   type TimelineSubscription,
 } from "./connection/index.js";
 import { CreationClient } from "./creation/index.js";
-import type { CodeNavigationQueryRequest, CreationSnapshot } from "@pimi/protocol/messages";
+import type {
+  CodeNavigationQueryRequest,
+  CreationSnapshot,
+  InstructionsTarget,
+} from "@pimi/protocol/messages";
 import type {
   ChatSearchIndexResponse,
   ChatSearchRequest,
@@ -6379,6 +6383,14 @@ export class DaemonClient {
   async checkProviderHarnessUpdates(options?: { force?: boolean }) {
     return this.sendNamespacedCorrelatedSessionRequest<"provider.harness_updates.check.response">({
       message: { type: "provider.harness_updates.check.request", force: options?.force },
+      timeout: 30_000,
+    });
+  }
+
+  /** The instruction files and prompts that reach an agent or a new chat, in load order. */
+  async listProviderInstructions(target: InstructionsTarget) {
+    return this.sendNamespacedCorrelatedSessionRequest<"provider.instructions.list.response">({
+      message: { type: "provider.instructions.list.request", target },
       timeout: 30_000,
     });
   }

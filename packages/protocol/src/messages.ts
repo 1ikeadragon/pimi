@@ -2339,6 +2339,128 @@ export const ProviderHarnessUpdatesRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
+// ---
+// Provider instruction layers: the files and prompts that reach an agent, in load order.
+
+export const InstructionRulesetSchema = z.enum([
+  "claude",
+  "codex",
+  "opencode_v1",
+  "opencode_v2",
+  "pi",
+  "copilot",
+  "unknown",
+]);
+export type InstructionRuleset = z.infer<typeof InstructionRulesetSchema>;
+
+export const InstructionBuiltinPartSchema = z.enum([
+  "scope",
+  "actions",
+  "visualization",
+  "crew_lead",
+  "memory",
+  "vault",
+]);
+export type InstructionBuiltinPart = z.infer<typeof InstructionBuiltinPartSchema>;
+
+export const InstructionLayerStatusSchema = z.enum([
+  "loaded",
+  "missing",
+  "skipped",
+  "on_demand",
+  "unreadable",
+  "over_budget",
+  "unknown",
+]);
+export type InstructionLayerStatus = z.infer<typeof InstructionLayerStatusSchema>;
+
+export const InstructionLayerReasonSchema = z.enum([
+  "shadowed_by_override",
+  "shadowed_by_agents_md",
+  "shadowed_by_earlier_file",
+  "claude_md_present",
+  "disabled_by_env",
+  "disabled_by_setting",
+  "excluded_by_setting",
+  "over_provider_size_limit",
+  "over_budget",
+  "needs_import_approval",
+  "import_depth_exceeded",
+  "import_cycle",
+  "has_path_filter",
+  "not_fetched",
+  "not_read_by_pimi",
+  "empty",
+  "duplicate_target",
+  "dangling_symlink",
+  "not_a_file",
+  "read_failed",
+  "external_server",
+]);
+export type InstructionLayerReason = z.infer<typeof InstructionLayerReasonSchema>;
+
+export const InstructionLayerSchema = z.object({
+  id: z.string(),
+  origin: z.enum(["provider", "pimi"]),
+  kind: z.enum(["file", "profile", "host_prompt", "builtin", "remote_url", "agent_definition"]),
+  scope: z.enum(["managed", "user", "ancestor", "project", "local", "host", "chat"]),
+  /** The profile or mode name for `profile` and `agent_definition` layers. */
+  name: z.string().nullable(),
+  builtinPart: InstructionBuiltinPartSchema.nullable(),
+  /** An absolute path or URL. */
+  path: z.string().nullable(),
+  /** `path` with the daemon's home directory collapsed to `~`. */
+  displayPath: z.string().nullable(),
+  status: InstructionLayerStatusSchema,
+  reason: InstructionLayerReasonSchema.nullable(),
+  /** The `path` of the file that imports this one. */
+  importedBy: z.string().nullable(),
+  symlinkTarget: z.string().nullable(),
+  insideWorkspace: z.boolean(),
+  sizeBytes: z.number().nullable(),
+  preview: z.string().nullable(),
+  previewTruncated: z.boolean(),
+});
+export type InstructionLayer = z.infer<typeof InstructionLayerSchema>;
+
+/** A setting the resolver could not read, so a later row may not reflect it. */
+export const InstructionNoticeSchema = z.object({
+  code: z.enum(["settings_unreadable", "config_unreadable", "launch_env_unavailable"]),
+  path: z.string().nullable(),
+});
+export type InstructionNotice = z.infer<typeof InstructionNoticeSchema>;
+
+export const InstructionsResultSchema = z.object({
+  provider: AgentProviderSchema,
+  baseProvider: z.string(),
+  cwd: z.string(),
+  ruleset: InstructionRulesetSchema,
+  providerVersion: z.string().nullable(),
+  /** A discovery guard stopped the walk, so later layers may be missing. */
+  truncated: z.boolean(),
+  /** In load order. */
+  layers: z.array(InstructionLayerSchema),
+  notices: z.array(InstructionNoticeSchema),
+});
+export type InstructionsResult = z.infer<typeof InstructionsResultSchema>;
+
+export const InstructionsTargetSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("agent"), agentId: z.string() }),
+  z.object({
+    kind: z.literal("draft"),
+    provider: AgentProviderSchema,
+    cwd: z.string(),
+    profileId: z.string().nullable(),
+  }),
+]);
+export type InstructionsTarget = z.infer<typeof InstructionsTargetSchema>;
+
+export const ProviderInstructionsListRequestMessageSchema = z.object({
+  type: z.literal("provider.instructions.list.request"),
+  target: InstructionsTargetSchema,
+  requestId: z.string(),
+});
+
 // The signed-in account of each provider, as the usage sources identify it.
 export const UsageProviderAccountsListRequestMessageSchema = z.object({
   type: z.literal("usage.provider_accounts.list.request"),
@@ -4134,6 +4256,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   RefreshProvidersSnapshotRequestMessageSchema,
   ProviderDiagnosticRequestMessageSchema,
   ProviderHarnessUpdatesRequestMessageSchema,
+  ProviderInstructionsListRequestMessageSchema,
   UsageListReportsRequestMessageSchema,
   UsageProviderAccountsListRequestMessageSchema,
   UsageGetSummaryRequestMessageSchema,
@@ -7612,6 +7735,15 @@ export const ProviderHarnessUpdatesResponseMessageSchema = z.object({
   }),
 });
 
+export const ProviderInstructionsListResponseMessageSchema = z.object({
+  type: z.literal("provider.instructions.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    error: z.string().nullable(),
+    result: InstructionsResultSchema.nullable(),
+  }),
+});
+
 export const ProviderUsageToneSchema = z.enum(["default", "ok", "warning", "danger"]);
 
 export const ProviderUsageWindowSchema = z.object({
@@ -8515,6 +8647,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   RefreshProvidersSnapshotResponseMessageSchema,
   ProviderDiagnosticResponseMessageSchema,
   ProviderHarnessUpdatesResponseMessageSchema,
+  ProviderInstructionsListResponseMessageSchema,
   UsageListReportsUpdateMessageSchema,
   UsageListReportsResponseMessageSchema,
   UsageProviderAccountsListResponseMessageSchema,

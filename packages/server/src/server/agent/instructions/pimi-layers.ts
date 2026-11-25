@@ -3,12 +3,14 @@
  * `daemonAppendSystemPrompt`; the Instructions view lists the same parts, so what the user reads
  * is what the agent got.
  */
+import type { InstructionBuiltinPart, InstructionLayer } from "@pimi/protocol/messages";
 import type { ProviderPimiToolsPolicy } from "@pimi/protocol/provider-config";
 import type { AgentSessionConfig } from "../agent-sdk-types.js";
 import { isPimiToolEnabled, isPimiToolPolicyEnabled } from "../pimi-tool-policy.js";
 import { LAZY_TOOL_GROUP_NAMES } from "../tools/lazy-tool-groups.js";
 import { CREW_LEAD_INSTRUCTIONS } from "../tools/crew-delegate.js";
 import { memoryRecallInstructions } from "../tools/project-memory-tools.js";
+import { previewText } from "./layer.js";
 
 // ---
 
@@ -85,16 +87,8 @@ export function pimiActionInstructions(input: {
 
 // ---
 
-export type PimiInstructionPartId =
-  | "scope"
-  | "actions"
-  | "visualization"
-  | "crew_lead"
-  | "memory"
-  | "vault";
-
 export interface PimiInstructionPart {
-  part: PimiInstructionPartId;
+  part: InstructionBuiltinPart;
   /** Each entry is one paragraph of the launch prompt. */
   texts: string[];
 }
@@ -148,4 +142,86 @@ export function composeDaemonAppendPrompt(
 ): string {
   const additionalPrompt = parts.flatMap((entry) => entry.texts).join("\n\n");
   return [hostPrompt.trim(), additionalPrompt].filter(Boolean).join("\n\n");
+}
+
+// ---
+
+function pimiLayer(
+  fields: Pick<InstructionLayer, "id" | "kind" | "scope" | "name" | "builtinPart">,
+  text: string,
+): InstructionLayer {
+  const preview = previewText(text);
+  return {
+    ...fields,
+    origin: "pimi",
+    path: null,
+    displayPath: null,
+    status: "loaded",
+    reason: null,
+    importedBy: null,
+    symlinkTarget: null,
+    insideWorkspace: false,
+    sizeBytes: Buffer.byteLength(text),
+    preview: preview.text,
+    previewTruncated: preview.truncated,
+  };
+}
+
+/**
+ * The layers Pimi adds on top of the provider's own files, in the order the prompt carries them:
+ * the agent profile's instructions (or the chat's own system prompt), the host System prompt,
+ * then the built-in parts.
+ */
+export function pimiInstructionLayers(input: {
+  /** The chat's system prompt, as persisted: profile instructions followed by any caller prompt. */
+  systemPrompt: string | null;
+  profileName: string | null;
+  hostPrompt: string;
+  parts: readonly PimiInstructionPart[];
+}): InstructionLayer[] {
+  const layers: InstructionLayer[] = [];
+  const systemPrompt = input.systemPrompt?.trim();
+  if (systemPrompt) {
+    layers.push(
+      pimiLayer(
+        {
+          id: "pimi:profile",
+          kind: "profile",
+          scope: "chat",
+          name: input.profileName,
+          builtinPart: null,
+        },
+        systemPrompt,
+      ),
+    );
+  }
+  if (input.hostPrompt.length > 0) {
+    layers.push(
+      pimiLayer(
+        {
+          id: "pimi:host-prompt",
+          kind: "host_prompt",
+          scope: "host",
+          name: null,
+          builtinPart: null,
+        },
+        input.hostPrompt,
+      ),
+    );
+  }
+  for (const entry of input.parts) {
+    layers.push(
+      pimiLayer(
+        {
+          id: `pimi:builtin:${entry.part}`,
+          kind: "builtin",
+          scope: "host",
+          name: null,
+          builtinPart: entry.part,
+        },
+        entry.texts.join("\n\n"),
+      ),
+    );
+  }
+  return layers;
 }

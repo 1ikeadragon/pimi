@@ -745,7 +745,7 @@ async function checkCodexLaunchAvailable(launch: ResolvedProviderLaunch) {
   });
 }
 
-function resolveCodexHomeDir(env: NodeJS.ProcessEnv): string {
+export function resolveCodexHomeDir(env: NodeJS.ProcessEnv): string {
   return env.CODEX_HOME ?? path.join(os.homedir(), ".codex");
 }
 
