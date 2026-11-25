@@ -4,8 +4,10 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import java.security.KeyStore
 import java.security.SecureRandom
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -32,14 +34,23 @@ class PreviewKeyStore(context: Context) {
     return encode(fresh)
   }
 
-  /** The raw key, or null when none exists or the Keystore cannot unwrap it (entry is dropped). */
+  /**
+   * The raw key, or null when none exists or it cannot be unwrapped. Only a key that can never be
+   * unwrapped again (tampered blob, invalidated or replaced wrapping key) is dropped; a transient
+   * Keystore failure keeps it for the next message.
+   */
   @Synchronized
   fun key(serverId: String): ByteArray? {
     val stored = prefs.getString("$KEY_PREFIX$serverId", null) ?: return null
     return try {
       unwrap(Base64.decode(stored, Base64.NO_WRAP))
-    } catch (_: Exception) {
+    } catch (_: AEADBadTagException) {
       deleteKey(serverId)
+      null
+    } catch (_: KeyPermanentlyInvalidatedException) {
+      deleteKey(serverId)
+      null
+    } catch (_: Exception) {
       null
     }
   }
@@ -49,13 +60,40 @@ class PreviewKeyStore(context: Context) {
     prefs.edit().remove("$KEY_PREFIX$serverId").remove("$TS_PREFIX$serverId").apply()
   }
 
-  /** True and stored when ts is newer than every accepted one for this host; replays fail. */
+  /**
+   * True and remembered when this timestamp is fresh (inside the TTL) and has not been accepted
+   * before. A set rather than a high-water mark: FCM does not deliver in order, so a late
+   * older-but-fresh preview must still show while an exact replay never does.
+   */
   @Synchronized
-  fun acceptTs(serverId: String, ts: Long): Boolean {
-    if (ts <= prefs.getLong("$TS_PREFIX$serverId", 0L)) return false
-    prefs.edit().putLong("$TS_PREFIX$serverId", ts).apply()
+  fun acceptTs(serverId: String, ts: Long, nowMs: Long = System.currentTimeMillis()): Boolean {
+    if (ts < nowMs - TTL_MS) return false
+    val recent =
+      (prefs.getString("$TS_PREFIX$serverId", null) ?: "")
+        .split(',')
+        .mapNotNull { it.toLongOrNull() }
+        .filter { it >= nowMs - TTL_MS }
+    if (ts in recent) return false
+    prefs
+      .edit()
+      .putString("$TS_PREFIX$serverId", (recent + ts).takeLast(MAX_RECENT_TS).joinToString(","))
+      .apply()
     return true
   }
+
+  /** The user's "message previews" setting, mirrored from JS so the service honors it while the app is dead. */
+  var previewsEnabled: Boolean
+    get() = prefs.getBoolean(PREVIEWS_ENABLED, false)
+    @Synchronized set(value) {
+      val edit = prefs.edit().putBoolean(PREVIEWS_ENABLED, value)
+      // Turning previews off drops every key right away, whether or not the host is reachable.
+      if (!value) {
+        prefs.all.keys
+          .filter { it.startsWith(KEY_PREFIX) || it.startsWith(TS_PREFIX) }
+          .forEach { edit.remove(it) }
+      }
+      edit.apply()
+    }
 
   var hideWhenLocked: Boolean
     get() = prefs.getBoolean(HIDE_WHEN_LOCKED, false)
@@ -98,6 +136,9 @@ class PreviewKeyStore(context: Context) {
     private const val KEY_PREFIX = "key."
     private const val TS_PREFIX = "ts."
     private const val HIDE_WHEN_LOCKED = "hideWhenLocked"
+    private const val PREVIEWS_ENABLED = "previewsEnabled"
+    private const val TTL_MS = 60L * 60 * 1000
+    private const val MAX_RECENT_TS = 128
     private const val IV_BYTES = 12
   }
 }

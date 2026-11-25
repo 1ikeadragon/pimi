@@ -19,7 +19,12 @@ class PimiFirebaseMessagingService : ExpoFirebaseMessagingService() {
       super.onMessageReceived(message)
       return
     }
-    val rewritten = runCatching { withPreview(message, enc) }.getOrNull() ?: genericFallback(message)
+    // Each step falls through to a plainer one; the last always yields a presentable message, so
+    // a preview problem can never drop the notification.
+    val rewritten =
+      runCatching { withPreview(message, enc) }.getOrNull()
+        ?: runCatching { genericFallback(message) }.getOrNull()
+        ?: minimalFallback(message)
     super.onMessageReceived(rewritten)
   }
 
@@ -29,6 +34,8 @@ class PimiFirebaseMessagingService : ExpoFirebaseMessagingService() {
     val agentId = target.optString("agentId")
     val reason = target.optString("reason")
     val store = PreviewKeyStore(this)
+    // The setting wins over any key still on disk: with previews off the message is never opened.
+    if (!store.previewsEnabled) return build(message, DEFAULT_TITLE, genericBody(reason))
     val preview =
       PreviewCrypto.open(store.key(serverId), enc, "pimi-push-preview/1|$reason|$agentId")
         ?.takeIf { store.acceptTs(serverId, it.ts) }
@@ -55,6 +62,19 @@ class PimiFirebaseMessagingService : ExpoFirebaseMessagingService() {
     extras.putString("title", title)
     extras.putString("message", body)
     return RemoteMessage(extras)
+  }
+
+  // Last resort when the intent round trip fails: same data, built field by field.
+  private fun minimalFallback(message: RemoteMessage): RemoteMessage {
+    val reason = runCatching { JSONObject(message.data["body"] ?: "").optString("reason") }.getOrDefault("")
+    val data = message.data.toMutableMap()
+    data.remove("enc")
+    data["title"] = DEFAULT_TITLE
+    data["message"] = genericBody(reason)
+    return RemoteMessage.Builder("pimi@fcm.googleapis.com")
+      .setMessageId(message.messageId ?: "")
+      .setData(data)
+      .build()
   }
 
   private fun genericBody(reason: String) =

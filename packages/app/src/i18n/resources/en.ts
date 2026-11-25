@@ -382,6 +382,8 @@ export const en = {
   },
   common: {
     agentNotificationChannel: "Agent activity",
+    agentFinishedGeneric: "An agent finished.",
+    agentNeedsApprovalGeneric: "An agent needs your approval.",
     bottomSheetBackdrop: "Bottom sheet backdrop",
     back: "Back",
     loading: "Loading...",

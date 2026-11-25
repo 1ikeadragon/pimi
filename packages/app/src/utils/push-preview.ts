@@ -12,9 +12,8 @@ export async function deletePreviewKey(_serverId: string): Promise<void> {}
 
 export async function setPreviewsHiddenWhileLocked(_value: boolean): Promise<void> {}
 
-export function isDeviceLocked(): boolean {
-  return false;
-}
+/** Mirrors the "message previews" setting into native storage; off also deletes every key. */
+export async function setPreviewsEnabled(_value: boolean): Promise<void> {}
 
 interface PreviewPolicy {
   pushPreviews: boolean;

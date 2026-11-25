@@ -1,9 +1,11 @@
 import { requireNativeModule } from "expo-modules-core";
+import { i18n } from "@/i18n/i18next";
 
 interface PimiPushPreviewModule {
   getOrCreateKey(serverId: string): Promise<string>;
   deleteKey(serverId: string): Promise<void>;
   setHideWhenLocked(value: boolean): Promise<void>;
+  setPreviewsEnabled(value: boolean): Promise<void>;
   isDeviceLocked(): boolean;
 }
 
@@ -21,8 +23,10 @@ export async function setPreviewsHiddenWhileLocked(value: boolean): Promise<void
   await native.setHideWhenLocked(value);
 }
 
-export function isDeviceLocked(): boolean {
-  return native.isDeviceLocked();
+/** Mirrors the "message previews" setting into native storage, where the FCM service reads it
+ * while the app is dead. Off also deletes every preview key, whether or not a host is reachable. */
+export async function setPreviewsEnabled(value: boolean): Promise<void> {
+  await native.setPreviewsEnabled(value);
 }
 
 interface PreviewPolicy {
@@ -32,7 +36,7 @@ interface PreviewPolicy {
 
 /**
  * A backgrounded but still connected app posts local notifications, so they obey the same two
- * settings as push. Returns the generic body (same text the push service uses) when the message
+ * settings as push. Returns the generic body (same wording as the native push service) when the message
  * must not show, or null when the preview may.
  */
 export function genericBodyWhenPreviewWithheld(
@@ -42,5 +46,7 @@ export function genericBodyWhenPreviewWithheld(
   const withheld =
     !policy.pushPreviews || (policy.pushPreviewsHideWhenLocked && native.isDeviceLocked());
   if (!withheld) return null;
-  return reason === "permission" ? "An agent needs your approval." : "An agent finished.";
+  return i18n.t(
+    reason === "permission" ? "common.agentNeedsApprovalGeneric" : "common.agentFinishedGeneric",
+  );
 }

@@ -19,6 +19,8 @@ class PimiPushPreviewModule : Module() {
     AsyncFunction("getOrCreateKey") { serverId: String -> store.getOrCreateKey(serverId) }
     AsyncFunction("deleteKey") { serverId: String -> store.deleteKey(serverId) }
     AsyncFunction("setHideWhenLocked") { value: Boolean -> store.hideWhenLocked = value }
+    AsyncFunction("setPreviewsEnabled") { value: Boolean -> store.previewsEnabled = value }
+    // The locked state is read here (not in the FCM service) for local notifications.
     Function("isDeviceLocked") {
       context.getSystemService(KeyguardManager::class.java)?.isDeviceLocked ?: false
     }
