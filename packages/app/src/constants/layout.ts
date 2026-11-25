@@ -69,7 +69,7 @@ function subscribeCompactFormFactor(onChange: () => void): () => void {
   return () => subscription.remove();
 }
 
-function getCompactFormFactorSnapshot(): boolean {
+export function getCompactFormFactorSnapshot(): boolean {
   if (isWeb) {
     return !getCompactMediaQuery().matches;
   }

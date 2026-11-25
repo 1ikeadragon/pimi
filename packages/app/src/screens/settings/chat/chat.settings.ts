@@ -6,7 +6,7 @@ export const chatSettings = defineSettingsPage({ kind: "section", section: "chat
   getDesktopHost()?.pimiVoice
     ? {
         id: "chat.voiceButton",
-        title: "Show Pimi voice button",
+        title: t("settings.chat.voiceButton.title"),
         keywords: ["voice", "microphone", "speak", "dictation", "commands", "mascot"],
       }
     : null,

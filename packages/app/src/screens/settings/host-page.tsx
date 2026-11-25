@@ -923,6 +923,7 @@ function UpdateDaemonCard({ host }: { host: HostProfile }) {
 }
 
 function AutoArchiveMergedWorkspacesCard({ serverId }: { serverId: string }) {
+  const { t } = useTranslation();
   const isConnected = useHostRuntimeIsConnected(serverId);
   const { config, patchConfig } = useDaemonConfig(serverId);
 
@@ -945,15 +946,13 @@ function AutoArchiveMergedWorkspacesCard({ serverId }: { serverId: string }) {
     <View style={settingsStyles.card} testID="host-page-auto-archive-merged-workspaces-card">
       <SettingAnchor id="workspaces.autoArchive" style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Archive chats after their PR merges</Text>
-          <Text style={settingsStyles.rowHint}>
-            Automatically archive clean Pimi chats after their pull request is merged
-          </Text>
+          <Text style={settingsStyles.rowTitle}>{t("settings.host.autoArchive.title")}</Text>
+          <Text style={settingsStyles.rowHint}>{t("settings.host.autoArchive.hint")}</Text>
         </View>
         <Switch
           value={config?.autoArchiveAfterMerge === true}
           onValueChange={handleValueChange}
-          accessibilityLabel="Archive chats after their PR merges"
+          accessibilityLabel={t("settings.host.autoArchive.title")}
           testID="host-page-auto-archive-merged-workspaces-switch"
         />
       </SettingAnchor>
@@ -962,6 +961,7 @@ function AutoArchiveMergedWorkspacesCard({ serverId }: { serverId: string }) {
 }
 
 function EnableTerminalAgentHooksCard({ serverId }: { serverId: string }) {
+  const { t } = useTranslation();
   const isConnected = useHostRuntimeIsConnected(serverId);
   const { config, patchConfig } = useDaemonConfig(serverId);
 
@@ -984,16 +984,13 @@ function EnableTerminalAgentHooksCard({ serverId }: { serverId: string }) {
     <View style={settingsStyles.card} testID="host-page-terminal-agent-hooks-card">
       <SettingAnchor id="terminals.agentHooks" style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Enable terminal agent hooks</Text>
-          <Text style={settingsStyles.rowHint}>
-            Get notifications and status from terminal agents. This installs hooks in your agent
-            config files.
-          </Text>
+          <Text style={settingsStyles.rowTitle}>{t("settings.host.terminalAgentHooks.title")}</Text>
+          <Text style={settingsStyles.rowHint}>{t("settings.host.terminalAgentHooks.hint")}</Text>
         </View>
         <Switch
           value={config?.enableTerminalAgentHooks === true}
           onValueChange={handleValueChange}
-          accessibilityLabel="Enable terminal agent hooks"
+          accessibilityLabel={t("settings.host.terminalAgentHooks.title")}
           testID="host-page-terminal-agent-hooks-switch"
         />
       </SettingAnchor>
@@ -1267,9 +1264,11 @@ function RemoveHostSection({
     >
       <RestartDaemonCard host={host} />
 
-      <SettingAnchor id="host.uninstall">
-        <RemoteSshUninstallCard host={host} onRemoved={onRemoved} />
-      </SettingAnchor>
+      {isElectronRuntime() ? (
+        <SettingAnchor id="host.uninstall">
+          <RemoteSshUninstallCard host={host} onRemoved={onRemoved} />
+        </SettingAnchor>
+      ) : null}
 
       <View style={settingsStyles.card}>
         <View style={settingsStyles.row}>

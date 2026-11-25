@@ -4317,6 +4317,12 @@ export const en = {
         moreLanguages: "{{languages}} and {{count}} more",
       },
     },
+    chat: {
+      voiceButton: {
+        title: "Show Pimi voice button",
+        hint: "Open chats and tasks with your voice.",
+      },
+    },
     general: {
       title: "General",
       sending: "Sending",
@@ -4789,6 +4795,14 @@ export const en = {
       },
       workspaces: {
         unavailable: "Connect to this host to manage chats",
+      },
+      autoArchive: {
+        title: "Archive chats after their PR merges",
+        hint: "Automatically archive clean Pimi chats after their pull request is merged",
+      },
+      terminalAgentHooks: {
+        title: "Enable terminal agent hooks",
+        hint: "Get notifications and status from terminal agents. This installs hooks in your agent config files.",
       },
       terminalProfiles: {
         unavailable: "Connect to this host to manage terminal profiles",

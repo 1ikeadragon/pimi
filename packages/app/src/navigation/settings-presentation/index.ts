@@ -31,6 +31,11 @@ export function useSettingsHostSelection(): string | null {
 }
 
 export const selectSettingsHost = selection.selectHost;
+export const isInSettings = selection.isInSettings;
+
+export function getSettingsHostSelection(): string | null {
+  return selection.store.getState().selectedServerId;
+}
 
 // Sibling routes remount the wide sidebar. Only the current mount owns its
 // offset: RN Web can deliver its final scroll callback after unmount.

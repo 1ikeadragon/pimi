@@ -57,22 +57,25 @@ export const hostAgentsSettings = defineSettingsPage(
 
 export const hostWorkspacesSettings = defineSettingsPage(
   { kind: "host", section: "agents" },
-  () => [
+  ({ t }) => [
     {
       id: "workspaces.autoArchive",
-      title: "Archive chats after their PR merges",
+      title: t("settings.host.autoArchive.title"),
       keywords: ["chat", "pull request", "merge", "cleanup", "worktree", "automatic"],
     },
   ],
 );
 
-export const hostTerminalsSettings = defineSettingsPage({ kind: "host", section: "agents" }, () => [
-  {
-    id: "terminals.agentHooks",
-    title: "Enable terminal agent hooks",
-    keywords: ["notifications", "status", "claude", "codex", "config files", "install hooks"],
-  },
-]);
+export const hostTerminalsSettings = defineSettingsPage(
+  { kind: "host", section: "agents" },
+  ({ t }) => [
+    {
+      id: "terminals.agentHooks",
+      title: t("settings.host.terminalAgentHooks.title"),
+      keywords: ["notifications", "status", "claude", "codex", "config files", "install hooks"],
+    },
+  ],
+);
 
 export const hostConnectionsSettings = defineSettingsPage(
   { kind: "host", section: "host" },

@@ -92,7 +92,7 @@ import {
 } from "@/screens/settings/settings-search";
 import { useDevSettingsIndexCheck } from "@/settings-index/check";
 import type { SettingsLocation } from "@/settings-index/types";
-import { SettingAnchor } from "@/settings-index/anchor";
+import { SettingAnchor, SettingsPageKeyProvider, settingsPageKey } from "@/settings-index/anchor";
 import {
   APP_SETTINGS_PAGES,
   HOST_SETTINGS_PAGES,
@@ -1306,12 +1306,17 @@ function SettingsScreenBase({ view }: SettingsScreenProps) {
     return null;
   })();
 
-  const pageContent =
+  const pageLocation = settingsViewLocation(view);
+  const pageKey = pageLocation ? settingsPageKey(pageLocation) : null;
+  const sectionContent =
     view.kind === "section" ? (
       <SettingsSectionPoint slug={view.section}>{content}</SettingsSectionPoint>
     ) : (
       content
     );
+  const pageContent = (
+    <SettingsPageKeyProvider value={pageKey}>{sectionContent}</SettingsPageKeyProvider>
+  );
 
   if (settingsLoading) {
     return (

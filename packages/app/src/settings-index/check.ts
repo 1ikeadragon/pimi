@@ -3,7 +3,7 @@ import { useTranslation } from "@/i18n/use-translation";
 import { isDev } from "@/constants/platform";
 import { isElectronRuntime } from "@/desktop/host";
 import { useHardwareKeyboardPresent } from "@/keyboard";
-import { getMountedSettingIds } from "./anchor";
+import { getMountedSettingIds, settingsPageKey } from "./anchor";
 import { collectPageFieldEntries } from "./index";
 import type { SettingsLocation } from "./types";
 
@@ -24,14 +24,15 @@ export function useDevSettingsIndexCheck(location: SettingsLocation | null): voi
   useEffect(() => {
     if (!isDev || !kind || !section) return;
     const timer = setTimeout(() => {
+      const pageLocation = { kind, section } as SettingsLocation;
       const declared = new Set(
-        collectPageFieldEntries({ kind, section } as SettingsLocation, {
+        collectPageFieldEntries(pageLocation, {
           t,
           isDesktopApp,
           hardwareKeyboardPresent,
         }).map((entry) => entry.id),
       );
-      const mounted = getMountedSettingIds();
+      const mounted = getMountedSettingIds(settingsPageKey(pageLocation));
       const withoutRow = [...declared].filter((id) => !mounted.has(id));
       const withoutDeclaration = [...mounted].filter((id) => !declared.has(id));
       if (withoutRow.length === 0 && withoutDeclaration.length === 0) return;

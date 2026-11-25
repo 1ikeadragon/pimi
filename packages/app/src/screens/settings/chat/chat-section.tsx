@@ -51,8 +51,8 @@ export function ChatSection() {
           <SettingsCard>
             <SettingsSwitch
               settingId="chat.voiceButton"
-              label="Show Pimi voice button"
-              hint="Open chats and tasks with your voice."
+              label={t("settings.chat.voiceButton.title")}
+              hint={t("settings.chat.voiceButton.hint")}
               value={settings.pimiVoiceButton}
               onValueChange={changeVoiceButton}
               testID="settings-pimi-voice-button"

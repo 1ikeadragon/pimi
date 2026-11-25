@@ -58,9 +58,13 @@ export function createSettingsPresentation() {
     }
   }
 
+  function isInSettings(): boolean {
+    return inSettings;
+  }
+
   function selectHost(serverId: string): void {
     store.setState({ selectedServerId: serverId });
   }
 
-  return { store, enterRoute, selectHost, attachSidebar };
+  return { store, enterRoute, isInSettings, selectHost, attachSidebar };
 }
