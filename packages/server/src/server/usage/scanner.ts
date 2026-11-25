@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { open, opendir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -25,6 +26,15 @@ const MAX_LINE_BYTES = 64 * 1024 * 1024;
 const FLUSH_ROWS = 5000;
 const INITIAL_SCAN_DELAY_MS = 5000;
 const MAX_DEPTH = 6;
+// Repricing commits this many rows per transaction, the same batch the writer already commits per
+// flush, so the event loop gets a turn between batches instead of waiting out one pass over every
+// stored row.
+const REPRICE_BATCH_ROWS = FLUSH_ROWS;
+// A resumable cursor remembers a hash of the file's first bytes, and a file whose start no longer
+// matches was rewritten (a compaction, a restored backup) and is read again from its start. Both
+// transcript formats open with a line that carries the session id and its timestamp (the first
+// 100 bytes already hold them), so 4 KiB tells two files apart while costing one page of IO.
+const PREFIX_HASH_BYTES = 4096;
 
 // ---
 // The scan report lists failed files so a gap in the numbers has a named cause. A user whose
@@ -80,6 +90,8 @@ interface Cursor {
   mtimeMs: number;
   offset: number;
   state: string | null;
+  // `<bytes hashed>:<sha256 hex>` of the file's start; null for a cursor written before it existed.
+  prefixHash: string | null;
 }
 
 export function defaultClaudeProjectsRoot(): string {
@@ -192,7 +204,7 @@ export class UsageScanner {
 
   private async runScan(): Promise<UsageScanSummary> {
     const startedAt = Date.now();
-    this.repriceIfPricesChanged();
+    await this.repriceIfPricesChanged();
     const files: DiscoveredFile[] = [];
     const failures: UsageScanFailure[] = [];
     const roots: UsageScanSummary["roots"] = [];
@@ -281,44 +293,53 @@ export class UsageScanner {
   // Stored costs come from the price table of the build that wrote them. Transcripts are deleted
   // after a while, so a changed table reprices the rows from their stored token counts instead of
   // rescanning. OpenCode rows keep the cost OpenCode recorded, so they are not repriced.
-  private repriceIfPricesChanged(): void {
+  private async repriceIfPricesChanged(): Promise<void> {
     const db = this.database.db;
     const stored = db.prepare("SELECT value FROM meta WHERE key = 'usage_prices_version'").get();
     if (stored?.value === PRICES_VERSION) return;
-    const rows = db
-      .prepare(
-        `SELECT id, provider, model, input, cache_read, cache_write, cache_write_1h, output, speed,
-           us_geo FROM usage_events
-         WHERE provider != 'opencode'`,
-      )
-      .all();
+    const nextBatch = db.prepare(
+      `SELECT id, provider, model, input, cache_read, cache_write, cache_write_1h, output, speed,
+         us_geo FROM usage_events
+       WHERE provider != 'opencode' AND id > ? ORDER BY id LIMIT ?`,
+    );
     const update = db.prepare("UPDATE usage_events SET cost_usd = ? WHERE id = ?");
-    this.database.transaction(() => {
-      for (const row of rows) {
-        const cost = requestCostUsd({
-          provider: row.provider === "codex" ? "codex" : "claude",
-          model: row.model === null ? null : String(row.model),
-          input: Number(row.input),
-          cacheRead: Number(row.cache_read),
-          cacheWrite: Number(row.cache_write),
-          cacheWrite1h: Number(row.cache_write_1h),
-          output: Number(row.output),
-          speed: row.speed === "fast" || row.speed === "ultrafast" ? row.speed : "standard",
-          usGeo: Number(row.us_geo) === 1,
-        });
-        update.run(cost, Number(row.id));
-      }
-      db.prepare(
-        "INSERT INTO meta (key, value) VALUES ('usage_prices_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-      ).run(PRICES_VERSION);
-    });
-    this.logger.info({ rows: rows.length, version: PRICES_VERSION }, "usage.prices.repriced");
+    let lastId = 0;
+    let repriced = 0;
+    for (;;) {
+      const rows = nextBatch.all(lastId, REPRICE_BATCH_ROWS);
+      if (rows.length === 0) break;
+      this.database.transaction(() => {
+        for (const row of rows) {
+          const cost = requestCostUsd({
+            provider: row.provider === "codex" ? "codex" : "claude",
+            model: row.model === null ? null : String(row.model),
+            input: Number(row.input),
+            cacheRead: Number(row.cache_read),
+            cacheWrite: Number(row.cache_write),
+            cacheWrite1h: Number(row.cache_write_1h),
+            output: Number(row.output),
+            speed: row.speed === "fast" || row.speed === "ultrafast" ? row.speed : "standard",
+            usGeo: Number(row.us_geo) === 1,
+          });
+          update.run(cost, Number(row.id));
+        }
+      });
+      lastId = Number(rows[rows.length - 1]!.id);
+      repriced += rows.length;
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    // The version is stored last: a daemon that stops part-way reprices again, which is safe
+    // because each row's cost comes from its own stored counts.
+    db.prepare(
+      "INSERT INTO meta (key, value) VALUES ('usage_prices_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    ).run(PRICES_VERSION);
+    this.logger.info({ rows: repriced, version: PRICES_VERSION }, "usage.prices.repriced");
   }
 
   private loadCursors(): Map<string, Cursor> {
     const map = new Map<string, Cursor>();
     const rows = this.database.db
-      .prepare("SELECT path, size, mtime_ms, offset, state FROM usage_scan_cursors")
+      .prepare("SELECT path, size, mtime_ms, offset, state, prefix_hash FROM usage_scan_cursors")
       .all();
     for (const row of rows) {
       map.set(String(row.path), {
@@ -326,6 +347,7 @@ export class UsageScanner {
         mtimeMs: Number(row.mtime_ms),
         offset: Number(row.offset),
         state: row.state === null ? null : String(row.state),
+        prefixHash: row.prefix_hash === null ? null : String(row.prefix_hash),
       });
     }
     return map;
@@ -355,6 +377,12 @@ export class UsageScanner {
     const compressed = file.path.endsWith(".zst");
     let resumeFrom =
       !compressed && cursor !== undefined && cursor.offset <= file.size ? cursor : null;
+    if (resumeFrom && !(await prefixUnchanged(file.path, resumeFrom.prefixHash))) {
+      // The bytes before the cursor are not the ones it was taken over: reading on from its offset
+      // would parse the middle of a different file. Rows are keyed, so reading all of it is safe.
+      this.logger.info({ path: file.path }, "usage.scan.file_rewritten");
+      resumeFrom = null;
+    }
     let parserState: unknown = null;
     if (resumeFrom?.state) {
       try {
@@ -392,6 +420,7 @@ export class UsageScanner {
       mtimeMs: file.mtimeMs,
       offset: compressed ? file.size : consumed,
       state: parser.state(),
+      prefixHash: compressed ? null : await hashPrefix(file.path, consumed),
     });
     const { malformedLines, forkCopiesSuppressed } = parser.diagnostics();
     return {
@@ -432,7 +461,14 @@ export class UsageScanner {
     for (;;) {
       const step = read.next();
       if (!step.done) {
-        writer.flush({ path: dbPath, size: 0, mtimeMs: 0, offset: step.value, state: null });
+        writer.flush({
+          path: dbPath,
+          size: 0,
+          mtimeMs: 0,
+          offset: step.value,
+          state: null,
+          prefixHash: null,
+        });
         // Each batch is synchronous SQLite work; let the daemon serve requests in between.
         await new Promise((resolve) => setImmediate(resolve));
         continue;
@@ -441,7 +477,7 @@ export class UsageScanner {
       // remember the file's size so it costs one stat until it changes (e.g. an upgrade).
       if (step.value === "busy") return writer.eventCount();
       const offset = step.value === "unsupported" ? start : step.value.lastUpdated;
-      writer.flush({ path: dbPath, size, mtimeMs, offset, state: null });
+      writer.flush({ path: dbPath, size, mtimeMs, offset, state: null, prefixHash: null });
       return writer.eventCount();
     }
   }
@@ -509,16 +545,18 @@ export class UsageScanner {
           for (const row of batchTools) insertTool.run(row.callId, row.ts, row.provider, row.name);
           if (cursorUpdate !== null) {
             db.prepare(
-              `INSERT INTO usage_scan_cursors (path, size, mtime_ms, offset, state)
-               VALUES (?, ?, ?, ?, ?)
+              `INSERT INTO usage_scan_cursors (path, size, mtime_ms, offset, state, prefix_hash)
+               VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT(path) DO UPDATE SET size = excluded.size, mtime_ms = excluded.mtime_ms,
-                 offset = excluded.offset, state = excluded.state`,
+                 offset = excluded.offset, state = excluded.state,
+                 prefix_hash = excluded.prefix_hash`,
             ).run(
               cursorUpdate.path,
               cursorUpdate.size,
               cursorUpdate.mtimeMs,
               cursorUpdate.offset,
               cursorUpdate.state === null ? null : JSON.stringify(cursorUpdate.state),
+              cursorUpdate.prefixHash,
             );
           }
         });
@@ -533,6 +571,7 @@ interface CursorWrite {
   mtimeMs: number;
   offset: number;
   state: unknown;
+  prefixHash: string | null;
 }
 
 interface UsageWriter {
@@ -623,6 +662,28 @@ function handleLine(line: Buffer, parser: UsageLineParser, sink: UsageSink): voi
   if (!matched) return;
   const end = line[line.length - 1] === 13 ? line.length - 1 : line.length;
   parser.handle(line.toString("utf8", 0, end), sink);
+}
+
+// `<bytes hashed>:<sha256 hex>` of the first `min(PREFIX_HASH_BYTES, available)` bytes. The byte
+// count travels with the hash because a file that was shorter than the window when the cursor was
+// taken has grown since.
+async function hashPrefix(path: string, available: number): Promise<string> {
+  const length = Math.min(PREFIX_HASH_BYTES, available);
+  const handle = await open(path, "r");
+  try {
+    const buffer = Buffer.alloc(length);
+    const { bytesRead } = await handle.read(buffer, 0, length, 0);
+    return `${bytesRead}:${createHash("sha256").update(buffer.subarray(0, bytesRead)).digest("hex")}`;
+  } finally {
+    await handle.close();
+  }
+}
+
+// A cursor from before the hash existed has none to compare, so it is trusted as it always was.
+async function prefixUnchanged(path: string, stored: string | null): Promise<boolean> {
+  if (stored === null) return true;
+  const hashed = Number(stored.slice(0, stored.indexOf(":")));
+  return (await hashPrefix(path, hashed)) === stored;
 }
 
 function isTranscript(name: string, provider: UsageProvider): boolean {

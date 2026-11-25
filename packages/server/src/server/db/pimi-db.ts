@@ -89,6 +89,9 @@ const SCHEMA_STEPS: readonly string[] = [
   // selects exactly the Codex cursors (Claude and OpenCode cursors keep their place).
   `DELETE FROM usage_events WHERE provider = 'codex';
    DELETE FROM usage_scan_cursors WHERE state IS NOT NULL;`,
+  // 7: a cursor remembers a hash of its file's first bytes, so a file that was rewritten under the
+  // same name is read again from its start. Existing cursors have none and are trusted as before.
+  `ALTER TABLE usage_scan_cursors ADD COLUMN prefix_hash TEXT;`,
 ];
 
 // pimi-timeline.db: chat timelines and their search index. Large and rebuildable from provider
