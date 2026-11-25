@@ -5206,15 +5206,18 @@ class ClaudeAgentSession implements AgentSession {
       return null;
     });
     if (!page) return item;
-    return {
+    const command = notice.label ?? "Background task finished";
+    const finished = {
       ...item,
       detail: {
-        type: "shell",
-        command: notice.label ?? "Background task finished",
+        type: "shell" as const,
+        command,
         ...(page.output ? { output: page.output } : {}),
       },
       metadata: withToolCallStartedAt(item.metadata, launch.startedAt),
     };
+    // The summary is already the row's command line; the failure needs no second copy.
+    return finished.status === "failed" ? { ...finished, error: command } : finished;
   }
 
   private async appendUserMessageEvents(
