@@ -296,8 +296,9 @@ export class V2Runtime {
     });
     const processAbort = new AbortController();
     const exited = new Promise<Error>((resolve) =>
-      process.once("exit", (code) => {
-        const error = new Error(`OpenCode helper server exited (${code})`);
+      process.once("exit", (code, signal) => {
+        const reason = signal ? `killed by ${signal}` : `exit code ${code}`;
+        const error = new Error(`OpenCode helper server exited (${reason})`);
         processAbort.abort(error);
         resolve(error);
       }),
