@@ -157,14 +157,17 @@ function AddSecretForm({ serverId, operator }: { serverId: string; operator: boo
   );
   const submit = useCallback(() => {
     if (!canSubmit) return;
-    add.mutate({
-      name: state.name,
-      envName: state.envName,
-      description: state.description.length > 0 ? state.description : null,
-      source: { kind: "local" },
-      value: state.value,
-    });
-    dispatch({ type: "clear" });
+    // The fields stay until the daemon accepts the secret, so a failed add is not retyped.
+    add.mutate(
+      {
+        name: state.name,
+        envName: state.envName,
+        description: state.description.length > 0 ? state.description : null,
+        source: { kind: "local" },
+        value: state.value,
+      },
+      { onSuccess: () => dispatch({ type: "clear" }) },
+    );
   }, [add, canSubmit, state]);
   return (
     <View style={[settingsStyles.card, styles.form]} testID="vault-add-secret">
