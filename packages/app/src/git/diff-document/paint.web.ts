@@ -293,7 +293,7 @@ function paintLine(
     input.context.fillStyle = input.palette.border;
     input.context.fillRect(x + file.gutterWidth, input.y, 1, reviewDividerHeight(input.row.height));
     if (cell.reviewTarget && input.rangeBars?.has(cell.reviewTarget.key)) {
-      input.context.fillStyle = input.palette.headerBorder;
+      input.context.fillStyle = input.palette.foregroundMuted;
       input.context.fillRect(
         x + file.gutterWidth - RANGE_BAR_WIDTH,
         input.y,

@@ -223,6 +223,7 @@ export function useReviewMarkers(input: {
     () => ({
       submit,
       commentsByTarget: controller.commentsByTarget,
+      rangeBars: controller.rangeBars,
       threadsByTarget,
       onOpenThread,
       editor: controller.editor,
