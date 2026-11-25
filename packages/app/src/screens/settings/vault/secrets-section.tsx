@@ -10,7 +10,7 @@ import { Field, FormTextInput } from "@/components/ui/form-field";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useTranslation } from "@/i18n/use-translation";
 import { settingsStyles } from "@/styles/settings";
-import { useVaultAction, vaultErrorMessage } from "./use-vault";
+import { secretNameIssues, useVaultAction, vaultErrorMessage } from "./use-vault";
 
 interface SecretsSectionProps {
   serverId: string;
@@ -137,12 +137,8 @@ function AddSecretForm({ serverId, operator }: { serverId: string; operator: boo
   const add = useVaultAction(serverId, (client, input: SetSecretInput) =>
     client.vaultSetSecret(input),
   );
-  const canSubmit =
-    operator &&
-    state.name.length > 0 &&
-    state.envName.length > 0 &&
-    state.value.length > 0 &&
-    !add.isPending;
+  const issues = secretNameIssues(state.name, state.envName);
+  const canSubmit = operator && issues.valid && state.value.length > 0 && !add.isPending;
   const setName = useCallback(
     (value: string) => dispatch({ type: "field", field: "name", value }),
     [],
@@ -172,7 +168,7 @@ function AddSecretForm({ serverId, operator }: { serverId: string; operator: boo
   }, [add, canSubmit, state]);
   return (
     <View style={[settingsStyles.card, styles.form]} testID="vault-add-secret">
-      <Field label={t("settings.vault.secrets.nameLabel")}>
+      <Field label={t("settings.vault.secrets.nameLabel")} error={issues.name}>
         <FormTextInput
           initialValue=""
           resetKey={state.resetKey}
@@ -184,7 +180,7 @@ function AddSecretForm({ serverId, operator }: { serverId: string; operator: boo
           testID="vault-add-secret-name"
         />
       </Field>
-      <Field label={t("settings.vault.secrets.envLabel")}>
+      <Field label={t("settings.vault.secrets.envLabel")} error={issues.envName}>
         <FormTextInput
           initialValue=""
           resetKey={state.resetKey}

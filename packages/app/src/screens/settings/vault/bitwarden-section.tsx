@@ -10,7 +10,12 @@ import { Field, FormTextInput } from "@/components/ui/form-field";
 import { useTranslation } from "@/i18n/use-translation";
 import { settingsStyles } from "@/styles/settings";
 import { SecretInputForm } from "./secret-input-form";
-import { useBitwardenStatus, useVaultAction, vaultErrorMessage } from "./use-vault";
+import {
+  secretNameIssues,
+  useBitwardenStatus,
+  useVaultAction,
+  vaultErrorMessage,
+} from "./use-vault";
 
 interface BitwardenSectionProps {
   serverId: string;
@@ -244,6 +249,7 @@ function BindForm({
     }),
   );
   const { mutate } = create;
+  const issues = secretNameIssues(name, envName);
   const submit = useCallback(() => {
     mutate({ name, envName }, { onSuccess: onDone });
   }, [envName, mutate, name, onDone]);
@@ -252,7 +258,7 @@ function BindForm({
       <Text style={settingsStyles.rowHint}>
         {t("settings.vault.bitwarden.binding", { item: binding.itemName, field: binding.field })}
       </Text>
-      <Field label={t("settings.vault.secrets.nameLabel")}>
+      <Field label={t("settings.vault.secrets.nameLabel")} error={issues.name}>
         <FormTextInput
           initialValue=""
           onChangeText={setName}
@@ -261,7 +267,7 @@ function BindForm({
           accessibilityLabel={t("settings.vault.secrets.nameLabel")}
         />
       </Field>
-      <Field label={t("settings.vault.secrets.envLabel")}>
+      <Field label={t("settings.vault.secrets.envLabel")} error={issues.envName}>
         <FormTextInput
           initialValue=""
           onChangeText={setEnvName}
@@ -275,10 +281,7 @@ function BindForm({
           {vaultErrorMessage(create.error)}
         </Text>
       ) : null}
-      <Button
-        onPress={submit}
-        disabled={name.length === 0 || envName.length === 0 || create.isPending}
-      >
+      <Button onPress={submit} disabled={!issues.valid || create.isPending}>
         {t("settings.vault.bitwarden.bind")}
       </Button>
     </View>

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
+import { VaultEnvNameSchema, VaultSecretNameSchema } from "@pimi/protocol/vault/types";
 import { useFetchQuery } from "@/data/query";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 
@@ -10,6 +11,23 @@ const VAULT_STALE_MS = 30_000;
 
 function vaultRoot(serverId: string) {
   return ["vault", serverId] as const;
+}
+
+export interface SecretNameIssues {
+  name: string | null;
+  envName: string | null;
+  valid: boolean;
+}
+
+/** The protocol's own check on a secret's name and variable, so a bad one is explained before sending. */
+export function secretNameIssues(name: string, envName: string): SecretNameIssues {
+  const nameResult = name.length > 0 ? VaultSecretNameSchema.safeParse(name) : null;
+  const envResult = envName.length > 0 ? VaultEnvNameSchema.safeParse(envName) : null;
+  return {
+    name: nameResult && !nameResult.success ? nameResult.error.issues[0].message : null,
+    envName: envResult && !envResult.success ? envResult.error.issues[0].message : null,
+    valid: nameResult?.success === true && envResult?.success === true,
+  };
 }
 
 /** The text of a daemon error without the `requestType=… code=…` suffix the client appends. */
