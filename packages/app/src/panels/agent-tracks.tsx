@@ -1,5 +1,6 @@
 import type { AgentAddress } from "@pimi/protocol/addresses";
 import { memo, useCallback, useMemo, type ReactElement } from "react";
+import { ActionItemsReviewTrack } from "@/action-items/review-track";
 import { BackgroundWorkTrack, createHostBackgroundWorkModel } from "@/background-work";
 import { WorkspaceDiffStatPill } from "@/composer/diff-stat-pill";
 import { AgentTaskList } from "@/composer/task-list";
@@ -133,6 +134,7 @@ export const AgentTracks = memo(function AgentTracks({
       <BackgroundWorkTrack model={backgroundModel} count={backgroundWorkCount} />
       {parentAgentId ? <ParentAgentPill serverId={serverId} parentAgentId={parentAgentId} /> : null}
       <AgentTaskList tasks={tasks} />
+      <ActionItemsReviewTrack serverId={serverId} agentId={agentId} />
       <SubagentsTrack
         serverId={serverId}
         rows={subagentRows}
