@@ -4101,6 +4101,12 @@ export const en = {
         touchIdOn: "On",
         touchIdEnable: "Turn on",
         touchIdDisable: "Turn off",
+        phoneBiometric: "Face ID or fingerprint",
+        phoneBiometricHint:
+          "Keep the passphrase in this phone's secure storage and unlock with Face ID or your fingerprint. It is checked now, and stays on this phone.",
+        phoneBiometricEnable: "Turn on",
+        phoneBiometricDisable: "Turn off",
+        phoneBiometricSubmit: "Save passphrase",
         lockAfter: "Lock after",
         minutes_one: "{{count}} minute",
         minutes_other: "{{count}} minutes",

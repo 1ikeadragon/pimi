@@ -1,5 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { StyleSheet } from "react-native-unistyles";
 import type { VaultStatus } from "@pimi/protocol/vault/types";
 import { SettingsCard, SettingsRow } from "@/components/settings";
@@ -9,6 +10,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/component
 import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useTranslation } from "@/i18n/use-translation";
+import {
+  forgetPassphrase,
+  hasStoredPassphrase,
+  isBiometricPassphraseAvailable,
+  storePassphrase,
+} from "@/vault/biometric-passphrase";
+import { SecretInputForm } from "./secret-input-form";
 import { settingsStyles } from "@/styles/settings";
 import { useCanUseTouchId, useVaultAction, vaultErrorMessage } from "./use-vault";
 
@@ -60,6 +68,7 @@ export function UnlockingSection({ serverId, status, operator }: UnlockingSectio
           </Button>
         </SettingsRow>
         <IdleLockRow serverId={serverId} />
+        <PhoneBiometricRow serverId={serverId} />
         {canUseTouchId && status.quickUnlock !== "unavailable" ? (
           <TouchIdRow
             serverId={serverId}
@@ -128,6 +137,79 @@ function IdleLockOption({
     <DropdownMenuItem selected={selected} onSelect={select} testID={`vault-idle-lock-${minutes}`}>
       {label}
     </DropdownMenuItem>
+  );
+}
+
+type PhoneBiometric = "unavailable" | "off" | "on";
+
+/** Whether this phone can keep the passphrase behind Face ID or a fingerprint, and whether it does. */
+function usePhoneBiometric(serverId: string) {
+  const [state, setState] = useState<PhoneBiometric>("unavailable");
+  const refresh = useCallback(async () => {
+    if (!(await isBiometricPassphraseAvailable())) return setState("unavailable");
+    setState((await hasStoredPassphrase(serverId)) ? "on" : "off");
+  }, [serverId]);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+  return { state, refresh };
+}
+
+function PhoneBiometricRow({ serverId }: { serverId: string }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const { state, refresh } = usePhoneBiometric(serverId);
+  const [entering, setEntering] = useState(false);
+  const save = useVaultAction(serverId, async (client, passphrase: string) => {
+    await client.vaultAuthorize({ passphrase });
+    await storePassphrase(serverId, passphrase);
+  });
+  const remove = useCallback(async () => {
+    await forgetPassphrase(serverId);
+    await refresh();
+    void queryClient.invalidateQueries({ queryKey: ["vault-biometric", serverId] });
+  }, [queryClient, refresh, serverId]);
+  const startEntering = useCallback(() => setEntering(true), []);
+  const submit = useCallback(
+    (passphrase: string) =>
+      save.mutate(passphrase, {
+        onSuccess: () => {
+          setEntering(false);
+          void refresh();
+          void queryClient.invalidateQueries({ queryKey: ["vault-biometric", serverId] });
+        },
+      }),
+    [queryClient, refresh, save, serverId],
+  );
+  if (state === "unavailable") return null;
+  return (
+    <>
+      <SettingsRow
+        label={t("settings.vault.unlocking.phoneBiometric")}
+        hint={t("settings.vault.unlocking.phoneBiometricHint")}
+      >
+        {state === "on" ? (
+          <Button variant="outline" onPress={remove} testID="vault-phone-biometric-off">
+            {t("settings.vault.unlocking.phoneBiometricDisable")}
+          </Button>
+        ) : (
+          <Button variant="outline" onPress={startEntering} testID="vault-phone-biometric-on">
+            {t("settings.vault.unlocking.phoneBiometricEnable")}
+          </Button>
+        )}
+      </SettingsRow>
+      {entering && state === "off" ? (
+        <SecretInputForm
+          label={t("settings.vault.passphrase")}
+          submitLabel={t("settings.vault.unlocking.phoneBiometricSubmit")}
+          pending={save.isPending}
+          error={save.error ? vaultErrorMessage(save.error) : null}
+          onSubmit={submit}
+          onEdit={save.reset}
+          testID="vault-phone-biometric"
+        />
+      ) : null}
+    </>
   );
 }
 
