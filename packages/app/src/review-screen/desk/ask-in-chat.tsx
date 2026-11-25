@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { buildReviewAttachmentSnapshot, getReviewDraftComments } from "@/review";
+import { useReviewDraftComments } from "@/review/store";
 import { useSessionStore, type WorkspaceDescriptor } from "@/stores/session-store";
 import { generateDraftId } from "@/stores/draft-keys";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
@@ -88,10 +89,23 @@ export function AskInChat({
       ? `${source.owner}/${source.name}`
       : (source.cwd.split(/[\\/]/).findLast(Boolean) ?? source.cwd);
   const [error, setError] = useState<string | null>(null);
+  const comments = useReviewDraftComments(reviewDraftKey);
+  // Read live: a note whose line left the diff stays listed until it is sent some other way.
+  const unplacedCount = useMemo(
+    () =>
+      buildReviewAttachmentSnapshot({
+        reviewDraftKey,
+        cwd: source.kind === "checkout" ? source.cwd : "",
+        mode: "all",
+        comments,
+        diffFiles: [...loadedFiles.values()],
+      }).unplaced.length,
+    [comments, loadedFiles, reviewDraftKey, source],
+  );
 
   const attach = useCallback(
     (workspace: WorkspaceDescriptor) => {
-      const snapshot = buildReviewAttachmentSnapshot({
+      const { attachment } = buildReviewAttachmentSnapshot({
         reviewDraftKey,
         cwd: workspace.workspaceDirectory,
         mode,
@@ -99,7 +113,7 @@ export function AskInChat({
         comments: getReviewDraftComments(reviewDraftKey) ?? [],
         diffFiles: [...loadedFiles.values()],
       });
-      if (!snapshot) {
+      if (!attachment) {
         setError(copy.askUnavailable);
         return;
       }
@@ -109,7 +123,7 @@ export function AskInChat({
       const draftId = generateDraftId();
       useWorkspaceAttachmentsStore.getState().setWorkspaceAttachments({
         scopeKey: buildDraftWorkspaceAttachmentScopeKey(draftId),
-        attachments: [snapshot],
+        attachments: [attachment],
       });
       navigateToWorkspace({
         serverId: source.serverId,
@@ -125,6 +139,7 @@ export function AskInChat({
     <View style={styles.bar} testID="review-desk-ask-bar">
       <Text style={styles.count}>{copy.annotations(draftCount)}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {unplacedCount > 0 ? <Text style={styles.count}>{copy.unplaced(unplacedCount)}</Text> : null}
       <DropdownMenu>
         <DropdownMenuTrigger
           accessibilityRole="button"

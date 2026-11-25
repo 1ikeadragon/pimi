@@ -346,6 +346,8 @@ export const en = {
       annotations_other: "{{count}} annotations",
       noWorkspace: "No chat for {{repo}} on this host",
       askUnavailable: "Open the annotated files first; their patches are not loaded.",
+      unplaced_one: "{{count}} annotation is not in the diff any more and stays here",
+      unplaced_other: "{{count}} annotations are not in the diff any more and stay here",
       detached_one: "{{count}} thread not on this diff",
       detached_other: "{{count}} threads not on this diff",
       detachedNoLine: "no line",

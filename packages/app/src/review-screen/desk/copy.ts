@@ -28,6 +28,7 @@ export function useDeskCopy() {
       askInChat: t("reviewScreen.desk.askInChat"),
       annotations: (count: number) => t("reviewScreen.desk.annotations", { count }),
       noWorkspace: (repo: string) => t("reviewScreen.desk.noWorkspace", { repo }),
+      unplaced: (count: number) => t("reviewScreen.desk.unplaced", { count }),
       askUnavailable: t("reviewScreen.desk.askUnavailable"),
       detached: (count: number) => t("reviewScreen.desk.detached", { count }),
       detachedNoLine: t("reviewScreen.desk.detachedNoLine"),

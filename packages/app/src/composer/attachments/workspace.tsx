@@ -23,7 +23,7 @@ import {
   removeSentContextAttachments,
   removeWorkspaceAttachmentsMatching,
 } from "./workspace-cleanup";
-import { useClearReviewDraft } from "@/review/store";
+import { useDeleteReviewDraftComments } from "@/review/store";
 import { BrowserElementPreview } from "./browser-element-preview";
 
 interface WorkspaceAttachmentBindingInput {
@@ -118,7 +118,7 @@ function useWorkspaceAttachmentBinding({
     | null
   >(null);
   const closePreview = useCallback(() => setOpened(null), []);
-  const clearReviewDraft = useClearReviewDraft();
+  const deleteReviewDraftComments = useDeleteReviewDraftComments();
   const [suppressedKeys, setSuppressedKeys] = useState<readonly string[]>([]);
   const workspaceAttachmentKeys = useMemo(
     () => workspaceAttachments.map(getAttachmentKey),
@@ -166,12 +166,16 @@ function useWorkspaceAttachmentBinding({
     (attachments: readonly ComposerAttachment[]) => {
       for (const attachment of attachments) {
         if (attachment.kind === "review") {
-          clearReviewDraft({ key: attachment.reviewDraftKey });
+          // Notes the attachment did not carry (their line left the diff) stay in Review.
+          deleteReviewDraftComments({
+            key: attachment.reviewDraftKey,
+            ids: new Set(attachment.commentIds),
+          });
         }
       }
       removeSentContextAttachments(attachments);
     },
-    [clearReviewDraft],
+    [deleteReviewDraftComments],
   );
 
   const removeAttachment = useCallback(

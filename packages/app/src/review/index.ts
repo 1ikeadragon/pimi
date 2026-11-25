@@ -3,7 +3,7 @@ export {
   buildReviewDraftKey,
   getReviewDraftComments,
   resetReviewDraftStore,
-  useClearReviewDraft,
+  useDeleteReviewDraftComments,
   useReviewAttachmentSnapshot,
   addReviewDraftComment,
   type BuildReviewDraftKeyInput,

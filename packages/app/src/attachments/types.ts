@@ -137,6 +137,8 @@ export type WorkspaceComposerAttachment =
       attachment: Extract<AgentAttachment, { type: "review" }>;
       reviewDraftKey: string;
       commentCount: number;
+      /** The draft notes this attachment carries; only these are removed when it is sent. */
+      commentIds: readonly string[];
     };
 
 export type ComposerAttachment = UserComposerAttachment | WorkspaceComposerAttachment;

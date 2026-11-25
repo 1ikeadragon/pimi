@@ -94,6 +94,21 @@ export function deleteCommentFromState(
   };
 }
 
+export function deleteCommentsFromState(
+  state: ReviewDraftStoreState,
+  input: { key: string; ids: ReadonlySet<string> },
+): ReviewDraftStoreState {
+  const comments = state.drafts[input.key] ?? [];
+  const remaining = comments.filter((comment) => !input.ids.has(comment.id));
+  if (remaining.length === comments.length) {
+    return state;
+  }
+  const nextDrafts = { ...state.drafts };
+  if (remaining.length === 0) delete nextDrafts[input.key];
+  else nextDrafts[input.key] = remaining;
+  return { ...state, drafts: nextDrafts };
+}
+
 export function clearReviewInState(
   state: ReviewDraftStoreState,
   input: { key: string },
