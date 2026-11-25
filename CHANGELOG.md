@@ -2,7 +2,7 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
-## Unreleased
+## 0.17.75 - 2026-11-25
 
 - Background shells show their output. Open a job in the Background work panel, or its launching row in the chat, to watch it live; when it ends the chat gets a row with its final output. Works for Claude Code and OpenCode.
 
