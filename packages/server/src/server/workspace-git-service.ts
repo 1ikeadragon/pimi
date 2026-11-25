@@ -14,6 +14,7 @@ import {
   type CheckoutShortstat,
   type CheckoutSnapshotFacts,
   type CheckoutDiffCompare,
+  type CheckoutDiffPlainListener,
   type CheckoutDiffResult,
   getCheckoutDiff,
   getCheckoutRefDerivedState,
@@ -232,7 +233,7 @@ export interface WorkspaceGitService {
   getCheckoutDiff(
     cwd: string,
     options: CheckoutDiffCompare,
-    readOptions?: WorkspaceGitReadOptions,
+    readOptions?: WorkspaceGitCheckoutDiffReadOptions,
   ): Promise<CheckoutDiffResult>;
   validateBranchRef(
     cwd: string,
@@ -308,6 +309,12 @@ export type WorkspaceGitReadOptions =
       force: true;
       reason: string;
     };
+
+/** What a diff read can ask on top of the freshness options; see {@link CheckoutDiffCache.read}. */
+export type WorkspaceGitCheckoutDiffReadOptions = WorkspaceGitReadOptions & {
+  onPlain?: CheckoutDiffPlainListener;
+  signal?: AbortSignal;
+};
 
 export interface WorkspaceGitBranchSuggestionsOptions {
   query?: string;
@@ -881,7 +888,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
   async getCheckoutDiff(
     cwd: string,
     options: CheckoutDiffCompare,
-    readOptions?: WorkspaceGitReadOptions,
+    readOptions?: WorkspaceGitCheckoutDiffReadOptions,
   ): Promise<CheckoutDiffResult> {
     this.assertNotDisposed();
     const normalizedCwd = resolve(cwd);
@@ -894,7 +901,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
       cwd: normalizedCwd,
       compare: normalizedOptions,
       ...readOptions,
-      load: (signal) =>
+      load: (signal, onPlain) =>
         this.deps.getCheckoutDiff(
           normalizedCwd,
           normalizedOptions,
@@ -903,6 +910,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
             worktreesRoot: this.worktreesRoot,
           },
           signal,
+          onPlain,
         ),
     });
   }
