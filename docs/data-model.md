@@ -116,6 +116,24 @@ that returns nothing for a chat that still has stored rows fails the open too
 open reads the provider again. A rewind is the exception for an empty replay: its result can
 legitimately be empty.
 
+A page read from the stored rows is the newest 2000 rows extended back to a turn start, but no
+further than another 2000 rows (`TIMELINE_TURN_EXTENSION_MAX_ROWS`). A turn longer than that
+(one 71k-row chat had a 40k-row turn) is read in pieces: the page starts inside the turn and the
+rest is older rows. Projection never merges rows across that seam, so a long assistant message
+split by it shows as two rows. The prompt outline (`agent.timeline.list_prompts`) reads the
+`user_message` rows alone when the stored copy is complete, without loading the chat.
+
+Claude transcripts are replayed newest turns first (`transcript-history.ts`). A window parses at
+most 64 MiB of records and reads at most 256 MiB, because the CLI writes every API request as an
+`api-request` record that is skipped without parsing and is most of a large file. A record over
+16 MiB is skipped and reported in the chat. When the budget ends before enough turns are found
+(one huge turn, or a tool result whose call is missing from the file) the window starts at the
+oldest point with no tool call open and the older rest stays reachable. A transcript of 32 MiB or
+more is never replayed whole. A reload that keeps the timeline resumes with `continueFrom`: the
+new session reads only the newest turns for live state, keeps no replay buffer and takes over
+the old session's cursor into older history; a rewind to a turn it did not track reads the
+transcript for it.
+
 Known gap: turns added to the provider session outside Pimi are not seen until the next rebuild.
 There is no transcript fingerprint check yet.
 

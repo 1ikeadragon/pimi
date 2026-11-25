@@ -174,6 +174,16 @@ with subagents never opens from storage), and slash commands come from the last 
 provider and folder, read again when a commands or skills directory changes, and refreshed in the background after 60 s. The first list per provider and folder
 after a daemon start still waits on a live provider process.
 
+## Daemon stalls
+
+Everything shares one event loop, and the relay drops a control channel after 30 s without a
+keepalive, so a read of a huge chat must work in slices. Stored pages are bounded (see
+[data-model.md](data-model.md#chat-timelines-and-search)), loops over stored blocks yield between
+blocks, and Claude transcript scans and conversions yield every 8 ms. A stall of a second or more
+is logged as `event_loop_stalled` with its length when it ends; subtract that from the log
+time to find what ran. The stored copy answers the outline and the first tail page of a chat
+without loading its session, so opening the app does not start a provider session per chat.
+
 ## Provider child history
 
 Child transcripts use the same projected-page reconciliation as the main conversation. The client
