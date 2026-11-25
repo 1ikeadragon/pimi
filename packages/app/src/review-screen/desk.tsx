@@ -38,6 +38,7 @@ import { useDeskNotes } from "./desk/use-desk-notes";
 import { useReviewMarkers } from "./desk/use-review-markers";
 import { useLineCommentPoster } from "./desk/use-line-comment";
 import { Notice } from "./notice";
+import { markReview } from "./timing";
 
 export function ReviewDesk({ source, focus }: ReviewDeskProps) {
   return (
@@ -156,6 +157,11 @@ function ReadyDesk({
   const copy = useDeskCopy();
   const display = useDeskDisplay();
   const { isCompact } = display;
+  // The first commit with rows, then one frame for them to reach the screen.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => markReview("review:first-paint"));
+    return () => cancelAnimationFrame(frame);
+  }, []);
   const { stubs, loadedFiles, mode, eligibleMode } = model;
   const paths = useMemo(() => stubs.map((file) => file.path), [stubs]);
   const activePath = resolveActivePath(paths, view.input.activePath);

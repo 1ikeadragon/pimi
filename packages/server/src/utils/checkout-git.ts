@@ -907,8 +907,25 @@ export type CheckoutStatusGit = CheckoutStatusGitNonPimi | CheckoutStatusGitPimi
 
 export type CheckoutStatusResult = CheckoutStatus | CheckoutStatusGit;
 
+/**
+ * Where a structured diff read spent its time. `listMs` and `patchMs` are wall time of their
+ * stages. `blobMs` and `highlightMs` add up the time of each batch or file, so a read that
+ * overlaps batches can report more than its wall time.
+ */
+export interface CheckoutDiffTimings {
+  listMs: number;
+  patchMs: number;
+  blobMs: number;
+  highlightMs: number;
+}
+
 export type CheckoutDiffResult =
-  | { diff: string; structured?: ParsedDiffFile[]; diffTooLarge?: false }
+  | {
+      diff: string;
+      structured?: ParsedDiffFile[];
+      diffTooLarge?: false;
+      timings?: CheckoutDiffTimings;
+    }
   | { diff: ""; structured: []; diffTooLarge: true };
 
 export interface CheckoutDiffCompare {
@@ -3200,6 +3217,7 @@ interface AppendStructuredTrackedDiffsInput {
     change: CheckoutFileChange,
     status: "binary" | "too_large",
   ) => void;
+  timings: CheckoutDiffTimings;
 }
 
 async function buildHighlightedTrackedDiffFile(input: {
@@ -3279,20 +3297,27 @@ async function appendStructuredTrackedDiffs(
     ignoreWhitespace,
     structured,
     appendTrackedPlaceholderComment,
+    timings,
   } = input;
 
   const parsedTrackedFiles = trackedDiffText.length > 0 ? parseDiff(trackedDiffText) : [];
   const parsedTrackedByPath = new Map(parsedTrackedFiles.map((file) => [file.path, file]));
 
-  const readContents = (changes: CheckoutFileChange[]) =>
-    readTrackedDiffContents(
-      cwd,
-      changes.filter(
-        (change) =>
-          !trackedPlaceholderByPath.has(change.path) && parsedTrackedByPath.has(change.path),
-      ),
-      refsForDiff,
-    );
+  const readContents = async (changes: CheckoutFileChange[]) => {
+    const startedAt = performance.now();
+    try {
+      return await readTrackedDiffContents(
+        cwd,
+        changes.filter(
+          (change) =>
+            !trackedPlaceholderByPath.has(change.path) && parsedTrackedByPath.has(change.path),
+        ),
+        refsForDiff,
+      );
+    } finally {
+      timings.blobMs += performance.now() - startedAt;
+    }
+  };
   for await (const { item: changes, value: contents } of readAhead({
     items: chunk(trackedChanges, TRACKED_DIFF_BATCH_SIZE),
     ahead: CHECKOUT_DIFF_CONCURRENCY,
@@ -3315,6 +3340,7 @@ async function appendStructuredTrackedDiffs(
       const stat = trackedNumstatByPath.get(change.path) ?? null;
       const parsedFile = parsedTrackedByPath.get(change.path);
       if (parsedFile) {
+        const highlightStartedAt = performance.now();
         const file = await buildHighlightedTrackedDiffFile({
           signal: input.signal,
           cwd,
@@ -3323,6 +3349,7 @@ async function appendStructuredTrackedDiffs(
           refsForDiff,
           contents: contents ?? undefined,
         });
+        timings.highlightMs += performance.now() - highlightStartedAt;
         if (!appendStructuredFile(structured, file)) {
           return false;
         }
@@ -3804,6 +3831,8 @@ async function readCheckoutDiff(
       listCheckoutFileChanges(cwd, refs, ignoreWhitespace),
       getTrackedNumstatByPath(cwd, refs, ignoreWhitespace),
     ]);
+  const timings: CheckoutDiffTimings = { listMs: 0, patchMs: 0, blobMs: 0, highlightMs: 0 };
+  const listStartedAt = performance.now();
   let listed: Awaited<ReturnType<typeof listChanges>>;
   try {
     listed = await listChanges(effectiveRefsForDiff);
@@ -3814,6 +3843,7 @@ async function readCheckoutDiff(
     effectiveRefsForDiff = { ...refsForDiff, baseRef: EMPTY_TREE_OBJECT_ID };
     listed = await listChanges(effectiveRefsForDiff);
   }
+  timings.listMs = performance.now() - listStartedAt;
   const [changes, trackedNumstatByPath] = listed;
   changes.sort((a, b) => {
     if (a.path === b.path) return 0;
@@ -3847,6 +3877,7 @@ async function readCheckoutDiff(
     ...gitChanges.filter((change) => !indexedUntracked?.has(change.path)),
     ...gitChanges.filter((change) => indexedUntracked?.has(change.path)),
   ];
+  const patchStartedAt = performance.now();
   const trackedDiff = await processTrackedChanges({
     cwd,
     refsForDiff: effectiveRefsForDiff,
@@ -3855,6 +3886,7 @@ async function readCheckoutDiff(
     ignoreWhitespace,
     appendDiff,
   });
+  timings.patchMs = performance.now() - patchStartedAt;
 
   const appendTrackedPlaceholderComment = (
     change: CheckoutFileChange,
@@ -3879,6 +3911,7 @@ async function readCheckoutDiff(
       ignoreWhitespace,
       structured,
       appendTrackedPlaceholderComment,
+      timings,
     });
     if (!didAppendTrackedDiffs) {
       return { diff: "", structured: [], diffTooLarge: true };
@@ -3913,7 +3946,7 @@ async function readCheckoutDiff(
   }
 
   if (compare.includeStructured) {
-    return { diff: diffText, structured: structured.files };
+    return { diff: diffText, structured: structured.files, timings };
   }
   return { diff: diffText };
 }
