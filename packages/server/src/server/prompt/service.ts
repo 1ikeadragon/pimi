@@ -1,11 +1,23 @@
 import { randomBytes } from "node:crypto";
 import pLimit from "p-limit";
 import type { Logger } from "pino";
-import type { SavedPrompt, SavedPromptDefinition } from "@pimi/protocol/prompt/types";
+import type {
+  PromptSuggestion,
+  PromptSuggestionPosition,
+  SavedPrompt,
+  SavedPromptDefinition,
+} from "@pimi/protocol/prompt/types";
 import { validatePromptDefinition, type PromptIssue } from "@pimi/protocol/prompt/validate";
 import type { PimiDatabase } from "../db/pimi-db.js";
 import type { SqlRecordStore } from "../db/sql-record-store.js";
-import { createSavedPromptStore } from "./store.js";
+import { normalizePrompt } from "./normalize.js";
+import {
+  createSavedPromptStore,
+  createSuggestionDismissalStore,
+  suggestionDismissalId,
+  type SuggestionDismissal,
+} from "./store.js";
+import { computeSuggestions, type SuggestionSources } from "./suggestions.js";
 
 export class PromptNotFoundError extends Error {
   constructor(readonly promptId: string) {
@@ -41,6 +53,8 @@ export interface PromptServiceOptions {
   logger: Logger;
   // Flows are run with the same `/name` syntax, and a flow wins the menu on a clash.
   listFlowNames: () => Promise<string[]>;
+  // The chat history suggestions are read from.
+  suggestionSources: SuggestionSources;
 }
 
 function now(): string {
@@ -57,6 +71,8 @@ function sharesScope(left: string | null, right: string | null): boolean {
 // name into the text; the daemon only stores them and keeps names unambiguous.
 export class PromptService {
   private readonly store: SqlRecordStore<SavedPrompt>;
+  private readonly dismissals: SqlRecordStore<SuggestionDismissal>;
+  private readonly suggestionSources: SuggestionSources;
   private readonly listFlowNames: () => Promise<string[]>;
   // Name uniqueness spans records, so writes run one at a time.
   private readonly mutate = pLimit(1);
@@ -66,6 +82,11 @@ export class PromptService {
       database: options.database,
       logger: options.logger.child({ module: "prompt-service" }),
     });
+    this.dismissals = createSuggestionDismissalStore({
+      database: options.database,
+      logger: options.logger.child({ module: "prompt-service" }),
+    });
+    this.suggestionSources = options.suggestionSources;
     this.listFlowNames = options.listFlowNames;
   }
 
@@ -103,6 +124,38 @@ export class PromptService {
     return this.mutate(async () => {
       if (!(await this.store.get(promptId))) throw new PromptNotFoundError(promptId);
       await this.store.delete(promptId);
+    });
+  }
+
+  // Phrases this project's chats repeat, minus the ones already saved or dismissed.
+  async listSuggestions(input: {
+    projectId: string;
+    position: PromptSuggestionPosition;
+    limit?: number;
+  }): Promise<PromptSuggestion[]> {
+    const saved = (await this.store.list()).filter(
+      (prompt) => prompt.projectId === null || prompt.projectId === input.projectId,
+    );
+    const dismissed = (await this.dismissals.list()).filter(
+      (dismissal) => dismissal.projectId === input.projectId,
+    );
+    return computeSuggestions({
+      sources: this.suggestionSources,
+      projectId: input.projectId,
+      position: input.position,
+      limit: input.limit,
+      nowMs: Date.now(),
+      savedPromptTexts: new Set(saved.map((prompt) => normalizePrompt(prompt.text))),
+      dismissedKeys: new Set(dismissed.map((dismissal) => dismissal.key)),
+    });
+  }
+
+  async dismissSuggestion(input: { projectId: string; key: string }): Promise<void> {
+    await this.dismissals.put({
+      id: suggestionDismissalId(input.projectId, input.key),
+      projectId: input.projectId,
+      key: input.key,
+      dismissedAt: now(),
     });
   }
 

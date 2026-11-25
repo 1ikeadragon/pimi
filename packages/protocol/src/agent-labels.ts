@@ -1,6 +1,10 @@
 import type { AgentAddress } from "./addresses.js";
 export const PARENT_SERVER_ID_LABEL = "pimi.parent-server-id";
 export const PARENT_AGENT_ID_LABEL = "pimi.parent-agent-id";
+/** On every agent an automation or a flow step starts: the step's id in the graph. */
+export const AUTOMATION_NODE_LABEL = "pimi.automation-node";
+/** On every agent an automation run starts: the run id. */
+export const AUTOMATION_RUN_LABEL = "pimi.automation-run";
 /** On an Attack run's lead and every agent it creates: the run id. */
 export const ATTACK_RUN_LABEL = "pimi.attack-run";
 /** On a subagent a Crew lead delegated to: its tier. */

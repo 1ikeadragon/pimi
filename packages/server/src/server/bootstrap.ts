@@ -1718,6 +1718,11 @@ export async function createPimiDaemon(
     database: pimiDatabase,
     logger,
     listFlowNames: async () => (await flowService.list()).map((flow) => flow.name),
+    suggestionSources: {
+      pimiDatabase,
+      timelineDatabase,
+      flushTimeline: () => timelineArchive.flush(),
+    },
   });
   const agentRecordExists = async (agentId: string): Promise<boolean> =>
     Boolean(agentManager.getAgent(agentId) ?? (await agentStorage.get(agentId)));

@@ -114,6 +114,7 @@ import { buildNewWorkspaceProjectIconTargets } from "./new-workspace/project-ico
 import { useNewWorkspaceProjectPicker } from "./new-workspace/project-picker";
 import { useNewWorkspaceForm } from "./new-workspace/form";
 import { useRememberedBaseRef } from "./new-workspace/remembered-base-ref";
+import { PromptSuggestionChips } from "@/prompts/prompt-suggestion-chips";
 import { ImportSessionButton } from "./new-workspace/import-session-button";
 import { useImportSession } from "@/hooks/use-import-session";
 import {
@@ -1644,6 +1645,19 @@ export function NewWorkspaceScreen({
 
   const importSession = useImportSession({ serverId: selectedServerId });
 
+  const focusComposerRef = useRef<(() => void) | null>(null);
+  const captureComposerFocus = useCallback((focus: () => void) => {
+    focusComposerRef.current = focus;
+  }, []);
+  const replaceChatText = chatDraft.replaceText;
+  const handlePickSuggestion = useCallback(
+    (text: string) => {
+      replaceChatText(text);
+      focusComposerRef.current?.();
+    },
+    [replaceChatText],
+  );
+
   const isComposerFullscreen = composerEditing.isFullscreen(isTerminalLaunch);
   const composer = isTerminalLaunch ? (
     <Composer
@@ -1702,6 +1716,7 @@ export function NewWorkspaceScreen({
       clearDraft={handleClearDraft}
       autoFocus
       autoFocusKey={launchFocusKey}
+      onFocusInput={captureComposerFocus}
       commandDraft={composerState?.commandDraft}
       agentControls={agentControlsWithDisabled}
     />
@@ -1718,6 +1733,15 @@ export function NewWorkspaceScreen({
       >
         {composer}
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+        <PromptSuggestionChips
+          serverId={selectedServerId}
+          projectId={selectedProjectId}
+          textSource={chatDraft.textSource}
+          hasAttachments={chatDraft.attachments.length > 0}
+          isTerminalLaunch={isTerminalLaunch}
+          isComposerFullscreen={isComposerFullscreen}
+          onPick={handlePickSuggestion}
+        />
       </NewWorkspaceLayout>
       {importSession.sheet}
     </FileDropZone>

@@ -4915,6 +4915,18 @@ export const en = {
     retry: "Retry",
     allProjects: "All projects",
     unknownProject: "Unknown project",
+    suggestions: {
+      title: "Suggested",
+      intro: "Phrases you often type in a project, found in your chat history on this host.",
+      project: "Project",
+      empty: "Nothing repeated yet",
+      loading: "Loading...",
+      loadFailed: "Unable to load suggestions",
+      usedIn_one: "Used in {{count}} chat",
+      usedIn_other: "Used in {{count}} chats",
+      save: "Save",
+      dismiss: "Dismiss",
+    },
     editor: {
       newTitle: "New prompt",
       editTitle: "Edit prompt",

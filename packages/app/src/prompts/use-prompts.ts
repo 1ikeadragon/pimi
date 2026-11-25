@@ -14,6 +14,13 @@ export function promptsQueryKey(serverId: string) {
   return ["prompts", serverId] as const;
 }
 
+// A prefix: with no project it covers every suggestion list of the host.
+export function promptSuggestionsQueryKey(serverId: string, projectId?: string) {
+  return projectId
+    ? (["prompt-suggestions", serverId, projectId] as const)
+    : (["prompt-suggestions", serverId] as const);
+}
+
 export function requirePromptClient(serverId: string): DaemonClient {
   const client = useSessionStore.getState().sessions[serverId]?.client ?? null;
   if (!client) throw new Error("Host is not connected");
@@ -45,8 +52,13 @@ export interface PromptMutations {
 /** Prompt writes for one host. Every write refreshes the prompt list. */
 export function usePromptMutations(serverId: string): PromptMutations {
   const queryClient = useQueryClient();
+  // Saving a prompt also removes it from the suggestions, so those refresh with the list.
   const refresh = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: promptsQueryKey(serverId) }),
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: promptsQueryKey(serverId) }),
+        queryClient.invalidateQueries({ queryKey: promptSuggestionsQueryKey(serverId) }),
+      ]),
     [queryClient, serverId],
   );
   const create = useMutation({

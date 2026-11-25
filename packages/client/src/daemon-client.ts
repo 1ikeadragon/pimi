@@ -41,7 +41,7 @@ import type {
 } from "@pimi/protocol/attack/types";
 import type { AutomationDefinition, AutomationOrigin } from "@pimi/protocol/automation/types";
 import type { FlowDefinition, FlowOrigin } from "@pimi/protocol/flow/types";
-import type { SavedPromptDefinition } from "@pimi/protocol/prompt/types";
+import type { PromptSuggestionPosition, SavedPromptDefinition } from "@pimi/protocol/prompt/types";
 import type { HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
 import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
@@ -723,6 +723,14 @@ export type PromptUpdatePayload = Extract<
 export type PromptDeletePayload = Extract<
   SessionOutboundMessage,
   { type: "prompt.delete.response" }
+>["payload"];
+export type PromptSuggestionsListPayload = Extract<
+  SessionOutboundMessage,
+  { type: "prompt.suggestions.list.response" }
+>["payload"];
+export type PromptSuggestionsDismissPayload = Extract<
+  SessionOutboundMessage,
+  { type: "prompt.suggestions.dismiss.response" }
 >["payload"];
 export type FlowCreatePayload = Extract<
   SessionOutboundMessage,
@@ -7670,6 +7678,38 @@ export class DaemonClient {
     return this.sendNamespacedCorrelatedSessionRequest({
       requestId: options.requestId,
       message: { type: "prompt.delete.request", promptId: options.promptId },
+    });
+  }
+
+  async promptSuggestionsList(options: {
+    requestId?: string;
+    projectId: string;
+    position: PromptSuggestionPosition;
+    limit?: number;
+  }): Promise<PromptSuggestionsListPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "prompt.suggestions.list.request",
+        projectId: options.projectId,
+        position: options.position,
+        ...(options.limit ? { limit: options.limit } : {}),
+      },
+    });
+  }
+
+  async promptSuggestionsDismiss(options: {
+    requestId?: string;
+    projectId: string;
+    key: string;
+  }): Promise<PromptSuggestionsDismissPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "prompt.suggestions.dismiss.request",
+        projectId: options.projectId,
+        key: options.key,
+      },
     });
   }
 

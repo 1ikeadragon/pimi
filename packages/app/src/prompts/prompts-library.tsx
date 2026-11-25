@@ -10,6 +10,7 @@ import { getHostProjectId, useHostProjects } from "@/projects/host-projects";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { toErrorMessage } from "@/utils/error-messages";
 import { PromptEditorSheet, type PromptEditorTarget } from "./prompt-editor";
+import { PromptSuggestionsSection, type SuggestionToSave } from "./prompt-suggestions-section";
 import { usePromptMutations, usePrompts } from "./use-prompts";
 
 const NEW_PROMPT_VALUES = { name: "", text: "", projectId: null } as const;
@@ -58,6 +59,15 @@ export function PromptsLibrary({ serverId }: { serverId: string }) {
         initialProjectLabel: scopeLabel(prompt.projectId),
       }),
     [scopeLabel],
+  );
+  const openSuggestion = useCallback(
+    (suggestion: SuggestionToSave) =>
+      setEditor({
+        editing: null,
+        initial: { name: "", text: suggestion.text, projectId: suggestion.projectId },
+        initialProjectLabel: suggestion.projectLabel,
+      }),
+    [],
   );
   const closeEditor = useCallback(() => setEditor(null), []);
   const handleDelete = useCallback(
@@ -124,6 +134,7 @@ export function PromptsLibrary({ serverId }: { serverId: string }) {
           </Text>
         ) : null}
       </SettingsSection>
+      <PromptSuggestionsSection serverId={serverId} onSave={openSuggestion} />
       <PromptEditorSheet serverId={serverId} target={editor} onClose={closeEditor} />
     </View>
   );

@@ -13,6 +13,20 @@ export const SavedPromptDefinitionSchema = z.object({
 });
 export type SavedPromptDefinition = z.infer<typeof SavedPromptDefinitionSchema>;
 
+// A phrase the user keeps typing, found in their own chat history. `key` identifies the phrase
+// for dismissal; `chats` is how many different chats it appeared in.
+export const PromptSuggestionSchema = z.object({
+  key: z.string(),
+  text: z.string(),
+  chats: z.number().int().positive(),
+  lastUsedAt: z.string(),
+});
+export type PromptSuggestion = z.infer<typeof PromptSuggestionSchema>;
+
+// `first`: what the user types to open a chat. `any`: anything they type often.
+export const PromptSuggestionPositionSchema = z.enum(["first", "any"]);
+export type PromptSuggestionPosition = z.infer<typeof PromptSuggestionPositionSchema>;
+
 // A saved prompt is invoked as `/name`, so its name follows the flow naming rules.
 export const SavedPromptSchema = z.object({
   id: z.string(),
