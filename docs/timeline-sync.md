@@ -29,7 +29,11 @@ The client keeps at most `RESIDENT_WINDOW_CAP` rows per chat (400 rows or 4 MB, 
 - Paging back past the cap drops the newest turns, moves `endSeq` and sets `hasNewer`. The chat is
   then detached from the live tail: live stream rows are discarded (the daemon still has them) and
   scrolling to the bottom pages forward with `direction: "after"` until `hasNewer` clears, then
-  live delivery resumes through the usual gap check.
+  live delivery resumes through the usual gap check. Only a reader who has left the bottom detaches
+  the chat this way, and the cut stays above the newest row the viewport shows
+  (`reader-follow.ts`, reported by the web viewport). A reader at the bottom keeps the live turn
+  however far back the page reaches. If a chat detaches under a reader who is already at the
+  bottom, no scroll event follows, so `use-resident-window-follow.ts` fetches the tail itself.
 - Only the active view drives this. A retained hidden view reports a collapsed viewport as being
   at the bottom, and treating that as a scroll to the end made hidden detached chats page forward
   through their whole skipped history. A view that becomes active while detached returns to the
@@ -37,8 +41,13 @@ The client keeps at most `RESIDENT_WINDOW_CAP` rows per chat (400 rows or 4 MB, 
 - Cuts land only on a submitted prompt that starts a turn, because its single seq makes the new
   range edge exact. A turn larger than the cap, or rows without a timeline position, are not cut.
 - Oldest-end trims wait while a mounted view reports the reader away from the bottom
-  (`reader-follow.ts`), since they shift every row above the viewport. They run when the reader
-  returns, which also re-collapses the mounted history window.
+  (`reader-follow.ts`), since they shift every row above the viewport. They also wait after a
+  backward page until the reader leaves and returns to the bottom, or a tail fetch replaces the
+  window: otherwise the next live row trims the page the reader just loaded and scrolling to the
+  history start fetches it again. A chat can stay over the cap for that time. Oldest trims run when
+  the reader returns, which also re-collapses the mounted history window.
+- Native does not report its visible range, so a backward page there cuts the newest turns without
+  the viewport floor above.
 
 Never slice the array without moving the range in the same store update
 (`trimAgentResidentWindow`).
