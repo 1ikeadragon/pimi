@@ -908,6 +908,24 @@ function resolveSheetPolicy(
  * The parent a newly opened tab links to. A sheet tab is not in the layout, so a target opened
  * from inside a sheet inherits that sheet's own parent instead.
  */
+/**
+ * The tab the user was looking at, for opens that arrive without a parent (deep links). Closing
+ * the opened tab then returns here instead of an arbitrary neighbour. A launcher is skipped: the
+ * opened tab replaces it, so it cannot be a parent.
+ */
+function resolveFocusedParentTabId(
+  state: Pick<WorkspaceLayoutStore, "layoutByWorkspace">,
+  workspaceKey: string,
+): string | null {
+  const layout = state.layoutByWorkspace[workspaceKey];
+  const pane = layout ? findPaneById(layout.root, layout.focusedPaneId) : null;
+  const tab =
+    layout && pane?.focusedTabId
+      ? collectAllTabs(layout.root).find((candidate) => candidate.tabId === pane.focusedTabId)
+      : null;
+  return tab && tab.target.kind !== "new_tab" ? tab.tabId : null;
+}
+
 function resolveOpenParentTabId(
   state: Pick<WorkspaceLayoutStore, "sheetsByWorkspace">,
   workspaceKey: string,
@@ -1197,7 +1215,11 @@ export function createWorkspaceLayoutStore(
               state.pendingOpenByWorkspace;
             return { pendingOpenByWorkspace };
           });
-          return get().openTab(pending);
+          return get().openTab({
+            ...pending,
+            parentTabId:
+              pending.parentTabId ?? resolveFocusedParentTabId(get(), workspaceKey) ?? undefined,
+          });
         },
         layoutMode: "split-panes",
         sheetsByWorkspace: {},
