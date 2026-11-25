@@ -138,7 +138,7 @@ function PimiWorkbenchToggle({ covered }: { covered: boolean }) {
           onValueChange={select}
           size="sm"
           appearance="track"
-          accessibilityLabel="Workspace mode"
+          accessibilityLabel={t("ideMode.modeSwitcher")}
           testID="pimi-workbench-switch"
         />
       </WindowChromeSafeArea>

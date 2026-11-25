@@ -667,6 +667,7 @@ function parsePaneDirection(actionId: string): PaneDirection | null {
 }
 
 interface RenderWorkspaceContentInput {
+  t: ReturnType<typeof useTranslation>["t"];
   isMissingWorkspaceDirectory: boolean;
   activeTabDescriptor: WorkspaceTabDescriptor | null;
   hasHydratedAgents: boolean;
@@ -685,6 +686,7 @@ interface RenderWorkspaceContentInput {
 
 function renderWorkspaceContent(input: RenderWorkspaceContentInput): React.ReactNode {
   const {
+    t,
     isMissingWorkspaceDirectory,
     activeTabDescriptor,
     hasHydratedAgents,
@@ -701,9 +703,7 @@ function renderWorkspaceContent(input: RenderWorkspaceContentInput): React.React
   if (isMissingWorkspaceDirectory) {
     return (
       <View style={styles.emptyState}>
-        <Text style={styles.emptyStateText}>
-          Workspace directory is missing. Reload workspace data before opening tabs.
-        </Text>
+        <Text style={styles.emptyStateText}>{t("workspace.emptyState.directoryMissing")}</Text>
       </View>
     );
   }
@@ -717,9 +717,7 @@ function renderWorkspaceContent(input: RenderWorkspaceContentInput): React.React
   if (!activeTabDescriptor) {
     return (
       <View style={styles.emptyState}>
-        <Text style={styles.emptyStateText}>
-          No tabs are available yet. Use New tab to create an agent or terminal.
-        </Text>
+        <Text style={styles.emptyStateText}>{t("workspace.emptyState.noTabs")}</Text>
       </View>
     );
   }
@@ -3210,6 +3208,7 @@ function WorkspaceScreenContent({
     focusWorkspacePane(persistenceKey, paneId);
   });
   const content = renderWorkspaceContent({
+    t,
     isMissingWorkspaceDirectory,
     activeTabDescriptor,
     hasHydratedAgents,
