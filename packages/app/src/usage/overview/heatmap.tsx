@@ -9,7 +9,7 @@ const DAY_MS = 86_400_000;
 const CELL = 12;
 const GAP = 3;
 const TARGET_CELL = 18;
-const MIN_CELL = 8;
+const MIN_CELL = 10;
 const MONTH_LABEL_WIDTH = 84;
 const LABEL_COLUMN = 30;
 const MIN_WEEKS = 8;
@@ -92,9 +92,11 @@ function gridSize(width: number, firstDay: string | null): { weeks: number; cell
       ? MIN_WEEKS
       : Math.ceil((todayMs - Date.parse(`${firstDay}T00:00:00Z`)) / (7 * DAY_MS)) + 1;
   const fit = Math.floor((available + GAP) / (TARGET_CELL + GAP));
+  // Never more columns than fit at the smallest cell; a longer history shows its latest weeks.
+  const fitAtMinimum = Math.floor((available + GAP) / (MIN_CELL + GAP));
   const weeks = Math.max(
     MIN_WEEKS,
-    Math.min(MAX_WEEKS, Math.max(Math.min(fit, COMFORT_WEEKS), needed)),
+    Math.min(MAX_WEEKS, fitAtMinimum, Math.max(Math.min(fit, COMFORT_WEEKS), needed)),
   );
   // The cell takes whatever the width leaves, so the grid always spans the full card.
   const cell = (available - (weeks - 1) * GAP) / weeks;
@@ -241,10 +243,12 @@ const styles = StyleSheet.create((theme) => ({
   monthText: {
     color: theme.colors.foregroundMuted,
     fontSize: 10,
+    lineHeight: 10,
   },
   monthLabel: {
     color: theme.colors.foregroundMuted,
     fontSize: 10,
+    lineHeight: 10,
     position: "absolute",
     left: 0,
     width: MONTH_LABEL_WIDTH,
