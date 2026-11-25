@@ -14,6 +14,7 @@ import {
 import type { SourceControlModel, SourceControlRow } from "@/git/source-control/rows";
 import type { NestedChangesState } from "@/git/use-nested-changes";
 import { useTranslation } from "@/i18n/use-translation";
+import { isWeb } from "@/constants/platform";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import type { Theme } from "@/styles/theme";
 
@@ -235,5 +236,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.fontSize.base,
     color: theme.colors.destructive,
     textAlign: "center",
+    // A long path in the message has no break point of its own.
+    ...(isWeb ? { overflowWrap: "anywhere" } : null),
   },
 }));

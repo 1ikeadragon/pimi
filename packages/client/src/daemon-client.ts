@@ -4939,7 +4939,11 @@ export class DaemonClient {
     return this.observe(
       "checkout.nested.subscribe_changes.response",
       { type: "checkout.nested.subscribe_changes.request", cwd: input.cwd, depth: input.depth },
-      { signal: input.signal },
+      {
+        signal: input.signal,
+        // A folder that is gone or unreadable shows as the panel's error state, not a host failure.
+        expectedFailure: () => true,
+      },
     );
   }
 

@@ -39,6 +39,14 @@ type NestedChangesAction =
 
 const IDLE: NestedChangesState = { status: "idle" };
 
+/** The daemon's own message: `Error.message` of an RPC failure also carries `requestType=...`. */
+function failureMessage(error: unknown): string {
+  if (error instanceof Error && "userMessage" in error && typeof error.userMessage === "string") {
+    return error.userMessage;
+  }
+  return getErrorMessage(error);
+}
+
 function currentRepositories(state: NestedChangesState): readonly NestedChangesRepository[] {
   return state.status === "idle" ? [] : state.repositories;
 }
@@ -162,13 +170,13 @@ export function useNestedChanges({
           truncated: message.payload.truncated,
         });
       },
-      error: (error) => dispatch({ type: "failed", error: getErrorMessage(error) }),
+      error: (error) => dispatch({ type: "failed", error: failureMessage(error) }),
     });
     return () => {
       unsubscribe();
       subscriptionIdRef.current = null;
       void subscription.release().catch((error: unknown) => {
-        dispatch({ type: "failed", error: getErrorMessage(error) });
+        dispatch({ type: "failed", error: failureMessage(error) });
       });
     };
   }, [client, cwd, enabled, isConnected, sendWatchedRoots]);
