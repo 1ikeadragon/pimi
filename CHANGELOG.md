@@ -2,6 +2,20 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.73 - 2026-11-25
+
+- Vault: keep secrets in a passphrase-sealed store on the Mac, optionally bound to Bitwarden items. Agents see secret names only and run commands with them through `vault_run`; each new command needs your approval (exact command, folder and secrets shown), and output is redacted. A Vault settings page manages secrets, approved commands and the audit log, and a toast tells you when an agent is waiting for approval.
+- Saved prompts run as slash commands, and Pimi suggests saving prompts you repeat.
+- Review offers itself when a turn changes the checkout: one card per chat with file count, diff stat and branch, and a button to open the changes beside the chat. Review notes can cover a line range, follow their lines when the diff changes, and go to the chat that offered the review.
+- Source Control panel for folders that hold repositories. The editor shows Git changes in the gutter and file tree, can show what changed since HEAD inline with a Revert per change, and shows blame for the current line.
+- See the instruction layers an agent gets from the chat menu and from project settings.
+- Action items close from tool results, show why they closed, and a composer pill lists closed and looks-done items to review.
+- New chats remember the project's isolation mode and base branch.
+- OpenCode chats show provider retries and model wait, show tool permissions when auto-approval fails, and recover turns whose session goes silent or whose text OpenCode rewrites.
+- Long chats load faster: Claude chats continue on reload without replaying the transcript, history reads are bounded, and scrolling back through long chats keeps its place.
+- Usage scans extra Claude and Codex logins, no longer double counts forked Codex history, falls back to the last Codex session for limits, and reports what it couldn't read.
+- Diagrams keep the flow direction the agent chose and scale to fit the chat column.
+
 ## 0.17.72 - 2026-11-23
 
 - The Review inbox lists the Git repositories and worktrees inside a plain folder chat, most recently used first, so it is no longer empty when every chat lives in a folder holding many repositories.
