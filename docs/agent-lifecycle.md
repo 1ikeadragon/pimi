@@ -141,6 +141,20 @@ Provider checks follow the signals their runtimes expose:
 These checks do not discover arbitrary detached processes or work hidden by third-party
 extensions. A provider plugin adds its own veto through the [runtime safety contract](../public-docs/plugins/providers.md#permit-idle-runtime-cleanup).
 
+Background shells show their output in the Background work panel and in the launching row. The
+daemon reads it on demand: a viewer asks for one page of at most 64 KB about once a second, and
+nothing is tailed or buffered while no viewer is open. A provider reports `hasOutput` on the items it
+can read.
+
+- Claude reads the task's `.output` file. The path comes from the launch result's text and is kept
+  only when it is `<session id>/tasks/<task id>.output` for that task, so a launch whose result
+  names anything else has no preview. Reads refuse symlinks and paths that resolve elsewhere.
+  `Monitor` watches report no path and have no preview.
+- OpenCode reads `shell.output`. Stopping a shell deletes it, so the Stopped row has no output.
+- Codex and ACP report no output.
+- The job's end is a shell row in the timeline, which is what survives a reload. A daemon restart
+  ends Claude's jobs with the CLI, so their rows fall back to the launch text they stored.
+
 A provider runtime can still die on its own — crash, OOM kill, host suspend. Work the agent parked
 inside that process dies with it: Claude Code's background Bash shells, `Monitor` watches, and
 workflows all live in the CLI process, and the completion notification that would have woken the
