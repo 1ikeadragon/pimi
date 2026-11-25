@@ -88,9 +88,13 @@ Pimi Desktop serves its own window under a content security policy that allows n
 
 An HTML visual an agent adds to a chat runs in this same sandbox as soon as you scroll to it, without a click. The Desktop and Android protections above apply to it. In a regular web browser the navigation gap applies too, and there it needs no interaction: a visual written by an agent that was steered by hostile content can send what the agent put in it by navigating its own frame. Use Pimi Desktop when agents read untrusted content.
 
+## Vault
+
+The vault keeps secrets out of agents' reach: they are never in an agent's environment or timeline, and an agent cannot read or add one. It is sealed with a passphrase you type, because the desktop app is not hardened and a same-user agent could take any key the machine holds. It does not stop an agent from abusing a command you approved, or from reading secrets that still sit in your shell rc files. [vault.md](docs/vault.md) owns the threat model and the full list of what it does not cover.
+
 ## Agent authentication
 
-Pimi wraps agent CLIs (Claude Code, Codex, OpenCode) but does not manage their authentication. Each agent provider handles its own credentials. Pimi never stores or transmits provider API keys. Agents run in your user context with your existing credentials.
+Pimi wraps agent CLIs (Claude Code, Codex, OpenCode) but does not manage their authentication. Each agent provider handles its own credentials. Pimi never stores or transmits provider API keys. Secrets you put in the [vault](docs/vault.md) are the exception: they are stored encrypted on the daemon's host and never leave it. Agents run in your user context with your existing credentials.
 
 ## Forge host trust
 

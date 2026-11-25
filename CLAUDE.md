@@ -54,6 +54,7 @@ At the start of non-trivial work, list `docs/` and skim anything relevant to the
 | [docs/connected-hosts.md](docs/connected-hosts.md)                   | Daemon-owned host registrations, routed SDK scopes, identity and authority boundaries                                          |
 | [docs/desktop-target.md](docs/desktop-target.md)                     | Attack desktop target: guard layers, macOS vs Windows differences, the Windows helper, deny lists, finding screenshots         |
 | [docs/permissions.md](docs/permissions.md)                           | Daemon access: one full authority, which credential admits each transport, the checks that still narrow a session              |
+| [docs/vault.md](docs/vault.md)                                       | Vault: passphrase-sealed secrets agents use but never read, operator proof, env scrubbing, what it does not protect against    |
 | [docs/terminal-performance.md](docs/terminal-performance.md)         | Terminal latency pipeline, coalescing/backpressure invariants, benchmark + perf spec usage                                     |
 | [docs/terminal-rendering.md](docs/terminal-rendering.md)             | Native terminal view: xterm owns the grid, cluster placement, emoji widths, mixed-direction limits                             |
 | [docs/agent-stream-performance.md](docs/agent-stream-performance.md) | Assistant text pipeline — coalescing window, paced reveal, why arrival lumps are smoothed at render                            |
