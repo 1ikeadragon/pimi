@@ -40,7 +40,7 @@ export const hostAgentsSettings = defineSettingsPage(
     {
       id: "agents.systemPrompt",
       title: t("settings.host.orchestration.systemPrompt.title"),
-      keywords: ["instructions", "prompt", "append", "rules", "claude.md"],
+      keywords: ["instructions", "prompt", "append", "rules", "claude.md", "agents.md", "layers"],
     },
     {
       id: "agents.resumeOnStartup",

@@ -3,7 +3,15 @@ import React, { useCallback, useMemo, type ReactNode } from "react";
 import { View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useTranslation } from "@/i18n/use-translation";
-import { Copy, Ellipsis, Globe, Import as ImportIcon, Pencil, Settings } from "lucide-react-native";
+import {
+  Copy,
+  Ellipsis,
+  Globe,
+  Import as ImportIcon,
+  Layers,
+  Pencil,
+  Settings,
+} from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { TerminalProfile } from "@pimi/protocol/messages";
 import {
@@ -41,6 +49,7 @@ const ThemedGlobe = withUnistyles(Globe);
 const ThemedImport = withUnistyles(ImportIcon);
 const ThemedSettings = withUnistyles(Settings);
 const ThemedPencil = withUnistyles(Pencil);
+const ThemedLayers = withUnistyles(Layers);
 
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
@@ -48,6 +57,7 @@ const MENU_NEW_BROWSER_ICON = <ThemedGlobe size={16} uniProps={mutedColorMapping
 const MENU_IMPORT_ICON = <ThemedImport size={16} uniProps={mutedColorMapping} />;
 const MENU_COPY_ICON = <ThemedCopy size={16} uniProps={mutedColorMapping} />;
 const MENU_RENAME_ICON = <ThemedPencil size={16} uniProps={mutedColorMapping} />;
+const MENU_INSTRUCTIONS_ICON = <ThemedLayers size={16} uniProps={mutedColorMapping} />;
 const MENU_SETTINGS_ICON = <ThemedSettings size={16} uniProps={mutedColorMapping} />;
 function WorkspaceHeaderMenuTriggerIcon() {
   return (
@@ -86,11 +96,13 @@ export interface WorkspaceHeaderWorkspaceActions {
   showWorkspaceSetup: boolean;
   importAgentDisabled: boolean;
   copyPathDisabled: boolean;
+  instructionsDisabled: boolean;
   onOpenImportSheet: () => void;
   onCopyWorkspacePath: () => void;
   onCopyBranchName: () => void;
   onOpenSetupTab: () => void;
   onRenameChat: () => void;
+  onShowInstructions: () => void;
 }
 
 function WorkspaceHeaderWorkspaceActionItems({
@@ -100,11 +112,13 @@ function WorkspaceHeaderWorkspaceActionItems({
   showWorkspaceSetup,
   importAgentDisabled,
   copyPathDisabled,
+  instructionsDisabled,
   onOpenImportSheet,
   onCopyWorkspacePath,
   onCopyBranchName,
   onOpenSetupTab,
   onRenameChat,
+  onShowInstructions,
 }: Omit<WorkspaceHeaderWorkspaceActions, "serverId" | "workspaceId"> & {
   labelsTrigger: ReactNode;
   taskRows: ReactNode;
@@ -145,6 +159,14 @@ function WorkspaceHeaderWorkspaceActionItems({
         onSelect={onOpenImportSheet}
       >
         {t("workspace.header.actions.importSession")}
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        testID="workspace-header-instructions"
+        leading={MENU_INSTRUCTIONS_ICON}
+        disabled={instructionsDisabled}
+        onSelect={onShowInstructions}
+      >
+        {t("workspace.header.actions.instructions")}
       </DropdownMenuItem>
       {showWorkspaceSetup ? (
         <>

@@ -1087,6 +1087,9 @@ function AppendSystemPromptCard({ serverId }: { serverId: string }) {
             onChangeText={setDraft}
             placeholder={t("settings.host.orchestration.systemPrompt.placeholder")}
           />
+          <Text style={settingsStyles.rowHint}>
+            {t("settings.host.orchestration.systemPrompt.instructionsPointer")}
+          </Text>
           <View style={styles.appendPromptActions}>
             <Button
               variant="ghost"
