@@ -12,10 +12,12 @@ import {
 import { PARENT_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
 import type { AgentManager, ManagedAgent } from "../agent/agent-manager.js";
 import { loggableError } from "../agent/agent-response-loop.js";
+import type { AgentTimelineItem } from "../agent/agent-sdk-types.js";
 import type { AgentStorage } from "../agent/agent-storage.js";
 import type { PimiDatabase } from "../db/pimi-db.js";
 import { SqlRecordStore } from "../db/sql-record-store.js";
-import type { ActionItemChanges, ChatMessage } from "./generate.js";
+import type { ActionItemChanges, ChatMessage, ItemVerdict } from "./generate.js";
+import { buildToolDigest, describeToolCall, type ToolLine } from "./tool-digest.js";
 
 export class ActionItemsError extends Error {
   constructor(
@@ -32,6 +34,10 @@ export class ActionItemsError extends Error {
 const SETTLE_MS = 2500;
 // Text of new messages sent in one model call. More than this is read in further calls, in order.
 const CALL_CHARS = 24_000;
+// The share of a call's text budget the tool digest may use: a quarter, chosen so a chat that is
+// mostly tool calls still leaves room for what the user and assistant said.
+const TOOL_DIGEST_SHARE = 4;
+const TOOL_DIGEST_CHARS = CALL_CHARS / TOOL_DIGEST_SHARE;
 // A chat tracked for the first time is read from its tail only: at most this much text.
 const FIRST_READ_CHARS = 48_000;
 // A longer message keeps its head and tail; the middle of a long reply is detail, not intent.
@@ -66,7 +72,8 @@ function isUserChat(agent: ChatKind): boolean {
 function clip(text: string): string {
   const trimmed = text.trim();
   if (trimmed.length <= MESSAGE_HEAD_CHARS + MESSAGE_TAIL_CHARS) return trimmed;
-  return `${trimmed.slice(0, MESSAGE_HEAD_CHARS)}\n[...]\n${trimmed.slice(-MESSAGE_TAIL_CHARS)}`;
+  const omitted = trimmed.length - MESSAGE_HEAD_CHARS - MESSAGE_TAIL_CHARS;
+  return `${trimmed.slice(0, MESSAGE_HEAD_CHARS)}\n[... ${omitted} chars omitted ...]\n${trimmed.slice(-MESSAGE_TAIL_CHARS)}`;
 }
 
 function textKey(text: string): string {
@@ -84,17 +91,24 @@ function sumUsage(a: ActionItemsUsage, b: ActionItemsUsage): ActionItemsUsage {
   };
 }
 
-// Over the cap, the oldest done items go first; open items are never dropped.
-function capItems(items: ActionItem[]): ActionItem[] {
-  let excess = items.length - ACTION_ITEMS_MAX_PER_CHAT;
+// Over the cap, done items go oldest `completedAt` first. Open items are never dropped, so a chat
+// with more than the cap of open items stays over it, and neither are the items the latest run
+// closed: the user has not seen them yet. A done item with no `completedAt` counts as oldest.
+export function capItems(items: ActionItem[], lastRunAt: string | undefined): ActionItem[] {
+  const excess = items.length - ACTION_ITEMS_MAX_PER_CHAT;
   if (excess <= 0) return items;
-  return items.filter((item) => {
-    if (excess > 0 && item.done) {
-      excess -= 1;
-      return false;
-    }
-    return true;
-  });
+  const evict = new Set(
+    items
+      .filter((item) => item.done && (lastRunAt === undefined || item.completedAt !== lastRunAt))
+      // ISO timestamps from one clock sort as strings.
+      .sort((a, b) => {
+        const [x, y] = [a.completedAt ?? "", b.completedAt ?? ""];
+        if (x === y) return 0;
+        return x < y ? -1 : 1;
+      })
+      .slice(0, excess),
+  );
+  return items.filter((item) => !evict.has(item));
 }
 
 interface Batch {
@@ -244,7 +258,7 @@ export class ActionItemsService {
     }
     const next = await this.store.update(agentId, (record) => ({
       ...record,
-      items: capItems(applyEdit(record.items, edit)),
+      items: capItems(applyEdit(record.items, edit), record.lastRunAt),
     }));
     return this.publish(agentId, next);
   }
@@ -302,6 +316,7 @@ export class ActionItemsService {
       updating: this.running.has(agentId),
       ...(record?.error ? { error: record.error } : {}),
       usage: record?.usage ?? EMPTY_USAGE,
+      ...(record?.lastRunAt ? { lastRunAt: record.lastRunAt } : {}),
     };
   }
 
@@ -325,7 +340,9 @@ export class ActionItemsService {
     }
     this.running.add(agentId);
     try {
-      await this.catchUp(agentId);
+      // One stamp for the whole run: every batch's closures share it, so "closed by the last run"
+      // is one set of items however many batches the run took.
+      await this.catchUp(agentId, new Date().toISOString());
     } catch (error) {
       this.logger.warn({ err: loggableError(error), agentId }, "Action items update failed");
       const message = error instanceof Error ? error.message : String(error);
@@ -339,7 +356,7 @@ export class ActionItemsService {
     }
   }
 
-  private async catchUp(agentId: string): Promise<void> {
+  private async catchUp(agentId: string, runAt: string): Promise<void> {
     for (;;) {
       if (!this.isEnabled()) return;
       const agent = this.agentManager.getAgent(agentId);
@@ -349,7 +366,7 @@ export class ActionItemsService {
       if (await this.hasHeartbeat(agentId)) return;
       const record = (await this.store.get(agentId)) ?? (await this.create(agentId, "on"));
       if (!record || record.tracking !== "on") return;
-      const batch = this.readBatch(agentId, record.cursor);
+      const batch = this.readBatch(agentId, agent.cwd, record.cursor);
       if (!batch) return;
       if (batch.messages.length === 0) {
         await this.store.update(agentId, (current) => ({ ...current, cursor: batch.cursor }));
@@ -367,8 +384,9 @@ export class ActionItemsService {
         const { error: _cleared, ...rest } = current;
         return {
           ...rest,
-          items: capItems(applyChanges(current.items, changes)),
+          items: capItems(applyChanges(current.items, changes, runAt), runAt),
           cursor: batch.cursor,
+          lastRunAt: runAt,
           usage: sumUsage(current.usage, changes.usage),
         };
       });
@@ -376,49 +394,118 @@ export class ActionItemsService {
     }
   }
 
-  // The user and assistant text after the cursor, up to CALL_CHARS. Tool calls and reasoning are
-  // skipped. Null when the chat has no rows.
-  private readBatch(agentId: string, cursor: StoredActionItems["cursor"]): Batch | null {
+  // The user and assistant text after the cursor, with a digest of the tool calls between them,
+  // up to CALL_CHARS. Reasoning is skipped. Null when the chat has no rows.
+  private readBatch(
+    agentId: string,
+    cwd: string,
+    cursor: StoredActionItems["cursor"],
+  ): Batch | null {
     const page = this.agentManager.fetchTimeline(
       agentId,
       cursor ? { direction: "after", cursor, limit: 0 } : { direction: "tail", limit: 0 },
     );
     if (page.rows.length === 0) return null;
+    const size = new ReadSize();
+    const segments: Segment[] = [];
     // No cursor, or one from a replaced timeline: start from the tail, bounded.
     if (!cursor || page.reset) {
-      const messages: ChatMessage[] = [];
-      let chars = 0;
-      for (let index = page.rows.length - 1; index >= 0 && chars < FIRST_READ_CHARS; index -= 1) {
-        const message = toMessage(page.rows[index]?.item);
-        if (!message) continue;
-        messages.unshift(message);
-        chars += message.text.length;
+      for (
+        let index = page.rows.length - 1;
+        index >= 0 && size.used() < FIRST_READ_CHARS;
+        index -= 1
+      ) {
+        const segment = toSegment(page.rows[index]?.item, cwd);
+        if (!segment) continue;
+        segments.unshift(segment);
+        size.add(segment);
       }
       const last = page.rows[page.rows.length - 1];
-      return { messages, cursor: { epoch: page.epoch, seq: last?.seq ?? 0 }, more: false };
+      return {
+        messages: toMessages(segments),
+        cursor: { epoch: page.epoch, seq: last?.seq ?? 0 },
+        more: false,
+      };
     }
-    const messages: ChatMessage[] = [];
-    let chars = 0;
     let seq = cursor.seq;
     let taken = 0;
     for (const row of page.rows) {
-      if (chars >= CALL_CHARS) break;
+      if (size.used() >= CALL_CHARS) break;
       taken += 1;
       seq = row.seq;
-      const message = toMessage(row.item);
-      if (!message) continue;
-      messages.push(message);
-      chars += message.text.length;
+      const segment = toSegment(row.item, cwd);
+      if (!segment) continue;
+      segments.push(segment);
+      size.add(segment);
     }
-    return { messages, cursor: { epoch: page.epoch, seq }, more: taken < page.rows.length };
+    return {
+      messages: toMessages(segments),
+      cursor: { epoch: page.epoch, seq },
+      more: taken < page.rows.length,
+    };
   }
 }
 
-function toMessage(item: { type: string; text?: string } | undefined): ChatMessage | null {
-  if (!item || (item.type !== "user_message" && item.type !== "assistant_message")) return null;
-  const text = clip(item.text ?? "");
+type Segment = { kind: "message"; message: ChatMessage } | { kind: "tool"; line: ToolLine };
+
+// What a read has taken so far. Tool lines are charged as they are read, but only up to the digest
+// budget: the digest never grows past it, however many calls there are, so tool calls alone
+// never end a batch early and are summarized by the digest's omission markers instead.
+class ReadSize {
+  private text = 0;
+  private tool = 0;
+
+  add(segment: Segment): void {
+    if (segment.kind === "message") this.text += segment.message.text.length;
+    else this.tool += segment.line.text.length;
+  }
+
+  used(): number {
+    return this.text + Math.min(this.tool, TOOL_DIGEST_CHARS);
+  }
+}
+
+function toSegment(item: AgentTimelineItem | undefined, cwd: string): Segment | null {
+  if (!item) return null;
+  if (item.type === "tool_call") {
+    const line = describeToolCall(item, cwd);
+    return line ? { kind: "tool", line } : null;
+  }
+  if (item.type !== "user_message" && item.type !== "assistant_message") return null;
+  const text = clip(item.text);
   if (!text) return null;
-  return { role: item.type === "user_message" ? "user" : "assistant", text };
+  return {
+    kind: "message",
+    message: { role: item.type === "user_message" ? "user" : "assistant", text },
+  };
+}
+
+// Consecutive tool calls become one "tool" message, so the model reads them where they happened.
+function toMessages(segments: readonly Segment[]): ChatMessage[] {
+  const groups: ToolLine[][] = [];
+  let previousWasTool = false;
+  for (const segment of segments) {
+    if (segment.kind === "tool") {
+      if (previousWasTool) groups[groups.length - 1]?.push(segment.line);
+      else groups.push([segment.line]);
+    }
+    previousWasTool = segment.kind === "tool";
+  }
+  const digests = buildToolDigest(groups, TOOL_DIGEST_CHARS);
+  const messages: ChatMessage[] = [];
+  let group = -1;
+  previousWasTool = false;
+  for (const segment of segments) {
+    if (segment.kind === "message") {
+      messages.push(segment.message);
+    } else if (!previousWasTool) {
+      group += 1;
+      const text = digests[group];
+      if (text) messages.push({ role: "tool", text });
+    }
+    previousWasTool = segment.kind === "tool";
+  }
+  return messages;
 }
 
 function requireItem(items: readonly ActionItem[], itemId: string): ActionItem {
@@ -427,9 +514,28 @@ function requireItem(items: readonly ActionItem[], itemId: string): ActionItem {
   return item;
 }
 
-function setDone(item: ActionItem, done: boolean, by: "model" | "user", now: string): ActionItem {
-  const { completedAt: _completedAt, ...rest } = item;
-  return { ...rest, done, doneSetBy: by, ...(done ? { completedAt: now } : {}) };
+// Closing or reopening an item drops what the model said about the old state: the suggestion
+// that it looks done, and the evidence it closed it on.
+function setDone(
+  item: ActionItem,
+  done: boolean,
+  by: "model" | "user",
+  now: string,
+  evidence?: string,
+): ActionItem {
+  const {
+    completedAt: _completedAt,
+    doneEvidence: _doneEvidence,
+    suggestion: _suggestion,
+    ...rest
+  } = item;
+  return {
+    ...rest,
+    done,
+    doneSetBy: by,
+    ...(done ? { completedAt: now } : {}),
+    ...(done && evidence ? { doneEvidence: evidence } : {}),
+  };
 }
 
 function applyEdit(
@@ -445,12 +551,26 @@ function applyEdit(
       ];
     case "set_text":
       requireItem(items, edit.itemId);
-      return items.map((item) => (item.id === edit.itemId ? { ...item, text: edit.text } : item));
+      // A suggestion is about the old wording; the next run decides again for the new one.
+      return items.map((item) => {
+        if (item.id !== edit.itemId) return item;
+        const { suggestion: _suggestion, ...rest } = item;
+        return { ...rest, text: edit.text };
+      });
     case "set_done":
       requireItem(items, edit.itemId);
       return items.map((item) =>
         item.id === edit.itemId ? setDone(item, edit.done, "user", now) : item,
       );
+    case "dismiss_suggestion":
+      // An item that is gone, or has nothing to dismiss, is already what the user wanted.
+      // Dismissing is the user choosing "open", so it counts as the user's say on `done`: the
+      // model suggests again if it sees proof, and does not close the item over the user.
+      return items.map((item) => {
+        if (item.id !== edit.itemId || !item.suggestion) return item;
+        const { suggestion: _suggestion, ...rest } = item;
+        return { ...rest, doneSetBy: "user" as const };
+      });
     case "delete":
       requireItem(items, edit.itemId);
       return items.filter((item) => item.id !== edit.itemId);
@@ -459,15 +579,41 @@ function applyEdit(
   }
 }
 
-// The model's changes. An item the user checked or unchecked keeps the user's choice, and an
-// added line that repeats an existing item is dropped.
-function applyChanges(items: readonly ActionItem[], changes: ActionItemChanges): ActionItem[] {
-  const now = new Date().toISOString();
-  const doneById = new Map(changes.update.map((entry) => [entry.itemId, entry.done]));
+// What one verdict does to one item. `runAt` is the run's stamp: it is the closed item's
+// `completedAt` and the suggestion's `at`.
+//
+//   item state                      done                 likely_done     open
+//   open, done never set by user    close, with proof    suggest         clear any suggestion
+//   open, user last set it open     suggest (not close)  suggest         clear any suggestion
+//   done by the model               unchanged            unchanged       reopen
+//   done by the user                unchanged            unchanged       unchanged
+function applyVerdict(item: ActionItem, verdict: ItemVerdict, runAt: string): ActionItem {
+  const userSetDone = item.doneSetBy === "user" && item.done;
+  if (userSetDone) return item;
+  if (verdict.status === "open") {
+    if (item.done) return setDone(item, false, "model", runAt);
+    if (!item.suggestion) return item;
+    const { suggestion: _suggestion, ...rest } = item;
+    return rest;
+  }
+  if (item.done) return item;
+  if (verdict.status === "done" && item.doneSetBy !== "user") {
+    return setDone(item, true, "model", runAt, verdict.evidence);
+  }
+  return { ...item, suggestion: { evidence: verdict.evidence, at: runAt } };
+}
+
+// The model's changes. A verdict made on text the user has since edited is skipped, an item the
+// user checked is never touched, and an added line that repeats an existing item is dropped.
+export function applyChanges(
+  items: readonly ActionItem[],
+  changes: ActionItemChanges,
+  runAt: string,
+): ActionItem[] {
+  const verdictById = new Map(changes.update.map((entry) => [entry.itemId, entry]));
   const next = items.map((item) => {
-    const done = doneById.get(item.id);
-    if (done === undefined || done === item.done || item.doneSetBy === "user") return item;
-    return setDone(item, done, "model", now);
+    const verdict = verdictById.get(item.id);
+    return verdict && verdict.text === item.text ? applyVerdict(item, verdict, runAt) : item;
   });
   const known = new Set(next.map((item) => textKey(item.text)));
   for (const entry of changes.add) {
@@ -479,8 +625,10 @@ function applyChanges(items: readonly ActionItem[], changes: ActionItemChanges):
       text: entry.text,
       done: entry.done,
       createdBy: "model",
-      createdAt: now,
-      ...(entry.done ? { doneSetBy: "model" as const, completedAt: now } : {}),
+      createdAt: runAt,
+      ...(entry.done
+        ? { doneSetBy: "model" as const, completedAt: runAt, doneEvidence: entry.evidence }
+        : {}),
     });
   }
   return next;

@@ -19,6 +19,13 @@ import {
   type ActionItemsUsage,
 } from "@pimi/protocol/action-items/types";
 import { TASK_TITLE_MAX_LENGTH } from "@pimi/protocol/task/types";
+import {
+  CheckCollapse,
+  CheckFade,
+  CheckPop,
+  useCheckOff,
+  type ClosingPhase,
+} from "@/action-items/check-off";
 import { Enter } from "@/action-items/enter";
 import { useActionItems, type UseActionItemsResult } from "@/action-items/use-action-items";
 import { useOpenKebabMenuVisibility } from "@/components/sidebar/use-open-kebab-menu-visibility";
@@ -49,6 +56,8 @@ const ThemedTrash = withUnistyles(Trash2);
 
 const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const destructiveMapping = (theme: Theme) => ({ color: theme.colors.destructive });
+
+const NO_ITEMS: readonly ActionItem[] = [];
 
 const MENU_ICON_SIZE = 14;
 const kebabIcon = <ThemedKebab size={MENU_ICON_SIZE} uniProps={mutedMapping} />;
@@ -165,6 +174,12 @@ export function ActionItemsContent({
     },
     [send],
   );
+  const handleKeepOpen = useCallback(
+    (item: ActionItem) => {
+      void send({ kind: "dismiss_suggestion", itemId: item.id }).catch(() => undefined);
+    },
+    [send],
+  );
   const handleDelete = useCallback(
     (item: ActionItem) => {
       void send({ kind: "delete", itemId: item.id }).catch(() => undefined);
@@ -193,14 +208,25 @@ export function ActionItemsContent({
     [agentId, createTask, t],
   );
 
-  const open = useMemo(() => state?.items.filter((item) => !item.done) ?? [], [state]);
-  const done = useMemo(() => state?.items.filter((item) => item.done) ?? [], [state]);
+  const items = state?.agentId === agentId ? state.items : NO_ITEMS;
+  // An item that was just checked stays under Open while it animates (check-off.tsx).
+  const closing = useCheckOff(agentId, items);
+  const open = useMemo(
+    () => items.filter((item) => !item.done || closing.has(item.id)),
+    [items, closing],
+  );
+  const done = useMemo(
+    () => items.filter((item) => item.done && !closing.has(item.id)),
+    [items, closing],
+  );
 
   // Rows present at the first render appear in place; only later arrivals animate in.
   const seen = useRef<Set<string> | null>(null);
   if (state && state.agentId === agentId && seen.current === null) {
     seen.current = new Set(state.items.map((item) => `${item.id}:${item.done}`));
   }
+  // A closing item's check-off is its animation; it regroups under Done without another one.
+  for (const id of closing.keys()) seen.current?.add(`${id}:true`);
   const isNew = (item: ActionItem) => !seen.current?.has(`${item.id}:${item.done}`);
 
   if (!state || state.agentId !== agentId) {
@@ -238,6 +264,9 @@ export function ActionItemsContent({
               key={item.id}
               item={item}
               animate={isNew(item)}
+              closing={closing.get(item.id)}
+              lastRunAt={state.lastRunAt}
+              onKeepOpen={handleKeepOpen}
               onToggle={handleToggle}
               onRename={handleRename}
               onDelete={handleDelete}
@@ -264,6 +293,9 @@ export function ActionItemsContent({
               key={item.id}
               item={item}
               animate={isNew(item)}
+              closing={undefined}
+              lastRunAt={state.lastRunAt}
+              onKeepOpen={handleKeepOpen}
               onToggle={handleToggle}
               onRename={handleRename}
               onDelete={handleDelete}
@@ -393,6 +425,11 @@ interface ItemRowProps {
   item: ActionItem;
   /** Fade in on mount: a new item, or one that just moved between Open and Done. */
   animate: boolean;
+  /** Set while the item is being checked off: it is done, and still listed under Open. */
+  closing: ClosingPhase | undefined;
+  /** When the model's latest run ended; an item it closed in that run can be undone. */
+  lastRunAt: string | undefined;
+  onKeepOpen: (item: ActionItem) => void;
   onToggle: (item: ActionItem) => void;
   onRename: (item: ActionItem, text: string) => Promise<void>;
   onDelete: (item: ActionItem) => void;
@@ -403,6 +440,9 @@ interface ItemRowProps {
 const ItemRow = memo(function ItemRow({
   item,
   animate,
+  closing,
+  lastRunAt,
+  onKeepOpen,
   onToggle,
   onRename,
   onDelete,
@@ -418,6 +458,7 @@ const ItemRow = memo(function ItemRow({
   const kebab = useOpenKebabMenuVisibility(isHovered || isNative || isCompact);
 
   const handleToggle = useCallback(() => onToggle(item), [item, onToggle]);
+  const handleKeepOpen = useCallback(() => onKeepOpen(item), [item, onKeepOpen]);
   const handleDelete = useCallback(() => onDelete(item), [item, onDelete]);
   const handleAddToTasks = useCallback(() => onAddToTasks(item), [item, onAddToTasks]);
   const handleEdit = useCallback(() => {
@@ -441,74 +482,181 @@ const ItemRow = memo(function ItemRow({
   }, [item, onRename]);
 
   return (
-    <Enter kind="item" animate={animate}>
-      <View
-        style={styles.row}
-        onPointerEnter={handlePointerEnter}
-        onPointerLeave={handlePointerLeave}
-        testID={`action-item-${item.done ? "done" : "open"}`}
-      >
-        <View style={styles.mark}>
-          <TaskStatusMark
-            status={item.done ? "done" : "todo"}
-            label={t(item.done ? "actionItems.markOpen" : "actionItems.markDone", {
-              text: item.text,
-            })}
-            onToggle={handleToggle}
-            testID={`action-item-mark-${item.id}`}
-          />
-        </View>
-        <View style={styles.rowText}>
-          {editing ? (
-            <FormTextInput
-              size="sm"
-              autoFocus
-              initialValue={item.text}
-              onChangeText={handleDraft}
-              onSubmitEditing={handleSave}
-              onBlur={handleCancel}
-              returnKeyType="done"
-              accessibilityLabel={t("actionItems.edit")}
-              testID={`action-item-edit-${item.id}`}
-            />
-          ) : (
-            <Text style={[styles.itemText, item.done && styles.itemTextDone]} numberOfLines={4}>
-              {item.text}
-            </Text>
-          )}
-        </View>
+    <CheckCollapse active={closing === "collapsing"}>
+      <Enter kind="item" animate={animate}>
         <View
-          style={[styles.kebab, !kebab.showKebab && styles.kebabHidden]}
-          pointerEvents={kebab.showKebab ? "auto" : "none"}
+          style={styles.row}
+          onPointerEnter={handlePointerEnter}
+          onPointerLeave={handlePointerLeave}
+          testID={`action-item-${item.done ? "done" : "open"}`}
         >
-          <DropdownMenu compactMode="sheet" {...kebab.menuProps}>
-            <DropdownMenuTrigger
-              hitSlop={8}
-              style={kebabTriggerStyle}
-              accessibilityRole={isNative ? "button" : undefined}
-              accessibilityLabel={t("actionItems.rowActions")}
-              testID={`action-item-kebab-${item.id}`}
-            >
-              {kebabIcon}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" width={200} sheetTitle={t("actionItems.rowActions")}>
-              <DropdownMenuItem leading={editLeading} onSelect={handleEdit}>
-                {t("actionItems.edit")}
-              </DropdownMenuItem>
-              <DropdownMenuItem leading={taskLeading} onSelect={handleAddToTasks}>
-                {t("actionItems.addToTasks")}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem leading={deleteLeading} destructive onSelect={handleDelete}>
-                {t("actionItems.delete")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <View style={styles.mark}>
+            <CheckPop active={closing !== undefined}>
+              <TaskStatusMark
+                status={item.done ? "done" : "todo"}
+                label={t(item.done ? "actionItems.markOpen" : "actionItems.markDone", {
+                  text: item.text,
+                })}
+                onToggle={handleToggle}
+                testID={`action-item-mark-${item.id}`}
+              />
+            </CheckPop>
+          </View>
+          <View style={styles.rowText}>
+            {editing ? (
+              <FormTextInput
+                size="sm"
+                autoFocus
+                initialValue={item.text}
+                onChangeText={handleDraft}
+                onSubmitEditing={handleSave}
+                onBlur={handleCancel}
+                returnKeyType="done"
+                accessibilityLabel={t("actionItems.edit")}
+                testID={`action-item-edit-${item.id}`}
+              />
+            ) : (
+              <ItemLine item={item} closing={closing} />
+            )}
+            {editing ? null : (
+              <ItemProof
+                item={item}
+                lastRunAt={lastRunAt}
+                onKeepOpen={handleKeepOpen}
+                onToggle={handleToggle}
+              />
+            )}
+          </View>
+          <View
+            style={[styles.kebab, !kebab.showKebab && styles.kebabHidden]}
+            pointerEvents={kebab.showKebab ? "auto" : "none"}
+          >
+            <DropdownMenu compactMode="sheet" {...kebab.menuProps}>
+              <DropdownMenuTrigger
+                hitSlop={8}
+                style={kebabTriggerStyle}
+                accessibilityRole={isNative ? "button" : undefined}
+                accessibilityLabel={t("actionItems.rowActions")}
+                testID={`action-item-kebab-${item.id}`}
+              >
+                {kebabIcon}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" width={200} sheetTitle={t("actionItems.rowActions")}>
+                <DropdownMenuItem leading={editLeading} onSelect={handleEdit}>
+                  {t("actionItems.edit")}
+                </DropdownMenuItem>
+                <DropdownMenuItem leading={taskLeading} onSelect={handleAddToTasks}>
+                  {t("actionItems.addToTasks")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem leading={deleteLeading} destructive onSelect={handleDelete}>
+                  {t("actionItems.delete")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </View>
         </View>
-      </View>
-    </Enter>
+      </Enter>
+    </CheckCollapse>
   );
 });
+
+// The item's text. While it is being checked off it is the muted, struck line with the same line
+// in the foreground colour fading out over it: that is the colour change (see CheckFade).
+function ItemLine({
+  item,
+  closing,
+}: {
+  item: ActionItem;
+  closing: ClosingPhase | undefined;
+}): ReactElement {
+  if (!closing) {
+    return (
+      <Text style={[styles.itemText, item.done && styles.itemTextDone]} numberOfLines={4}>
+        {item.text}
+      </Text>
+    );
+  }
+  return (
+    <View>
+      <Text style={[styles.itemText, styles.itemTextDone]} numberOfLines={4}>
+        {item.text}
+      </Text>
+      <CheckFade active style={styles.fadeOverlay}>
+        <Text
+          style={[styles.itemText, styles.itemTextStruck]}
+          numberOfLines={4}
+          aria-hidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          {item.text}
+        </Text>
+      </CheckFade>
+    </View>
+  );
+}
+
+// What the model said about the item's state, as plain text: never markdown, since the evidence
+// quotes command output.
+function ItemProof({
+  item,
+  lastRunAt,
+  onKeepOpen,
+  onToggle,
+}: {
+  item: ActionItem;
+  lastRunAt: string | undefined;
+  onKeepOpen: () => void;
+  onToggle: () => void;
+}): ReactElement | null {
+  const { t } = useTranslation();
+  if (!item.done && item.suggestion) {
+    return (
+      <View style={styles.proof} testID={`action-item-suggestion-${item.id}`}>
+        <Text style={styles.proofText} numberOfLines={3}>
+          {t("actionItems.looksDone", { evidence: item.suggestion.evidence })}
+        </Text>
+        <View style={styles.proofActions}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onPress={onKeepOpen}
+            testID={`action-item-keep-open-${item.id}`}
+          >
+            {t("actionItems.keepOpen")}
+          </Button>
+          <Button size="sm" onPress={onToggle} testID={`action-item-accept-${item.id}`}>
+            {t("actionItems.markDoneAction")}
+          </Button>
+        </View>
+      </View>
+    );
+  }
+  if (item.done && item.doneSetBy === "model" && item.doneEvidence !== undefined) {
+    // Only the latest run's closures offer Undo: older ones have been seen and left alone.
+    const canUndo = item.completedAt === lastRunAt;
+    return (
+      <View style={styles.proof} testID={`action-item-closed-by-${item.id}`}>
+        <Text style={styles.proofText} numberOfLines={3}>
+          {t("actionItems.closedByPimi", { evidence: item.doneEvidence })}
+        </Text>
+        {canUndo ? (
+          <View style={styles.proofActions}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={onToggle}
+              testID={`action-item-undo-${item.id}`}
+            >
+              {t("actionItems.undo")}
+            </Button>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+  return null;
+}
 
 function kebabTriggerStyle({
   hovered = false,
@@ -565,6 +713,15 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     textDecorationLine: "line-through",
   },
+  // The done text in its colour from before the check, laid over `itemTextDone` while it fades.
+  itemTextStruck: {
+    color: theme.colors.foreground,
+    textDecorationLine: "line-through",
+  },
+  fadeOverlay: { position: "absolute", top: 0, left: 0, right: 0 },
+  proof: { gap: theme.spacing[1], paddingTop: theme.spacing[1] },
+  proofText: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
+  proofActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1] },
   kebab: { height: 20, justifyContent: "center" },
   kebabHidden: { opacity: 0 },
   kebabTrigger: {
