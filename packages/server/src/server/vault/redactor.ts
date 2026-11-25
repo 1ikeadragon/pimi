@@ -60,6 +60,9 @@ function toBase64Url(standard: string): string {
 function variantsOf(value: string): string[] {
   const bytes = Buffer.from(value, "utf8");
   const standard = base64Windows(bytes);
+  // The value alone, whole: a standalone token keeps its final partial character and padding,
+  // which the embeddable windows above must drop.
+  const wholeBase64 = bytes.toString("base64");
   const percent = encodeURIComponent(value);
   const variants = [
     value,
@@ -67,6 +70,9 @@ function variantsOf(value: string): string[] {
     asciiJsonEscape(value),
     ...standard,
     ...standard.map(toBase64Url),
+    wholeBase64,
+    wholeBase64.replace(/=+$/, ""),
+    bytes.toString("base64url"),
     bytes.toString("hex"),
     bytes.toString("hex").toUpperCase(),
     percent,
