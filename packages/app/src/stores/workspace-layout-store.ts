@@ -1868,6 +1868,34 @@ export function createWorkspaceLayoutStore(
             set(promoted?.patch ?? withoutSheet(next, normalizedWorkspaceKey, normalizedTabId));
             return promoted?.tabId ?? null;
           }
+          // IDE Mode keeps chats in the side pane. A chat picked from a launcher in the editor
+          // centre (or any pane that is not the side pane) opens there, and the launcher closes
+          // so the centre shows "Open file" again.
+          if (
+            get().workbenchByWorkspace[normalizedWorkspaceKey]?.mode === "editor" &&
+            isWorkbenchChatTarget(normalizedTarget)
+          ) {
+            const layout = getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey);
+            const pane = findPaneContainingTab(layout.root, normalizedTabId);
+            const explorerPaneId = resolveExplorerSidebarPaneId(
+              layout,
+              get().explorerSidebarPaneIdByWorkspace[normalizedWorkspaceKey],
+            );
+            const rememberedSidePaneId = get().sidePaneIdByWorkspace[normalizedWorkspaceKey];
+            if (pane && pane.id !== explorerPaneId && pane.id !== rememberedSidePaneId) {
+              const sidePaneId = get().ensureSidePane(normalizedWorkspaceKey, { focus: false });
+              if (sidePaneId && sidePaneId !== pane.id) {
+                get().closeTab(normalizedWorkspaceKey, normalizedTabId);
+                return get().openTab({
+                  workspaceKey: normalizedWorkspaceKey,
+                  target: normalizedTarget,
+                  intent: "new",
+                  placement: { mode: "pane", paneId: sidePaneId },
+                  state: tabState,
+                });
+              }
+            }
+          }
           const result = replaceTabTargetInLayout({
             layout: getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey),
             tabId: normalizedTabId,

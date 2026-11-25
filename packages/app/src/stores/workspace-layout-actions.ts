@@ -10,7 +10,7 @@ import {
   normalizeWorkspaceTabTarget,
   workspaceTabTargetsEqual,
 } from "@/workspace-tabs/identity";
-import { createNewWorkspaceTab } from "@/workspace-tabs/new-tab";
+import { createFallbackNewWorkspaceTab, createNewWorkspaceTab } from "@/workspace-tabs/new-tab";
 
 export interface SplitPane {
   id: string;
@@ -348,7 +348,7 @@ function ensureRetainedPaneHasTab(pane: SplitPaneInternal): SplitPaneInternal {
   if (pane.tabs.length > 0) {
     return pane;
   }
-  const newTab = createNewWorkspaceTab();
+  const newTab = createFallbackNewWorkspaceTab();
   return normalizePaneAfterTabChange({
     ...pane,
     tabs: [newTab],
@@ -785,7 +785,7 @@ function reorderTabsForPane(input: ReorderTabsForPaneInput): SplitPaneInternal {
 function removePaneByPath(root: SplitNodeInternal, path: number[]): SplitNodeInternal {
   if (path.length === 0) {
     invariant(root.kind === "pane", "Expected pane at root while removing pane");
-    return createPaneNode({ id: root.pane.id, tabs: [createNewWorkspaceTab()] });
+    return createPaneNode({ id: root.pane.id, tabs: [createFallbackNewWorkspaceTab()] });
   }
 
   const parentPath = path.slice(0, -1);
@@ -1178,7 +1178,7 @@ function restoreEmptyPanesInNode(
           tabs:
             node.pane.id === explorerSidebarPaneId
               ? createDefaultExplorerSidebarTabs()
-              : [createNewWorkspaceTab()],
+              : [createFallbackNewWorkspaceTab()],
           hidden: node.pane.hidden,
         });
   }

@@ -20,6 +20,7 @@ import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispat
 import { usePaneContext, usePaneFocus } from "@/panels/pane-context";
 import { definePanel, type PanelIconProps } from "@/panels/panel-registry";
 import { ICON_SIZE, SPACING, type Theme } from "@/styles/theme";
+import { isFallbackLauncherState } from "@/workspace-tabs/new-tab";
 import {
   useWorkspaceTabLaunchCatalog,
   type WorkspaceTabLaunchItem,
@@ -130,7 +131,7 @@ function useNewTabDescriptor() {
 }
 
 const NewTabPanel = memo(function NewTabPanel(): ReactElement {
-  const { host, serverId, tabId } = usePaneContext();
+  const { host, serverId, tabId, state } = usePaneContext();
   const { isInteractive, focusPane } = usePaneFocus();
   const containerRef = useRef<View | null>(null);
   const groups = useWorkspaceTabLaunchCatalog({
@@ -144,6 +145,7 @@ const NewTabPanel = memo(function NewTabPanel(): ReactElement {
     [groups],
   );
   const handlesWorkspaceShortcuts = isInteractive && host === "main";
+  const autoFocusFirstRow = !isFallbackLauncherState(state);
 
   useEffect(() => {
     if (!isWeb || !isInteractive) return;
@@ -189,12 +191,13 @@ const NewTabPanel = memo(function NewTabPanel(): ReactElement {
 
     webContainer.addEventListener("pointerdown", handlePointerDown, true);
     webContainer.addEventListener("keydown", handleKeyDown);
-    focusFirstRow();
+    // A launcher left behind by a close stays unfocused so a stray Enter cannot pick "Agent".
+    if (autoFocusFirstRow) focusFirstRow();
     return () => {
       webContainer.removeEventListener("pointerdown", handlePointerDown, true);
       webContainer.removeEventListener("keydown", handleKeyDown);
     };
-  }, [focusPane, isInteractive]);
+  }, [autoFocusFirstRow, focusPane, isInteractive]);
 
   const handleKeyboardAction = useCallback(
     (action: KeyboardActionDefinition): boolean => {
