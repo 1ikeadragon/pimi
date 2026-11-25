@@ -1,4 +1,12 @@
-import { useCallback, useMemo, useState, type ReactElement, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
 import { StyleSheet } from "react-native-unistyles";
@@ -10,6 +18,7 @@ import {
   MenuTrigger,
   useMenuContext,
   useMenuDepth,
+  useMenuSurface,
   type MenuPageDefinition,
   type MenuTriggerState,
 } from "@/components/ui/menu";
@@ -82,6 +91,8 @@ export interface ComposerTrackPillProps {
   children: ReactNode;
   /** Pages a row can open in place of the list (`ComposerTrackRow` `opensPage`). */
   pages?: readonly MenuPageDefinition[];
+  /** For a tracker that keeps its pill while the panel is open, however empty it gets. */
+  onOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -107,9 +118,10 @@ export function ComposerTrackPill({
   accessibilityLabel,
   children,
   pages,
+  onOpenChange,
 }: ComposerTrackPillProps): ReactElement {
   return (
-    <MenuRoot compactMode="sheet">
+    <MenuRoot compactMode="sheet" onOpenChange={onOpenChange}>
       <ComposerTrackPillTrigger
         segments={segments}
         testID={testID}
@@ -254,7 +266,13 @@ export function ComposerTrackRow({
   testID,
 }: ComposerTrackRowProps): ReactElement {
   const { selectItem, openSub } = useMenuContext("ComposerTrackRow");
+  const { registerSubAnchor } = useMenuSurface("ComposerTrackRow");
   const depth = useMenuDepth();
+  // On a popover the page opens as a flyout beside this row.
+  const anchorRef = useRef<View>(null);
+  useEffect(() => {
+    if (opensPage) registerSubAnchor(opensPage, anchorRef);
+  }, [opensPage, registerSubAnchor]);
   const [hovered, setHovered] = useState(false);
   const handlePointerEnter = useCallback(() => setHovered(true), []);
   const handlePointerLeave = useCallback(() => setHovered(false), []);
@@ -289,7 +307,12 @@ export function ComposerTrackRow({
   }
 
   return (
-    <View onPointerEnter={handlePointerEnter} onPointerLeave={handlePointerLeave}>
+    <View
+      ref={anchorRef}
+      collapsable={false}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+    >
       <Pressable
         accessibilityRole="menuitem"
         dataSet={itemDataSet}

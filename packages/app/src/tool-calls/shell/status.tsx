@@ -37,8 +37,11 @@ export function useShellRowStatus(input: {
   const { detail, state, timestamp, metadata } = input;
   const isShell = detail?.type === "shell";
   const exitCode = isShell ? detail.exitCode : undefined;
+  const leftBackground = isShell && detail.backgroundId !== undefined && state === "completed";
   return useMemo(() => {
     if (!isShell || timestamp === undefined) return undefined;
+    // The call returned at launch, so its duration says nothing about the job.
+    if (leftBackground) return <BackgroundStatus />;
     return (
       <ShellStatus
         state={state}
@@ -47,7 +50,7 @@ export function useShellRowStatus(input: {
         endedAtMs={timestamp}
       />
     );
-  }, [isShell, exitCode, state, timestamp, metadata]);
+  }, [isShell, leftBackground, exitCode, state, timestamp, metadata]);
 }
 
 /** A shell row's trailing text: elapsed time while it runs, exit code and duration after. */
@@ -66,6 +69,15 @@ export const ShellStatus = memo(function ShellStatus({
     />
   );
 });
+
+function BackgroundStatus() {
+  const { t } = useTranslation();
+  return (
+    <Text style={styles.text} numberOfLines={1} testID="shell-status">
+      {t("message.backgroundWork.label")}
+    </Text>
+  );
+}
 
 function RunningElapsed({ startedAtMs }: { startedAtMs: number }) {
   const panelActive = useRetainedPanelActive();

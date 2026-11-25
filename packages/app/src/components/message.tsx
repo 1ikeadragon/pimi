@@ -73,7 +73,7 @@ import { getTurnDurationLabel } from "./assistant-turn-footer-label";
 import { getCompactionMarkerLabel } from "./message-compaction-label";
 import { ActivityRow, type ActivityRowState } from "./activity-row";
 import { PlanCard } from "./plan-card";
-import { ToolCallDetailsContent } from "./tool-call-details";
+import { ToolCallDetailsContent, type BackgroundShellSource } from "./tool-call-details";
 import { useToolCallSheet, type ToolCallSheetData } from "./tool-call-sheet";
 import { readToolBodyOmitted } from "@pimi/protocol/tool-call-body";
 import { useShellRowStatus, type ShellRunState } from "@/tool-calls/shell/status";
@@ -1370,6 +1370,10 @@ const ToolCallBase = memo(function ToolCall({
   }, [presentation.openFilePath, onOpenFilePath]);
 
   const runState = toShellRunState(status);
+  const backgroundShell = useMemo<BackgroundShellSource | undefined>(
+    () => (serverId && agentId ? { serverId, agentId } : undefined),
+    [serverId, agentId],
+  );
   const sheetData = useMemo<ToolCallSheetData>(
     () => ({
       callKey: itemId,
@@ -1381,9 +1385,11 @@ const ToolCallBase = memo(function ToolCall({
       errorText: presentation.errorText,
       icon: presentation.icon,
       showLoadingSkeleton: presentation.isLoadingDetails,
+      backgroundShell,
       ...(bodyOmitted > 0 && bodySource ? { bodySource, bodyOmitted } : {}),
     }),
     [
+      backgroundShell,
       itemId,
       runState,
       toolName,
@@ -1449,6 +1455,7 @@ const ToolCallBase = memo(function ToolCall({
         callKey={itemId}
         runState={runState}
         detail={body.detail === effectiveDetail ? presentation.detail : body.detail}
+        backgroundShell={backgroundShell}
         errorText={presentation.errorText}
         maxHeight={maxDetailHeight}
         showLoadingSkeleton={presentation.isLoadingDetails}
@@ -1465,6 +1472,7 @@ const ToolCallBase = memo(function ToolCall({
     body.status,
     body.retry,
     effectiveDetail,
+    backgroundShell,
     presentation.detail,
     presentation.errorText,
     presentation.isLoadingDetails,

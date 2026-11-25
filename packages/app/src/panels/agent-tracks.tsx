@@ -131,7 +131,12 @@ export const AgentTracks = memo(function AgentTracks({
 
   return (
     <ComposerTrackBar>
-      <BackgroundWorkTrack model={backgroundModel} count={backgroundWorkCount} />
+      <BackgroundWorkTrack
+        serverId={serverId}
+        agentId={agentId}
+        model={backgroundModel}
+        count={backgroundWorkCount}
+      />
       {parentAgentId ? <ParentAgentPill serverId={serverId} parentAgentId={parentAgentId} /> : null}
       <AgentTaskList tasks={tasks} />
       <ActionItemsReviewTrack serverId={serverId} agentId={agentId} />

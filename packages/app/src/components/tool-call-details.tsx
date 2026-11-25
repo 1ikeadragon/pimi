@@ -27,6 +27,7 @@ import { DiffViewer } from "./diff-viewer";
 import { getCodeInsets } from "./code-insets";
 import { isWeb } from "@/constants/platform";
 import { ShellTerminal } from "@/tool-calls/shell/terminal";
+import { useBackgroundShellOutput } from "@/background-work/output";
 import type { ShellRunState } from "@/tool-calls/shell/status";
 
 const ScrollView = isWeb ? RNScrollView : GHScrollView;
@@ -42,6 +43,8 @@ interface ToolCallDetailsContentProps {
   /** A permission prompt has no run to show: the shell command renders as selectable text. */
   shellCommandOnly?: boolean;
   detail?: ToolCallDetail;
+  /** Where the call's chat lives, so a shell call that left a job behind can read the job's output. */
+  backgroundShell?: BackgroundShellSource;
   errorText?: string;
   maxHeight?: number;
   fillAvailableHeight?: boolean;
@@ -49,6 +52,11 @@ interface ToolCallDetailsContentProps {
   /** The detail is a preview of a longer body; "loading" and "error" show a line below it. */
   bodyStatus?: "ready" | "loading" | "error";
   onRetryBody?: () => void;
+}
+
+export interface BackgroundShellSource {
+  serverId: string;
+  agentId: string;
 }
 
 interface DetailStyles {
@@ -302,6 +310,40 @@ function buildSearchSections(detail: SearchDetail, ds: DetailStyles): ReactNode[
   ];
 }
 
+/**
+ * A shell call that left a job running shows the job's own output while the daemon can still read
+ * it, and what the call stored otherwise.
+ */
+function BackgroundShellTerminal({
+  callKey,
+  detail,
+  backgroundId,
+  source,
+  runState,
+  ds,
+}: {
+  callKey: string;
+  detail: Extract<ToolCallDetail, { type: "shell" }>;
+  backgroundId: string;
+  source: BackgroundShellSource;
+  runState: ShellRunState;
+  ds: DetailStyles;
+}) {
+  const live = useBackgroundShellOutput({ ...source, itemId: backgroundId });
+  const stored = live.status === "error";
+  return (
+    <ShellTerminal
+      streamKey={callKey}
+      command={detail.command}
+      output={stored ? detail.output : live.output}
+      outputOffset={stored ? detail.outputOffset : live.outputOffset}
+      state={stored || !live.running ? runState : "running"}
+      fill={ds.shouldFill}
+      maxHeight={ds.resolvedMaxHeight}
+    />
+  );
+}
+
 function serializeUnknownValue(value: unknown): string {
   try {
     return typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -401,6 +443,7 @@ interface DetailSectionsInput {
   runState: ShellRunState;
   shellCommandOnly: boolean;
   detail: ToolCallDetail | undefined;
+  backgroundShell: BackgroundShellSource | undefined;
   diffLines: DiffLine[] | undefined;
   ds: DetailStyles;
   t: TFunction;
@@ -412,6 +455,7 @@ function buildDetailSections({
   runState,
   shellCommandOnly,
   detail,
+  backgroundShell,
   diffLines,
   ds,
   t,
@@ -420,6 +464,19 @@ function buildDetailSections({
   if (detail.type === "shell") {
     if (shellCommandOnly) {
       return [<ShellCommandSection key="shell-command" command={detail.command} ds={ds} />];
+    }
+    if (detail.backgroundId !== undefined && backgroundShell) {
+      return [
+        <BackgroundShellTerminal
+          key={callKey}
+          callKey={callKey}
+          detail={detail}
+          backgroundId={detail.backgroundId}
+          source={backgroundShell}
+          runState={runState}
+          ds={ds}
+        />,
+      ];
     }
     return [
       <ShellTerminal
@@ -514,6 +571,7 @@ export function ToolCallDetailsContent({
   runState,
   shellCommandOnly = false,
   detail,
+  backgroundShell,
   errorText,
   maxHeight,
   fillAvailableHeight = false,
@@ -532,6 +590,7 @@ export function ToolCallDetailsContent({
     runState,
     shellCommandOnly,
     detail,
+    backgroundShell,
     diffLines,
     ds,
     t,

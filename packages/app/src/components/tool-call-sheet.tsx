@@ -13,7 +13,7 @@ import {
   useIsolatedBottomSheetVisibility,
 } from "@/components/ui/isolated-bottom-sheet-modal";
 import type { ToolCallIconComponent } from "@/utils/tool-call-icon";
-import { ToolCallDetailsContent } from "./tool-call-details";
+import { ToolCallDetailsContent, type BackgroundShellSource } from "./tool-call-details";
 import { useToolCallBody, type ToolBodySource } from "@/tool-calls/use-tool-call-body";
 import type { ShellRunState } from "@/tool-calls/shell/status";
 
@@ -30,6 +30,7 @@ export interface ToolCallSheetData {
   errorText?: string;
   icon: ToolCallIconComponent;
   showLoadingSkeleton?: boolean;
+  backgroundShell?: BackgroundShellSource;
   /** Set when `detail` is a preview of a longer body. */
   bodySource?: ToolBodySource;
   /** Length cut from the preview; see `readToolBodyOmitted`. */
@@ -172,6 +173,7 @@ function ToolCallSheetContent({ data, onClose }: ToolCallSheetContentProps) {
     icon: IconComponent,
     showLoadingSkeleton,
     bodySource,
+    backgroundShell,
   } = data;
   const body = useToolCallBody(bodySource ?? null, data.bodyOmitted ?? 0, detail);
   const details = (
@@ -180,6 +182,7 @@ function ToolCallSheetContent({ data, onClose }: ToolCallSheetContentProps) {
       callKey={callKey}
       runState={runState}
       detail={body.detail}
+      backgroundShell={backgroundShell}
       errorText={errorText}
       fillAvailableHeight
       showLoadingSkeleton={showLoadingSkeleton}

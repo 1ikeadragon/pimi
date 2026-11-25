@@ -898,6 +898,9 @@ export const en = {
       shell: "Shell",
       monitor: "Monitor",
       other: "Other work",
+      earlierOutputHidden: "… earlier output not shown",
+      loadingOutput: "Loading output",
+      outputError: "Could not load output",
     },
     todo: {
       title: "Tasks",

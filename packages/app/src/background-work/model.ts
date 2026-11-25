@@ -15,20 +15,26 @@ interface BackgroundWorkState {
   status: "loading" | "stale" | "ready" | "error";
   items: AgentBackgroundWorkItem[] | null;
   stops?: Record<string, { status: "pending" | "error"; item: AgentBackgroundWorkItem }>;
+  /**
+   * Every item with output seen since the model was created, newest snapshot of each. An item
+   * that leaves the list keeps its viewer, which shows the end of the output until closed.
+   */
+  viewable: readonly AgentBackgroundWorkItem[];
 }
 
 export function createBackgroundWorkModel(port: Port) {
-  let state: BackgroundWorkState = { status: "loading", items: null };
+  let state: BackgroundWorkState = { status: "loading", items: null, viewable: [] };
   let sequence = 0;
   let stopGeneration = 0;
   let stop: (() => void) | undefined;
   let observationFailed = false;
   const listeners = new Set<() => void>();
-  const publish = (next: BackgroundWorkState) => {
+  const publish = (next: Omit<BackgroundWorkState, "viewable">) => {
+    const viewable = retainViewable(state.viewable, next.items);
     state =
       next.stops === undefined && state.stops === undefined
-        ? next
-        : { ...next, stops: next.stops ?? state.stops };
+        ? { ...next, viewable }
+        : { ...next, viewable, stops: next.stops ?? state.stops };
     for (const listener of listeners) listener();
   };
   const refresh = async () => {
@@ -118,4 +124,14 @@ export function createBackgroundWorkModel(port: Port) {
       };
     },
   };
+}
+
+function retainViewable(
+  known: readonly AgentBackgroundWorkItem[],
+  items: readonly AgentBackgroundWorkItem[] | null,
+): readonly AgentBackgroundWorkItem[] {
+  const fresh = (items ?? []).filter((item) => item.hasOutput);
+  if (fresh.length === 0) return known;
+  const freshIds = new Set(fresh.map((item) => item.id));
+  return [...known.filter((item) => !freshIds.has(item.id)), ...fresh];
 }
