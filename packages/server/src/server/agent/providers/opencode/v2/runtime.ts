@@ -14,7 +14,8 @@ import {
 } from "../../../provider-launch-config.js";
 import type { ManagedProcessRegistry } from "../../../../managed-processes/managed-processes.js";
 import { resolveOpenCodeHomeDir } from "../paths.js";
-import { OpenCodeHelperStartupError, OpenCodeHttpError } from "../http-error.js";
+import { OpenCodeHelperStartupError } from "../http-error.js";
+import { createGuardedFetch } from "./guarded-fetch.js";
 import { raceProviderRefreshAbort } from "../../../provider-refresh-deadline.js";
 import { resolveExternalOpenCodeServer, type ExternalOpenCodeServer } from "./external-server.js";
 import {
@@ -41,6 +42,11 @@ export interface V2Connection {
   unbindSession(sessionId: string, cwd: string): Promise<void>;
   refreshLocation(cwd: string, signal?: AbortSignal): Promise<void>;
   readonly exited: Promise<Error>;
+  /**
+   * Set only for a server Pimi does not own. Declares it dead, so `exited` resolves for every
+   * lease and the next `acquire` selects a server again. Pimi never stops such a server.
+   */
+  readonly unreachable?: (error: Error) => void;
 }
 interface Generation {
   client: V2Api;
@@ -50,6 +56,7 @@ interface Generation {
   bindSession(sessionId: string, cwd: string): Promise<void>;
   unbindSession(sessionId: string, cwd: string): Promise<void>;
   refreshLocation(cwd: string, signal?: AbortSignal): Promise<void>;
+  unreachable?: (error: Error) => void;
 }
 export interface V2RuntimeOptions {
   logger: Logger;
@@ -73,20 +80,22 @@ export class V2Runtime {
   private generations = new Set<Generation>();
   private starts = new Set<Promise<Generation>>();
   private closed = false;
-  private readonly selection: Promise<OpenCodeServiceSelection>;
+  private selection: Promise<OpenCodeServiceSelection>;
 
   constructor(private readonly options: V2RuntimeOptions) {
-    this.selection = options.selection
-      ? Promise.resolve(options.selection)
-      : selectOpenCodeService({
-          explicit:
-            options.externalServer ??
-            resolveExternalOpenCodeServer({
-              ...globalThis.process.env,
-              ...options.settings?.env,
-            }),
-          env: options.settings?.env,
-        });
+    this.selection = options.selection ? Promise.resolve(options.selection) : this.selectService();
+  }
+
+  private selectService(): Promise<OpenCodeServiceSelection> {
+    return selectOpenCodeService({
+      explicit:
+        this.options.externalServer ??
+        resolveExternalOpenCodeServer({
+          ...globalThis.process.env,
+          ...this.options.settings?.env,
+        }),
+      env: this.options.settings?.env,
+    });
   }
 
   async acquire(input: V2RuntimeAcquireOptions = {}): Promise<V2Connection> {
@@ -193,6 +202,7 @@ export class V2Runtime {
       unbindSession: generation.unbindSession,
       refreshLocation: generation.refreshLocation,
       exited: generation.exited,
+      unreachable: generation.unreachable,
     };
   }
 
@@ -217,6 +227,10 @@ export class V2Runtime {
       (generation) =>
         generation.exited.then(() => {
           if (this.current === pending) this.current = null;
+          // A discovered service may have restarted on another port; read the registry again.
+          // An injected selection is a fixed choice, and a closing runtime selects nothing.
+          if (selection.kind === "discovered" && !this.options.selection && !this.closed)
+            this.selection = this.selectService();
           return undefined;
         }),
       () => undefined,
@@ -346,18 +360,7 @@ export class V2Runtime {
         headers: {
           Authorization: `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}`,
         },
-        fetch: async (request, init) => {
-          const signal = init?.signal
-            ? AbortSignal.any([init.signal, processAbort.signal])
-            : processAbort.signal;
-          const response = await fetch(request, { ...init, signal });
-          const html = response.headers.get("content-type")?.includes("text/html") ?? false;
-          if (!response.ok || html) {
-            const requestUrl = request instanceof Request ? request.url : String(request);
-            throw new OpenCodeHttpError(new URL(requestUrl).pathname, response.status, html);
-          }
-          return response;
-        },
+        fetch: createGuardedFetch(processAbort.signal, logger),
       });
       const info = await client.server.info({
         signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),

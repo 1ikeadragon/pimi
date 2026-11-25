@@ -3,7 +3,7 @@ import { SessionChildren } from "./children.js";
 import { SessionTurns } from "./turns.js";
 import { V2Timeline } from "./timeline.js";
 import { ModelWait } from "./model-wait.js";
-import { reconnectDelayMs } from "../event-consumer.js";
+import { FAILURE_WARNING_ATTEMPT, reconnectDelayMs } from "../event-consumer.js";
 import { waitForLocationReady, awaitPimiPlugin } from "./readiness.js";
 
 import type { OpenCodeEvent, SessionInfo, SessionMessageInfo } from "@opencode/client";
@@ -43,6 +43,19 @@ import { SessionPermissions } from "./permissions.js";
 import { SessionUsage } from "./usage.js";
 import { ToolCallOutputStream } from "../../../tool-call-output-stream.js";
 import { ShellOutputTail } from "./shell-tail.js";
+
+// The first connection must reconcile within this bound or `initialize` fails (`startStream`).
+// A reconnect applies the same bound to the same work, so a hung request cannot hold the event
+// loop forever. Reconciling reads whole histories, so it gets the readiness bound, not the 5s of
+// a single plugin poll (readiness.ts).
+const STREAM_READY_TIMEOUT_MS = 30_000;
+
+export class OpenCodeConnectionReconcileTimeoutError extends Error {
+  constructor(readonly waitedMs: number) {
+    super(`OpenCode did not finish reconciling after reconnecting within ${waitedMs}ms`);
+    this.name = "OpenCodeConnectionReconcileTimeoutError";
+  }
+}
 
 export class OpenCodeV2Session implements AgentSession {
   readonly provider = "opencode";
@@ -109,6 +122,8 @@ export class OpenCodeV2Session implements AgentSession {
       emit: (event) => this.emit(event),
       reconcilePermissions: (id) => this.permissions.reconcile(id),
       bindChild,
+      reportError: (error) =>
+        this.logger.warn({ error: toDiagnosticErrorMessage(error) }, "OpenCode child sync failed"),
       reportDivergence: (divergence) =>
         this.logger.warn({ ...divergence, sessionId: this.info.id }, "OpenCode child rewrote text"),
     });
@@ -256,7 +271,7 @@ export class OpenCodeV2Session implements AgentSession {
     });
     this.stream = this.consume(ready, fail);
     await raceProviderRefreshAbort(
-      AbortSignal.any([this.abort.signal, AbortSignal.timeout(30_000)]),
+      AbortSignal.any([this.abort.signal, AbortSignal.timeout(STREAM_READY_TIMEOUT_MS)]),
       first,
     );
   }
@@ -544,6 +559,17 @@ export class OpenCodeV2Session implements AgentSession {
       await this.reconcileSnapshot();
     }
   }
+  // The abandoned reconcile keeps running and holds `sync`, so a retry waits behind it and times
+  // out in turn; that surfaces as a warning per attempt instead of a silent stall.
+  private async reconcileConnectionWithin(timeoutMs: number) {
+    try {
+      await raceProviderRefreshAbort(AbortSignal.timeout(timeoutMs), this.reconcileConnection());
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "TimeoutError")
+        throw new OpenCodeConnectionReconcileTimeoutError(timeoutMs);
+      throw error;
+    }
+  }
   private async reconcileConnection() {
     await this.connection.bindSession(this.id, this.config.cwd);
     // Session environments are process-local. Reapply this agent's snapshot before
@@ -626,18 +652,31 @@ export class OpenCodeV2Session implements AgentSession {
         // Output events missed during a gap cannot be attributed, so the wait cannot be trusted.
         this.modelWait.end();
         this.timeline.resetStreams();
-        await this.reconcileConnection();
+        await this.reconcileConnectionWithin(STREAM_READY_TIMEOUT_MS);
         signal.throwIfAborted();
         this.background.start(this.client);
       }
       this.background.observe(event);
-      await this.children.observe(event);
+      this.children.observe(event);
       this.observeOwnEvent(event);
     } catch (error) {
       progress.handlingFailed = true;
       throw error;
     }
     return handshake;
+  }
+  // A server Pimi did not start (explicit or discovered) can die with nobody to report it. After as
+  // many consecutive failures as the v1 event consumer tolerates before it warns
+  // (`FAILURE_WARNING_ATTEMPT`), release it so this and every other session select a server again.
+  private declareUnreachable(consecutiveFailures: number): boolean {
+    const { unreachable } = this.connection;
+    if (!unreachable || consecutiveFailures < FAILURE_WARNING_ATTEMPT) return false;
+    const error = new Error(
+      `OpenCode server unreachable after ${consecutiveFailures} failed event stream attempts`,
+    );
+    this.logger.warn({ error: error.message }, "OpenCode server unreachable; releasing it");
+    unreachable(error);
+    return true;
   }
   private async consume(ready: () => void, fail: (error: unknown) => void) {
     const signal = AbortSignal.any([this.abort.signal, this.streamAbort.signal]);
@@ -672,6 +711,7 @@ export class OpenCodeV2Session implements AgentSession {
       }
       this.background.disconnect();
       reconnectAttempt = established && !progress.handlingFailed ? 0 : reconnectAttempt + 1;
+      if (this.declareUnreachable(reconnectAttempt)) return;
       await delay(reconnectDelayMs(reconnectAttempt), undefined, { signal }).catch(() => undefined);
     }
   }
