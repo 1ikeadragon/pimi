@@ -181,6 +181,10 @@ import { SqlSentAttachmentStore } from "./agent/sent-attachments.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
+import { readEnvScrubNames, removeEnvNames } from "./vault/env-scrub.js";
+import { VaultService } from "./vault/service.js";
+import { BitwardenCli } from "./vault/sources/bitwarden-cli.js";
+import { VAULT_INSTRUCTIONS } from "./agent/tools/vault-tools.js";
 import { resolveProjectReference } from "./resolve-project-reference.js";
 import { createPimiMemoryHandler } from "./pimi-memory-route.js";
 import { PimiSpaces } from "./pimi-spaces.js";
@@ -684,6 +688,26 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
   return initialConfig;
 }
 
+// Before anything can spawn a process: names the vault manages must not reach agents or
+// terminals through the daemon's inherited environment. Config values read from the environment
+// earlier (for example speech API keys) are already captured in `config`.
+async function removeVaultManagedEnvironment(pimiHome: string, logger: Logger): Promise<void> {
+  try {
+    const removed = removeEnvNames(process.env, await readEnvScrubNames(pimiHome));
+    if (removed.length > 0) {
+      logger.info(
+        { names: removed },
+        "Removed vault-managed variables from the daemon environment",
+      );
+    }
+  } catch (error) {
+    logger.error(
+      { err: error },
+      "Could not read the vault header; vault-managed variables stay in the daemon environment",
+    );
+  }
+}
+
 export async function createPimiDaemon(
   config: PimiDaemonConfig,
   rootLogger: Logger,
@@ -691,6 +715,7 @@ export async function createPimiDaemon(
 ): Promise<PimiDaemon> {
   configureGitProcessPolicy(config.git ?? resolveGitProcessPolicy({ env: process.env }));
   const logger = rootLogger.child({ module: "bootstrap" });
+  await removeVaultManagedEnvironment(config.pimiHome, logger);
   await rm(path.join(config.pimiHome, "push-tokens.json"), { force: true }).catch((error) => {
     logger.warn({ err: error }, "Failed to remove the retired push token cache");
   });
@@ -1236,7 +1261,18 @@ export async function createPimiDaemon(
     if (git) configureGitProcessPolicy(git);
   });
   const initialAgentManagerState = providerSnapshotManager.getAgentManagerProviderState();
+  const vaultService = new VaultService({
+    pimiHome: config.pimiHome,
+    env: process.env,
+    bitwarden: new BitwardenCli({ env: process.env }),
+    logger,
+  });
+  await vaultService.load();
   const agentManager: AgentManager = new AgentManager({
+    vault: {
+      redactor: vaultService,
+      instructions: () => (vaultService.state === "uninitialized" ? [] : [VAULT_INSTRUCTIONS]),
+    },
     handoff: createHandoffServices({
       transcripts: transcriptStore,
       archive: timelineArchive,
@@ -1943,6 +1979,7 @@ export async function createPimiDaemon(
     automationService,
     flowService,
     heartbeatService,
+    vaultService,
     attackService,
     providerSnapshotManager,
     daemonConfigStore,
@@ -2318,6 +2355,7 @@ export async function createPimiDaemon(
                 heartbeatService,
                 attackService,
                 attackScheduler,
+                vaultService,
               },
               checkoutDiffManager,
               serviceProxy,
@@ -2496,6 +2534,7 @@ export async function createPimiDaemon(
     await heartbeatService.stop().catch(() => undefined);
     await attackScheduler.stop().catch(() => undefined);
     await attackService.stop().catch(() => undefined);
+    await vaultService.lock().catch((error) => logger.error({ err: error }, "Vault lock failed"));
     await relayRuntime?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();

@@ -40,6 +40,7 @@ import type { PromptService } from "./prompt/service.js";
 import type { HeartbeatService } from "./heartbeat/service.js";
 import type { AttackService } from "./attack/service.js";
 import type { AttackScheduler } from "./attack/schedules.js";
+import type { VaultService } from "./vault/service.js";
 
 export interface AutomationServices {
   automationService: AutomationService;
@@ -48,6 +49,7 @@ export interface AutomationServices {
   heartbeatService: HeartbeatService;
   attackService: AttackService;
   attackScheduler: AttackScheduler;
+  vaultService: VaultService;
 }
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
@@ -1658,6 +1660,7 @@ export class VoiceAssistantWebSocketServer {
       heartbeatService: this.automationServices.heartbeatService,
       attackService: this.automationServices.attackService,
       attackScheduler: this.automationServices.attackScheduler,
+      vaultService: this.automationServices.vaultService,
       checkoutDiffManager: this.checkoutDiffManager,
       github: this.github,
       workspaceGitService: this.workspaceGitService,

@@ -134,6 +134,21 @@ export const HOST_SETTINGS_PAGES = [
     keywords: ["extensions", "mods", "install"],
   },
   {
+    id: "vault",
+    titleKey: "settings.hostSections.vault",
+    keywords: [
+      "secrets",
+      "credentials",
+      "api key",
+      "token",
+      "password",
+      "passphrase",
+      "bitwarden",
+      "env",
+      "approvals",
+    ],
+  },
+  {
     id: "host",
     titleKey: "settings.hostSections.host",
     keywords: [

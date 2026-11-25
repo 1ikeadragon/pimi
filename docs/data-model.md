@@ -134,6 +134,9 @@ $PIMI_HOME/
 ├── daemon-keypair.json                  # E2EE keypair for relay (mode 0600)
 ├── pimi.pid                            # Daemon PID lock file
 ├── local-credential                     # Per-run local client credential (mode 0600)
+├── vault/
+│   ├── vault.json                       # Passphrase-sealed secrets and grants, readable header (mode 0600)
+│   └── audit.jsonl                      # Vault use and changes, names only (mode 0600)
 ├── daemon.log                           # Default log file (path configurable)
 ├── agents/
 │   └── {sanitized-cwd}/

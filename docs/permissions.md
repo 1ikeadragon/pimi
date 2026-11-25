@@ -27,6 +27,10 @@ These checks are not permissions. They follow from how the session was admitted,
 - Plugin sockets own the `plugin:` client ID namespace. Other sockets cannot claim it, and plugin sessions do not resume.
 - Resuming a session closes its connected-host links and routes, because the new hello can change its producer or routed state.
 
+## The vault operator
+
+The vault is the one place a session's authority is narrower than the rest. Changing vault secrets or grants, and answering a vault approval request, need `vault.authorize.request` with the vault passphrase first. The mark lasts ten minutes, belongs to the physical socket, and is not kept across reconnects, session resume or restart. It is not a permission tier: any client that knows the passphrase gets it, and admission does not change. It exists because an agent holds the local credential and so has every other capability. See [vault.md](vault.md#operator-proof).
+
 ## Adding access control
 
 Do not reintroduce a permission enum or an operation table without a caller that gets less than full authority on a live path. Hub was the only such caller and it is gone. A check that every admitted session passes is not a control; it only hides that the boundary is admission.

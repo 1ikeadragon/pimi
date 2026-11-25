@@ -43,6 +43,12 @@ import type { AutomationDefinition, AutomationOrigin } from "@pimi/protocol/auto
 import type { FlowDefinition, FlowOrigin } from "@pimi/protocol/flow/types";
 import type { PromptSuggestionPosition, SavedPromptDefinition } from "@pimi/protocol/prompt/types";
 import type { HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
+import type {
+  VaultEnvImportAction,
+  VaultGrantBinding,
+  VaultRequestDecision,
+  VaultSecretSource,
+} from "@pimi/protocol/vault/types";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
 import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
 import {
@@ -867,6 +873,86 @@ export type HeartbeatDeletePayload = Extract<
 export type HeartbeatListPayload = Extract<
   SessionOutboundMessage,
   { type: "heartbeat.list.response" }
+>["payload"];
+export type VaultGetStatusPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.get_status.response" }
+>["payload"];
+export type VaultInitializePayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.initialize.response" }
+>["payload"];
+export type VaultUnlockPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.unlock.response" }
+>["payload"];
+export type VaultLockPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.lock.response" }
+>["payload"];
+export type VaultAuthorizePayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.authorize.response" }
+>["payload"];
+export type VaultListSecretsPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.list_secrets.response" }
+>["payload"];
+export type VaultSetSecretPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.set_secret.response" }
+>["payload"];
+export type VaultDeleteSecretPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.delete_secret.response" }
+>["payload"];
+export type VaultListGrantsPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.list_grants.response" }
+>["payload"];
+export type VaultSetGrantPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.set_grant.response" }
+>["payload"];
+export type VaultDeleteGrantPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.delete_grant.response" }
+>["payload"];
+export type VaultListRequestsPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.list_requests.response" }
+>["payload"];
+export type VaultResolveRequestPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.resolve_request.response" }
+>["payload"];
+export type VaultListAuditPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.list_audit.response" }
+>["payload"];
+export type VaultEnvListCandidatesPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.env.list_candidates.response" }
+>["payload"];
+export type VaultEnvImportPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.env.import.response" }
+>["payload"];
+export type VaultSourceBitwardenGetStatusPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.source.bitwarden.get_status.response" }
+>["payload"];
+export type VaultSourceBitwardenUnlockPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.source.bitwarden.unlock.response" }
+>["payload"];
+export type VaultSourceBitwardenLockPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.source.bitwarden.lock.response" }
+>["payload"];
+export type VaultSourceBitwardenSearchItemsPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.source.bitwarden.search_items.response" }
 >["payload"];
 export type FetchAgentTimelinePayload = FetchAgentTimelineResponseMessage["payload"];
 export type AgentForkContextPayload = AgentForkContextResponseMessage["payload"];
@@ -7967,6 +8053,179 @@ export class DaemonClient {
       message: {
         type: "heartbeat.list.request",
         ...(options.agentId ? { agentId: options.agentId } : {}),
+      },
+    });
+  }
+
+  // The vault. Secret values and passphrases only travel to the daemon; no response carries one.
+  async vaultGetStatus(): Promise<VaultGetStatusPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.get_status.request" },
+    });
+  }
+
+  async vaultInitialize(options: { passphrase: string }): Promise<VaultInitializePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.initialize.request", passphrase: options.passphrase },
+    });
+  }
+
+  async vaultUnlock(options: { passphrase: string }): Promise<VaultUnlockPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.unlock.request", passphrase: options.passphrase },
+    });
+  }
+
+  async vaultLock(): Promise<VaultLockPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.lock.request" },
+    });
+  }
+
+  async vaultAuthorize(options: { passphrase: string }): Promise<VaultAuthorizePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.authorize.request", passphrase: options.passphrase },
+    });
+  }
+
+  async vaultListSecrets(): Promise<VaultListSecretsPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.list_secrets.request" },
+    });
+  }
+
+  async vaultSetSecret(options: {
+    name: string;
+    envName: string;
+    description: string | null;
+    source: VaultSecretSource;
+    value: string | null;
+  }): Promise<VaultSetSecretPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: {
+        type: "vault.set_secret.request",
+        name: options.name,
+        envName: options.envName,
+        description: options.description,
+        source: options.source,
+        value: options.value,
+      },
+    });
+  }
+
+  async vaultDeleteSecret(options: { name: string }): Promise<VaultDeleteSecretPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.delete_secret.request", name: options.name },
+    });
+  }
+
+  async vaultListGrants(): Promise<VaultListGrantsPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.list_grants.request" },
+    });
+  }
+
+  async vaultSetGrant(options: {
+    grantId: string | null;
+    executable: string;
+    argvPrefix: string[];
+    bindings: VaultGrantBinding[];
+    projectId: string | null;
+  }): Promise<VaultSetGrantPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: {
+        type: "vault.set_grant.request",
+        grantId: options.grantId,
+        executable: options.executable,
+        argvPrefix: options.argvPrefix,
+        bindings: options.bindings,
+        projectId: options.projectId,
+      },
+    });
+  }
+
+  async vaultDeleteGrant(options: { grantId: string }): Promise<VaultDeleteGrantPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.delete_grant.request", grantId: options.grantId },
+    });
+  }
+
+  async vaultListRequests(): Promise<VaultListRequestsPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.list_requests.request" },
+    });
+  }
+
+  async vaultResolveRequest(options: {
+    vaultRequestId: string;
+    decision: VaultRequestDecision;
+    argvPrefixLength: number;
+    scopeToProject: boolean;
+  }): Promise<VaultResolveRequestPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: {
+        type: "vault.resolve_request.request",
+        vaultRequestId: options.vaultRequestId,
+        decision: options.decision,
+        argvPrefixLength: options.argvPrefixLength,
+        scopeToProject: options.scopeToProject,
+      },
+    });
+  }
+
+  async vaultListAudit(options: { limit: number }): Promise<VaultListAuditPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.list_audit.request", limit: options.limit },
+    });
+  }
+
+  async vaultEnvListCandidates(): Promise<VaultEnvListCandidatesPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.env.list_candidates.request" },
+    });
+  }
+
+  async vaultEnvImport(options: {
+    names: string[];
+    action: VaultEnvImportAction;
+  }): Promise<VaultEnvImportPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.env.import.request", names: options.names, action: options.action },
+    });
+  }
+
+  async vaultBitwardenGetStatus(): Promise<VaultSourceBitwardenGetStatusPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.source.bitwarden.get_status.request" },
+    });
+  }
+
+  async vaultBitwardenUnlock(options: {
+    masterPassword: string;
+  }): Promise<VaultSourceBitwardenUnlockPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: {
+        type: "vault.source.bitwarden.unlock.request",
+        masterPassword: options.masterPassword,
+      },
+    });
+  }
+
+  async vaultBitwardenLock(): Promise<VaultSourceBitwardenLockPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.source.bitwarden.lock.request" },
+    });
+  }
+
+  async vaultBitwardenSearchItems(options: {
+    masterPassword: string;
+    query: string;
+  }): Promise<VaultSourceBitwardenSearchItemsPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: {
+        type: "vault.source.bitwarden.search_items.request",
+        masterPassword: options.masterPassword,
+        query: options.query,
       },
     });
   }

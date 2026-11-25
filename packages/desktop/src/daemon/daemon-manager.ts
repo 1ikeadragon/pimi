@@ -18,6 +18,7 @@ import {
   PimiLocalPairingStatus,
 } from "@pimi/protocol/connection-offer";
 import { parseHostPort } from "@pimi/protocol/daemon-endpoints";
+import { readEnvScrubNames, scrubEnvNames } from "@pimi/server/vault-env";
 import {
   resolvePimiHome,
   startDaemonInstance,
@@ -147,6 +148,28 @@ function getPimiHome(): string {
 
 function logFilePath(): string {
   return path.join(getPimiHome(), DAEMON_LOG_FILENAME);
+}
+
+/**
+ * The environment the daemon starts with: this process's, minus the names the vault removes from
+ * agents. The login-shell environment this process inherited is where those names come from, so
+ * the daemon never sees them. The daemon scrubs its own environment too; this keeps the values
+ * out of the daemon process entirely.
+ */
+async function resolveDaemonBaseEnv(home: string): Promise<NodeJS.ProcessEnv> {
+  try {
+    const names = await readEnvScrubNames(home);
+    return scrubEnvNames(process.env, names);
+  } catch (error) {
+    log.error(
+      "[desktop daemon]",
+      "Could not read the vault header; starting with the full environment",
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+    );
+    return process.env;
+  }
 }
 
 /**
@@ -373,7 +396,7 @@ async function startDaemon(): Promise<DesktopDaemonStatus> {
     entrypoint: resolveDaemonRunnerEntrypoint(),
     argvMode: "node-script",
     args: [],
-    baseEnv: process.env,
+    baseEnv: await resolveDaemonBaseEnv(home),
   });
   try {
     await startDaemonInstance({

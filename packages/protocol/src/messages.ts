@@ -244,6 +244,48 @@ import {
   HeartbeatListResponseSchema,
 } from "./heartbeat/rpc-schemas.js";
 import {
+  VaultGetStatusRequestSchema,
+  VaultInitializeRequestSchema,
+  VaultUnlockRequestSchema,
+  VaultLockRequestSchema,
+  VaultAuthorizeRequestSchema,
+  VaultListSecretsRequestSchema,
+  VaultSetSecretRequestSchema,
+  VaultDeleteSecretRequestSchema,
+  VaultListGrantsRequestSchema,
+  VaultSetGrantRequestSchema,
+  VaultDeleteGrantRequestSchema,
+  VaultListRequestsRequestSchema,
+  VaultResolveRequestRequestSchema,
+  VaultListAuditRequestSchema,
+  VaultEnvListCandidatesRequestSchema,
+  VaultEnvImportRequestSchema,
+  VaultGetStatusResponseSchema,
+  VaultInitializeResponseSchema,
+  VaultUnlockResponseSchema,
+  VaultLockResponseSchema,
+  VaultAuthorizeResponseSchema,
+  VaultListSecretsResponseSchema,
+  VaultSetSecretResponseSchema,
+  VaultDeleteSecretResponseSchema,
+  VaultListGrantsResponseSchema,
+  VaultSetGrantResponseSchema,
+  VaultDeleteGrantResponseSchema,
+  VaultListRequestsResponseSchema,
+  VaultResolveRequestResponseSchema,
+  VaultListAuditResponseSchema,
+  VaultEnvListCandidatesResponseSchema,
+  VaultEnvImportResponseSchema,
+  VaultSourceBitwardenGetStatusRequestSchema,
+  VaultSourceBitwardenUnlockRequestSchema,
+  VaultSourceBitwardenLockRequestSchema,
+  VaultSourceBitwardenSearchItemsRequestSchema,
+  VaultSourceBitwardenGetStatusResponseSchema,
+  VaultSourceBitwardenUnlockResponseSchema,
+  VaultSourceBitwardenLockResponseSchema,
+  VaultSourceBitwardenSearchItemsResponseSchema,
+} from "./vault/rpc-schemas.js";
+import {
   SpeechLocalModelsDeleteRequestSchema,
   SpeechLocalModelsDeleteResponseSchema,
   SpeechLocalModelsDownloadRequestSchema,
@@ -3903,6 +3945,7 @@ export const SessionEventSubscriptionSchema = z.enum([
   "status.plugin_settings_changed",
   "status.automation_drafts_changed",
   "status.tasks_changed",
+  "status.vault_changed",
   "activity_log",
   "attack.run.changed",
   "attack.finding.changed",
@@ -4255,6 +4298,26 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   HeartbeatUpdateRequestSchema,
   HeartbeatDeleteRequestSchema,
   HeartbeatListRequestSchema,
+  VaultGetStatusRequestSchema,
+  VaultInitializeRequestSchema,
+  VaultUnlockRequestSchema,
+  VaultLockRequestSchema,
+  VaultAuthorizeRequestSchema,
+  VaultListSecretsRequestSchema,
+  VaultSetSecretRequestSchema,
+  VaultDeleteSecretRequestSchema,
+  VaultListGrantsRequestSchema,
+  VaultSetGrantRequestSchema,
+  VaultDeleteGrantRequestSchema,
+  VaultListRequestsRequestSchema,
+  VaultResolveRequestRequestSchema,
+  VaultListAuditRequestSchema,
+  VaultEnvListCandidatesRequestSchema,
+  VaultEnvImportRequestSchema,
+  VaultSourceBitwardenGetStatusRequestSchema,
+  VaultSourceBitwardenUnlockRequestSchema,
+  VaultSourceBitwardenLockRequestSchema,
+  VaultSourceBitwardenSearchItemsRequestSchema,
   SpeechLocalModelsListRequestSchema,
   SpeechLocalModelsDownloadRequestSchema,
   SpeechLocalModelsDeleteRequestSchema,
@@ -4507,6 +4570,10 @@ export const TasksChangedStatusPayloadSchema = z.object({
   status: z.literal("tasks_changed"),
 });
 
+export const VaultChangedStatusPayloadSchema = z.object({
+  status: z.literal("vault_changed"),
+});
+
 export const KnownStatusPayloadSchema = z.discriminatedUnion("status", [
   AgentCreatedStatusPayloadSchema,
   AgentCreateFailedStatusPayloadSchema,
@@ -4519,6 +4586,7 @@ export const KnownStatusPayloadSchema = z.discriminatedUnion("status", [
   PluginSettingsChangedStatusPayloadSchema,
   AutomationDraftsChangedStatusPayloadSchema,
   TasksChangedStatusPayloadSchema,
+  VaultChangedStatusPayloadSchema,
 ]);
 
 export type KnownStatusPayload = z.infer<typeof KnownStatusPayloadSchema>;
@@ -8404,6 +8472,26 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   HeartbeatUpdateResponseSchema,
   HeartbeatDeleteResponseSchema,
   HeartbeatListResponseSchema,
+  VaultGetStatusResponseSchema,
+  VaultInitializeResponseSchema,
+  VaultUnlockResponseSchema,
+  VaultLockResponseSchema,
+  VaultAuthorizeResponseSchema,
+  VaultListSecretsResponseSchema,
+  VaultSetSecretResponseSchema,
+  VaultDeleteSecretResponseSchema,
+  VaultListGrantsResponseSchema,
+  VaultSetGrantResponseSchema,
+  VaultDeleteGrantResponseSchema,
+  VaultListRequestsResponseSchema,
+  VaultResolveRequestResponseSchema,
+  VaultListAuditResponseSchema,
+  VaultEnvListCandidatesResponseSchema,
+  VaultEnvImportResponseSchema,
+  VaultSourceBitwardenGetStatusResponseSchema,
+  VaultSourceBitwardenUnlockResponseSchema,
+  VaultSourceBitwardenLockResponseSchema,
+  VaultSourceBitwardenSearchItemsResponseSchema,
   SpeechLocalModelsListResponseSchema,
   SpeechLocalModelsDownloadResponseSchema,
   SpeechLocalModelsDeleteResponseSchema,
@@ -8599,6 +8687,22 @@ export type HeartbeatCreateResponse = z.infer<typeof HeartbeatCreateResponseSche
 export type HeartbeatUpdateResponse = z.infer<typeof HeartbeatUpdateResponseSchema>;
 export type HeartbeatDeleteResponse = z.infer<typeof HeartbeatDeleteResponseSchema>;
 export type HeartbeatListResponse = z.infer<typeof HeartbeatListResponseSchema>;
+export type VaultGetStatusResponse = z.infer<typeof VaultGetStatusResponseSchema>;
+export type VaultInitializeResponse = z.infer<typeof VaultInitializeResponseSchema>;
+export type VaultUnlockResponse = z.infer<typeof VaultUnlockResponseSchema>;
+export type VaultLockResponse = z.infer<typeof VaultLockResponseSchema>;
+export type VaultAuthorizeResponse = z.infer<typeof VaultAuthorizeResponseSchema>;
+export type VaultListSecretsResponse = z.infer<typeof VaultListSecretsResponseSchema>;
+export type VaultSetSecretResponse = z.infer<typeof VaultSetSecretResponseSchema>;
+export type VaultDeleteSecretResponse = z.infer<typeof VaultDeleteSecretResponseSchema>;
+export type VaultListGrantsResponse = z.infer<typeof VaultListGrantsResponseSchema>;
+export type VaultSetGrantResponse = z.infer<typeof VaultSetGrantResponseSchema>;
+export type VaultDeleteGrantResponse = z.infer<typeof VaultDeleteGrantResponseSchema>;
+export type VaultListRequestsResponse = z.infer<typeof VaultListRequestsResponseSchema>;
+export type VaultResolveRequestResponse = z.infer<typeof VaultResolveRequestResponseSchema>;
+export type VaultListAuditResponse = z.infer<typeof VaultListAuditResponseSchema>;
+export type VaultEnvListCandidatesResponse = z.infer<typeof VaultEnvListCandidatesResponseSchema>;
+export type VaultEnvImportResponse = z.infer<typeof VaultEnvImportResponseSchema>;
 
 // Type exports for payload types
 export type ActivityLogPayload = z.infer<typeof ActivityLogPayloadSchema>;
@@ -8717,6 +8821,22 @@ export type HeartbeatCreateRequest = z.infer<typeof HeartbeatCreateRequestSchema
 export type HeartbeatUpdateRequest = z.infer<typeof HeartbeatUpdateRequestSchema>;
 export type HeartbeatDeleteRequest = z.infer<typeof HeartbeatDeleteRequestSchema>;
 export type HeartbeatListRequest = z.infer<typeof HeartbeatListRequestSchema>;
+export type VaultGetStatusRequest = z.infer<typeof VaultGetStatusRequestSchema>;
+export type VaultInitializeRequest = z.infer<typeof VaultInitializeRequestSchema>;
+export type VaultUnlockRequest = z.infer<typeof VaultUnlockRequestSchema>;
+export type VaultLockRequest = z.infer<typeof VaultLockRequestSchema>;
+export type VaultAuthorizeRequest = z.infer<typeof VaultAuthorizeRequestSchema>;
+export type VaultListSecretsRequest = z.infer<typeof VaultListSecretsRequestSchema>;
+export type VaultSetSecretRequest = z.infer<typeof VaultSetSecretRequestSchema>;
+export type VaultDeleteSecretRequest = z.infer<typeof VaultDeleteSecretRequestSchema>;
+export type VaultListGrantsRequest = z.infer<typeof VaultListGrantsRequestSchema>;
+export type VaultSetGrantRequest = z.infer<typeof VaultSetGrantRequestSchema>;
+export type VaultDeleteGrantRequest = z.infer<typeof VaultDeleteGrantRequestSchema>;
+export type VaultListRequestsRequest = z.infer<typeof VaultListRequestsRequestSchema>;
+export type VaultResolveRequestRequest = z.infer<typeof VaultResolveRequestRequestSchema>;
+export type VaultListAuditRequest = z.infer<typeof VaultListAuditRequestSchema>;
+export type VaultEnvListCandidatesRequest = z.infer<typeof VaultEnvListCandidatesRequestSchema>;
+export type VaultEnvImportRequest = z.infer<typeof VaultEnvImportRequestSchema>;
 export type ResumeAgentRequestMessage = z.infer<typeof ResumeAgentRequestMessageSchema>;
 export type DeleteAgentRequestMessage = z.infer<typeof DeleteAgentRequestMessageSchema>;
 export type UpdateAgentRequestMessage = z.infer<typeof UpdateAgentRequestMessageSchema>;

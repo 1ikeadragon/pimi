@@ -65,6 +65,8 @@ const GROUP_BY_TOOL: Readonly<Record<string, string>> = {
   forget_project_note: "memory",
   remember_global_note: "memory",
   forget_global_note: "memory",
+  vault_list: "vault",
+  vault_run: "vault",
   list_flows: "flows",
   run_flow: "flows",
   save_flow: "flows",
