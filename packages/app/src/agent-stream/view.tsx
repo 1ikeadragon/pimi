@@ -49,6 +49,7 @@ import {
 } from "@/components/pimi-task-proposal-card";
 import { getDesktopHost } from "@/desktop/host";
 import { isIdeModeAvailable, toHostPath, useOpenInIde } from "@/desktop/open-in-ide";
+import { resolvePimiToolLeaf } from "@pimi/protocol/pimi-tool-presentation/index";
 import {
   isPimiFlowRunTool,
   isPimiReviewSuggestionTool,
@@ -293,20 +294,28 @@ export interface AgentStreamViewProps {
   };
 }
 
-function renderPimiAction(data: AgentToolCallData, serverId: string | undefined, agentId: string) {
+function renderPimiAction(input: {
+  data: AgentToolCallData;
+  serverId: string | undefined;
+  agentId: string;
+  imageAgentId: string;
+}) {
+  const { data, serverId, agentId, imageAgentId } = input;
   if (data.status !== "completed" || data.error || data.detail.type !== "unknown") return null;
-  const desktop = Boolean(getDesktopHost()?.showPimiWorkspace);
+  // A tool run through call_pimi_tool names the real tool in its input.
+  const tool = resolvePimiToolLeaf(data.name, data.detail) ?? data.name;
+  // A provider subagent's stream id is not an agent; the tool records its parent as the source.
   const matches = (source: { serverId: string; agentId: string }) =>
-    source.serverId === serverId && source.agentId === agentId;
-  if (isPimiTaskCreateTool(data.name)) {
+    source.serverId === serverId && (source.agentId === agentId || source.agentId === imageAgentId);
+  if (isPimiTaskCreateTool(tool)) {
     if (!serverId) return null;
     const result = readPimiCreatedTask(data.detail.output);
     if (result) return <PimiCreatedTaskCard result={result} serverId={serverId} />;
-  } else if (isPimiFlowRunTool(data.name)) {
+  } else if (isPimiFlowRunTool(tool)) {
     if (!serverId) return null;
     const started = readFlowRunStart(data.detail.output);
     if (started) return <FlowRunCard runId={started.runId} serverId={serverId} />;
-  } else if (desktop && isPimiReviewSuggestionTool(data.name)) {
+  } else if (isPimiReviewSuggestionTool(tool)) {
     const suggestion = readPimiReviewSuggestion(data.detail.output);
     if (suggestion && matches(suggestion.source))
       return <PimiReviewSuggestionCard suggestion={suggestion} />;
@@ -981,7 +990,12 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         if (payload.source === "agent") {
           const data = payload.data;
 
-          const pimiAction = renderPimiAction(data, resolvedServerId, agentId);
+          const pimiAction = renderPimiAction({
+            data,
+            serverId: resolvedServerId,
+            agentId,
+            imageAgentId,
+          });
           if (pimiAction) return pimiAction;
 
           if (
@@ -1048,6 +1062,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       },
       [
         agentId,
+        imageAgentId,
         context.cwd,
         lastTurnId,
         resolvedServerId,
