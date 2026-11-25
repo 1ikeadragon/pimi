@@ -74,14 +74,8 @@ export class PushNotifier {
     try {
       const parsed = JSON.parse(readFileSync(this.filePath, "utf8")) as {
         devices?: unknown;
-        handles?: unknown;
       };
-      // COMPAT(push-handles.json v1): `{ version: 1, handles: [...] }` had no preview keys. Phones
-      // re-send theirs on the next connect; until then they get generic notifications.
-      let rows: unknown = parsed.devices;
-      if (!Array.isArray(rows) && Array.isArray(parsed.handles)) {
-        rows = parsed.handles.map((handle) => ({ handle, previewKey: null }));
-      }
+      const rows = parsed.devices;
       if (!Array.isArray(rows)) return [];
       const devices: PushDevice[] = [];
       for (const entry of rows as Array<Partial<PushDevice> | null>) {
