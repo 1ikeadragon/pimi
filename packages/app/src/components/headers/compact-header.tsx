@@ -41,9 +41,8 @@ interface CompactHeaderProps {
 
 /**
  * The phone header: the navigation button and the screen's actions sit in islands, with the title
- * left-aligned between them. Neither the header nor its islands draw a background, so it reads the
- * same in flow and floating over content (see `FloatingHeaderLayout`, whose fade gives the icons
- * contrast). Its height matches the old flat header, so anything
+ * left-aligned between them. Neither the header nor its islands draw a background; floating over
+ * content, `FloatingHeaderLayout` gives it a solid one. Its height matches the old flat header, so anything
  * offset by the header height still lines up.
  */
 export function CompactHeader({

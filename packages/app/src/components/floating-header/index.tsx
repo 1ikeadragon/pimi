@@ -68,6 +68,7 @@ export function FloatingHeaderLayout({ header, floating, children }: FloatingHea
             testID="floating-header"
             collapsable={false}
             pointerEvents="box-none"
+            style={styles.header}
             onLayout={handleHeaderLayout}
           >
             {header}
@@ -81,7 +82,7 @@ export function FloatingHeaderLayout({ header, floating, children }: FloatingHea
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme) => ({
   root: {
     flex: 1,
     minHeight: 0,
@@ -112,4 +113,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-});
+  // Solid, so scrolled text never shows through behind the title; the fade only softens the edge below.
+  header: {
+    backgroundColor: theme.colors.surfaceWorkspace,
+  },
+}));
