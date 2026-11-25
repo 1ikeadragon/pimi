@@ -108,21 +108,21 @@ import type {
   PimiToolCatalogFactory,
   PimiToolRuntimeContext,
 } from "./tools/types.js";
-import { memoryRecallInstructions } from "./tools/project-memory-tools.js";
 import { redactStrings, type OutputRedactor } from "../vault/redact-deep.js";
 import { isPimiToolEnabled, isPimiToolPolicyEnabled } from "./pimi-tool-policy.js";
+import {
+  buildPimiInstructionParts,
+  composeDaemonAppendPrompt,
+  type PimiInstructionPart,
+} from "./instructions/pimi-layers.js";
 import {
   ProviderSubagentStore,
   type ProviderSubagentDescriptor,
   type ProviderSubagentStoreEvent,
 } from "./provider-subagents/store.js";
 import { AgentBackgroundWorkStore, type AgentBackgroundWorkItem } from "./background-work/index.js";
-import { LAZY_TOOL_GROUP_NAMES, lazyPimiToolCatalog } from "./tools/lazy-tool-groups.js";
-import {
-  CREW_DELEGATE_TOOL,
-  CREW_LEAD_INSTRUCTIONS,
-  crewChangeNote,
-} from "./tools/crew-delegate.js";
+import { lazyPimiToolCatalog } from "./tools/lazy-tool-groups.js";
+import { CREW_DELEGATE_TOOL, crewChangeNote } from "./tools/crew-delegate.js";
 import { withTimeout } from "../../utils/promise-timeout.js";
 import { extractAttention } from "../persistence-hooks.js";
 import {
@@ -176,77 +176,6 @@ import {
   withoutCarriedContext,
   type AgentProviderSwitchTarget,
 } from "./provider-switch.js";
-
-/** Scopes Pimi's tools and keeps agents from opening a browser to check their own visuals. */
-const PIMI_SCOPE_INSTRUCTIONS =
-  "Ordinary coding tasks need no Pimi tools. Show a visual by writing its block in the reply: Pimi draws it, so it needs no check. Never open a browser, take a screenshot, load browser tools, or start a server to check or show your own chart or page, unless the user asked for browser work.";
-
-// Without its tools an agent asked to delegate or remember improvises: it runs `claude -p` or
-// `codex exec` in a shell, or writes Pimi's memory files by hand. Neither shows up in Pimi.
-/** The lead instructions for a chat in Crew mode that can reach the `delegate` tool. */
-function crewLeadInstructions(
-  config: AgentSessionConfig,
-  hostToolsEnabled: boolean,
-  policy: ProviderPimiToolsPolicy | undefined,
-): string[] {
-  const delegates = config.crew && hostToolsEnabled && isPimiToolEnabled(policy, "delegate");
-  return delegates ? [CREW_LEAD_INSTRUCTIONS] : [];
-}
-
-function pimiToolsOffInstructions(provider: string, hostToolsEnabled: boolean): string {
-  const [where, fix] = hostToolsEnabled
-    ? [
-        `for this provider (${provider})`,
-        `switch this chat to another provider, or remove "pimiTools": { "enabled": false } from agents.providers.${provider} in this host's Pimi config.json`,
-      ]
-    : [
-        "on this host",
-        "turn on Enable Pimi tools under Orchestration in this host's settings in Pimi",
-      ];
-  return `Pimi's agent tools are turned off ${where}, so you cannot start other agents or providers, use shared memory, or track tasks here. If the user asks for one of these, say that Pimi tools are off ${where} and that they can ${fix}. Do not run claude, codex, opencode, or another agent CLI from a shell instead, and do not write Pimi's memory or task files yourself.`;
-}
-
-// Only what an agent must know before it picks a tool lives here. How to use a tool is in that
-// tool's description, which the agent reads once the tool is listed or loaded.
-function pimiActionInstructions(input: {
-  policy: ProviderPimiToolsPolicy | undefined;
-  provider: string;
-  hostToolsEnabled: boolean;
-}): string[] {
-  const { policy } = input;
-  if (!isPimiToolPolicyEnabled(policy)) {
-    return [pimiToolsOffInstructions(input.provider, input.hostToolsEnabled)];
-  }
-  const instructions = [
-    `Pimi lists only its core tools. For ${LAZY_TOOL_GROUP_NAMES.join(", ")}, call pimi_tools with a group, then run a tool with call_pimi_tool.`,
-  ];
-  if (isPimiToolEnabled(policy, "create_pimi_task")) {
-    instructions.push(
-      "When the user asks to add, track, or remember a task or to-do, call create_pimi_task.",
-    );
-  }
-  if (isPimiToolEnabled(policy, "create_agent")) {
-    instructions.push(
-      'When the user asks for another agent, a worker, a second opinion, or another provider or model to do or answer something ("ask another agent", "use opencode to", "split this between two agents"), or for parallel workers, call create_agent once per worker, even on your own provider. Your built-in subagent tool (Task or Agent) and agent CLIs run from a shell (claude, codex, opencode, gemini) show the user nothing: never use them for a worker the user asked for or another model\'s answer, only for your own lookups.',
-    );
-  }
-  if (isPimiToolEnabled(policy, "create_chat")) {
-    instructions.push(
-      'When the user asks to open or start a new chat, or to do something "in a new chat", call create_chat with initialPrompt: that chat is the user\'s own, not your worker.',
-    );
-  }
-  if (isPimiToolEnabled(policy, "suggest_pimi_review")) {
-    instructions.push(
-      "When you finish changing files in a turn, call suggest_pimi_review with a one-line summary of what changed.",
-    );
-  }
-  if (isPimiToolEnabled(policy, "browser_show")) {
-    instructions.push(
-      "When the user asks to see or open a web page or link, or you want them to look at one (for example a dev server you started), call browser_show with the URL and keep the link in your reply.",
-    );
-  }
-  return instructions;
-}
 
 /** What decides the Pimi tools a session opening for this agent lists. */
 function launchToolContext(
@@ -7682,10 +7611,6 @@ export class AgentManager {
     return this.vault ? redactStrings(value, this.vault.redactor) : value;
   }
 
-  private vaultPrompt(enabled: boolean): string[] {
-    return enabled && this.vault ? this.vault.instructions() : [];
-  }
-
   private dispatchStream(
     agentId: string,
     rawEvent: AgentStreamEvent,
@@ -7872,6 +7797,36 @@ export class AgentManager {
       delete launchConfig.daemonAppendSystemPrompt;
       return { storedConfig, launchConfig, pimiToolPolicy: { enabled: false }, attackRun: false };
     }
+    const { pimiToolPolicy, parts } = await this.resolvePimiInstructionParts(storedConfig, options);
+    const launchConfig = this.applyDaemonAppendSystemPrompt(
+      withRuntimePimiMcpServer({
+        config: storedConfig,
+        agentId,
+        mcpBaseUrl:
+          this.pimiToolsEnabled && isPimiToolPolicyEnabled(pimiToolPolicy) ? this.mcpBaseUrl : null,
+        mcpAuthToken: this.mcpCallerAuthToken?.(agentId) ?? this.mcpAuthToken,
+      }),
+      parts,
+    );
+    return {
+      storedConfig,
+      launchConfig,
+      pimiToolPolicy,
+      attackRun: carriesAttackRun(options),
+    };
+  }
+
+  /**
+   * The Pimi instruction parts a launch of this config appends. Launch and the Instructions view
+   * both call this, so the view cannot drift from what the agent gets.
+   */
+  private async resolvePimiInstructionParts(
+    storedConfig: AgentSessionConfig,
+    options: { purpose?: AgentResumePurpose; background?: boolean },
+  ): Promise<{
+    pimiToolPolicy: ProviderPimiToolsPolicy | undefined;
+    parts: PimiInstructionPart[];
+  }> {
     const pimiToolPolicy = this.pimiToolsEnabled
       ? this.resolvePimiToolPolicy(storedConfig.provider)
       : { enabled: false };
@@ -7886,47 +7841,34 @@ export class AgentManager {
     let visualizationInstructions = PIMI_VISUALIZATION_INSTRUCTIONS;
     if (visualizeSkillReady) visualizationInstructions = PIMI_VISUALIZATION_BRIEF;
     else if (guideToolReady) visualizationInstructions = PIMI_VISUALIZATION_TOOL_BRIEF;
-    const pimiInstructions = interactiveChat
-      ? [
-          PIMI_SCOPE_INSTRUCTIONS,
-          ...pimiActionInstructions({
-            policy: pimiToolPolicy,
-            provider: storedConfig.provider,
-            hostToolsEnabled: this.pimiToolsEnabled,
-          }),
-          visualizationInstructions,
-          ...crewLeadInstructions(storedConfig, this.pimiToolsEnabled, pimiToolPolicy),
-        ]
-      : [];
-    const canRecallMemory =
-      this.mcpCallerAuthToken && !storedConfig.internal && options.purpose !== "history";
-    const memoryPrompt = canRecallMemory ? memoryRecallInstructions(pimiToolPolicy) : [];
-    const vaultPrompt = this.vaultPrompt(Boolean(canRecallMemory));
-    const launchConfig = this.applyDaemonAppendSystemPrompt(
-      withRuntimePimiMcpServer({
-        config: storedConfig,
-        agentId,
-        mcpBaseUrl:
-          this.pimiToolsEnabled && isPimiToolPolicyEnabled(pimiToolPolicy) ? this.mcpBaseUrl : null,
-        mcpAuthToken: this.mcpCallerAuthToken?.(agentId) ?? this.mcpAuthToken,
-      }),
-      [...pimiInstructions, ...memoryPrompt, ...vaultPrompt].join("\n\n"),
+    const canRecallMemory = Boolean(
+      this.mcpCallerAuthToken && !storedConfig.internal && options.purpose !== "history",
     );
-    return {
-      storedConfig,
-      launchConfig,
-      pimiToolPolicy,
-      attackRun: carriesAttackRun(options),
-    };
+    const parts = buildPimiInstructionParts({
+      interactiveChat,
+      config: storedConfig,
+      hostToolsEnabled: this.pimiToolsEnabled,
+      policy: pimiToolPolicy,
+      visualizationInstructions,
+      canRecallMemory,
+      vaultInstructions: canRecallMemory && this.vault ? this.vault.instructions() : [],
+    });
+    return { pimiToolPolicy, parts };
+  }
+
+  /** The host System prompt and Pimi parts of an agent's config, as the next launch would send. */
+  async describePimiInstructions(
+    config: AgentSessionConfig,
+  ): Promise<{ hostPrompt: string; parts: PimiInstructionPart[] }> {
+    const { parts } = await this.resolvePimiInstructionParts(config, {});
+    return { hostPrompt: this.appendSystemPrompt.trim(), parts };
   }
 
   private applyDaemonAppendSystemPrompt(
     config: AgentSessionConfig,
-    additionalPrompt: string,
+    parts: readonly PimiInstructionPart[],
   ): AgentSessionConfig {
-    const daemonAppendSystemPrompt = [this.appendSystemPrompt.trim(), additionalPrompt]
-      .filter(Boolean)
-      .join("\n\n");
+    const daemonAppendSystemPrompt = composeDaemonAppendPrompt(this.appendSystemPrompt, parts);
     const next = { ...config };
     delete next.daemonAppendSystemPrompt;
 
