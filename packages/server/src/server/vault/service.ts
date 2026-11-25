@@ -4,6 +4,7 @@ import path from "node:path";
 import type pino from "pino";
 import {
   VAULT_MIN_PASSPHRASE_LENGTH,
+  secretNameFromEnvName,
   VaultEnvNameSchema,
   VaultSecretNameSchema,
   type VaultAuditEntry,
@@ -14,6 +15,7 @@ import {
   type VaultGrantBinding,
   type VaultRequest,
   type VaultRequestDecision,
+  type VaultRequestWait,
   type VaultSecretMeta,
   type VaultBitwardenItem,
   type VaultBitwardenMissing,
@@ -36,6 +38,7 @@ import {
 import { removeEnvNames } from "./env-scrub.js";
 import { VaultError } from "./errors.js";
 import { bindingsForRun, isInside, matchGrant, runsProjectCode, runKey } from "./grants.js";
+import type { QuickUnlock } from "./quick-unlock.js";
 import type { OutputRedactor } from "./redact-deep.js";
 import { RUN_MAX_TIMEOUT_MS, resolveExecutable, runProgram, type RunResult } from "./runner.js";
 import { createExternalProcessEnv } from "../pimi-env.js";
@@ -49,10 +52,6 @@ import {
 } from "./store.js";
 
 // ---
-
-// The vault locks itself when nothing has used it for this long. 15 minutes covers a pause in an
-// agent session without leaving decrypted secrets in daemon memory for an afternoon.
-export const IDLE_LOCK_MS = 15 * 60 * 1000;
 
 // Passphrase attempts (unlock and authorize share one budget). Five covers human typos. After
 // that each failure doubles the wait, from 1 s up to 15 min, so a client that can only reach the
@@ -72,6 +71,9 @@ export const REQUEST_TTL_MS = 10 * 60 * 1000;
 // because the approval is for one execution, not a standing grant.
 export const APPROVAL_TICKET_TTL_MS = 2 * 60 * 1000;
 
+// The picker shows this many matches; a longer list is a query that needs more letters.
+const BITWARDEN_SEARCH_LIMIT = 50;
+
 // Names whose values are likely credentials. Used only to suggest candidates in the import list;
 // nothing is removed or imported without the user selecting it.
 const CREDENTIAL_NAME_PATTERN =
@@ -79,12 +81,35 @@ const CREDENTIAL_NAME_PATTERN =
 
 // ---
 
-type ApprovalWaiter = (outcome: VaultRequestDecision | "locked") => void;
-
 interface PendingApproval {
   request: VaultRequest;
   runKey: string;
-  waiters: Set<ApprovalWaiter>;
+  /** Runs blocked on this request; each one wakes when anything that could unblock it changes. */
+  waiters: Set<() => void>;
+  /** Set by `resolveRequest`; read by the run that was waiting on an approval. */
+  decision: VaultRequestDecision | null;
+}
+
+interface RunNeed {
+  kind: VaultRequestWait;
+  secrets: VaultGrantBinding[];
+  sourceSecrets: string[];
+}
+
+interface NeedResolution {
+  need: RunNeed | null;
+  bindings: VaultGrantBinding[];
+  grantId: string | null;
+  /** A one-time approval left by an earlier call was used in this pass. */
+  approved: boolean;
+  grantless: boolean;
+}
+
+/** What the Bitwarden items listing left behind: names only, no values. */
+interface BitwardenIndex {
+  items: VaultBitwardenItem[];
+  synced: boolean;
+  expiresAt: number;
 }
 
 interface Unlocked {
@@ -97,8 +122,11 @@ export interface VaultServiceOptions {
   /** The user's `bw` CLI. Without it Bitwarden-backed secrets cannot be loaded. */
   bitwarden: BitwardenCli;
   pimiHome: string;
+  quickUnlock: QuickUnlock;
   /** Whether the user turned the vault on; read on every use so a Settings change applies live. */
   isEnabled: () => boolean;
+  /** Minutes without use before the vault locks itself; 0 never. Read on every use. */
+  idleLockMinutes: () => number;
   /** The environment the daemon spawns children from; names the vault manages are removed from it. */
   env: NodeJS.ProcessEnv;
   logger: pino.Logger;
@@ -130,10 +158,6 @@ export interface ApprovalInput {
   secrets: VaultGrantBinding[];
 }
 
-export type ApprovalOutcome =
-  | { kind: "decided"; decision: VaultRequestDecision }
-  | { kind: "timeout"; requestId: string };
-
 export interface ResolveRequestInput {
   requestId: string;
   decision: VaultRequestDecision;
@@ -151,14 +175,14 @@ export interface RunInput {
   agentId: string | null;
   projectId: string | null;
   timeoutMs: number;
-  /** How long to wait for the operator before telling the caller to call again. */
-  approvalWaitMs: number;
+  /** How long to wait for the operator (unlock, approval, Bitwarden) before telling the caller to call again. */
+  waitMs: number;
   signal?: AbortSignal;
 }
 
 export type RunOutcome =
   | { status: "completed"; result: RunResult }
-  | { status: "awaiting_approval"; requestId: string }
+  | { status: "waiting"; waitingFor: VaultRequestWait; requestId: string }
   | { status: "denied" };
 
 export interface EnvImportResult {
@@ -195,15 +219,22 @@ export class VaultService implements OutputRedactor {
   private readonly pending = new Map<string, PendingApproval>();
   private readonly tickets = new Map<string, number>();
   private readonly externalValues = new Map<string, { value: string; expiresAt: number }>();
+  private bitwardenIndex: BitwardenIndex | null = null;
+  private bitwardenMissing: VaultBitwardenMissing[] = [];
+  private readonly requestListeners = new Set<(request: VaultRequest) => void>();
   private readonly listeners = new Set<() => void>();
   private readonly isEnabled: () => boolean;
+  readonly quickUnlock: QuickUnlock;
+  private readonly idleLockMinutes: () => number;
 
   constructor(options: VaultServiceOptions) {
     this.store = new VaultStore(options.pimiHome);
     this.audit = new VaultAudit(options.pimiHome);
     this.env = options.env;
     this.isEnabled = options.isEnabled;
+    this.idleLockMinutes = options.idleLockMinutes;
     this.bitwarden = options.bitwarden;
+    this.quickUnlock = options.quickUnlock;
     this.logger = options.logger.child({ module: "vault" });
   }
 
@@ -221,6 +252,12 @@ export class VaultService implements OutputRedactor {
       this.header = null;
       this.unreadable = error;
     }
+  }
+
+  /** Called when a blocked run files a request, so attention can be raised for its chat. */
+  onRequestCreated(listener: (request: VaultRequest) => void): () => void {
+    this.requestListeners.add(listener);
+    return () => this.requestListeners.delete(listener);
   }
 
   onChanged(listener: () => void): () => void {
@@ -248,6 +285,7 @@ export class VaultService implements OutputRedactor {
     this.pruneRequests();
     return {
       state: this.state,
+      quickUnlock: this.quickUnlock.availability(this.kdfSalt),
       idleLockAt: this.idleLockAt === null ? null : new Date(this.idleLockAt).toISOString(),
       operatorUntil: operatorUntil === null ? null : new Date(operatorUntil).toISOString(),
       pendingRequests: this.pending.size,
@@ -266,12 +304,18 @@ export class VaultService implements OutputRedactor {
   touch(): void {
     if (!this.unlocked) return;
     if (this.idleTimer) clearTimeout(this.idleTimer);
-    this.idleLockAt = Date.now() + IDLE_LOCK_MS;
+    this.idleTimer = null;
+    const idleMs = this.idleLockMinutes() * 60 * 1000;
+    if (idleMs === 0) {
+      this.idleLockAt = null;
+      return;
+    }
+    this.idleLockAt = Date.now() + idleMs;
     this.idleTimer = setTimeout(() => {
       this.lock("auto_locked").catch((error: unknown) => {
         this.logger.error({ err: error }, "Idle lock failed");
       });
-    }, IDLE_LOCK_MS);
+    }, idleMs);
     this.idleTimer.unref();
   }
 
@@ -290,13 +334,18 @@ export class VaultService implements OutputRedactor {
     }
   }
 
-  private recordFailure(): void {
+  /** Records a wrong attempt and says how many remain before the wait starts. */
+  private recordFailure(): VaultError {
     this.failedAttempts += 1;
     const excess = this.failedAttempts - AUTH_FREE_ATTEMPTS;
     if (excess > 0) {
       const backoff = Math.min(AUTH_BACKOFF_MAX_MS, AUTH_BACKOFF_BASE_MS * 2 ** (excess - 1));
       this.blockedUntil = Date.now() + backoff;
+      return new VaultError("bad_passphrase", "Wrong passphrase.");
     }
+    const left = AUTH_FREE_ATTEMPTS - this.failedAttempts;
+    const tries = left === 1 ? "1 try" : `${left} tries`;
+    return new VaultError("bad_passphrase", `Wrong passphrase. ${tries} left before a wait.`);
   }
 
   private recordSuccess(): void {
@@ -335,18 +384,37 @@ export class VaultService implements OutputRedactor {
     this.assertAttemptAllowed();
     const stored = await this.loadStoredOrThrow();
     const key = await deriveVaultKey(passphrase, stored.header.kdf);
+    await this.openWithKey(key, stored);
+  }
+
+  /**
+   * Unlocks with the vault key itself, as Touch ID unwraps it. Takes ownership of `key`. A wrong
+   * key counts against the same attempt budget as a wrong passphrase.
+   */
+  async unlockWithKey(key: Buffer): Promise<void> {
+    if (this.unlocked) return this.verifyKey(key);
+    this.assertAttemptAllowed();
+    const stored = await this.loadStoredOrThrow();
+    await this.openWithKey(key, stored);
+  }
+
+  private async openWithKey(
+    key: Buffer,
+    stored: NonNullable<Awaited<ReturnType<VaultStore["load"]>>>,
+  ): Promise<void> {
     let plaintext: Buffer;
     try {
       plaintext = openPayload({ key, header: stored.header, sealed: stored.sealed });
     } catch (error) {
       key.fill(0);
       if (error instanceof VaultError && error.code === "bad_passphrase") {
-        this.recordFailure();
+        const failure = this.recordFailure();
         await this.auditEventBestEffort(
           "unlock_failed",
           null,
           `Failed attempt ${this.failedAttempts}`,
         );
+        throw failure;
       }
       throw error;
     }
@@ -362,8 +430,10 @@ export class VaultService implements OutputRedactor {
     this.rebuildRedactor();
     this.applyScrub(stored.header.envScrubNames);
     this.touch();
+    this.dropOrphanedUnlockRequests();
     await this.auditEventBestEffort("unlocked", null, "Vault unlocked");
     this.emitChanged();
+    this.wakeRequests();
   }
 
   /** Proves the caller knows the passphrase of the unlocked vault. Constant-time key comparison. */
@@ -371,19 +441,36 @@ export class VaultService implements OutputRedactor {
     const current = this.requireUnlocked();
     this.assertAttemptAllowed();
     const candidate = await deriveVaultKey(passphrase, current.header.kdf);
+    await this.verifyKey(candidate);
+  }
+
+  /** Same check for a key from Touch ID. Takes ownership of `candidate`. */
+  async verifyKey(candidate: Buffer): Promise<void> {
+    const current = this.requireUnlocked();
+    this.assertAttemptAllowed();
     const matches = keysEqual(candidate, current.key);
     candidate.fill(0);
     if (!matches) {
-      this.recordFailure();
+      const failure = this.recordFailure();
       await this.auditEventBestEffort(
         "unlock_failed",
         null,
         `Failed operator attempt ${this.failedAttempts}`,
       );
-      throw new VaultError("bad_passphrase", "Wrong passphrase.");
+      throw failure;
     }
     this.recordSuccess();
     this.touch();
+  }
+
+  /** A copy of the key for Touch ID enrollment. The caller zeroes it. */
+  copyKeyForEnrollment(): Buffer {
+    return Buffer.from(this.requireUnlocked().key);
+  }
+
+  /** The KDF salt, hex: what an enrollment is bound to, so a recreated vault drops it. */
+  get kdfSalt(): string | null {
+    return this.header ? this.header.kdf.salt.toString("hex") : null;
   }
 
   async lock(reason: "locked" | "auto_locked" = "locked"): Promise<void> {
@@ -397,18 +484,17 @@ export class VaultService implements OutputRedactor {
     this.idleTimer = null;
     this.idleLockAt = null;
     this.dropExternalValues();
+    this.bitwardenMissing = [];
     this.tickets.clear();
     this.redactor = new Redactor([]);
-    for (const entry of this.pending.values()) {
-      for (const waiter of entry.waiters) waiter("locked");
-    }
-    this.pending.clear();
+    this.parkRequestsForLock();
     await this.auditEventBestEffort(
       reason,
       null,
       reason === "locked" ? "Vault locked" : "Vault locked after idle",
     );
     this.emitChanged();
+    this.wakeRequests();
   }
 
   private async loadStoredOrThrow(): Promise<NonNullable<Awaited<ReturnType<VaultStore["load"]>>>> {
@@ -521,6 +607,7 @@ export class VaultService implements OutputRedactor {
     if (this.externalTimer) clearTimeout(this.externalTimer);
     this.externalTimer = null;
     this.externalValues.clear();
+    this.bitwardenIndex = null;
   }
 
   // --- Bitwarden
@@ -539,36 +626,56 @@ export class VaultService implements OutputRedactor {
     return bindings;
   }
 
-  async bitwardenStatus(): Promise<VaultBitwardenStatus> {
+  async bitwardenStatus(
+    options: { fresh: boolean } = { fresh: false },
+  ): Promise<VaultBitwardenStatus> {
     this.requireUnlocked();
-    const auth = await this.bitwarden.getAuthState();
+    const account = await this.bitwarden.account(options);
     const expiries = [...this.externalValues.values()].map((entry) => entry.expiresAt);
+    const heldUntil =
+      this.bitwardenIndex?.expiresAt ?? (expiries.length > 0 ? Math.min(...expiries) : null);
     return {
-      installed: auth.installed,
-      authState: auth.authState,
+      installed: account.installed,
+      authState: account.authState,
+      userEmail: account.userEmail,
+      serverUrl: account.serverUrl,
+      lastSyncAt: account.lastSyncAt,
+      binaryPath: account.binaryPath,
+      indexedItems: this.bitwardenIndex?.items.length ?? null,
+      synced: this.bitwardenIndex?.synced ?? null,
+      missing: this.bitwardenMissing,
       loadedSecrets: [...this.externalValues.keys()],
-      loadedUntil: expiries.length > 0 ? new Date(Math.min(...expiries)).toISOString() : null,
+      loadedUntil: heldUntil === null ? null : new Date(heldUntil).toISOString(),
     };
   }
 
-  /** Copies every Bitwarden-bound secret into memory for `BITWARDEN_CACHE_TTL_MS`. */
-  async bitwardenUnlock(masterPassword: string): Promise<VaultBitwardenMissing[]> {
+  /**
+   * One master password entry: syncs, indexes every item (names only), and copies the bound
+   * fields into memory for `BITWARDEN_CACHE_TTL_MS`. The index and the values drop together.
+   */
+  async bitwardenOpen(masterPassword: string): Promise<{ synced: boolean; itemCount: number }> {
     const bindings = this.bitwardenBindings();
     this.touch();
-    const fetched = await this.bitwarden.fetch(masterPassword, bindings);
+    const opened = await this.bitwarden.open(masterPassword, bindings);
     this.dropExternalValues();
     const expiresAt = Date.now() + BITWARDEN_CACHE_TTL_MS;
-    for (const [name, value] of fetched.values) this.externalValues.set(name, { value, expiresAt });
+    for (const [name, value] of opened.values) this.externalValues.set(name, { value, expiresAt });
+    this.bitwardenIndex = { items: opened.items, synced: opened.synced, expiresAt };
+    this.bitwardenMissing = opened.missing.map((entry) => ({
+      secret: entry.secretName,
+      reason: entry.reason,
+    }));
     this.externalTimer = setTimeout(() => this.bitwardenLock(), BITWARDEN_CACHE_TTL_MS);
     this.externalTimer.unref();
     this.rebuildRedactor();
     await this.auditEventBestEffort(
       "bitwarden_unlocked",
       null,
-      `loaded=${[...fetched.values.keys()].join(",")} missing=${fetched.missing.map((m) => m.secretName).join(",")}`,
+      `loaded=${[...opened.values.keys()].join(",")} missing=${opened.missing.map((m) => m.secretName).join(",")} items=${opened.items.length} synced=${opened.synced}`,
     );
     this.emitChanged();
-    return fetched.missing.map((entry) => ({ secret: entry.secretName, reason: entry.reason }));
+    this.wakeRequests();
+    return { synced: opened.synced, itemCount: opened.items.length };
   }
 
   bitwardenLock(): void {
@@ -580,10 +687,21 @@ export class VaultService implements OutputRedactor {
     );
   }
 
-  async bitwardenSearch(masterPassword: string, query: string): Promise<VaultBitwardenItem[]> {
+  /** Case-insensitive substring over item name and username, first 50. Names only, never values. */
+  bitwardenSearch(query: string): VaultBitwardenItem[] {
     this.requireUnlocked();
     this.touch();
-    return this.bitwarden.searchItems(masterPassword, query);
+    if (!this.bitwardenIndex) {
+      throw new VaultError("source_unavailable", "Unlock Bitwarden to search its items.");
+    }
+    const needle = query.toLowerCase();
+    return this.bitwardenIndex.items
+      .filter(
+        (item) =>
+          item.name.toLowerCase().includes(needle) ||
+          (item.username?.toLowerCase().includes(needle) ?? false),
+      )
+      .slice(0, BITWARDEN_SEARCH_LIMIT);
   }
 
   listSecrets(): VaultSecretMeta[] {
@@ -743,7 +861,7 @@ export class VaultService implements OutputRedactor {
     return `${[grant.executable, ...grant.argvPrefix].join(" ")} [${secrets}]${grant.projectId ? ` project=${grant.projectId}` : ""}`;
   }
 
-  // --- approvals
+  // --- blocked runs
 
   private pruneRequests(): void {
     const cutoff = Date.now() - REQUEST_TTL_MS;
@@ -760,8 +878,8 @@ export class VaultService implements OutputRedactor {
     if (changed) this.emitChanged();
   }
 
+  /** Requests hold argv, cwd and names only, so they are listed while the vault is locked too. */
   listRequests(): VaultRequest[] {
-    this.requireUnlocked();
     this.pruneRequests();
     return [...this.pending.values()].map((entry) => entry.request);
   }
@@ -773,70 +891,181 @@ export class VaultService implements OutputRedactor {
     return this.tickets.delete(key);
   }
 
-  /**
-   * Files a request for the operator and waits for the decision, up to `waitMs`. The same call
-   * repeated while the request is pending joins it instead of filing another.
-   */
-  async requestApproval(
-    input: ApprovalInput,
-    options: { waitMs: number; signal?: AbortSignal },
-  ): Promise<ApprovalOutcome> {
-    this.requireUnlocked();
-    this.pruneRequests();
-    const key = runKey({ ...input, secrets: input.secrets.map((binding) => binding.secret) });
-    let entry = [...this.pending.values()].find((candidate) => candidate.runKey === key);
-    if (!entry) {
-      entry = {
-        request: {
-          id: randomUUID(),
-          createdAt: nowIso(),
-          agentId: input.agentId,
-          projectId: input.projectId,
-          cwd: input.cwd,
-          argv: input.argv,
-          secrets: input.secrets,
-          runsProjectCode: runsProjectCode(input.argv[0]) || isInside(input.argv[0], input.cwd),
-        },
-        runKey: key,
-        waiters: new Set(),
-      };
-      this.pending.set(entry.request.id, entry);
-      await this.auditEventBestEffort(
-        "request_created",
-        input.agentId,
-        `${input.argv.join(" ")} [${input.secrets.map((binding) => binding.secret).join(",")}]`,
-      );
-      this.emitChanged();
+  private wakeRequests(): void {
+    for (const entry of this.pending.values()) {
+      for (const wake of entry.waiters) wake();
     }
-    const joined = entry;
-    return new Promise<ApprovalOutcome>((resolve, reject) => {
-      const finish = (): void => {
-        clearTimeout(timer);
-        joined.waiters.delete(waiter);
-        options.signal?.removeEventListener("abort", onAbort);
+  }
+
+  /** A lock keeps the runs that are still waiting, as unlock requests, and drops the rest. */
+  private parkRequestsForLock(): void {
+    for (const [id, entry] of this.pending) {
+      if (entry.waiters.size === 0 && entry.request.waitingFor !== "unlock") {
+        this.pending.delete(id);
+        continue;
+      }
+      entry.request.waitingFor = "unlock";
+      entry.request.secrets = [];
+      entry.request.sourceSecrets = [];
+      entry.decision = null;
+    }
+    if (!this.enabled) this.pending.clear();
+  }
+
+  /** An unlock request whose run already gave up has nothing left to continue. */
+  private dropOrphanedUnlockRequests(): void {
+    for (const [id, entry] of this.pending) {
+      if (entry.request.waitingFor === "unlock" && entry.waiters.size === 0) {
+        this.pending.delete(id);
+      }
+    }
+  }
+
+  private async fileRequest(input: ApprovalInput, key: string): Promise<PendingApproval> {
+    const existing = [...this.pending.values()].find((candidate) => candidate.runKey === key);
+    if (existing) return existing;
+    const entry: PendingApproval = {
+      request: {
+        id: randomUUID(),
+        createdAt: nowIso(),
+        agentId: input.agentId,
+        projectId: input.projectId,
+        cwd: input.cwd,
+        argv: input.argv,
+        secrets: input.secrets,
+        runsProjectCode: runsProjectCode(input.argv[0]) || isInside(input.argv[0], input.cwd),
+        waitingFor: "unlock",
+        sourceSecrets: [],
+      },
+      runKey: key,
+      waiters: new Set(),
+      decision: null,
+    };
+    this.pending.set(entry.request.id, entry);
+    await this.auditEventBestEffort(
+      "request_created",
+      input.agentId,
+      `${input.argv.join(" ")} [${input.secrets.map((binding) => binding.secret).join(",")}]`,
+    );
+    for (const listener of this.requestListeners) listener(entry.request);
+    return entry;
+  }
+
+  private closeRequest(key: string): void {
+    for (const [id, entry] of this.pending) {
+      if (entry.runKey === key) this.pending.delete(id);
+    }
+    this.emitChanged();
+  }
+
+  private resolveNeed(params: {
+    input: RunInput;
+    names: string[];
+    executable: string;
+    args: string[];
+    argv: string[];
+    approvedEpoch: number | null;
+  }): NeedResolution {
+    const { input, names, executable, args, argv, approvedEpoch } = params;
+    if (this.state !== "unlocked") {
+      return {
+        need: { kind: "unlock", secrets: [], sourceSecrets: [] },
+        bindings: [],
+        grantId: null,
+        approved: false,
+        grantless: true,
       };
-      const waiter: ApprovalWaiter = (outcome) => {
-        finish();
-        if (outcome === "locked") reject(new VaultError("locked", "The vault was locked."));
-        else resolve({ kind: "decided", decision: outcome });
-      };
-      const timer = setTimeout(() => {
-        finish();
-        resolve({ kind: "timeout", requestId: joined.request.id });
-      }, options.waitMs);
-      const onAbort = (): void => {
-        finish();
-        resolve({ kind: "timeout", requestId: joined.request.id });
-      };
-      options.signal?.addEventListener("abort", onAbort, { once: true });
-      joined.waiters.add(waiter);
+    }
+    const unlocked = this.requireUnlocked();
+    this.touch();
+    const defaults: VaultGrantBinding[] = names.map((name) => {
+      const record = unlocked.payload.secrets.find((candidate) => candidate.name === name);
+      if (!record) throw new VaultError("not_found", `No secret named ${name}.`);
+      return { secret: name, envName: record.envName };
     });
+    const grant = matchGrant(this.grantRecords(), {
+      executable,
+      args,
+      projectId: input.projectId,
+      secrets: names,
+    });
+    const bindings = grant ? bindingsForRun(grant, names) : defaults;
+    let approved = false;
+    if (!grant && approvedEpoch !== this.epoch) {
+      const ticket = {
+        agentId: input.agentId,
+        cwd: input.cwd,
+        argv,
+        secrets: defaults,
+      };
+      if (!this.consumeTicket(ticket)) {
+        return {
+          need: { kind: "approval", secrets: defaults, sourceSecrets: [] },
+          bindings,
+          grantId: null,
+          approved: false,
+          grantless: true,
+        };
+      }
+      approved = true;
+    }
+    const unloaded = unlocked.payload.secrets.filter(
+      (record) =>
+        names.includes(record.name) &&
+        record.source.kind === "bitwarden" &&
+        this.valueOf(record) === null,
+    );
+    const need: RunNeed | null =
+      unloaded.length === 0
+        ? null
+        : {
+            kind: "source",
+            secrets: bindings,
+            sourceSecrets: unloaded.map((record) => record.name),
+          };
+    return { need, bindings, grantId: grant?.id ?? null, approved, grantless: grant === null };
+  }
+
+  private setWait(entry: PendingApproval, need: RunNeed): void {
+    const request = entry.request;
+    const same =
+      request.waitingFor === need.kind &&
+      request.sourceSecrets.join(",") === need.sourceSecrets.join(",");
+    if (same) return;
+    request.waitingFor = need.kind;
+    request.secrets = need.secrets;
+    request.sourceSecrets = need.sourceSecrets;
+    this.emitChanged();
+  }
+
+  /** Resolves when something that could unblock the run happens, or after `ms` or on abort. */
+  private async waitForChange(
+    entry: PendingApproval,
+    ms: number,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    let wake: () => void = () => undefined;
+    const woken = new Promise<void>((resolve) => {
+      wake = resolve;
+    });
+    entry.waiters.add(wake);
+    const timer = setTimeout(wake, ms);
+    signal?.addEventListener("abort", wake, { once: true });
+    try {
+      await woken;
+    } finally {
+      clearTimeout(timer);
+      entry.waiters.delete(wake);
+      signal?.removeEventListener("abort", wake);
+    }
   }
 
   async resolveRequest(input: ResolveRequestInput): Promise<void> {
     this.requireUnlocked();
     const entry = this.pending.get(input.requestId);
-    if (!entry) throw new VaultError("not_found", "That request is no longer pending.");
+    if (!entry || entry.request.waitingFor !== "approval") {
+      throw new VaultError("not_found", "That request is no longer pending.");
+    }
     const { request } = entry;
     if (input.decision === "always") {
       const args = request.argv.slice(1);
@@ -852,8 +1081,9 @@ export class VaultService implements OutputRedactor {
       });
     }
     this.pending.delete(input.requestId);
+    entry.decision = input.decision;
     if (entry.waiters.size > 0) {
-      for (const waiter of entry.waiters) waiter(input.decision);
+      for (const wake of entry.waiters) wake();
     } else if (input.decision === "once") {
       this.tickets.set(entry.runKey, Date.now() + APPROVAL_TICKET_TTL_MS);
     }
@@ -905,7 +1135,7 @@ export class VaultService implements OutputRedactor {
           result.scrubbed.push(name);
           continue;
         }
-        const secretName = name.toLowerCase().replace(/^[^a-z]+/, "");
+        const secretName = secretNameFromEnvName(name);
         const taken = draft.secrets.some((candidate) => candidate.name === secretName);
         if (!VaultSecretNameSchema.safeParse(secretName).success || taken) {
           result.skipped.push({ name, reason: taken ? "name_taken" : "invalid_name" });
@@ -972,15 +1202,10 @@ export class VaultService implements OutputRedactor {
 
   // --- running programs with secrets
 
-  async run(input: RunInput): Promise<RunOutcome> {
-    const unlocked = this.requireUnlocked();
-    this.touch();
-    const names = [...new Set(input.secrets)];
-    const defaults: VaultGrantBinding[] = names.map((name) => {
-      const record = unlocked.payload.secrets.find((candidate) => candidate.name === name);
-      if (!record) throw new VaultError("not_found", `No secret named ${name}.`);
-      return { secret: name, envName: record.envName };
-    });
+  /** Checks the directory and resolves the program; neither needs the vault. */
+  private async prepareCommand(
+    input: RunInput,
+  ): Promise<{ executable: string; args: string[]; argv: string[] }> {
     const cwdInfo = await stat(input.cwd).catch((error: unknown) => {
       throw new VaultError("invalid_argument", "The working directory does not exist.", {
         cause: error,
@@ -994,44 +1219,64 @@ export class VaultService implements OutputRedactor {
       searchPath: this.env.PATH ?? "",
     });
     const args = input.argv.slice(1);
-    const argv = [executable, ...args];
+    return { executable, args, argv: [executable, ...args] };
+  }
 
-    let bindings = defaults;
-    let grantId: string | null = null;
-    const grant = matchGrant(this.grantRecords(), {
-      executable,
-      args,
-      projectId: input.projectId,
-      secrets: names,
-    });
-    if (grant) {
-      bindings = bindingsForRun(grant, names);
-      grantId = grant.id;
-    } else {
-      const approval = {
-        agentId: input.agentId,
-        projectId: input.projectId,
-        cwd: input.cwd,
-        argv,
-        secrets: defaults,
-      };
-      if (!this.consumeTicket(approval)) {
-        const outcome = await this.requestApproval(approval, {
-          waitMs: input.approvalWaitMs,
-          signal: input.signal,
-        });
-        if (outcome.kind === "timeout")
-          return { status: "awaiting_approval", requestId: outcome.requestId };
-        if (outcome.decision === "deny") {
-          await this.auditEventBestEffort(
-            "run_refused",
-            input.agentId,
-            `denied: ${argv.join(" ")}`,
-          );
-          return { status: "denied" };
-        }
-      }
+  async run(input: RunInput): Promise<RunOutcome> {
+    if (this.state === "uninitialized") {
+      throw new VaultError("not_initialized", "The vault has no passphrase yet.");
     }
+    const names = [...new Set(input.secrets)];
+    const { executable, args, argv } = await this.prepareCommand(input);
+    const key = runKey({ agentId: input.agentId, cwd: input.cwd, argv, secrets: names });
+    const deadline = Date.now() + input.waitMs;
+
+    // Each pass asks what the run still needs: the vault unlocked, the command approved, its
+    // Bitwarden values loaded. A need becomes (or updates) one request and the run waits for
+    // that to change; every wait spends the same budget, so the tool call stays inside the
+    // provider's own tool timeout.
+    let approvedEpoch: number | null = null;
+    let bindings: VaultGrantBinding[] = [];
+    let grantId: string | null = null;
+    for (;;) {
+      if (!this.enabled) throw new VaultError("disabled", "The vault was turned off.");
+      const resolution = this.resolveNeed({ input, names, executable, args, argv, approvedEpoch });
+      if (resolution.approved) approvedEpoch = this.epoch;
+      if (resolution.need === null) {
+        bindings = resolution.bindings;
+        grantId = resolution.grantId;
+        break;
+      }
+      const entry = await this.fileRequest(
+        {
+          agentId: input.agentId,
+          projectId: input.projectId,
+          cwd: input.cwd,
+          argv,
+          secrets: resolution.need.secrets,
+        },
+        key,
+      );
+      this.setWait(entry, resolution.need);
+      const remaining = deadline - Date.now();
+      if (remaining <= 0 || input.signal?.aborted) {
+        if (approvedEpoch === this.epoch && resolution.grantless) {
+          this.tickets.set(key, Date.now() + APPROVAL_TICKET_TTL_MS);
+        }
+        return {
+          status: "waiting",
+          waitingFor: entry.request.waitingFor,
+          requestId: entry.request.id,
+        };
+      }
+      await this.waitForChange(entry, remaining, input.signal);
+      if (entry.decision === "deny") {
+        await this.auditEventBestEffort("run_refused", input.agentId, `denied: ${argv.join(" ")}`);
+        return { status: "denied" };
+      }
+      if (entry.decision !== null) approvedEpoch = this.epoch;
+    }
+    this.closeRequest(key);
 
     const envNames = new Set(bindings.map((binding) => envNameKey(binding.envName)));
     if (envNames.size !== bindings.length) {

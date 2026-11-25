@@ -284,6 +284,14 @@ import {
   VaultSourceBitwardenUnlockResponseSchema,
   VaultSourceBitwardenLockResponseSchema,
   VaultSourceBitwardenSearchItemsResponseSchema,
+  VaultSourceBitwardenRefreshRequestSchema,
+  VaultSourceBitwardenRefreshResponseSchema,
+  VaultQuickUnlockEnableRequestSchema,
+  VaultQuickUnlockEnableResponseSchema,
+  VaultQuickUnlockDisableRequestSchema,
+  VaultQuickUnlockDisableResponseSchema,
+  VaultQuickUnlockProveRequestSchema,
+  VaultQuickUnlockProveResponseSchema,
 } from "./vault/rpc-schemas.js";
 import {
   SpeechLocalModelsDeleteRequestSchema,
@@ -428,6 +436,8 @@ const MutableBrowserToolsConfigSchema = z
 const MutableVaultConfigSchema = z
   .object({
     enabled: z.boolean().default(false),
+    /** Minutes of no use before the vault locks itself. 0 keeps it unlocked until the daemon restarts. */
+    idleLockMinutes: z.number().int().min(0).default(15),
   })
   .passthrough();
 const MutableRelayConfigSchema = z
@@ -489,7 +499,7 @@ export const MutableDaemonConfigSchema = z
     catalogRefreshTimeoutMs: z.number().int().positive().optional(),
     usage: z.object({ enabled: z.boolean() }),
     browserTools: MutableBrowserToolsConfigSchema.default({ enabled: true }),
-    vault: MutableVaultConfigSchema.default({ enabled: false }),
+    vault: MutableVaultConfigSchema.default({ enabled: false, idleLockMinutes: 15 }),
     providers: z.record(z.string(), MutableDaemonProviderConfigSchema).default({}),
     metadataGeneration: MutableMetadataGenerationConfigSchema.default({
       providers: [],
@@ -4535,6 +4545,10 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   VaultSourceBitwardenUnlockRequestSchema,
   VaultSourceBitwardenLockRequestSchema,
   VaultSourceBitwardenSearchItemsRequestSchema,
+  VaultSourceBitwardenRefreshRequestSchema,
+  VaultQuickUnlockEnableRequestSchema,
+  VaultQuickUnlockDisableRequestSchema,
+  VaultQuickUnlockProveRequestSchema,
   SpeechLocalModelsListRequestSchema,
   SpeechLocalModelsDownloadRequestSchema,
   SpeechLocalModelsDeleteRequestSchema,
@@ -8833,6 +8847,10 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   VaultSourceBitwardenUnlockResponseSchema,
   VaultSourceBitwardenLockResponseSchema,
   VaultSourceBitwardenSearchItemsResponseSchema,
+  VaultSourceBitwardenRefreshResponseSchema,
+  VaultQuickUnlockEnableResponseSchema,
+  VaultQuickUnlockDisableResponseSchema,
+  VaultQuickUnlockProveResponseSchema,
   SpeechLocalModelsListResponseSchema,
   SpeechLocalModelsDownloadResponseSchema,
   SpeechLocalModelsDeleteResponseSchema,

@@ -21,7 +21,7 @@ interface SupportedMutableConfigPatch {
   mcp?: { injectIntoAgents?: boolean };
   usage?: { enabled: boolean };
   browserTools?: { enabled?: boolean };
-  vault?: { enabled?: boolean };
+  vault?: { enabled?: boolean; idleLockMinutes?: number };
   providers?: MutableDaemonConfig["providers"];
   replaceProviders?: MutableDaemonConfigPatch["replaceProviders"];
   removeProviders?: string[];
@@ -230,6 +230,7 @@ const RELOADABLE_PATHS = [
   "daemon.usage.enabled",
   "daemon.browserTools.enabled",
   "daemon.vault.enabled",
+  "daemon.vault.idleLockMinutes",
   "daemon.hostnames",
   "daemon.cors.allowedOrigins",
   "daemon.trustedProxies",
@@ -264,6 +265,7 @@ const PERSISTED_TO_MUTABLE_PATH = new Map<string, string>([
   ["daemon.usage.enabled", "usage.enabled"],
   ["daemon.browserTools.enabled", "browserTools.enabled"],
   ["daemon.vault.enabled", "vault.enabled"],
+  ["daemon.vault.idleLockMinutes", "vault.idleLockMinutes"],
   ["daemon.hostnames", "hostnames"],
   ["daemon.cors.allowedOrigins", "cors.allowedOrigins"],
   ["daemon.trustedProxies", "trustedProxies"],
@@ -363,6 +365,19 @@ function pickPolicyPatch(
   };
 }
 
+function pickVaultPatch(
+  patch: MutableDaemonConfigPatch,
+): Pick<SupportedMutableConfigPatch, "vault"> {
+  const { enabled, idleLockMinutes } = patch.vault ?? {};
+  if (enabled === undefined && idleLockMinutes === undefined) return {};
+  return {
+    vault: {
+      ...(enabled === undefined ? {} : { enabled }),
+      ...(idleLockMinutes === undefined ? {} : { idleLockMinutes }),
+    },
+  };
+}
+
 function pickFeatureSwitchPatch(
   patch: MutableDaemonConfigPatch,
 ): Pick<SupportedMutableConfigPatch, "browserTools" | "vault"> {
@@ -370,7 +385,7 @@ function pickFeatureSwitchPatch(
     ...(patch.browserTools?.enabled !== undefined
       ? { browserTools: { enabled: patch.browserTools.enabled } }
       : {}),
-    ...(patch.vault?.enabled !== undefined ? { vault: { enabled: patch.vault.enabled } } : {}),
+    ...pickVaultPatch(patch),
   };
 }
 
@@ -915,9 +930,7 @@ function mergeMutableDaemonPatch(
   if (patch.browserTools?.enabled !== undefined) {
     next.browserTools = { ...next.browserTools, enabled: patch.browserTools.enabled };
   }
-  if (patch.vault?.enabled !== undefined) {
-    next.vault = { ...next.vault, enabled: patch.vault.enabled };
-  }
+  if (patch.vault) next.vault = { ...next.vault, ...patch.vault };
   if (patch.autoArchiveAfterMerge !== undefined) {
     next.autoArchiveAfterMerge = patch.autoArchiveAfterMerge;
   }

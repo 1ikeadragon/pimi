@@ -613,6 +613,8 @@ export type AgentAttentionCallback = (params: {
   agentId: string;
   provider: AgentProvider;
   reason: "finished" | "error" | "permission";
+  /** Set when the attention is a blocked `vault_run`; the command as the user would read it. */
+  vaultCommand?: string;
 }) => void;
 
 export type AgentArchivedCallback = (agentId: string) => Promise<void> | void;
@@ -7616,6 +7618,7 @@ export class AgentManager {
   private broadcastAgentAttention(
     agent: ManagedAgent,
     reason: "finished" | "error" | "permission",
+    vaultCommand?: string,
   ): void {
     if (isDelegatedAgent(agent)) {
       return;
@@ -7625,7 +7628,19 @@ export class AgentManager {
       agentId: agent.id,
       provider: agent.provider,
       reason,
+      ...(vaultCommand === undefined ? {} : { vaultCommand }),
     });
+  }
+
+  /**
+   * Tells the user's clients that a chat is blocked on the vault. It is a notification only: the
+   * request is not a pending permission, because an agent can answer those and a vault request
+   * needs the user's proof.
+   */
+  raiseVaultAttention(agentId: string, command: string): void {
+    const agent = this.agents.get(agentId);
+    if (!agent || !raisesAttention(agent)) return;
+    this.broadcastAgentAttention(agent, "permission", command);
   }
 
   private redactOutput<T>(value: T): T {

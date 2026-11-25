@@ -53,6 +53,7 @@ import type {
   VaultRequestDecision,
   VaultSecretSource,
 } from "@pimi/protocol/vault/types";
+import type { VaultQuickUnlockPurpose } from "@pimi/protocol/vault/rpc-schemas";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
 import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
 import {
@@ -953,6 +954,22 @@ export type VaultSourceBitwardenUnlockPayload = Extract<
 export type VaultSourceBitwardenLockPayload = Extract<
   SessionOutboundMessage,
   { type: "vault.source.bitwarden.lock.response" }
+>["payload"];
+export type VaultSourceBitwardenRefreshPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.source.bitwarden.refresh.response" }
+>["payload"];
+export type VaultQuickUnlockEnablePayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.quick_unlock.enable.response" }
+>["payload"];
+export type VaultQuickUnlockDisablePayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.quick_unlock.disable.response" }
+>["payload"];
+export type VaultQuickUnlockProvePayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.quick_unlock.prove.response" }
 >["payload"];
 export type VaultSourceBitwardenSearchItemsPayload = Extract<
   SessionOutboundMessage,
@@ -8308,15 +8325,36 @@ export class DaemonClient {
   }
 
   async vaultBitwardenSearchItems(options: {
-    masterPassword: string;
     query: string;
   }): Promise<VaultSourceBitwardenSearchItemsPayload> {
     return this.sendNamespacedCorrelatedSessionRequest({
-      message: {
-        type: "vault.source.bitwarden.search_items.request",
-        masterPassword: options.masterPassword,
-        query: options.query,
-      },
+      message: { type: "vault.source.bitwarden.search_items.request", query: options.query },
+    });
+  }
+
+  async vaultBitwardenRefresh(): Promise<VaultSourceBitwardenRefreshPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.source.bitwarden.refresh.request" },
+    });
+  }
+
+  async vaultQuickUnlockEnable(): Promise<VaultQuickUnlockEnablePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.quick_unlock.enable.request" },
+    });
+  }
+
+  async vaultQuickUnlockDisable(): Promise<VaultQuickUnlockDisablePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.quick_unlock.disable.request" },
+    });
+  }
+
+  async vaultQuickUnlockProve(options: {
+    purpose: VaultQuickUnlockPurpose;
+  }): Promise<VaultQuickUnlockProvePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.quick_unlock.prove.request", purpose: options.purpose },
     });
   }
 

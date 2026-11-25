@@ -1,6 +1,7 @@
 import type pino from "pino";
 import type { SessionInboundMessage, SessionOutboundMessage } from "../../messages.js";
 import { VaultError } from "../../vault/errors.js";
+import type { QuickUnlock } from "../../vault/quick-unlock.js";
 import type { VaultService } from "../../vault/service.js";
 
 // How long a connection counts as the operator after it proves the passphrase. Operator actions
@@ -13,6 +14,7 @@ export const OPERATOR_TTL_MS = 10 * 60 * 1000;
 interface VaultSessionOptions {
   host: { emit(msg: SessionOutboundMessage): void };
   vault: VaultService;
+  quickUnlock: QuickUnlock;
   logger: pino.Logger;
 }
 
@@ -23,17 +25,20 @@ interface OperatorMark {
 
 type VaultRequestType = Extract<SessionInboundMessage["type"], `vault.${string}`>;
 type VaultRequest = Extract<SessionInboundMessage, { type: VaultRequestType }>;
+type QuickUnlockRequest = Extract<VaultRequest, { type: `vault.quick_unlock.${string}` }>;
 type BitwardenRequest = Extract<VaultRequest, { type: `vault.source.bitwarden.${string}` }>;
 
 export class VaultSession {
   private readonly host: VaultSessionOptions["host"];
   private readonly vault: VaultService;
+  private readonly quickUnlock: QuickUnlock;
   private readonly logger: pino.Logger;
   private readonly operators = new WeakMap<object, OperatorMark>();
 
   constructor(options: VaultSessionOptions) {
     this.host = options.host;
     this.vault = options.vault;
+    this.quickUnlock = options.quickUnlock;
     this.logger = options.logger;
   }
 
@@ -233,8 +238,56 @@ export class VaultSession {
         };
       }
       default:
+        return this.respondExtension(msg, source);
+    }
+  }
+
+  private async respondExtension(
+    msg: QuickUnlockRequest | BitwardenRequest,
+    source: object | undefined,
+  ): Promise<SessionOutboundMessage> {
+    switch (msg.type) {
+      case "vault.quick_unlock.enable.request": {
+        this.requireOperator(source);
+        const key = this.vault.copyKeyForEnrollment();
+        try {
+          await this.quickUnlock.enable(key, this.requireSalt());
+        } finally {
+          key.fill(0);
+        }
+        return {
+          type: "vault.quick_unlock.enable.response",
+          payload: { requestId: msg.requestId, status: this.status(source) },
+        };
+      }
+      case "vault.quick_unlock.disable.request":
+        this.requireOperator(source);
+        await this.quickUnlock.disable();
+        return {
+          type: "vault.quick_unlock.disable.response",
+          payload: { requestId: msg.requestId, status: this.status(source) },
+        };
+      case "vault.quick_unlock.prove.request": {
+        const key = await this.quickUnlock.unwrapKey(msg.purpose, this.requireSalt());
+        if (this.vault.state === "locked") await this.vault.unlockWithKey(key);
+        else await this.vault.verifyKey(key);
+        this.markOperator(source);
+        await this.vault.auditEventBestEffort("operator_granted", null, "Connection authorized");
+        return {
+          type: "vault.quick_unlock.prove.response",
+          payload: { requestId: msg.requestId, status: this.status(source) },
+        };
+      }
+      default:
         return this.respondBitwarden(msg, source);
     }
+  }
+
+  private requireSalt(): string {
+    const salt = this.vault.kdfSalt;
+    if (salt === null)
+      throw new VaultError("not_initialized", "The vault has not been created yet.");
+    return salt;
   }
 
   private async respondBitwarden(
@@ -249,14 +302,10 @@ export class VaultSession {
         };
       case "vault.source.bitwarden.unlock.request": {
         this.requireOperator(source);
-        const missing = await this.vault.bitwardenUnlock(msg.masterPassword);
+        await this.vault.bitwardenOpen(msg.masterPassword);
         return {
           type: "vault.source.bitwarden.unlock.response",
-          payload: {
-            requestId: msg.requestId,
-            status: await this.vault.bitwardenStatus(),
-            missing,
-          },
+          payload: { requestId: msg.requestId, status: await this.vault.bitwardenStatus() },
         };
       }
       case "vault.source.bitwarden.lock.request":
@@ -271,7 +320,15 @@ export class VaultSession {
           type: "vault.source.bitwarden.search_items.response",
           payload: {
             requestId: msg.requestId,
-            items: await this.vault.bitwardenSearch(msg.masterPassword, msg.query),
+            items: this.vault.bitwardenSearch(msg.query),
+          },
+        };
+      case "vault.source.bitwarden.refresh.request":
+        return {
+          type: "vault.source.bitwarden.refresh.response",
+          payload: {
+            requestId: msg.requestId,
+            status: await this.vault.bitwardenStatus({ fresh: true }),
           },
         };
       default:

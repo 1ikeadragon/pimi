@@ -13,6 +13,17 @@ export const VaultSecretNameSchema = z
   .string()
   .regex(/^[a-z][a-z0-9_-]{0,63}$/, "Use lower-case letters, digits, '-' and '_' (max 64).");
 
+/**
+ * The name agents see for an environment variable: lower-case, `_` to `-`, leading non-letters
+ * dropped. The result may still fail `VaultSecretNameSchema` (empty, too long).
+ */
+export function secretNameFromEnvName(envName: string): string {
+  return envName
+    .toLowerCase()
+    .replace(/_/g, "-")
+    .replace(/^[^a-z]+/, "");
+}
+
 export const VaultEnvNameSchema = z
   .string()
   .regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/, "Not a valid environment variable name.");
@@ -63,6 +74,10 @@ export const VaultGrantSchema = z.object({
 });
 export type VaultGrant = z.infer<typeof VaultGrantSchema>;
 
+/** What a blocked `vault_run` is waiting for. */
+export const VaultRequestWaitSchema = z.enum(["unlock", "approval", "source"]);
+export type VaultRequestWait = z.infer<typeof VaultRequestWaitSchema>;
+
 export const VaultRequestSchema = z.object({
   id: z.string(),
   createdAt: z.string(),
@@ -71,8 +86,12 @@ export const VaultRequestSchema = z.object({
   cwd: z.string(),
   /** argv[0] is the resolved executable. */
   argv: z.array(z.string()).min(1),
-  secrets: z.array(VaultGrantBindingSchema).min(1),
+  /** Empty while `waitingFor` is `unlock`: a locked vault cannot say which variables the names map to. */
+  secrets: z.array(VaultGrantBindingSchema),
   runsProjectCode: z.boolean(),
+  waitingFor: VaultRequestWaitSchema,
+  /** For `source`: the Bitwarden-backed secrets that are not loaded. Empty otherwise. */
+  sourceSecrets: z.array(VaultSecretNameSchema),
 });
 export type VaultRequest = z.infer<typeof VaultRequestSchema>;
 
@@ -112,8 +131,13 @@ export type VaultAuditEntry = z.infer<typeof VaultAuditEntrySchema>;
 export const VaultStateSchema = z.enum(["uninitialized", "locked", "unlocked"]);
 export type VaultState = z.infer<typeof VaultStateSchema>;
 
+/** `unavailable`: no helper on this daemon. `off`: available, not enrolled. */
+export const VaultQuickUnlockSchema = z.enum(["unavailable", "off", "on"]);
+export type VaultQuickUnlock = z.infer<typeof VaultQuickUnlockSchema>;
+
 export const VaultStatusSchema = z.object({
   state: VaultStateSchema,
+  quickUnlock: VaultQuickUnlockSchema,
   /** When the vault locks itself if nothing uses it. Null while locked. */
   idleLockAt: z.string().nullable(),
   /** When the asking connection stops counting as the operator. Null: it is not the operator. */
@@ -150,6 +174,12 @@ export const VaultErrorCodeSchema = z.enum([
   "corrupt",
   "source_unavailable",
   "disabled",
+  /** The Touch ID prompt was dismissed. */
+  "cancelled",
+  /** Another Touch ID prompt is already open. */
+  "prompt_open",
+  /** The enrolled key no longer exists (Secure Enclave reset, or another Mac). */
+  "key_gone",
 ]);
 export type VaultErrorCode = z.infer<typeof VaultErrorCodeSchema>;
 
@@ -160,13 +190,30 @@ export const VaultBitwardenAuthStateSchema = z.enum([
   "unknown",
 ]);
 
+export const VaultBitwardenMissingSchema = z.object({
+  secret: VaultSecretNameSchema,
+  reason: z.enum(["item_not_found", "field_not_found"]),
+});
+export type VaultBitwardenMissing = z.infer<typeof VaultBitwardenMissingSchema>;
+
 export const VaultBitwardenStatusSchema = z.object({
   installed: z.boolean(),
   /** What `bw status` reports. This is the CLI's own session, not the vault's use of it. */
   authState: VaultBitwardenAuthStateSchema,
+  userEmail: z.string().nullable(),
+  serverUrl: z.string().nullable(),
+  /** The CLI's last successful sync. */
+  lastSyncAt: z.string().nullable(),
+  binaryPath: z.string().nullable(),
+  /** Items in the in-memory index. Null when there is none: Bitwarden has not been opened, or the index expired. */
+  indexedItems: z.number().int().nonnegative().nullable(),
+  /** False when the last open could not sync and used the CLI's cached data. Null before any open. */
+  synced: z.boolean().nullable(),
+  /** Bound secrets the last open could not find. Kept until the next open. */
+  missing: z.array(VaultBitwardenMissingSchema),
   /** Secrets whose value is in daemon memory right now. */
   loadedSecrets: z.array(VaultSecretNameSchema),
-  /** When the loaded values are dropped. Null when none are loaded. */
+  /** When the index and the loaded values are dropped. Null when nothing is held. */
   loadedUntil: z.string().nullable(),
 });
 export type VaultBitwardenStatus = z.infer<typeof VaultBitwardenStatusSchema>;
@@ -174,13 +221,8 @@ export type VaultBitwardenStatus = z.infer<typeof VaultBitwardenStatusSchema>;
 export const VaultBitwardenItemSchema = z.object({
   id: z.string(),
   name: z.string(),
+  username: z.string().nullable(),
   /** Names only: `password`, `username` and custom field names. */
   fields: z.array(z.string()),
 });
 export type VaultBitwardenItem = z.infer<typeof VaultBitwardenItemSchema>;
-
-export const VaultBitwardenMissingSchema = z.object({
-  secret: VaultSecretNameSchema,
-  reason: z.enum(["item_not_found", "field_not_found"]),
-});
-export type VaultBitwardenMissing = z.infer<typeof VaultBitwardenMissingSchema>;

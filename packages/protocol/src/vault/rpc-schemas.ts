@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   VaultAuditEntrySchema,
   VaultBitwardenItemSchema,
-  VaultBitwardenMissingSchema,
   VaultBitwardenStatusSchema,
   VaultEnvCandidateSchema,
   VaultEnvImportActionSchema,
@@ -207,8 +206,17 @@ export const VaultSourceBitwardenLockRequestSchema = z.object({
 export const VaultSourceBitwardenSearchItemsRequestSchema = z.object({
   type: z.literal("vault.source.bitwarden.search_items.request"),
   requestId: z.string(),
-  masterPassword: MasterPasswordSchema,
   query: z.string().min(1).max(200),
+});
+
+/** Re-reads `bw status` and drops the cached answer. */
+export const VaultSourceBitwardenRefreshRequestSchema = z.object({
+  type: z.literal("vault.source.bitwarden.refresh.request"),
+  requestId: z.string(),
+});
+export const VaultSourceBitwardenRefreshResponseSchema = z.object({
+  type: z.literal("vault.source.bitwarden.refresh.response"),
+  payload: z.object({ requestId: z.string(), status: VaultBitwardenStatusSchema }),
 });
 
 export const VaultSourceBitwardenGetStatusResponseSchema = z.object({
@@ -220,7 +228,6 @@ export const VaultSourceBitwardenUnlockResponseSchema = z.object({
   payload: z.object({
     requestId: z.string(),
     status: VaultBitwardenStatusSchema,
-    missing: z.array(VaultBitwardenMissingSchema),
   }),
 });
 export const VaultSourceBitwardenLockResponseSchema = z.object({
@@ -230,4 +237,35 @@ export const VaultSourceBitwardenLockResponseSchema = z.object({
 export const VaultSourceBitwardenSearchItemsResponseSchema = z.object({
   type: z.literal("vault.source.bitwarden.search_items.response"),
   payload: z.object({ requestId: z.string(), items: z.array(VaultBitwardenItemSchema) }),
+});
+
+// Touch ID on this Mac, through a Secure Enclave key the daemon's helper holds (see docs/vault.md).
+// The key never crosses the wire: `prove` unwraps it inside the daemon and marks the socket.
+export const VaultQuickUnlockPurposeSchema = z.enum(["unlock", "authorize"]);
+export type VaultQuickUnlockPurpose = z.infer<typeof VaultQuickUnlockPurposeSchema>;
+
+export const VaultQuickUnlockEnableRequestSchema = z.object({
+  type: z.literal("vault.quick_unlock.enable.request"),
+  requestId: z.string(),
+});
+export const VaultQuickUnlockDisableRequestSchema = z.object({
+  type: z.literal("vault.quick_unlock.disable.request"),
+  requestId: z.string(),
+});
+export const VaultQuickUnlockProveRequestSchema = z.object({
+  type: z.literal("vault.quick_unlock.prove.request"),
+  requestId: z.string(),
+  purpose: VaultQuickUnlockPurposeSchema,
+});
+export const VaultQuickUnlockEnableResponseSchema = z.object({
+  type: z.literal("vault.quick_unlock.enable.response"),
+  payload: z.object({ requestId: z.string(), status: VaultStatusSchema }),
+});
+export const VaultQuickUnlockDisableResponseSchema = z.object({
+  type: z.literal("vault.quick_unlock.disable.response"),
+  payload: z.object({ requestId: z.string(), status: VaultStatusSchema }),
+});
+export const VaultQuickUnlockProveResponseSchema = z.object({
+  type: z.literal("vault.quick_unlock.prove.response"),
+  payload: z.object({ requestId: z.string(), status: VaultStatusSchema }),
 });

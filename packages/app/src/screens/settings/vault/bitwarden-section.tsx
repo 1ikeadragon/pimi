@@ -36,7 +36,7 @@ export function BitwardenSection({ serverId, operator }: BitwardenSectionProps) 
   );
   const drop = useVaultAction(serverId, (client, _input: null) => client.vaultBitwardenLock());
   const dropValues = useCallback(() => drop.mutate(null), [drop]);
-  const missing: VaultBitwardenMissing[] = unlock.data?.missing ?? [];
+  const missing: VaultBitwardenMissing[] = status.data?.missing ?? [];
   const data = status.data;
   return (
     <SettingsSection

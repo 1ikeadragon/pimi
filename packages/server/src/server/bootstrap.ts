@@ -183,6 +183,7 @@ import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
 import { readEnvScrubNames, removeEnvNames } from "./vault/env-scrub.js";
+import { QuickUnlock } from "./vault/quick-unlock.js";
 import { VaultService } from "./vault/service.js";
 import { BitwardenCli } from "./vault/sources/bitwarden-cli.js";
 import { VAULT_INSTRUCTIONS } from "./agent/tools/vault-tools.js";
@@ -488,6 +489,7 @@ export interface PimiDaemonConfig {
   usageEnabled?: boolean;
   browserToolsEnabled?: boolean;
   vaultEnabled?: boolean;
+  vaultIdleLockMinutes?: number;
   git?: {
     maxProcessesPerSecond: number;
     maxProcessConcurrency: number;
@@ -638,6 +640,23 @@ function resolveLimitFallback(
   return config ?? { enabled: false, chain: [] };
 }
 
+async function createQuickUnlock(pimiHome: string, logger: Logger): Promise<QuickUnlock> {
+  const quickUnlock = new QuickUnlock({
+    pimiHome,
+    helperPath: process.env.PIMI_VAULT_KEY_HELPER ?? null,
+    logger,
+  });
+  await quickUnlock.init();
+  return quickUnlock;
+}
+
+function createInitialVaultConfig(config: ResolvedDaemonSettings): MutableDaemonConfig["vault"] {
+  return {
+    enabled: config.vaultEnabled === true,
+    idleLockMinutes: config.vaultIdleLockMinutes ?? 15,
+  };
+}
+
 function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): MutableDaemonConfig {
   const providers = config.providerOverrides ?? {};
 
@@ -657,7 +676,7 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
       : {}),
     usage: { enabled: config.usageEnabled !== false },
     browserTools: { enabled: config.browserToolsEnabled ?? true },
-    vault: { enabled: config.vaultEnabled === true },
+    vault: createInitialVaultConfig(config),
     providers,
     metadataGeneration: resolveMetadataGeneration(config.metadataGeneration),
     autoArchiveAfterMerge: config.autoArchiveAfterMerge ?? false,
@@ -1273,9 +1292,12 @@ export async function createPimiDaemon(
     if (git) configureGitProcessPolicy(git);
   });
   const initialAgentManagerState = providerSnapshotManager.getAgentManagerProviderState();
+  const quickUnlock = await createQuickUnlock(config.pimiHome, logger);
   const vaultService = new VaultService({
     pimiHome: config.pimiHome,
+    quickUnlock,
     isEnabled: () => daemonConfigStore.get().vault.enabled,
+    idleLockMinutes: () => daemonConfigStore.get().vault.idleLockMinutes,
     env: process.env,
     bitwarden: new BitwardenCli({ env: process.env }),
     logger,
@@ -1345,6 +1367,9 @@ export async function createPimiDaemon(
     isSkillAvailable: (name) => orchestrationSkills.isSkillAvailable(name),
     getPackagePolicy: () => daemonConfigStore.get().supplyChain,
     logger,
+  });
+  vaultService.onRequestCreated((request) => {
+    if (request.agentId) agentManager.raiseVaultAttention(request.agentId, request.argv.join(" "));
   });
   {
     const indexer = new TimelineIndexer(timelineArchive, logger);

@@ -1054,6 +1054,7 @@ export class Session {
     this.vaultSession = new VaultSession({
       host: { emit: (msg) => this.emit(msg) },
       vault: vaultService,
+      quickUnlock: vaultService.quickUnlock,
       logger: this.sessionLogger,
     });
     this.flowSession = new FlowSession({

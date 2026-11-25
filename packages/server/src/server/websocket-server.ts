@@ -2735,6 +2735,7 @@ export class VoiceAssistantWebSocketServer {
     agentId: string;
     provider: AgentProvider;
     reason: "finished" | "error" | "permission";
+    vaultCommand?: string;
   }): Promise<void> {
     const agent = this.agentManager.getAgent(params.agentId);
     if (!agent?.workspaceId) {
@@ -2768,6 +2769,7 @@ export class VoiceAssistantWebSocketServer {
       agentId: params.agentId,
       assistantMessage,
       permissionRequest: findLatestPermissionRequest(agent.pendingPermissions),
+      vaultCommand: params.vaultCommand ?? null,
     });
 
     const plan = computeNotificationPlan({

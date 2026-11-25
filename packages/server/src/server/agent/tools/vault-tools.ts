@@ -1,6 +1,6 @@
 import path from "node:path";
 import { z } from "zod";
-import { VaultSecretNameSchema } from "@pimi/protocol/vault/types";
+import { VaultSecretNameSchema, type VaultRequestWait } from "@pimi/protocol/vault/types";
 import { VaultError } from "../../vault/errors.js";
 import { RUN_DEFAULT_TIMEOUT_MS, RUN_MAX_TIMEOUT_MS } from "../../vault/runner.js";
 import type { VaultService } from "../../vault/service.js";
@@ -17,11 +17,20 @@ import {
 export const VAULT_LIST_TOOL = "vault_list";
 export const VAULT_RUN_TOOL = "vault_run";
 
-// How long `vault_run` waits for the user to answer an approval request before returning
-// "awaiting approval". The same budget the other waiting tools use, because provider SDKs cut a
+// How long `vault_run` waits for the user (unlock, approval, Bitwarden values) before telling the
+// agent to call again. The same budget the other waiting tools use, because provider SDKs cut a
 // tool call off at about 60 s (see AGENT_WAIT_TIMEOUT_MS) and the command still has to run after
-// an approval.
-const APPROVAL_WAIT_MS = AGENT_WAIT_TIMEOUT_MS;
+// the user answers.
+const WAIT_MS = AGENT_WAIT_TIMEOUT_MS;
+
+const WAITING_TEXT: Record<VaultRequestWait, string> = {
+  unlock:
+    "Waiting for the user to unlock the vault in Pimi. Call vault_run again with the same arguments in a moment.",
+  approval:
+    "Waiting for the user to approve this command in Pimi. Call vault_run again with the same arguments in a moment.",
+  source:
+    "Waiting for the user to load the Bitwarden values in Pimi. Call vault_run again with the same arguments in a moment.",
+};
 
 const MAX_ARGV_LENGTH = 256;
 const MAX_SECRETS_PER_RUN = 16;
@@ -66,11 +75,7 @@ function text(value: string): PimiToolResult {
 
 function toToolError(error: unknown): never {
   if (error instanceof VaultError) {
-    const hint =
-      error.code === "locked" || error.code === "not_initialized"
-        ? " Ask the user to unlock it in Pimi (Settings, Vault)."
-        : "";
-    throw new PimiToolInputError(`${error.message}${hint}`);
+    throw new PimiToolInputError(error.message);
   }
   throw error;
 }
@@ -117,7 +122,7 @@ export function registerVaultTools(
     {
       title: "Run a command with vault secrets",
       description:
-        "Run one program with stored secrets in its environment and get its output with the secret values removed. The user approves a command the first time; if approval is pending the tool says so and you should call it again with the same arguments. Output is capped and the program is killed on timeout.",
+        "Run one program with stored secrets in its environment and get its output with the secret values removed. The user approves a command the first time; if the vault is locked, approval is pending or Bitwarden values are not loaded, the tool says so and you should call it again with the same arguments. Output is capped and the program is killed on timeout.",
       inputSchema: RunInputSchema,
     },
     async (input: RunInput, context) => {
@@ -134,14 +139,10 @@ export function registerVaultTools(
           agentId: caller.id,
           projectId: workspace?.projectId ?? null,
           timeoutMs: input.timeoutMs ?? RUN_DEFAULT_TIMEOUT_MS,
-          approvalWaitMs: APPROVAL_WAIT_MS,
+          waitMs: WAIT_MS,
           signal: context.signal,
         });
-        if (outcome.status === "awaiting_approval") {
-          return text(
-            "Awaiting the user's approval in Pimi (Settings, Vault). Call vault_run again with the same arguments in a moment.",
-          );
-        }
+        if (outcome.status === "waiting") return text(WAITING_TEXT[outcome.waitingFor]);
         if (outcome.status === "denied") {
           return {
             isError: true,

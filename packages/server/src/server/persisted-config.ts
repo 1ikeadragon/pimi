@@ -297,7 +297,13 @@ export const PersistedConfigSchema = z
           })
           .passthrough()
           .optional(),
-        vault: z.object({ enabled: z.boolean().optional() }).passthrough().optional(),
+        vault: z
+          .object({
+            enabled: z.boolean().optional(),
+            idleLockMinutes: z.number().int().min(0).optional(),
+          })
+          .passthrough()
+          .optional(),
         git: z
           .object({
             maxProcessesPerSecond: z.number().int().positive().optional(),

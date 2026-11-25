@@ -516,6 +516,10 @@ function resolveBrowserToolsEnabled(persisted: ReturnType<typeof loadPersistedCo
   return persisted.daemon?.browserTools?.enabled ?? true;
 }
 
+function resolveVaultIdleLockMinutes(persisted: ReturnType<typeof loadPersistedConfig>): number {
+  return persisted.daemon?.vault?.idleLockMinutes ?? 15;
+}
+
 function resolveVaultEnabled(persisted: ReturnType<typeof loadPersistedConfig>): boolean {
   return persisted.daemon?.vault?.enabled === true;
 }
@@ -548,6 +552,7 @@ function resolveStaticLoadConfigSettings(
     usageEnabled: resolveUsageEnabled(persisted),
     browserToolsEnabled: resolveBrowserToolsEnabled(persisted),
     vaultEnabled: resolveVaultEnabled(persisted),
+    vaultIdleLockMinutes: resolveVaultIdleLockMinutes(persisted),
     autoArchiveAfterMerge: persisted.daemon?.autoArchiveAfterMerge ?? false,
     limitFallback: persisted.daemon?.limitFallback ?? { enabled: false, chain: [] },
     supplyChain: persisted.daemon?.supplyChain ?? DEFAULT_PACKAGE_POLICY,
@@ -580,6 +585,7 @@ export type ResolvedDaemonSettings = Pick<
   | "usageEnabled"
   | "browserToolsEnabled"
   | "vaultEnabled"
+  | "vaultIdleLockMinutes"
   | "git"
   | "autoArchiveAfterMerge"
   | "limitFallback"

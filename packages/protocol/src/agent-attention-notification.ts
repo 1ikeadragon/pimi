@@ -23,6 +23,8 @@ interface BuildAgentAttentionNotificationPayloadInput {
   agentId: string;
   assistantMessage?: string | null;
   permissionRequest?: NotificationPermissionRequest | null;
+  /** Set when the chat is blocked on the vault: the command it wants to run. */
+  vaultCommand?: string | null;
   /** The chat's name. When present it is the title, so stacked notifications say which chat. */
   chatTitle?: string | null;
 }
@@ -233,8 +235,21 @@ export function resolveChatTitle(chatTitle: string | null | undefined): string |
 export function buildAgentAttentionNotificationPayload(
   input: BuildAgentAttentionNotificationPayloadInput,
 ): AgentAttentionNotificationPayload {
-  const reasonTitle = resolveAgentAttentionTitle(input.reason);
   const chatTitle = resolveChatTitle(input.chatTitle);
+  if (input.vaultCommand) {
+    const command = buildNotificationPreview(input.vaultCommand) ?? "a command";
+    return {
+      title: chatTitle ?? "Agent needs the vault",
+      body: `Needs the vault: ${command}`,
+      data: {
+        serverId: input.serverId,
+        workspaceId: input.workspaceId,
+        agentId: input.agentId,
+        reason: input.reason,
+      },
+    };
+  }
+  const reasonTitle = resolveAgentAttentionTitle(input.reason);
   const preview = resolveAgentAttentionPreview(input);
   const fallback = resolveAgentAttentionFallbackBody(input.reason);
   const title = chatTitle ?? reasonTitle;
