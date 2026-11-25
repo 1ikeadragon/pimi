@@ -84,6 +84,13 @@ import { confirmDialog } from "@/utils/confirm-dialog";
 import { useToast } from "@/contexts/toast-context";
 import { openDesktopTarget, useDesktopOpenTargets } from "@/workspace/desktop-open-targets";
 import { useWorkspaceFields } from "@/stores/session-store-hooks";
+import { useRetainedPanelActive } from "@/components/retained-panel";
+import { FILE_STATE_PRESENTATION } from "@/git/source-control/file-state";
+import {
+  useTreeChangeMarks,
+  type TreeChangeMark,
+  type TreeChangeMarks,
+} from "@/git/source-control/tree-marks";
 import { useOpenDirectoryInEditor } from "@/workspace/open-in-editor/directory";
 
 const SORT_OPTIONS: { value: SortOption }[] = [
@@ -110,6 +117,8 @@ function DirectoryChevronIcon({ loading, expanded }: { loading: boolean; expande
 }
 
 interface TreeRowItemProps {
+  /** What the Git change list says about this path; null when it is unchanged. */
+  changeMark: TreeChangeMark | null;
   serverId: string;
   workspaceId?: string | null;
   entry: ExplorerEntry;
@@ -235,7 +244,17 @@ function EntryNameInputRow({
   );
 }
 
+function ChangeMarkGlyph({ mark }: { mark: TreeChangeMark | null }) {
+  if (!mark) return null;
+  if (mark.kind === "directory") return <View style={styles.changeDot} />;
+  const presentation = FILE_STATE_PRESENTATION[mark.state];
+  return (
+    <Text style={[styles.changeLetter, styles[presentation.tone]]}>{presentation.letter}</Text>
+  );
+}
+
 function TreeRowItemBase({
+  changeMark,
   serverId,
   workspaceId,
   entry,
@@ -380,6 +399,7 @@ function TreeRowItemBase({
               styles.entryName,
               workspaceTreeRowStyles.name,
               isHovered && workspaceTreeRowStyles.nameHovered,
+              changeMark?.kind === "file" && styles[FILE_STATE_PRESENTATION[changeMark.state].tone],
             ]}
             numberOfLines={1}
             testID={testID ? `${testID}-name` : undefined}
@@ -387,6 +407,7 @@ function TreeRowItemBase({
             {entry.name}
           </Text>
         </View>
+        <ChangeMarkGlyph mark={changeMark} />
         <Slot id="fileTree.rowTrailing" context={slotContext} />
       </ContextMenuTrigger>
       <FileActionsContextMenuContent
@@ -442,6 +463,7 @@ function FileExplorerPaneBase({
 }: FileExplorerPaneProps) {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
+  const isPanelActive = useRetainedPanelActive();
 
   const normalizedWorkspaceRoot = useMemo(() => workspaceRoot.trim(), [workspaceRoot]);
   const workspaceStateKey = useMemo(
@@ -453,6 +475,11 @@ function FileExplorerPaneBase({
     [normalizedWorkspaceRoot, workspaceId],
   );
   const hasWorkspaceScope = Boolean(workspaceStateKey && normalizedWorkspaceRoot);
+  const changeMarks = useTreeChangeMarks({
+    serverId,
+    workspaceRoot: normalizedWorkspaceRoot,
+    enabled: hasWorkspaceScope && isPanelActive,
+  });
   const explorerState = useSessionStore((state) =>
     workspaceStateKey && state.sessions[serverId]
       ? state.sessions[serverId]?.fileExplorer.get(workspaceStateKey)
@@ -996,6 +1023,7 @@ function FileExplorerPaneBase({
       }
       return (
         <TreeRowDispatcher
+          changeMarks={changeMarks}
           serverId={serverId}
           workspaceId={workspaceId}
           row={info.item.row}
@@ -1023,6 +1051,7 @@ function FileExplorerPaneBase({
       );
     },
     [
+      changeMarks,
       expandedPaths,
       handleCollapseDirectory,
       handleCopyPath,
@@ -1459,6 +1488,7 @@ function toggleDirectory({
 }
 
 function TreeRowDispatcher({
+  changeMarks,
   serverId,
   workspaceId,
   row,
@@ -1483,6 +1513,7 @@ function TreeRowDispatcher({
   onDuplicateEntry,
   onDeleteEntry,
 }: {
+  changeMarks: TreeChangeMarks;
   serverId: string;
   workspaceId?: string | null;
   row: ExplorerTreeRow;
@@ -1516,6 +1547,7 @@ function TreeRowDispatcher({
 
   return (
     <TreeRowItem
+      changeMark={changeMarks.get(entry.path) ?? null}
       serverId={serverId}
       workspaceId={workspaceId}
       entry={entry}
@@ -1633,6 +1665,10 @@ function getErrorRecoveryPath(state: AgentFileExplorerState | undefined): string
   }
   return candidate;
 }
+
+/** Width of the trailing slot for a state letter; a directory's dot is centred in the same slot. */
+const CHANGE_MARK_SLOT = 20;
+const CHANGE_DOT_SIZE = 6;
 
 const styles = StyleSheet.create((theme) => ({
   container: {
@@ -1770,6 +1806,23 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
     userSelect: "none",
+  },
+  modified: { color: theme.colors.statusWarning },
+  added: { color: theme.colors.statusSuccess },
+  deleted: { color: theme.colors.statusDanger },
+  renamed: { color: theme.colors.statusMerged },
+  changeLetter: {
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
+    minWidth: CHANGE_MARK_SLOT,
+    textAlign: "center",
+  },
+  changeDot: {
+    width: CHANGE_DOT_SIZE,
+    height: CHANGE_DOT_SIZE,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.statusWarning,
+    marginHorizontal: (CHANGE_MARK_SLOT - CHANGE_DOT_SIZE) / 2,
   },
   draftInput: {
     flex: 1,

@@ -17,6 +17,7 @@ import {
   rowPressableStyle,
   SourceControlHeader,
 } from "@/git/source-control/panel-parts";
+import { FILE_STATE_PRESENTATION } from "@/git/source-control/file-state";
 import { RepositoryRow } from "@/git/source-control/repository-row";
 import {
   buildSourceControlModel,
@@ -76,20 +77,6 @@ function useNow(active: boolean): number {
 
 // ---
 // A changed file
-
-interface FileStatePresentation {
-  letter: string;
-  tone: "modified" | "added" | "deleted" | "renamed";
-}
-
-const FILE_STATE_PRESENTATION: Record<NestedChangedFile["state"], FileStatePresentation> = {
-  modified: { letter: "M", tone: "modified" },
-  added: { letter: "A", tone: "added" },
-  deleted: { letter: "D", tone: "deleted" },
-  renamed: { letter: "R", tone: "renamed" },
-  untracked: { letter: "U", tone: "added" },
-  conflicted: { letter: "!", tone: "deleted" },
-};
 
 interface FileRowProps {
   repository: NestedChangesRepository;
