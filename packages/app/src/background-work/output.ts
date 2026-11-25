@@ -20,7 +20,13 @@ interface BackgroundOutputState {
 
 type BackgroundOutputAction =
   | { type: "start" }
-  | { type: "page"; page: PimiAgentBackgroundWorkOutput; skippedMarker: string }
+  | {
+      type: "page";
+      page: PimiAgentBackgroundWorkOutput;
+      /** The page opens a new read from the newest output, so it replaces what is held. */
+      replace: boolean;
+      skippedMarker: string;
+    }
   | { type: "failed" };
 
 const INITIAL_STATE: BackgroundOutputState = {
@@ -34,17 +40,18 @@ function reduce(
   state: BackgroundOutputState,
   action: BackgroundOutputAction,
 ): BackgroundOutputState {
-  if (action.type === "start") return INITIAL_STATE;
+  // A read that starts over keeps showing what it has until the first page replaces it.
+  if (action.type === "start") return { ...state, status: "loading", running: true };
   if (action.type === "failed") return { ...state, status: "error" };
   const { page } = action;
-  const joined = page.skipped
-    ? `${action.skippedMarker}${page.output}`
-    : `${state.output}${page.output}`;
+  const restarts = action.replace || page.skipped;
+  const marker = page.skipped ? action.skippedMarker : "";
+  const joined = restarts ? `${marker}${page.output}` : `${state.output}${page.output}`;
   const dropped = Math.max(0, joined.length - KEPT_CHARS);
   return {
     status: "ready",
     output: dropped > 0 ? joined.slice(dropped) : joined,
-    outputOffset: (page.skipped ? 0 : state.outputOffset) + dropped,
+    outputOffset: (restarts ? 0 : state.outputOffset) + dropped,
     running: page.running,
   };
 }
@@ -85,7 +92,7 @@ export function useBackgroundShellOutput({
       read(cursor)
         .then((page) => {
           if (stopped) return undefined;
-          dispatch({ type: "page", page, skippedMarker });
+          dispatch({ type: "page", page, replace: cursor === null, skippedMarker });
           if (page.running) timer = setTimeout(() => poll(page.cursor), POLL_INTERVAL_MS);
           return undefined;
         })

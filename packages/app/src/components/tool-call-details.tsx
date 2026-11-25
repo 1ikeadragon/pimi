@@ -330,14 +330,15 @@ function BackgroundShellTerminal({
   ds: DetailStyles;
 }) {
   const live = useBackgroundShellOutput({ ...source, itemId: backgroundId });
-  const stored = live.status === "error";
+  const failed = live.status === "error";
+  const stored = failed && live.output.length === 0;
   return (
     <ShellTerminal
       streamKey={callKey}
       command={detail.command}
       output={stored ? detail.output : live.output}
       outputOffset={stored ? detail.outputOffset : live.outputOffset}
-      state={stored || !live.running ? runState : "running"}
+      state={failed || !live.running ? runState : "running"}
       fill={ds.shouldFill}
       maxHeight={ds.resolvedMaxHeight}
     />
