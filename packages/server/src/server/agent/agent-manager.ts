@@ -695,6 +695,8 @@ export interface AgentManagerOptions {
   registry?: AgentStorage;
   onAgentAttention?: AgentAttentionCallback;
   onWorkspaceStateMayHaveChanged?: (params: { cwd: string }) => void;
+  /** A completed edit or write tool call named `filePath`, resolved against the agent's cwd. */
+  onAgentFileEdited?: (params: { cwd: string; filePath: string }) => void;
   generateChatTitle?: (
     manager: AgentManager,
     agent: ManagedAgent,
@@ -1254,6 +1256,7 @@ export class AgentManager {
   private onAgentAttention?: AgentAttentionCallback;
   private onAgentArchived?: AgentArchivedCallback;
   private onWorkspaceStateMayHaveChanged?: (params: { cwd: string }) => void;
+  private onAgentFileEdited?: (params: { cwd: string; filePath: string }) => void;
   private readonly generateChatTitle?: AgentManagerOptions["generateChatTitle"];
   private readonly isAutoNamingEnabled?: () => boolean;
   private readonly resolveChatRecordTitle?: (workspaceId: string) => Promise<string | null>;
@@ -1275,6 +1278,7 @@ export class AgentManager {
     this.agentImages = options.agentImages;
     this.onAgentAttention = options?.onAgentAttention;
     this.onWorkspaceStateMayHaveChanged = options?.onWorkspaceStateMayHaveChanged;
+    this.onAgentFileEdited = options?.onAgentFileEdited;
     this.generateChatTitle = options.generateChatTitle;
     this.isAutoNamingEnabled = options.isAutoNamingEnabled;
     this.resolveChatRecordTitle = options.resolveChatRecordTitle;
@@ -6806,6 +6810,13 @@ export class AgentManager {
       }
 
       this.recordAndDispatchTimelineItem(agent.id, item, event.provider, event.turnId);
+      if (
+        item.type === "tool_call" &&
+        item.status === "completed" &&
+        (item.detail?.type === "edit" || item.detail?.type === "write")
+      ) {
+        this.onAgentFileEdited?.({ cwd: agent.cwd, filePath: item.detail.filePath });
+      }
       if (item.type === "user_message") {
         this.maybeGenerateChatTitle(agent, item.text);
         agent.lastUserMessageAt = new Date();

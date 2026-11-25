@@ -679,14 +679,36 @@ export class NestedChangesService {
     const target = resolve(cwd);
     for (const state of this.folders.values()) {
       if (state.closed) continue;
-      const owner = [...state.repositories.values()].find((repository) =>
-        isWithin(repository.discovered.root, target),
-      );
+      const owner = this.owningRepository(state, target);
       if (owner) this.scheduleRepository(state, owner, { force: false });
       else if (isWithin(state.folder, target) || isWithin(target, state.folder)) {
         this.startPass(state, { discover: true, force: false });
       }
     }
+  }
+
+  /**
+   * An agent finished an edit or write of `filePath` (absolute). Refreshes the repository that
+   * contains it; the per-repository minimum gap keeps a burst of edits to one status per gap.
+   */
+  noteFileEdited(filePath: string): void {
+    for (const state of this.folders.values()) {
+      if (state.closed) continue;
+      const owner = this.owningRepository(state, filePath);
+      if (owner) this.scheduleRepository(state, owner, { force: false });
+    }
+  }
+
+  private owningRepository(state: FolderState, path: string): RepositoryState | undefined {
+    let owner: RepositoryState | undefined;
+    for (const repository of state.repositories.values()) {
+      if (!isWithin(repository.discovered.root, path)) continue;
+      // The deepest root wins: a linked worktree lives inside its parent repository's folder.
+      if (!owner || repository.discovered.root.length > owner.discovered.root.length) {
+        owner = repository;
+      }
+    }
+    return owner;
   }
 
   async dispose(): Promise<void> {

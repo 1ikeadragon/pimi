@@ -2875,6 +2875,14 @@ export const CheckoutNestedSubscribeChangesRequestSchema = z.object({
   requestId: z.string(),
 });
 
+export const CheckoutFileGetBaseRequestSchema = z.object({
+  type: z.literal("checkout.file.get_base.request"),
+  cwd: z.string(),
+  /** Relative to cwd. */
+  path: z.string(),
+  requestId: z.string(),
+});
+
 export const CheckoutNestedRefreshRequestSchema = z.object({
   type: z.literal("checkout.nested.refresh.request"),
   subscriptionId: z.string(),
@@ -4096,6 +4104,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutDiffGetRequestSchema,
   CheckoutNestedListRequestSchema,
   CheckoutNestedSubscribeChangesRequestSchema,
+  CheckoutFileGetBaseRequestSchema,
   CheckoutNestedRefreshRequestSchema,
   CheckoutNestedSetWatchedRootsRequestSchema,
   SubscribeCheckoutDiffRequestSchema,
@@ -6280,6 +6289,22 @@ export const CheckoutNestedChangesUpdateSchema = z.object({
   }),
 });
 
+export const CheckoutFileBaseStatusSchema = z.enum(["text", "missing", "too_large", "binary"]);
+
+export const CheckoutFileGetBaseResponseSchema = z.object({
+  type: z.literal("checkout.file.get_base.response"),
+  payload: z.object({
+    cwd: z.string(),
+    path: z.string(),
+    /** `missing` is a file HEAD does not contain: new, untracked, or a repository with no commits. */
+    status: CheckoutFileBaseStatusSchema,
+    /** The file at HEAD; set only for `text`. */
+    content: z.string().nullable(),
+    error: z.string().nullable(),
+    requestId: z.string(),
+  }),
+});
+
 export const CheckoutNestedRefreshResponseSchema = z.object({
   type: z.literal("checkout.nested.refresh.response"),
   payload: z.object({
@@ -8251,6 +8276,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutNestedListResponseSchema,
   CheckoutNestedSubscribeChangesResponseSchema,
   CheckoutNestedChangesUpdateSchema,
+  CheckoutFileGetBaseResponseSchema,
   CheckoutNestedRefreshResponseSchema,
   CheckoutNestedSetWatchedRootsResponseSchema,
   SubscribeCheckoutDiffResponseSchema,
@@ -8965,6 +8991,8 @@ export type NestedChangesRepository = z.infer<typeof NestedChangesRepositorySche
 export type CheckoutNestedSubscribeChangesRequest = z.infer<
   typeof CheckoutNestedSubscribeChangesRequestSchema
 >;
+export type CheckoutFileBaseStatus = z.infer<typeof CheckoutFileBaseStatusSchema>;
+export type CheckoutFileGetBaseRequest = z.infer<typeof CheckoutFileGetBaseRequestSchema>;
 export type CheckoutNestedRefreshRequest = z.infer<typeof CheckoutNestedRefreshRequestSchema>;
 export type CheckoutNestedSetWatchedRootsRequest = z.infer<
   typeof CheckoutNestedSetWatchedRootsRequestSchema

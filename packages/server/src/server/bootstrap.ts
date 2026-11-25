@@ -1258,6 +1258,9 @@ export async function createPimiDaemon(
       workspaceGitService.onWorkspaceStateMayHaveChanged(cwd);
       nestedChanges.noteWorkspaceStateMayHaveChanged(cwd);
     },
+    onAgentFileEdited: ({ cwd, filePath }) => {
+      nestedChanges.noteFileEdited(path.resolve(cwd, filePath));
+    },
     isAutoNamingEnabled: () => daemonConfigStore.get().metadataGeneration.autoNaming !== false,
     resolveChatRecordTitle: async (workspaceId) => {
       const record = await workspaceRegistry?.get(workspaceId);

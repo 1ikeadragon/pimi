@@ -9,6 +9,7 @@ import type {
   CheckoutCommitsListRequest,
   CheckoutCommitFileDiffRequest,
   CheckoutBlameRequest,
+  CheckoutFileGetBaseRequest,
   CheckoutNestedRefreshRequest,
   CheckoutNestedSetWatchedRootsRequest,
   CheckoutNestedSubscribeChangesRequest,
@@ -33,6 +34,7 @@ import {
   type NestedChangesSubscription,
   type NestedChangesUpdate,
 } from "../../checkout/nested-changes.js";
+import { readFileBase } from "../../checkout/file-base.js";
 import {
   buildCheckoutPrStatusPayloadFromSnapshot,
   buildCheckoutStatusPayloadFromSnapshot,
@@ -525,6 +527,37 @@ export class CheckoutSession {
           repositories: [],
           truncated: false,
           error: getErrorMessage(error),
+          requestId: msg.requestId,
+        },
+      });
+    }
+  }
+
+  /** A file's content at HEAD, the base the editor diffs its buffer against. */
+  async handleFileGetBaseRequest(msg: CheckoutFileGetBaseRequest): Promise<void> {
+    const cwd = expandTilde(msg.cwd);
+    try {
+      const base = await readFileBase({ cwd, path: msg.path });
+      this.host.emit({
+        type: "checkout.file.get_base.response",
+        payload: {
+          cwd,
+          path: msg.path,
+          status: base.status,
+          content: base.content,
+          error: null,
+          requestId: msg.requestId,
+        },
+      });
+    } catch (err) {
+      this.host.emit({
+        type: "checkout.file.get_base.response",
+        payload: {
+          cwd,
+          path: msg.path,
+          status: "missing",
+          content: null,
+          error: getErrorMessage(err),
           requestId: msg.requestId,
         },
       });

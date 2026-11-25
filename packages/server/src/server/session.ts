@@ -3221,6 +3221,8 @@ export class Session {
         return this.checkoutSession.handleListNestedCheckoutsRequest(msg);
       case "checkout.nested.subscribe_changes.request":
         return this.checkoutSession.handleNestedChangesSubscribeRequest(msg, this.delivery);
+      case "checkout.file.get_base.request":
+        return this.checkoutSession.handleFileGetBaseRequest(msg);
       case "checkout.nested.refresh.request":
         return this.checkoutSession.handleNestedChangesRefreshRequest(msg);
       case "checkout.nested.set_watched_roots.request":

@@ -4827,6 +4827,15 @@ export class DaemonClient {
     );
   }
 
+  async getCheckoutFileBase(input: {
+    cwd: string;
+    path: string;
+  }): Promise<CorrelatedResponsePayload<"checkout.file.get_base.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest<"checkout.file.get_base.response">({
+      message: { type: "checkout.file.get_base.request", ...input },
+    });
+  }
+
   async refreshNestedChanges(input: {
     subscriptionId: string;
     root: string | null;
