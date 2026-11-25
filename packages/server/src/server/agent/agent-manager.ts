@@ -226,6 +226,11 @@ function pimiActionInstructions(input: {
       'When the user asks to open or start a new chat, or to do something "in a new chat", call create_chat with initialPrompt: that chat is the user\'s own, not your worker.',
     );
   }
+  if (isPimiToolEnabled(policy, "suggest_pimi_review")) {
+    instructions.push(
+      "When you finish changing files in a turn, call suggest_pimi_review with a one-line summary of what changed.",
+    );
+  }
   if (isPimiToolEnabled(policy, "browser_show")) {
     instructions.push(
       "When the user asks to see or open a web page or link, or you want them to look at one (for example a dev server you started), call browser_show with the URL and keep the link in your reply.",
