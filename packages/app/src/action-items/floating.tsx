@@ -215,7 +215,7 @@ export const ACTION_ITEMS_CARD_WIDTH = 288;
 const CARD_WIDTH = ACTION_ITEMS_CARD_WIDTH;
 
 const styles = StyleSheet.create((theme) => ({
-  // Top-right of the transcript. The right inset clears the scrollbar; the bottom inset keeps
+  // Top-right of the transcript. The transcript is padded clear of the card, so its scrollbar sits left of it; the right inset is the margin from the pane edge. The bottom inset keeps
   // a tall note off the transcript's last lines.
   anchor: {
     position: "absolute",

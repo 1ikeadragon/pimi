@@ -1206,9 +1206,11 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
     onAttentionInputFocus();
     return false;
   }, [onAttentionInputFocus]);
+  const isCompactFormFactor = useIsCompactFormFactor();
   const { onLayout: onStreamLayout, isBelow: isNarrowPane } = useContainerWidthBelow(
     ACTION_ITEMS_CARD_MIN_PANE_WIDTH,
-    { initialIsBelow: true },
+    // Wide layouts start as a card so opening a chat does not jump the transcript's padding.
+    { initialIsBelow: isCompactFormFactor },
   );
   const actionItemsFloating = useActionItemsFloating({
     serverId,
@@ -1853,7 +1855,7 @@ const foregroundColorMapping = (theme: Theme) => ({
   color: theme.colors.foreground,
 });
 
-// Card width, the 24px inset that clears the scrollbar, and a 16px gap to the transcript.
+// Card width, its 24px margin from the pane edge, and a 16px gap to the transcript (and its scrollbar).
 const actionItemsCardInset = { paddingRight: ACTION_ITEMS_CARD_WIDTH + 40 } as const;
 
 const animatedStaticStyles = RNStyleSheet.create({
