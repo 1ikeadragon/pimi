@@ -279,6 +279,7 @@ export function SourceControlPanel({
   return (
     <View style={styles.container} testID="source-control-panel">
       <SourceControlHeader
+        showCounts={!(state.status === "error" && model.repositoryCount === 0)}
         repositoryCount={model.repositoryCount}
         changeCount={model.changeCount}
         checking={model.checkingCount > 0}

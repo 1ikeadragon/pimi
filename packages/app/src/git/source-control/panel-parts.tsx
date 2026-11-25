@@ -120,6 +120,8 @@ export function CleanRow({ count, expanded, onToggle }: CleanRowProps) {
 }
 
 interface HeaderProps {
+  /** False while the folder could not be read: zero repositories there means unknown. */
+  showCounts: boolean;
   repositoryCount: number;
   changeCount: number;
   checking: boolean;
@@ -130,6 +132,7 @@ interface HeaderProps {
 }
 
 export function SourceControlHeader({
+  showCounts,
   repositoryCount,
   changeCount,
   checking,
@@ -139,10 +142,12 @@ export function SourceControlHeader({
   onRefresh,
 }: HeaderProps) {
   const { t } = useTranslation();
-  const parts = [
-    t("panels.sourceControl.repositoryCount", { count: repositoryCount }),
-    t("panels.sourceControl.changeCount", { count: changeCount }),
-  ];
+  const parts = showCounts
+    ? [
+        t("panels.sourceControl.repositoryCount", { count: repositoryCount }),
+        t("panels.sourceControl.changeCount", { count: changeCount }),
+      ]
+    : [];
   if (checking) {
     parts.push(t("panels.sourceControl.checking"));
   } else if (oldestCheckedAt !== null) {
