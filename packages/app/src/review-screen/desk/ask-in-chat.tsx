@@ -309,6 +309,9 @@ export function AskInChat({
         size="sm"
         loading={sending}
         onPress={handleSendClick}
+        style={styles.sendToChat}
+        textStyle={styles.sendToChatLabel}
+        numberOfLines={1}
         testID="review-notes-send"
       >
         {t("reviewScreen.notes.sendTo", { chat: chatLabel(target.chat) })}
@@ -417,7 +420,15 @@ const styles = StyleSheet.create((theme) => {
       borderTopColor: theme.colors.border,
       backgroundColor: theme.colors.surface1,
     },
-    count: { flex: 1, fontSize: theme.fontSize.sm, color: theme.colors.foregroundMuted },
+    count: {
+      flexGrow: 1,
+      flexShrink: 0,
+      fontSize: theme.fontSize.sm,
+      color: theme.colors.foregroundMuted,
+    },
+    // A long chat title shrinks the button and ends in an ellipsis instead of leaving the bar.
+    sendToChat: { flexShrink: 1, minWidth: 0 },
+    sendToChatLabel: { flexShrink: 1 },
     error: { fontSize: theme.fontSize.sm, color: theme.colors.destructive },
   };
 });
