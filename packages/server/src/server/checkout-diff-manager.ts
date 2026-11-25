@@ -31,7 +31,7 @@ interface CheckoutDiffWatchTarget {
   cwd: string;
   diffCwd: string;
   compare: CheckoutDiffCompareInput;
-  listeners: Set<(snapshot: CheckoutDiffSnapshotPayload) => void>;
+  listeners: Set<CheckoutDiffListener>;
   workingTreeWatchUnsubscribe: (() => void) | null;
   workspaceGitUnsubscribe: (() => void) | null;
   latestWorkspaceStructureFingerprint: string | null;
@@ -47,6 +47,12 @@ interface CheckoutDiffWatchTarget {
   openPromise: Promise<void> | null;
 }
 
+/** The fingerprint is the serialized snapshot, computed once here for every consumer to compare. */
+export type CheckoutDiffListener = (
+  snapshot: CheckoutDiffSnapshotPayload,
+  fingerprint: string,
+) => void;
+
 export interface CheckoutDiffSubscriptionRequest {
   cwd: string;
   compare: CheckoutDiffCompareInput;
@@ -55,6 +61,7 @@ export interface CheckoutDiffSubscriptionRequest {
 
 export interface CheckoutDiffSubscription {
   initial: CheckoutDiffSnapshotPayload;
+  initialFingerprint: string;
   unsubscribe: () => void;
 }
 
@@ -81,7 +88,7 @@ export class CheckoutDiffManager {
 
   async subscribe(
     params: CheckoutDiffSubscriptionRequest,
-    listener: (snapshot: CheckoutDiffSnapshotPayload) => void,
+    listener: CheckoutDiffListener,
   ): Promise<CheckoutDiffSubscription> {
     const cwd = params.cwd;
     const compare = this.normalizeCompare(params.compare);
@@ -105,14 +112,18 @@ export class CheckoutDiffManager {
 
     try {
       await target.openPromise;
-      const initial =
-        target.latestPayload ??
-        (await this.computeCheckoutDiffSnapshot(target.cwd, target.compare, {
+      if (!target.latestPayload || target.latestFingerprint === null) {
+        const computed = await this.computeCheckoutDiffSnapshot(target.cwd, target.compare, {
           diffCwd: target.diffCwd,
-        }));
-      target.latestPayload = initial;
-      target.latestFingerprint = JSON.stringify(initial);
-      return { initial, unsubscribe };
+        });
+        target.latestPayload = computed;
+        target.latestFingerprint = JSON.stringify(computed);
+      }
+      return {
+        initial: target.latestPayload,
+        initialFingerprint: target.latestFingerprint,
+        unsubscribe,
+      };
     } catch (error) {
       unsubscribe();
       throw error;
@@ -224,10 +235,7 @@ export class CheckoutDiffManager {
     }
   }
 
-  private removeListener(
-    target: CheckoutDiffWatchTarget,
-    listener: (snapshot: CheckoutDiffSnapshotPayload) => void,
-  ): void {
+  private removeListener(target: CheckoutDiffWatchTarget, listener: CheckoutDiffListener): void {
     target.listeners.delete(listener);
     if (target.listeners.size > 0) {
       return;
@@ -319,7 +327,7 @@ export class CheckoutDiffManager {
         if (fingerprint !== target.latestFingerprint) {
           target.latestFingerprint = fingerprint;
           for (const listener of target.listeners) {
-            listener(snapshot);
+            listener(snapshot, fingerprint);
           }
         }
         currentForce = target.refreshQueuedForce;

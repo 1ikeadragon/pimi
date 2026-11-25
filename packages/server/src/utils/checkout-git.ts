@@ -655,7 +655,7 @@ const EMPTY_TREE_OBJECT_ID = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 function isUnbornHeadDiffError(error: unknown): boolean {
   return (
     error instanceof Error &&
-    error.message.includes("--name-status HEAD") &&
+    (error.message.includes("--name-status HEAD") || error.message.includes("--numstat HEAD")) &&
     error.message.includes("ambiguous argument 'HEAD'")
   );
 }
@@ -3255,9 +3255,8 @@ async function appendStructuredTrackedDiffs(
   const parsedTrackedFiles = trackedDiffText.length > 0 ? parseDiff(trackedDiffText) : [];
   const parsedTrackedByPath = new Map(parsedTrackedFiles.map((file) => [file.path, file]));
 
-  for (let start = 0; start < trackedChanges.length; start += TRACKED_DIFF_BATCH_SIZE) {
-    const changes = trackedChanges.slice(start, start + TRACKED_DIFF_BATCH_SIZE);
-    const contents = await readTrackedDiffContents(
+  const readContents = (changes: CheckoutFileChange[]) =>
+    readTrackedDiffContents(
       cwd,
       changes.filter(
         (change) =>
@@ -3265,6 +3264,11 @@ async function appendStructuredTrackedDiffs(
       ),
       refsForDiff,
     );
+  for await (const { item: changes, value: contents } of readAhead({
+    items: chunk(trackedChanges, TRACKED_DIFF_BATCH_SIZE),
+    ahead: CHECKOUT_DIFF_CONCURRENCY,
+    load: readContents,
+  })) {
     for (const change of changes) {
       const placeholder = trackedPlaceholderByPath.get(change.path);
       if (placeholder) {
@@ -3372,12 +3376,12 @@ interface ProcessTrackedChangesInput {
   cwd: string;
   refsForDiff: CheckoutDiffRefs;
   trackedChanges: CheckoutFileChange[];
+  trackedNumstatByPath: Map<string, FileStat>;
   ignoreWhitespace: boolean;
   appendDiff: (text: string) => void;
 }
 
 interface ProcessTrackedChangesResult {
-  trackedNumstatByPath: Map<string, FileStat>;
   trackedPlaceholderByPath: Map<string, { status: "binary" | "too_large"; stat: FileStat }>;
   trackedDiffText: string;
 }
@@ -3385,11 +3389,8 @@ interface ProcessTrackedChangesResult {
 async function processTrackedChanges(
   input: ProcessTrackedChangesInput,
 ): Promise<ProcessTrackedChangesResult> {
-  const { cwd, refsForDiff, trackedChanges, ignoreWhitespace, appendDiff } = input;
-  const trackedNumstatByPath =
-    trackedChanges.length > 0
-      ? await getTrackedNumstatByPath(cwd, refsForDiff, ignoreWhitespace)
-      : new Map<string, FileStat>();
+  const { cwd, refsForDiff, trackedChanges, trackedNumstatByPath, ignoreWhitespace, appendDiff } =
+    input;
   const trackedDiffPaths: string[] = [];
   const trackedPlaceholderByPath = new Map<
     string,
@@ -3412,31 +3413,42 @@ async function processTrackedChanges(
       .filter((change) => change.oldPath)
       .map((change) => [change.path, change.oldPath]),
   );
-  for (let start = 0; start < trackedDiffPaths.length; start += TRACKED_DIFF_BATCH_SIZE) {
-    const paths = trackedDiffPaths.slice(start, start + TRACKED_DIFF_BATCH_SIZE);
+  const limit = pLimit(CHECKOUT_DIFF_CONCURRENCY);
+  const readBatch = async (paths: string[]) => {
     // Rename/copy detection needs both paths.
-    const ordinary = await getTrackedDiffTexts({
-      cwd,
-      refsForDiff,
-      paths: paths.filter((path) => !oldPathByPath.has(path)),
-      ignoreWhitespace,
-    });
-    const renamed = await Promise.all(
-      paths
-        .filter((path) => oldPathByPath.has(path))
-        .map((path) =>
-          getTrackedDiffTextForPath({
-            cwd,
-            refsForDiff,
-            path,
-            oldPath: oldPathByPath.get(path),
-            ignoreWhitespace,
-          }),
-        ),
-    );
+    const [ordinary, renamed] = await Promise.all([
+      limit(() =>
+        getTrackedDiffTexts({
+          cwd,
+          refsForDiff,
+          paths: paths.filter((path) => !oldPathByPath.has(path)),
+          ignoreWhitespace,
+        }),
+      ),
+      Promise.all(
+        paths
+          .filter((path) => oldPathByPath.has(path))
+          .map((path) =>
+            limit(() =>
+              getTrackedDiffTextForPath({
+                cwd,
+                refsForDiff,
+                path,
+                oldPath: oldPathByPath.get(path),
+                ignoreWhitespace,
+              }),
+            ),
+          ),
+      ),
+    ]);
     const byPath = new Map([...ordinary, ...renamed].map((file) => [file.path, file]));
-    const trackedDiffs = paths.map((path) => byPath.get(path)!);
-
+    return paths.map((path) => byPath.get(path)!);
+  };
+  for await (const { value: trackedDiffs } of readAhead({
+    items: chunk(trackedDiffPaths, TRACKED_DIFF_BATCH_SIZE),
+    ahead: CHECKOUT_DIFF_CONCURRENCY,
+    load: readBatch,
+  })) {
     for (const fileDiff of trackedDiffs) {
       if (fileDiff.truncated) {
         trackedPlaceholderByPath.set(fileDiff.path, {
@@ -3460,7 +3472,6 @@ async function processTrackedChanges(
   appendDiff(trackedDiffText);
 
   return {
-    trackedNumstatByPath,
     trackedPlaceholderByPath,
     trackedDiffText,
   };
@@ -3494,6 +3505,40 @@ async function resolveCheckoutDiffRefs(
 // A diff request fans out at most this many fs probes and git processes at once: half of the
 // shared git process ceiling, so one diff never occupies every slot other callers queue behind.
 const CHECKOUT_DIFF_CONCURRENCY = Math.floor(DEFAULT_GIT_PROCESS_POLICY.maxProcessConcurrency / 2);
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let start = 0; start < items.length; start += size) {
+    chunks.push(items.slice(start, start + size));
+  }
+  return chunks;
+}
+
+/**
+ * Yields each item's loaded value in order while loading up to `ahead` items in front of the
+ * consumer, so git and fs work overlaps the consumer's CPU work without buffering every result.
+ */
+async function* readAhead<Item, Value>(input: {
+  items: Item[];
+  ahead: number;
+  load: (item: Item) => Promise<Value>;
+}): AsyncGenerator<{ item: Item; value: Value }> {
+  const { items, ahead, load } = input;
+  const started: Promise<Value>[] = [];
+  try {
+    for (let index = 0; index < items.length; index += 1) {
+      while (started.length < Math.min(items.length, index + ahead)) {
+        started.push(load(items[started.length]));
+      }
+      yield { item: items[index], value: await started[index] };
+    }
+  } finally {
+    // The consumer left early, or a load failed. Loads still in flight finish on their own;
+    // wait for them so none outlives this call as an unhandled rejection. The error that ended
+    // the iteration is the one that propagates.
+    await Promise.allSettled(started);
+  }
+}
 
 function isMissingFileError(error: unknown): boolean {
   return (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
@@ -3725,16 +3770,22 @@ async function readCheckoutDiff(
 ): Promise<CheckoutDiffResult> {
   const ignoreWhitespace = compare.ignoreWhitespace === true;
   let effectiveRefsForDiff = refsForDiff;
-  let changes: CheckoutFileChange[];
+  const listChanges = (refs: CheckoutDiffRefs) =>
+    Promise.all([
+      listCheckoutFileChanges(cwd, refs, ignoreWhitespace),
+      getTrackedNumstatByPath(cwd, refs, ignoreWhitespace),
+    ]);
+  let listed: Awaited<ReturnType<typeof listChanges>>;
   try {
-    changes = await listCheckoutFileChanges(cwd, effectiveRefsForDiff, ignoreWhitespace);
+    listed = await listChanges(effectiveRefsForDiff);
   } catch (error) {
     if (!isUnbornHeadDiffError(error)) {
       throw error;
     }
     effectiveRefsForDiff = { ...refsForDiff, baseRef: EMPTY_TREE_OBJECT_ID };
-    changes = await listCheckoutFileChanges(cwd, effectiveRefsForDiff, ignoreWhitespace);
+    listed = await listChanges(effectiveRefsForDiff);
   }
+  const [changes, trackedNumstatByPath] = listed;
   changes.sort((a, b) => {
     if (a.path === b.path) return 0;
     return a.path < b.path ? -1 : 1;
@@ -3771,6 +3822,7 @@ async function readCheckoutDiff(
     cwd,
     refsForDiff: effectiveRefsForDiff,
     trackedChanges,
+    trackedNumstatByPath,
     ignoreWhitespace,
     appendDiff,
   });
@@ -3791,7 +3843,7 @@ async function readCheckoutDiff(
       signal,
       cwd,
       trackedChanges,
-      trackedNumstatByPath: trackedDiff.trackedNumstatByPath,
+      trackedNumstatByPath,
       trackedPlaceholderByPath: trackedDiff.trackedPlaceholderByPath,
       trackedDiffText: trackedDiff.trackedDiffText,
       refsForDiff: effectiveRefsForDiff,

@@ -321,9 +321,29 @@ function exceedsSourceBudget(content: string): boolean {
   );
 }
 
-async function buildBudgetedReconstructedTokens(file: ParsedDiffFile, signal?: AbortSignal) {
-  const newLines = reconstructNewFile(file.hunks);
-  const oldLines = reconstructOldFile(file.hunks);
+interface DiffSidesUsed {
+  old: boolean;
+  new: boolean;
+}
+
+// Removed lines read old-file tokens; added and context lines read new-file tokens. A side no
+// line reads has nothing to highlight, so a new or deleted file highlights its content once.
+function diffSidesUsed(file: ParsedDiffFile): DiffSidesUsed {
+  const used: DiffSidesUsed = { old: false, new: false };
+  for (const hunk of file.hunks) {
+    for (const line of hunk.lines) {
+      if (line.type === "remove") used.old = true;
+      else if (line.type === "add" || line.type === "context") used.new = true;
+    }
+  }
+  return used;
+}
+
+async function buildBudgetedReconstructedTokens(
+  file: ParsedDiffFile,
+  used: DiffSidesUsed,
+  signal?: AbortSignal,
+) {
   const build = async (lines: Map<number, string>) => {
     // Sparse hunks can be far apart. Admit the span before filling its gaps.
     const numbers = Array.from(lines.keys());
@@ -340,9 +360,9 @@ async function buildBudgetedReconstructedTokens(file: ParsedDiffFile, signal?: A
     });
     return highlighted ? buildTokenLookup(lines, highlighted) : null;
   };
-  const newTokensByLine = await build(newLines);
+  const newTokensByLine = used.new ? await build(reconstructNewFile(file.hunks)) : new Map();
   if (!newTokensByLine) return null;
-  const oldTokensByLine = await build(oldLines);
+  const oldTokensByLine = used.old ? await build(reconstructOldFile(file.hunks)) : new Map();
   return oldTokensByLine ? { newTokensByLine, oldTokensByLine } : null;
 }
 
@@ -391,28 +411,50 @@ export async function highlightDiffWithFileContent(
 ): Promise<ParsedDiffFile> {
   if (!isDiffHighlightEligible(file, options)) return file;
 
-  const newContent =
-    typeof options.newFileContent === "string"
-      ? options.newFileContent
-      : await readHighlightSource(resolve(cwd, file.path));
-  if (options.signal?.aborted) return file;
-
-  const oldTokens = await highlightAvailableSource(
-    options.oldFileContent,
-    file.path,
-    options.signal,
-  );
-  if (options.signal?.aborted) return file;
-  const newTokens = await highlightAvailableSource(newContent, file.path, options.signal);
-  if (options.signal?.aborted) return file;
+  const used = diffSidesUsed(file);
+  if (!used.old && !used.new) return file;
+  const sides = await highlightUsedSides(file, cwd, options, used);
+  if (!sides) return file;
+  const { oldTokens, newTokens } = sides;
   if (oldTokens && newTokens) return applyTokensToHunks(file, newTokens, oldTokens);
-  const reconstructed = await buildBudgetedReconstructedTokens(file, options.signal);
+  const reconstructed = await buildBudgetedReconstructedTokens(file, used, options.signal);
   if (!reconstructed || options.signal?.aborted) return file;
   return applyTokensToHunks(
     file,
     newTokens ?? reconstructed.newTokensByLine,
     oldTokens ?? reconstructed.oldTokensByLine,
   );
+}
+
+type TokenLookup = Map<number, HighlightToken[]>;
+
+/** Whole-file tokens per side: empty for a side no line reads, null for a side too large to highlight whole. Null overall means aborted. */
+async function highlightUsedSides(
+  file: ParsedDiffFile,
+  cwd: string,
+  options: HighlightDiffWithFileContentOptions,
+  used: DiffSidesUsed,
+): Promise<{ oldTokens: TokenLookup | null; newTokens: TokenLookup | null } | null> {
+  const newContent = used.new ? await resolveNewFileContent(file, cwd, options) : null;
+  if (options.signal?.aborted) return null;
+  const oldTokens: TokenLookup | null = used.old
+    ? await highlightAvailableSource(options.oldFileContent, file.path, options.signal)
+    : new Map();
+  if (options.signal?.aborted) return null;
+  const newTokens: TokenLookup | null = used.new
+    ? await highlightAvailableSource(newContent, file.path, options.signal)
+    : new Map();
+  if (options.signal?.aborted) return null;
+  return { oldTokens, newTokens };
+}
+
+async function resolveNewFileContent(
+  file: ParsedDiffFile,
+  cwd: string,
+  options: HighlightDiffWithFileContentOptions,
+): Promise<string | null> {
+  if (typeof options.newFileContent === "string") return options.newFileContent;
+  return readHighlightSource(resolve(cwd, file.path));
 }
 
 function isDiffHighlightEligible(
