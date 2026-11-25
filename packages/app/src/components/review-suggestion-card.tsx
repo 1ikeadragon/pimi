@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { Text, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
-import { GitCompareArrows } from "lucide-react-native";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { GitCompareArrows, PanelRight } from "lucide-react-native";
 import type { AgentReviewSuggestionMarker } from "@pimi/protocol/agent-types";
 import {
   PimiReviewSuggestionResult,
@@ -15,13 +15,20 @@ import { mapLayout } from "@/components/ui/control-sizing";
 import { CONTROL_HEIGHTS } from "@/components/ui/control-geometry";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { RAIL_NOTE_HEIGHT } from "@/components/permission-resolution-note";
+import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { COMPACT_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
 import { useCheckoutStatusCacheOnly } from "@/git/use-status-query";
 import { useContainerWidthBelow } from "@/hooks/use-container-width";
+import { useSettings } from "@/hooks/use-settings";
 import { useTranslation } from "@/i18n/use-translation";
 import { checkoutReviewSource, openPimiReview } from "@/navigation/pimi-review";
 import { warmCheckoutReview } from "@/review-screen/warm";
+import { useSessionStore } from "@/stores/session-store";
+import { ICON_SIZE, type Theme } from "@/styles/theme";
+import { normalizeWorkspacePath } from "@/utils/workspace-identity";
+import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
+import { openWorkspaceChanges } from "@/workspace-tabs/open-supporting-view";
 
 export function readPimiReviewSuggestion(output: unknown): PimiReviewSuggestion | null {
   return readPimiToolOutput(output, PimiReviewSuggestionResult)?.pimiReviewSuggestion ?? null;
@@ -41,6 +48,9 @@ interface ReviewOffer {
   summary?: string;
 }
 
+const ThemedPanelRight = withUnistyles(PanelRight);
+const mutedIconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+
 function useReviewOffer(offer: ReviewOffer) {
   const { serverId, path, baseRef, originAgentId } = offer;
   const source = useMemo(
@@ -58,13 +68,37 @@ function useReviewOffer(offer: ReviewOffer) {
   const warm = useCallback(() => {
     if (source.kind === "checkout") void warmCheckoutReview(source);
   }, [source]);
+  // Beside the chat only for the chat's own checkout: that is the one its workspace pane shows.
+  const workspace = useSessionStore((state) => {
+    const session = state.sessions[serverId];
+    const agent = session?.agents.get(originAgentId) ?? session?.agentDetails.get(originAgentId);
+    return agent?.workspaceId ? session?.workspaces.get(agent.workspaceId) : undefined;
+  });
+  const isCompact = useIsCompactFormFactor();
+  const openInSidePane = useSettings((settings) => settings.openInSidePane);
+  const isOwnCheckout =
+    workspace !== undefined &&
+    normalizeWorkspacePath(workspace.workspaceDirectory) === normalizeWorkspacePath(path);
+  const workspaceId = workspace?.id;
+  const openChanges = useMemo(
+    () =>
+      isOwnCheckout && workspaceId
+        ? () =>
+            openWorkspaceChanges({
+              isCompact,
+              workspaceKey: buildWorkspaceTabPersistenceKey({ serverId, workspaceId }),
+              preferences: openInSidePane,
+            })
+        : null,
+    [isCompact, isOwnCheckout, openInSidePane, serverId, workspaceId],
+  );
   // Cache only: a timeline can hold many offers, and none of them is worth a status fetch.
   const status = useCheckoutStatusCacheOnly({ serverId, cwd: path }).data;
   // Known, clean, and level with its base: nothing is left to review. A missing base
   // (`aheadBehind` null) or a status never fetched stays unknown, so the offer's numbers stand.
   const nothingLeft =
     status?.isGit === true && status.isDirty === false && status.aheadBehind?.ahead === 0;
-  return { openReview, warm, nothingLeft };
+  return { openReview, warm, openChanges, nothingLeft };
 }
 
 /** The offer as one card: what changed, where it will be compared, and the button to review it. */
@@ -78,7 +112,7 @@ const ReviewSuggestionCardView = memo(function ReviewSuggestionCardView({
   const { onLayout, isBelow: isCompactLayout } = useContainerWidthBelow(COMPACT_CONTENT_WIDTH, {
     initialIsBelow: isCompactFormFactor,
   });
-  const { openReview, warm, nothingLeft } = useReviewOffer(offer);
+  const { openReview, warm, openChanges, nothingLeft } = useReviewOffer(offer);
   const { stats, summary, branch, baseRef } = offer;
 
   let detail = summary ?? null;
@@ -117,9 +151,20 @@ const ReviewSuggestionCardView = memo(function ReviewSuggestionCardView({
     <View style={styles.detailSpacer} />
   );
   const action = (
-    <Button variant="secondary" size="sm" onPress={openReview} onHoverIn={warm} onPressIn={warm}>
-      {t("agentStream.reviewSuggestion.open")}
-    </Button>
+    <View style={styles.actions}>
+      {openChanges ? (
+        <ToolbarButton
+          label={t("agentStream.reviewSuggestion.openChanges")}
+          onPress={openChanges}
+          testID="pimi-review-suggestion-open-changes"
+        >
+          <ThemedPanelRight size={ICON_SIZE.md} uniProps={mutedIconMapping} />
+        </ToolbarButton>
+      ) : null}
+      <Button variant="secondary" size="sm" onPress={openReview} onHoverIn={warm} onPressIn={warm}>
+        {t("agentStream.reviewSuggestion.open")}
+      </Button>
+    </View>
   );
 
   if (isCompactLayout) {
@@ -274,6 +319,7 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.sm,
     color: theme.colors.foregroundMuted,
   },
+  actions: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1], flexShrink: 0 },
   // Keeps the button on the trailing rail when there is nothing to say between.
   detailSpacer: { flex: 1 },
   // Sits on the activity rows' rail, as `PermissionResolutionNote` does.

@@ -677,6 +677,7 @@ export const en = {
     },
     reviewSuggestion: {
       open: "Review",
+      openChanges: "Open changes beside chat",
       ready: "Changes ready to review",
       stale: "No changes left to review",
       filesChanged_one: "{{count}} file changed",
