@@ -3,6 +3,7 @@ import { SessionChildren } from "./children.js";
 import { SessionTurns } from "./turns.js";
 import { V2Timeline } from "./timeline.js";
 import { ModelWait } from "./model-wait.js";
+import { OpenCodeEventStreamStalledError } from "./guarded-fetch.js";
 import { FAILURE_WARNING_ATTEMPT, reconnectDelayMs } from "../event-consumer.js";
 import { waitForLocationReady, awaitPimiPlugin } from "./readiness.js";
 
@@ -708,6 +709,18 @@ export class OpenCodeV2Session implements AgentSession {
           { error: toDiagnosticErrorMessage(error) },
           "OpenCode event stream interrupted; reconciling on reconnect",
         );
+        // The watchdog closes a silent stream (a stopped or hung helper) without any event, so
+        // without a notice the turn reads as working while nothing is coming back.
+        const stalled = stalledStream(error);
+        if (stalled && this.turns.id)
+          this.emitTimeline({
+            type: "timeline",
+            provider: "opencode",
+            item: {
+              type: "error",
+              message: `OpenCode stopped responding for ${Math.round(stalled.idleMs / 1000)}s. Reconnecting.`,
+            },
+          });
       }
       this.background.disconnect();
       reconnectAttempt = established && !progress.handlingFailed ? 0 : reconnectAttempt + 1;
@@ -769,6 +782,14 @@ export class OpenCodeV2Session implements AgentSession {
     }
     this.listeners.clear();
   }
+}
+
+// The client wraps the abort reason of a stalled stream in its own error.
+function stalledStream(error: unknown): OpenCodeEventStreamStalledError | null {
+  if (error instanceof OpenCodeEventStreamStalledError) return error;
+  if (error instanceof Error && error.cause instanceof OpenCodeEventStreamStalledError)
+    return error.cause;
+  return null;
 }
 
 function retryMessage(event: Extract<OpenCodeEvent, { type: "session.retry.scheduled" }>): string {
