@@ -14,6 +14,8 @@ export interface InlineReviewEditorState {
   target: ReviewableDiffTarget;
   commentId: string | null;
   body: string;
+  /** The first line when the note covers a range ending at `target`. */
+  startLineNumber?: number;
 }
 
 /** A forge thread drawn as one row under its line; pressing it opens the thread elsewhere. */
@@ -46,10 +48,15 @@ export interface InlineReviewActions {
   /** Forge threads by target. Absent where there are none (the chat Changes pane). */
   threadsByTarget?: ReadonlyMap<string, InlineForgeThreadMarker[]>;
   onOpenThread?: (id: string) => void;
+  /**
+   * Target keys of every line a range note covers, for the gutter bar. Absent where notes are
+   * single lines only.
+   */
+  rangeBars?: ReadonlySet<string>;
   /** Absent in the chat Changes pane, which keeps the plain "Comment" editor. */
   submit?: InlineReviewSubmitActions;
   editor: InlineReviewEditorState | null;
-  onStartComment: (target: ReviewableDiffTarget) => void;
+  onStartComment: (target: ReviewableDiffTarget, startLineNumber?: number) => void;
   onEditComment: (target: ReviewableDiffTarget, comment: ReviewDraftComment) => void;
   onCancelEditor: () => void;
   onChangeEditorBody: (body: string) => void;

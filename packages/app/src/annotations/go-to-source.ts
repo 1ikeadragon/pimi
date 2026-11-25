@@ -4,6 +4,7 @@ import { revealWorkspaceTab } from "@/workspace-tabs/navigation";
 import { revealAnnotationSource } from "./edit-session";
 import { FILE_REVEAL_NOTICE, goToFileAnnotation } from "./file-reveal";
 import { i18n } from "@/i18n/i18next";
+import { checkoutReviewSource, openPimiReview } from "@/navigation/pimi-review";
 import type { AnnotationCapture } from "./model";
 
 /** The chat's tab is revealed and its list loads over several frames before the quote is found. */
@@ -17,7 +18,8 @@ interface GoToSourceInput {
 
 /**
  * Takes an annotation back to what it quotes. A file annotation opens the file at its lines. A
- * chat annotation scrolls an open chat to the quote. Returns false when no open chat can show
+ * diff annotation opens Review at its first line: the file editor shows the working copy, which
+ * has none of the removed lines. A chat annotation scrolls an open chat to the quote. Returns false when no open chat can show
  * that quote, and nothing has moved, so the caller can fall back.
  */
 export function goToAnnotationSource(
@@ -32,6 +34,19 @@ export function goToAnnotationSource(
       preferences: input.preferences,
       onNotice: (notice) => input.onNotice(FILE_REVEAL_NOTICE[notice]()),
     });
+    return true;
+  }
+  if (attachment.source.kind === "diff") {
+    const { serverId, cwd, baseRef, path, startLine, side } = attachment.source;
+    openPimiReview(
+      checkoutReviewSource({ serverId, cwd, ...(baseRef ? { baseRef } : {}) }),
+      undefined,
+      {
+        path,
+        line: startLine,
+        side,
+      },
+    );
     return true;
   }
   return revealAnnotationSource(attachment);

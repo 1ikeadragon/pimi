@@ -12,7 +12,12 @@ import { ReviewDetail } from "./detail";
 import { ReviewHomeBar } from "./header";
 import { ReviewInbox } from "./inbox";
 import { Notice } from "./notice";
-import { defaultReviewTab, type ReviewMode, type ReviewSource } from "./types";
+import {
+  defaultReviewTab,
+  type ReviewDeskFocus,
+  type ReviewMode,
+  type ReviewSource,
+} from "./types";
 import { useReviewHistory } from "./use-review-history";
 
 const PIMI_BACKGROUND = { "pimi-background": "" };
@@ -30,10 +35,13 @@ function modeOf(source: ReviewSource): ReviewMode {
 
 export function ReviewScreen({
   source: routeSource,
+  focus = null,
   serverId,
 }: {
   /** The change request or worktree named by the route, or null for the home. */
   source: ReviewSource | null;
+  /** A file and line the route asks a worktree review to scroll to. */
+  focus?: ReviewDeskFocus | null;
   /** Daemon the home reads through; null while no host is connected. */
   serverId: string | null;
 }) {
@@ -84,6 +92,7 @@ export function ReviewScreen({
         tab={current.tab}
         navigation={navigation}
         onHome={onHome}
+        focus={focus}
       />
     );
   } else if (serverId) {

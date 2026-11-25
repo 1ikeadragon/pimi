@@ -4,9 +4,19 @@ How the composer holds annotation chips: the token model, the reconcile rules, a
 
 ## The token model
 
-An annotation is one Private Use Area code unit in the draft text, `U+E000 + slot`, and an `AnnotationAttachment` with that `slot` in the draft's attachments. One code unit means cut, paste, Backspace and selection treat a chip like any character, and the plugin API, autocomplete and recall keep working on a flat string with plain UTF-16 offsets. The cap is 32 slots, matching the server's per-message attachment clamp.
+An annotation is one Private Use Area code unit in the draft text, `U+E000 + slot`, and an `AnnotationAttachment` with that `slot` in the draft's attachments. One code unit means cut, paste, Backspace and selection treat a chip like any character, and the plugin API, autocomplete and recall keep working on a flat string with plain UTF-16 offsets. The cap is 32 slots, the size of the code unit range; the daemon has no per-message clamp of its own.
 
 Chip characters never leave the client. `prepareComposerSubmission` (`composer/attachments/submit.ts`) is the single choke point: chips become `[annotation N]` numbered in text order, and the annotation bodies follow in the same order as `Annotation N` envelopes with a matching `ref` in their metadata. Sent messages draw a chip wherever `[annotation N]` has an attachment with that `ref`. `[annotation N]` typed by hand stays text unless such an attachment exists.
+
+## Sources
+
+An annotation names where its quote came from: a `file` range, a `chat` message, a `browser` element, or a `diff` range. A diff source is lines of one side of a Review comparison: `side` `old` numbers the base version's lines, `new` the working version's. Review notes become diff annotations when the user sends them to a chat (`review-screen/desk/send-notes.ts`). Three things about them are easy to get wrong:
+
+- The quote carries a `+`, `-` or space before each line, so the agent can tell added, removed and unchanged lines apart. The agent's `Source:` line says `removed lines` for the old side and `vs <baseRef>` when the comparison named one.
+- A note whose text left the diff is still sent. Its quote is what the note stored, led by `(no longer in the diff)`; the anchor holds text only, so those lines have no `+`/`-` markers.
+- Go to source opens Review at the first line (`annotations/go-to-source.ts`), never the file editor: the editor shows the working copy, which has none of the removed lines. A removed line has no new-side number, so Review scrolls to the line that took its place (`review-screen/desk/focus-line.ts`).
+
+Sending moves notes one at a time: a note leaves the review after its chip is in the draft, and the loop stops at the 32 annotation cap or the first error, so what was not sent is still in Review. The daemon does not enforce the cap, so only the client's slot count holds it.
 
 ## Who writes what
 

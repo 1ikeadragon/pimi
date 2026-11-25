@@ -40,13 +40,12 @@ import {
 import { PlanCard } from "@/components/plan-card";
 import { PimiDelegationCard } from "@/components/pimi-delegation-card";
 import { readPimiDelegationToolCall } from "@/utils/pimi-delegation";
+import { PimiCreatedTaskCard, readPimiCreatedTask } from "@/components/pimi-task-proposal-card";
 import {
-  PimiCreatedTaskCard,
   PimiReviewSuggestionCard,
   PimiReviewSuggestionNotificationCard,
-  readPimiCreatedTask,
   readPimiReviewSuggestion,
-} from "@/components/pimi-task-proposal-card";
+} from "@/components/review-suggestion-card";
 import { getDesktopHost } from "@/desktop/host";
 import { isIdeModeAvailable, toHostPath, useOpenInIde } from "@/desktop/open-in-ide";
 import { resolvePimiToolLeaf } from "@pimi/protocol/pimi-tool-presentation/index";
@@ -675,6 +674,17 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       }
       return undefined;
     }, [effectiveStreamItems]);
+    // Computed once per stream, so every offer row can tell whether a newer one follows it.
+    const lastReviewSuggestionId = useMemo(() => {
+      const newestOffer = (items: readonly StreamItem[] | undefined) => {
+        for (let i = (items?.length ?? 0) - 1; i >= 0; i -= 1) {
+          const item = items?.[i];
+          if (item?.kind === "notification" && item.reviewSuggestion) return item.id;
+        }
+        return undefined;
+      };
+      return newestOffer(effectiveStreamHead) ?? newestOffer(effectiveStreamItems);
+    }, [effectiveStreamHead, effectiveStreamItems]);
     const presentStream = useMemo(() => createStreamPresentation(), []);
     const presentation = useMemo(
       () =>
@@ -1215,6 +1225,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
                 <PimiReviewSuggestionNotificationCard
                   marker={item.reviewSuggestion}
                   serverId={resolvedServerId}
+                  superseded={item.id !== lastReviewSuggestionId}
                 />
               );
             }
@@ -1251,6 +1262,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         getCollapsedTurn,
         setTurnExpanded,
         resolvedServerId,
+        lastReviewSuggestionId,
       ],
     );
 

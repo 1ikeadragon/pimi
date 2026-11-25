@@ -2,7 +2,7 @@
 // What the Files tab reads, whatever the source. A pull request's files come from the forge (a
 // file list first, patches on demand); a worktree's come from the daemon's live checkout diff,
 // already parsed. Each adapter fills one `FilesModel`; the view above it never asks which.
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ChangeRequestFile, ParsedDiffFile } from "@pimi/protocol/messages";
 import { useFetchQuery } from "@/data/query";
 import { useIsCompactFormFactor } from "@/constants/layout";
@@ -19,6 +19,8 @@ import { useDeskCopy } from "./copy";
 import type { PatchEntry } from "./patch-cache";
 import { chooseDiffMode, stubFile, useDeskThreads, type DeskThreads } from "./use-desk-data";
 import { reviewDraftKeyFor } from "./use-review-markers";
+import { isReviewTimingEnabled, markReview } from "../timing";
+import { REVIEW_DIFF_SCOPE } from "../warm";
 import { useDeskPatches, type DeskMode } from "./use-patches";
 
 /** What the view has decided: which file is active and whether the user chose one file at a time. */
@@ -215,9 +217,11 @@ export function useCheckoutDiff(source: CheckoutSource | null) {
     mode: source?.compare.mode ?? "uncommitted",
     baseRef,
     ignoreWhitespace: preferences.hideWhitespace,
-    enabled: source !== null && gitStatus !== null,
+    // A route that names its base ref (a chat's review offer) subscribes at once; the status
+    // still decides the ref when it arrives, and a different one resubscribes.
+    enabled: source !== null && (gitStatus !== null || Boolean(source.compare.baseRef)),
     // The chat Changes pane subscribes the same diff; a scope keeps the two subscriptions apart.
-    queryScope: "pimi-review",
+    queryScope: REVIEW_DIFF_SCOPE,
   });
   return {
     gitStatusPayload,
@@ -229,6 +233,33 @@ export function useCheckoutDiff(source: CheckoutSource | null) {
   };
 }
 
+/** Whether any line of the diff carries syntax colours yet. */
+function hasColours(files: readonly ParsedDiffFile[]): boolean {
+  return files.some((file) =>
+    file.hunks.some((hunk) => hunk.lines.some((line) => line.tokens !== undefined)),
+  );
+}
+
+/** Marks status, first diff and colours as they arrive; `warm` says the diff was in hand at mount. */
+function useCheckoutTimingMarks(input: {
+  hasStatus: boolean;
+  diffLoading: boolean;
+  files: readonly ParsedDiffFile[];
+}) {
+  const { hasStatus, diffLoading, files } = input;
+  const warm = useRef(!diffLoading);
+  useEffect(() => {
+    if (hasStatus) markReview("review:status");
+  }, [hasStatus]);
+  useEffect(() => {
+    if (!diffLoading) markReview("review:diff-first", { warm: warm.current });
+  }, [diffLoading]);
+  useEffect(() => {
+    if (isReviewTimingEnabled() && !diffLoading && hasColours(files))
+      markReview("review:diff-colours");
+  }, [diffLoading, files]);
+}
+
 export function useCheckoutFilesModel(source: CheckoutSource, view: FilesView): FilesModel {
   const { serverId, cwd } = source;
   const isCompact = useIsCompactFormFactor();
@@ -236,6 +267,11 @@ export function useCheckoutFilesModel(source: CheckoutSource, view: FilesView): 
   const { gitStatusPayload, gitStatus, baseRef, workspace, diff, ignoreWhitespace } =
     useCheckoutDiff(source);
   const notGit = gitStatusPayload !== null && !gitStatusPayload.isGit;
+  useCheckoutTimingMarks({
+    hasStatus: gitStatusPayload !== null,
+    diffLoading: diff.isLoading,
+    files: diff.files,
+  });
 
   const ordered = useMemo(() => orderCheckoutDiffFiles(diff.files), [diff.files]);
   const stubs = useMemo(
@@ -281,7 +317,8 @@ export function useCheckoutFilesModel(source: CheckoutSource, view: FilesView): 
   else if (gitStatusPayload?.error) {
     status = { state: "error", message: gitStatusPayload.error.message };
   } else if (diff.payloadError) status = { state: "error", message: diff.payloadError.message };
-  else if (gitStatus && !diff.isLoading) {
+  else if ((gitStatus || source.compare.baseRef) && !diff.isLoading) {
+    // The diff payload settles the page; status only adds the not-a-checkout and error cases above.
     status = ordered.length === 0 ? { state: "empty" } : { state: "ready" };
   }
 

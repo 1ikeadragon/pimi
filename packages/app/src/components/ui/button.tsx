@@ -179,6 +179,8 @@ export function Button({
   loading = false,
   accessibilityRole,
   accessibilityState: accessibilityStateProp,
+  onHoverIn,
+  onHoverOut,
   ...props
 }: PropsWithChildren<
   Omit<PressableProps, "style"> & {
@@ -216,8 +218,21 @@ export function Button({
   const iconOnlyStyle = size === "sm" ? styles.iconOnlySm : styles.iconOnlyMd;
   const isGhostHovered = hovered && variant === "ghost";
 
-  const handleHoverIn = useCallback(() => setHovered(true), []);
-  const handleHoverOut = useCallback(() => setHovered(false), []);
+  // The caller's handlers run too: a button that warms data on hover must not lose them here.
+  const handleHoverIn = useCallback<NonNullable<PressableProps["onHoverIn"]>>(
+    (event) => {
+      setHovered(true);
+      onHoverIn?.(event);
+    },
+    [onHoverIn],
+  );
+  const handleHoverOut = useCallback<NonNullable<PressableProps["onHoverOut"]>>(
+    (event) => {
+      setHovered(false);
+      onHoverOut?.(event);
+    },
+    [onHoverOut],
+  );
 
   const pressableStyle = useCallback(
     ({ pressed }: PressableStateCallbackType): StyleProp<ViewStyle> => [

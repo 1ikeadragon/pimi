@@ -17,7 +17,10 @@ interface UseCheckoutDiffQueryOptions {
   queryScope?: string;
 }
 
-type CheckoutDiffQueryPayload = Omit<SubscribeCheckoutDiffResponse["payload"], "subscriptionId">;
+export type CheckoutDiffQueryPayload = Omit<
+  SubscribeCheckoutDiffResponse["payload"],
+  "subscriptionId"
+>;
 
 // Re-export the canonical protocol type so all consumers share one definition.
 export type { ParsedDiffFile };
@@ -40,6 +43,30 @@ function normalizeCheckoutDiffCompare(compare: {
     : { mode: compare.mode, ignoreWhitespace };
 }
 
+/**
+ * The query key a diff is stored under, for the hook and for code that seeds it. `queryScope`
+ * keeps one surface's subscription apart from another's on the same comparison.
+ */
+export function scopedCheckoutDiffQueryKey(input: {
+  serverId: string;
+  cwd: string;
+  mode: "uncommitted" | "base" | "all";
+  baseRef?: string;
+  ignoreWhitespace?: boolean;
+  queryScope?: string;
+}) {
+  const compare = normalizeCheckoutDiffCompare(input);
+  const comparisonKey = checkoutDiffQueryKey(
+    input.serverId,
+    input.cwd,
+    compare.mode,
+    compare.baseRef,
+    compare.ignoreWhitespace,
+  );
+  const normalizedScope = input.queryScope?.trim();
+  return normalizedScope ? [...comparisonKey, "scope", normalizedScope] : comparisonKey;
+}
+
 export function useCheckoutDiffQuery({
   serverId,
   cwd,
@@ -59,17 +86,18 @@ export function useCheckoutDiffQuery({
   const compareMode = normalizedCompare.mode;
   const compareBaseRef = normalizedCompare.baseRef;
   const compareIgnoreWhitespace = normalizedCompare.ignoreWhitespace;
-  const queryKey = useMemo(() => {
-    const comparisonKey = checkoutDiffQueryKey(
-      serverId,
-      cwd,
-      compareMode,
-      compareBaseRef,
-      compareIgnoreWhitespace,
-    );
-    const normalizedScope = queryScope?.trim();
-    return normalizedScope ? [...comparisonKey, "scope", normalizedScope] : comparisonKey;
-  }, [serverId, cwd, compareMode, compareBaseRef, compareIgnoreWhitespace, queryScope]);
+  const queryKey = useMemo(
+    () =>
+      scopedCheckoutDiffQueryKey({
+        serverId,
+        cwd,
+        mode: compareMode,
+        baseRef: compareBaseRef,
+        ignoreWhitespace: compareIgnoreWhitespace,
+        queryScope,
+      }),
+    [serverId, cwd, compareMode, compareBaseRef, compareIgnoreWhitespace, queryScope],
+  );
   const subscriptionId = useMemo(() => `checkoutDiff:${JSON.stringify(queryKey)}`, [queryKey]);
   const routeEnabled = Boolean(queryEnabled && isConnected && cwd);
 

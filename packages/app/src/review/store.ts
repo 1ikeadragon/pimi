@@ -8,6 +8,9 @@ import {
   addCommentToState,
   clearReviewInState,
   deleteCommentFromState,
+  deleteCommentsFromState,
+  relocateCommentsInState,
+  type ReviewCommentRelocation,
   normalizePersistedState,
   type ReviewDraftComment,
   type ReviewDraftMode,
@@ -17,6 +20,7 @@ import {
   SerializedReviewDraftStateSchema,
   updateCommentInState,
 } from "@/review/state";
+import { CONTEXT_RADIUS, noteStartLine } from "@/review/anchor";
 import { generateMessageId } from "@/types/stream";
 import { buildNumberedDiffHunks, type NumberedDiffLine } from "@/utils/diff-layout";
 import type { AgentAttachment } from "@pimi/protocol/messages";
@@ -26,7 +30,6 @@ export type { ReviewDraftComment, ReviewDraftMode, ReviewDraftSide } from "@/rev
 
 // v2 dropped the legacy persisted activeModesByScope field.
 const STORE_VERSION = 2;
-const CONTEXT_RADIUS = 3;
 const EMPTY_REVIEW_DRAFT_COMMENTS: ReviewDraftComment[] = [];
 
 type ReviewAttachment = Extract<AgentAttachment, { type: "review" }>;
@@ -65,6 +68,13 @@ interface ReviewDraftStoreActions {
     updatedAt?: string;
   }) => void;
   deleteComment: (input: { key: string; id: string }) => void;
+  /** Moves notes the diff moved, and gives anchors to notes that had none, in one update. */
+  relocateComments: (input: {
+    key: string;
+    relocations: readonly ReviewCommentRelocation[];
+  }) => void;
+  /** Removes several notes in one update, so a subscriber never sees half of them gone. */
+  deleteComments: (input: { key: string; ids: ReadonlySet<string> }) => void;
   clearReview: (input: { key: string }) => void;
 }
 
@@ -117,6 +127,10 @@ function createDraftComment(input: ReviewDraftCommentInput): ReviewDraftComment 
     filePath: input.filePath,
     side: input.side,
     lineNumber: input.lineNumber,
+    ...(input.startLineNumber !== undefined && input.startLineNumber < input.lineNumber
+      ? { startLineNumber: input.startLineNumber }
+      : {}),
+    ...(input.anchor ? { anchor: input.anchor } : {}),
     body: input.body,
     createdAt: input.createdAt ?? now,
     updatedAt: input.updatedAt ?? input.createdAt ?? now,
@@ -144,6 +158,12 @@ export const useReviewDraftStore = create<ReviewDraftStore>()(
       },
       deleteComment: (input) => {
         set((state) => deleteCommentFromState(state, input));
+      },
+      relocateComments: (input) => {
+        set((state) => relocateCommentsInState(state, input));
+      },
+      deleteComments: (input) => {
+        set((state) => deleteCommentsFromState(state, input));
       },
       clearReview: (input) => {
         set((state) => clearReviewInState(state, input));
@@ -201,22 +221,28 @@ function findTarget(input: { comment: ReviewDraftComment; diffFiles: readonly Pa
   return null;
 }
 
+export interface ReviewAttachmentSnapshot {
+  /** The notes whose line is in the diff, ready to send; null when none are. */
+  attachment: ReviewComposerAttachment | null;
+  /** Notes whose line is not in the diff, or whose file's patch is not loaded. Never sent, never deleted. */
+  unplaced: ReviewDraftComment[];
+}
+
 export function buildReviewAttachmentSnapshot(
   input: BuildReviewAttachmentSnapshotInput,
-): ReviewComposerAttachment | null {
+): ReviewAttachmentSnapshot {
   const comments: ReviewAttachment["comments"] = [];
+  const commentIds: string[] = [];
+  const unplaced: ReviewDraftComment[] = [];
 
   for (const draftComment of input.comments) {
     const target = findTarget({
       comment: draftComment,
       diffFiles: input.diffFiles,
     });
-    if (!target) {
-      continue;
-    }
-
-    const targetLine = toContextLine(target.targetLine);
-    if (!targetLine) {
+    const targetLine = target ? toContextLine(target.targetLine) : null;
+    if (!target || !targetLine) {
+      unplaced.push(draftComment);
       continue;
     }
 
@@ -227,11 +253,16 @@ export function buildReviewAttachmentSnapshot(
       .map(toContextLine)
       .filter((line): line is ReviewAttachmentContextLine => line !== null);
 
+    commentIds.push(draftComment.id);
     comments.push({
       filePath: draftComment.filePath,
       side: draftComment.side,
       lineNumber: draftComment.lineNumber,
-      body: draftComment.body,
+      // The attachment names one line; a range's first line travels in the text so it is not lost.
+      body:
+        noteStartLine(draftComment) < draftComment.lineNumber
+          ? `Lines ${noteStartLine(draftComment)}-${draftComment.lineNumber}: ${draftComment.body}`
+          : draftComment.body,
       context: {
         hunkHeader: target.hunkHeader,
         targetLine,
@@ -241,7 +272,7 @@ export function buildReviewAttachmentSnapshot(
   }
 
   if (comments.length === 0) {
-    return null;
+    return { attachment: null, unplaced };
   }
 
   const attachment: ReviewAttachment = {
@@ -254,10 +285,14 @@ export function buildReviewAttachmentSnapshot(
   };
 
   return {
-    kind: "review",
-    reviewDraftKey: input.reviewDraftKey,
-    commentCount: comments.length,
-    attachment,
+    attachment: {
+      kind: "review",
+      reviewDraftKey: input.reviewDraftKey,
+      commentCount: comments.length,
+      commentIds,
+      attachment,
+    },
+    unplaced,
   };
 }
 
@@ -265,8 +300,8 @@ export function useReviewDraftComments(key: string): ReviewDraftComment[] {
   return useReviewDraftStore((state) => state.drafts[key] ?? EMPTY_REVIEW_DRAFT_COMMENTS);
 }
 
-export function useClearReviewDraft(): ReviewDraftStoreActions["clearReview"] {
-  return useReviewDraftStore((state) => state.clearReview);
+export function useDeleteReviewDraftComments(): ReviewDraftStoreActions["deleteComments"] {
+  return useReviewDraftStore((state) => state.deleteComments);
 }
 
 export function addReviewDraftComment(input: {
@@ -316,7 +351,7 @@ export function useReviewAttachmentSnapshot(input: {
         baseRef: input.baseRef,
         comments,
         diffFiles: input.diffFiles,
-      }),
+      }).attachment,
     [comments, input.key, input.cwd, input.mode, input.baseRef, input.diffFiles],
   );
 }
@@ -325,7 +360,8 @@ export function useReviewAttachmentSnapshot(input: {
 export function saveReviewDraftComment(input: {
   key: string;
   id: string | null;
-  comment: Pick<ReviewDraftComment, "filePath" | "side" | "lineNumber" | "body">;
+  comment: Pick<ReviewDraftComment, "filePath" | "side" | "lineNumber" | "body"> &
+    Partial<Pick<ReviewDraftComment, "startLineNumber" | "anchor">>;
 }): void {
   const store = useReviewDraftStore.getState();
   if (input.id && store.drafts[input.key]?.some((comment) => comment.id === input.id)) {
@@ -337,8 +373,17 @@ export function saveReviewDraftComment(input: {
         filePath: input.comment.filePath,
         side: input.comment.side,
         lineNumber: input.comment.lineNumber,
+        startLineNumber: input.comment.startLineNumber,
+        anchor: input.comment.anchor,
         body: input.comment.body,
       },
     });
   }
+}
+
+export function relocateReviewDraftComments(input: {
+  key: string;
+  relocations: readonly ReviewCommentRelocation[];
+}): void {
+  useReviewDraftStore.getState().relocateComments(input);
 }

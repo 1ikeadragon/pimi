@@ -2,12 +2,16 @@
 import { router, type Href } from "expo-router";
 import { getDesktopHost } from "@/desktop/host";
 import { buildOpenProjectRoute } from "@/utils/host-routes";
-import type { ReviewSource } from "@/review-screen/types";
+import type { ReviewDeskFocus, ReviewSource } from "@/review-screen/types";
+import { markReviewOpen } from "@/review-screen/timing";
+import { prefetchCheckoutStatus } from "@/review-screen/warm";
 
 export const PIMI_REVIEW_ROUTE = "/pimi-review";
 
 const FORGE_HOST = /^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/;
 const REPO_SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9._-]{0,99}$/;
+// Agent ids are UUIDs; the pattern bounds what a URL can put in the route, nothing more.
+const AGENT_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const COMPARE_MODES = new Set(["uncommitted", "base", "all"]);
 
 type ReviewRouteParams = Record<string, string | string[] | undefined>;
@@ -32,6 +36,7 @@ export function reviewSourceToParams(source: ReviewSource): Record<string, strin
     cwd: source.cwd,
     mode: source.compare.mode,
     ...(source.compare.baseRef ? { baseRef: source.compare.baseRef } : {}),
+    ...(source.origin ? { originAgentId: source.origin.agentId } : {}),
   };
 }
 
@@ -70,21 +75,67 @@ export function parseReviewSource(params: ReviewRouteParams): ReviewSource | nul
   }
   const cwd = single(params.cwd);
   const mode = single(params.mode);
+  const originAgentId = single(params.originAgentId);
   if (!cwd || !mode || !COMPARE_MODES.has(mode)) return null;
   return {
     kind: "checkout",
     serverId,
     cwd,
     compare: { mode: mode as "uncommitted" | "base" | "all", baseRef: single(params.baseRef) },
+    // Only a shape check: whether the chat exists is read from the session store when it is used.
+    ...(originAgentId && AGENT_ID.test(originAgentId)
+      ? { origin: { agentId: originAgentId } }
+      : {}),
   };
 }
 
-/** Open the inbox (no source) or a review. Pushing a source on top of the inbox lets Back return to it. */
-export function openPimiReview(source?: ReviewSource, serverId?: string): void {
+// Each request carries a sequence number, so asking for the same line twice still scrolls twice.
+let focusSequence = 0;
+
+/** Route params for a request to scroll a review to a file and line. */
+function focusToParams(focus: Omit<ReviewDeskFocus, "nonce">): Record<string, string> {
+  focusSequence += 1;
+  return {
+    focusPath: focus.path,
+    focusSeq: String(focusSequence),
+    ...(focus.line !== null ? { focusLine: String(focus.line) } : {}),
+    ...(focus.side ? { focusSide: focus.side } : {}),
+  };
+}
+
+/** The focus request a route carries, or null. The inverse of {@link focusToParams}. */
+export function parseReviewFocus(params: ReviewRouteParams): ReviewDeskFocus | null {
+  const path = single(params.focusPath);
+  const seq = single(params.focusSeq);
+  if (!path || !seq || !/^[1-9]\d{0,15}$/.test(seq)) return null;
+  const lineText = single(params.focusLine);
+  const line = lineText && /^[1-9]\d{0,9}$/.test(lineText) ? Number(lineText) : null;
+  const side = single(params.focusSide);
+  return {
+    path,
+    line,
+    ...(side === "old" || side === "new" ? { side } : {}),
+    nonce: Number(seq),
+  };
+}
+
+/**
+ * Open the inbox (no source) or a review. Pushing a source on top of the inbox lets Back return to
+ * it. `focus` scrolls a checkout review to a file and line once its diff is in.
+ */
+export function openPimiReview(
+  source?: ReviewSource,
+  serverId?: string,
+  focus?: Omit<ReviewDeskFocus, "nonce">,
+): void {
+  markReviewOpen();
   getDesktopHost()?.dismissPimiWorkspace?.();
+  // Without a base ref in hand the screen waits for the checkout status; start reading it now.
+  if (source?.kind === "checkout" && !source.compare.baseRef) prefetchCheckoutStatus(source);
   let params: Record<string, string> = {};
   if (source) params = reviewSourceToParams(source);
   else if (serverId) params = { serverId };
+  if (source && focus) params = { ...params, ...focusToParams(focus) };
   router.navigate({ pathname: PIMI_REVIEW_ROUTE, params } as unknown as Href);
 }
 
@@ -115,12 +166,15 @@ export function checkoutReviewSource(input: {
   serverId: string;
   cwd: string;
   baseRef?: string;
+  /** The chat that offered the review. */
+  originAgentId?: string;
 }): ReviewSource {
   return {
     kind: "checkout",
     serverId: input.serverId,
     cwd: input.cwd,
     compare: { mode: "all", ...(input.baseRef ? { baseRef: input.baseRef } : {}) },
+    ...(input.originAgentId ? { origin: { agentId: input.originAgentId } } : {}),
   };
 }
 

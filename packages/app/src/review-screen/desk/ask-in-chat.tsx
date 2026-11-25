@@ -1,8 +1,10 @@
 // Pimi. PolyForm-Noncommercial-1.0.0.
-// "Ask in chat": the user's line annotations become one `review` composer attachment on a new draft
-// of a workspace, then that workspace opens the draft with the attachment in its composer. For a
-// pull request the workspaces are the ones of the same repository; for a worktree it is the
-// worktree itself. Nothing is sent; sending clears the drafts (composer/attachments/workspace.tsx).
+// What the user does with their review notes. A worktree review sends them to a chat as annotation
+// chips (the chat that offered the review, else the chat working in this directory), removing each
+// note once its chip is in the draft. A pull request, or a worktree no chat is working in, keeps
+// "Ask in chat": the notes become one `review` attachment on a new draft of a workspace, and
+// sending that draft clears them (composer/attachments/workspace.tsx). Nothing is ever sent
+// without the user pressing send in the composer.
 import { useCallback, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -17,13 +19,27 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { buildReviewAttachmentSnapshot, getReviewDraftComments } from "@/review";
-import { useSessionStore, type WorkspaceDescriptor } from "@/stores/session-store";
-import { generateDraftId } from "@/stores/draft-keys";
+import { AnnotationAttachmentSchema } from "@/annotations/model";
+import { Button } from "@/components/ui/button";
+import { MAX_CHIPS } from "@/composer/chips/model";
+import { useToast } from "@/contexts/toast-api-context";
+import { useTranslation } from "@/i18n/use-translation";
+import { buildReviewAttachmentSnapshot } from "@/review";
+import { fileForNote } from "@/review/anchor";
+import type { ReviewDraftComment } from "@/review/state";
+import { useDeleteReviewDraftComments } from "@/review/store";
+import { useDraftStore } from "@/stores/draft-store";
+import { useSessionStore, type Agent, type WorkspaceDescriptor } from "@/stores/session-store";
+import { buildDraftStoreKey, generateDraftId } from "@/stores/draft-keys";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
+import { generateMessageId } from "@/types/stream";
+import { navigateToAgent } from "@/utils/navigate-to-agent";
 import type { ParsedDiffFile } from "@pimi/protocol/messages";
 import type { ChangeRequestSource, ReviewSource } from "../types";
 import { useDeskCopy } from "./copy";
+import { noteToAnnotation } from "./note-annotation";
+import { resolveNoteTarget, type NoteChatCandidate } from "./note-target";
+import { sendNotes } from "./send-notes";
 
 const NO_WORKSPACES: ReadonlyMap<string, WorkspaceDescriptor> = new Map();
 
@@ -64,42 +80,184 @@ function workspacesFor(
   );
 }
 
+/** An untitled chat is named by the start of its id. */
+const UNTITLED_CHAT_ID_LENGTH = 8;
+
+type AgentMap = ReadonlyMap<string, Agent> | undefined;
+
+function chatCandidate(
+  agentId: string | undefined,
+  agents: AgentMap,
+  details: AgentMap,
+  workspaces: ReadonlyMap<string, WorkspaceDescriptor>,
+): NoteChatCandidate | null {
+  if (!agentId) return null;
+  const agent = agents?.get(agentId) ?? details?.get(agentId);
+  // The same availability rule an annotation chip's target uses: known and not archived.
+  if (!agent || agent.archivedAt) return null;
+  return toCandidate(agent, workspaces);
+}
+
+function toCandidate(
+  agent: Agent,
+  workspaces: ReadonlyMap<string, WorkspaceDescriptor>,
+): NoteChatCandidate {
+  const workspace = agent.workspaceId ? workspaces.get(agent.workspaceId) : undefined;
+  return {
+    agentId: agent.id,
+    title: agent.title ?? "",
+    directory: workspace?.workspaceDirectory ?? agent.cwd,
+    lastActivityAt: agent.lastActivityAt.getTime(),
+  };
+}
+
+/** Chats the user talks to: not subagents, not archived, not background. */
+function rootChats(
+  agents: AgentMap,
+  workspaces: ReadonlyMap<string, WorkspaceDescriptor>,
+): NoteChatCandidate[] {
+  if (!agents) return [];
+  const chats: NoteChatCandidate[] = [];
+  for (const agent of agents.values()) {
+    if (agent.parentAgentId || agent.archivedAt || agent.background) continue;
+    chats.push(toCandidate(agent, workspaces));
+  }
+  return chats;
+}
+
 export function AskInChat({
   source,
   reviewDraftKey,
-  draftCount,
+  notes,
+  outdatedIds,
   loadedFiles,
   baseRef,
+  onViewNotes,
 }: {
   source: ReviewSource;
   reviewDraftKey: string;
-  draftCount: number;
+  /** Every note of this review, in the order they are sent. */
+  notes: readonly ReviewDraftComment[];
+  outdatedIds: ReadonlySet<string>;
   loadedFiles: ReadonlyMap<string, ParsedDiffFile>;
   baseRef: string | null;
+  onViewNotes: () => void;
 }) {
   const copy = useDeskCopy();
+  const { t } = useTranslation();
+  const toast = useToast();
+  const deleteReviewDraftComments = useDeleteReviewDraftComments();
   const workspaces = useSessionStore(
     (state) => state.sessions[source.serverId]?.workspaces ?? NO_WORKSPACES,
   );
+  const agents = useSessionStore((state) => state.sessions[source.serverId]?.agents);
+  const agentDetails = useSessionStore((state) => state.sessions[source.serverId]?.agentDetails);
   const candidates = useMemo(() => workspacesFor(workspaces, source), [workspaces, source]);
+  const target = useMemo(
+    () =>
+      source.kind === "checkout"
+        ? resolveNoteTarget({
+            cwd: source.cwd,
+            origin: chatCandidate(source.origin?.agentId, agents, agentDetails, workspaces),
+            chats: rootChats(agents, workspaces),
+          })
+        : ({ kind: "none" } as const),
+    [agents, agentDetails, source, workspaces],
+  );
   const mode = source.kind === "checkout" ? source.compare.mode : "all";
   const repoLabel =
     source.kind === "change_request"
       ? `${source.owner}/${source.name}`
       : (source.cwd.split(/[\\/]/).findLast(Boolean) ?? source.cwd);
   const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [pickOpen, setPickOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
+  const openAsk = useCallback(() => setAskOpen(true), []);
+
+  const sendTo = useCallback(
+    async (chat: NoteChatCandidate) => {
+      if (source.kind !== "checkout" || sending) return;
+      setSending(true);
+      setError(null);
+      const draftKey = buildDraftStoreKey({ serverId: source.serverId, agentId: chat.agentId });
+      const store = useDraftStore.getState();
+      const result = await sendNotes({
+        notes,
+        toAnnotation: (note) =>
+          AnnotationAttachmentSchema.omit({ slot: true }).parse(
+            noteToAnnotation({
+              note,
+              file: fileForNote(loadedFiles, note.filePath),
+              outdated: outdatedIds.has(note.id),
+              serverId: source.serverId,
+              cwd: source.cwd,
+              baseRef,
+              id: generateMessageId(),
+            }),
+          ),
+        attach: (attachment) => store.attachAnnotation({ draftKey, attachment }),
+        remove: (note) =>
+          deleteReviewDraftComments({ key: reviewDraftKey, ids: new Set([note.id]) }),
+      });
+      setSending(false);
+      if (result.sent > 0) {
+        navigateToAgent({ serverId: source.serverId, agentId: chat.agentId });
+        store.requestComposerFocus({ draftKey });
+      }
+      if (result.stopped?.reason === "limit") {
+        toast.show(
+          t("reviewScreen.notes.sentPartial", {
+            sent: result.sent,
+            total: result.total,
+            limit: MAX_CHIPS,
+          }),
+          { variant: "warning" },
+        );
+      } else if (result.stopped) {
+        const message = describeError(result.stopped.error);
+        setError(
+          t("reviewScreen.notes.sendFailed", { message, count: result.total - result.sent }),
+        );
+      }
+    },
+    [
+      baseRef,
+      deleteReviewDraftComments,
+      loadedFiles,
+      notes,
+      outdatedIds,
+      reviewDraftKey,
+      sending,
+      source,
+      t,
+      toast,
+    ],
+  );
+  const handleSendChosen = useCallback(
+    (chat: NoteChatCandidate) => {
+      setPickOpen(false);
+      void sendTo(chat);
+    },
+    [sendTo],
+  );
+  const handleSendClick = useCallback(() => {
+    if (target.kind === "chat") void sendTo(target.chat);
+    else setPickOpen(true);
+  }, [sendTo, target]);
+  const openPick = useCallback(() => setPickOpen(true), []);
 
   const attach = useCallback(
     (workspace: WorkspaceDescriptor) => {
-      const snapshot = buildReviewAttachmentSnapshot({
+      const { attachment } = buildReviewAttachmentSnapshot({
         reviewDraftKey,
         cwd: workspace.workspaceDirectory,
         mode,
         baseRef,
-        comments: getReviewDraftComments(reviewDraftKey) ?? [],
+        comments: notes,
         diffFiles: [...loadedFiles.values()],
       });
-      if (!snapshot) {
+      if (!attachment) {
         setError(copy.askUnavailable);
         return;
       }
@@ -109,7 +267,7 @@ export function AskInChat({
       const draftId = generateDraftId();
       useWorkspaceAttachmentsStore.getState().setWorkspaceAttachments({
         scopeKey: buildDraftWorkspaceAttachmentScopeKey(draftId),
-        attachments: [snapshot],
+        attachments: [attachment],
       });
       navigateToWorkspace({
         serverId: source.serverId,
@@ -117,22 +275,23 @@ export function AskInChat({
         target: { kind: "draft", draftId },
       });
     },
-    [baseRef, copy.askUnavailable, loadedFiles, mode, reviewDraftKey, source.serverId],
+    [baseRef, copy.askUnavailable, loadedFiles, mode, notes, reviewDraftKey, source.serverId],
   );
 
-  if (draftCount === 0) return null;
-  return (
-    <View style={styles.bar} testID="review-desk-ask-bar">
-      <Text style={styles.count}>{copy.annotations(draftCount)}</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <DropdownMenu>
+  if (notes.length === 0) return null;
+  const outdatedCount = notes.filter((note) => outdatedIds.has(note.id)).length;
+  let send: React.ReactNode;
+  if (target.kind === "none") {
+    send = (
+      <DropdownMenu open={askOpen} onOpenChange={setAskOpen}>
         <DropdownMenuTrigger
           accessibilityRole="button"
           accessibilityLabel={copy.askInChat}
-          style={styles.trigger}
           testID="review-desk-ask-trigger"
         >
-          <Text style={styles.triggerText}>{copy.askInChat}</Text>
+          <Button variant="default" size="sm" onPress={openAsk}>
+            {copy.askInChat}
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" minWidth={260} side="top" testID="review-desk-ask-menu">
           {candidates.length === 0 ? (
@@ -144,7 +303,79 @@ export function AskInChat({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+    );
+  } else if (target.kind === "chat") {
+    send = (
+      <Button
+        variant="default"
+        size="sm"
+        loading={sending}
+        onPress={handleSendClick}
+        testID="review-notes-send"
+      >
+        {t("reviewScreen.notes.sendTo", { chat: chatLabel(target.chat) })}
+      </Button>
+    );
+  } else {
+    send = (
+      <DropdownMenu open={pickOpen} onOpenChange={setPickOpen}>
+        <DropdownMenuTrigger
+          accessibilityRole="button"
+          accessibilityLabel={t("reviewScreen.notes.sendToChat")}
+        >
+          <Button
+            variant="default"
+            size="sm"
+            loading={sending}
+            onPress={openPick}
+            testID="review-notes-send"
+          >
+            {t("reviewScreen.notes.sendToChat")}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" minWidth={260} side="top" testID="review-notes-send-menu">
+          {target.chats.map((chat) => (
+            <SendTarget key={chat.agentId} chat={chat} onPick={handleSendChosen} />
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+  return (
+    <View style={styles.bar} testID="review-desk-ask-bar">
+      <Text style={styles.count}>
+        {copy.annotations(notes.length)}
+        {outdatedCount > 0 ? ` · ${copy.outdatedCount(outdatedCount)}` : ""}
+      </Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <Button variant="ghost" size="sm" onPress={onViewNotes} testID="review-notes-view">
+        {t("reviewScreen.notes.view")}
+      </Button>
+      {send}
     </View>
+  );
+}
+
+function chatLabel(chat: NoteChatCandidate): string {
+  return chat.title || chat.agentId.slice(0, UNTITLED_CHAT_ID_LENGTH);
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function SendTarget({
+  chat,
+  onPick,
+}: {
+  chat: NoteChatCandidate;
+  onPick: (chat: NoteChatCandidate) => void;
+}) {
+  const handleSelect = useCallback(() => onPick(chat), [chat, onPick]);
+  return (
+    <DropdownMenuItem onSelect={handleSelect} testID={`review-notes-send-${chat.agentId}`}>
+      {chatLabel(chat)}
+    </DropdownMenuItem>
   );
 }
 
@@ -176,11 +407,4 @@ const styles = StyleSheet.create((theme) => ({
   },
   count: { flex: 1, fontSize: theme.fontSize.sm, color: theme.colors.foregroundMuted },
   error: { fontSize: theme.fontSize.sm, color: theme.colors.destructive },
-  trigger: {
-    paddingHorizontal: theme.spacing[3],
-    paddingVertical: theme.spacing[1.5],
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.accent,
-  },
-  triggerText: { fontSize: theme.fontSize.sm, color: theme.colors.accentForeground },
 }));

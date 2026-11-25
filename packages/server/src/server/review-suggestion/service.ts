@@ -191,7 +191,8 @@ export class ReviewSuggestionService {
       reviewSuggestion: {
         path: workspace.worktreeRoot,
         branch: git.currentBranch,
-        baseRef: git.baseRef,
+        // The exact ref is what the app compares against, so the review opens without waiting for status.
+        baseRef: git.baseRefExact ?? git.baseRef,
         stats: {
           filesChanged: diffStat.filesChanged,
           additions: diffStat.additions,

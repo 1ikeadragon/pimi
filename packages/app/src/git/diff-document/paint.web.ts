@@ -34,6 +34,8 @@ import type {
 } from "./types";
 
 const CODE_LEFT_PADDING = 8;
+/** Width of the bar that marks the lines a range note covers; it sits inside the gutter's right edge. */
+const RANGE_BAR_WIDTH = 2;
 
 export interface PaintWebViewportInput {
   context: CanvasRenderingContext2D;
@@ -47,6 +49,8 @@ export interface PaintWebViewportInput {
   viewportHeight: number;
   horizontalOffsets: ReadonlyMap<string, number>;
   selection: DiffSelection | null;
+  /** Target keys of lines a range note covers; each gets a bar on its gutter's edge. */
+  rangeBars?: ReadonlySet<string>;
   findHighlights?: DiffFindHighlights | null;
   activeHeaderPath: string | null;
   devicePixelRatio: number;
@@ -288,6 +292,15 @@ function paintLine(
     if (!cell) return;
     input.context.fillStyle = input.palette.border;
     input.context.fillRect(x + file.gutterWidth, input.y, 1, reviewDividerHeight(input.row.height));
+    if (cell.reviewTarget && input.rangeBars?.has(cell.reviewTarget.key)) {
+      input.context.fillStyle = input.palette.headerBorder;
+      input.context.fillRect(
+        x + file.gutterWidth - RANGE_BAR_WIDTH,
+        input.y,
+        RANGE_BAR_WIDTH,
+        input.row.height - input.row.reviewHeight,
+      );
+    }
     if (cell.lineNumber !== null) {
       const label = String(cell.lineNumber);
       input.context.fillStyle = lineNumberColor(cell, input.palette);

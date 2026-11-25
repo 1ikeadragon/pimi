@@ -2214,8 +2214,9 @@ attachments.subscribe(() => render(attachments.list()));
 ```
 
 An annotation has `id`, `quote`, `note`, and a `source`: a file range (`workspaceId`, `path`, 1-based
-lines and columns, `endColumn` one past the last character) or a chat message (`agentId`, `messageId`,
-`role`). Each annotation also has `position`, the offset of its chip in `composer.getText()` (null until the
+lines and columns, `endColumn` one past the last character), a chat message (`agentId`, `messageId`,
+`role`), a browser element, or lines of a Review diff (`cwd`, `path`, `side` of `"old"` or `"new"`,
+1-based `startLine` and `endLine`, and the `baseRef` it was compared with, or null). Each annotation also has `position`, the offset of its chip in `composer.getText()` (null until the
 composer has placed it), and `ref`, its 1-based place in text order. `list()` returns annotations in
 text order, and the same array until the contents or a chip's position change, so it works as a
 `useSyncExternalStore` snapshot. `add` throws when the quote or note is longer than Pimi's annotation

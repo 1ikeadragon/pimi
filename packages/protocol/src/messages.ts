@@ -1076,7 +1076,11 @@ export const ExternalResourceAttachmentMetadataSchema = z.object({
 
 const annotationPositionSchema = z.number().int().positive();
 
-/** Where an annotated quote came from: a range in a workspace file, a message in a chat, or an element on a web page. */
+/**
+ * Where an annotated quote came from: a range in a workspace file, a message in a chat, an
+ * element on a web page, or lines of a Review diff. A diff range lies on one side of the
+ * comparison: `old` numbers are the base version's lines, `new` the working version's.
+ */
 export const AnnotationSourceSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("file"),
@@ -1100,6 +1104,18 @@ export const AnnotationSourceSchema = z.discriminatedUnion("kind", [
     url: z.string(),
     selector: z.string(),
     tag: z.string(),
+  }),
+  z.object({
+    kind: z.literal("diff"),
+    serverId: z.string(),
+    /** The checkout Review compared. */
+    cwd: z.string(),
+    path: z.string(),
+    side: z.enum(["old", "new"]),
+    startLine: annotationPositionSchema,
+    endLine: annotationPositionSchema,
+    /** What the checkout was compared against; null when the comparison named no base. */
+    baseRef: z.string().nullable(),
   }),
 ]);
 

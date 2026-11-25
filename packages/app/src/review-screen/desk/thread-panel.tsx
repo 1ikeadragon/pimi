@@ -33,7 +33,7 @@ function locationOf(thread: ForgeThread): string {
 }
 
 /** Esc closes the panel, on web, unless the user is typing. */
-function useCloseOnEscape(active: boolean, onClose: () => void) {
+export function useCloseOnEscape(active: boolean, onClose: () => void) {
   useEffect(() => {
     if (!active || !isWeb) return;
     const onKeyDown = (event: KeyboardEvent) => {

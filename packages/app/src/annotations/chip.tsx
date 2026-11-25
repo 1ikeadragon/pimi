@@ -1,19 +1,26 @@
-import { FileCode, MousePointerClick, Quote } from "lucide-react-native";
+import { FileCode, GitCompareArrows, MousePointerClick, Quote } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
 import { InlineChip } from "@/components/ui/chip/inline-chip";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { annotationChipLabel, type AnnotationAttachment } from "./model";
 
 const ThemedFileCode = withUnistyles(FileCode);
+const ThemedDiff = withUnistyles(GitCompareArrows);
 const ThemedQuote = withUnistyles(Quote);
 const ThemedPointer = withUnistyles(MousePointerClick);
 const accentIconMapping = (theme: Theme) => ({ color: theme.colors.accentBright });
 
 const fileIcon = <ThemedFileCode size={ICON_SIZE.xs} uniProps={accentIconMapping} />;
 const elementIcon = <ThemedPointer size={ICON_SIZE.xs} uniProps={accentIconMapping} />;
+const diffIcon = <ThemedDiff size={ICON_SIZE.xs} uniProps={accentIconMapping} />;
 const quoteIcon = <ThemedQuote size={ICON_SIZE.xs} uniProps={accentIconMapping} />;
 
-const ICON_BY_SOURCE = { file: fileIcon, chat: quoteIcon, browser: elementIcon } as const;
+const ICON_BY_SOURCE = {
+  file: fileIcon,
+  chat: quoteIcon,
+  browser: elementIcon,
+  diff: diffIcon,
+} as const;
 
 /** An annotation drawn as a chip: where it came from, with a dot when it has a note. */
 export function AnnotationChip({

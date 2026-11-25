@@ -4,6 +4,7 @@ import type { SubscribeCheckoutDiffRequest, SessionOutboundMessage } from "./mes
 import type { WorkspaceGitRuntimeSnapshot, WorkspaceGitService } from "./workspace-git-service.js";
 import { expandTilde } from "../utils/path.js";
 import { toCheckoutError } from "./checkout-git-utils.js";
+import type { CheckoutDiffTimings } from "../utils/checkout-git.js";
 
 const CHECKOUT_DIFF_WATCH_DEBOUNCE_MS = 150;
 
@@ -69,6 +70,7 @@ export class CheckoutDiffManager {
   private readonly workspaceGitService: CheckoutDiffWorkspace;
   private readonly workspaceRuntimeStore: WorkspaceRuntimeStore;
   private readonly targets = new Map<string, CheckoutDiffWatchTarget>();
+  private readonly logger: pino.Logger;
 
   constructor(options: {
     logger: pino.Logger;
@@ -76,6 +78,7 @@ export class CheckoutDiffManager {
     workspaceGitService: CheckoutDiffWorkspace;
     workspaceRuntimeStore: WorkspaceRuntimeStore;
   }) {
+    this.logger = options.logger.child({ module: "checkout-diff" });
     this.workspaceGitService = options.workspaceGitService;
     this.workspaceRuntimeStore = options.workspaceRuntimeStore;
   }
@@ -265,6 +268,7 @@ export class CheckoutDiffManager {
     options?: { diffCwd?: string; force?: boolean; reason?: string },
   ): Promise<CheckoutDiffSnapshotPayload> {
     const diffCwd = options?.diffCwd ?? cwd;
+    const startedAt = performance.now();
     try {
       const diffResult = await this.workspaceGitService.getCheckoutDiff(
         diffCwd,
@@ -291,11 +295,9 @@ export class CheckoutDiffManager {
         if (a.path === b.path) return 0;
         return a.path < b.path ? -1 : 1;
       });
-      return {
-        cwd,
-        files,
-        error: null,
-      };
+      const payload = { cwd, files, error: null };
+      this.logSnapshot({ cwd, compare, startedAt, payload, timings: diffResult.timings });
+      return payload;
     } catch (error) {
       return {
         cwd,
@@ -303,6 +305,39 @@ export class CheckoutDiffManager {
         error: toCheckoutError(error),
       };
     }
+  }
+
+  /**
+   * Where a snapshot's time went. `totalMs` is this call's wall time, near zero when the daemon's
+   * diff cache answered, in which case the stage times are those of the read that filled it.
+   * Sizing the snapshot serializes it once more, so it happens only when debug logging is on.
+   */
+  private logSnapshot(input: {
+    cwd: string;
+    compare: CheckoutDiffCompareInput;
+    startedAt: number;
+    payload: CheckoutDiffSnapshotPayload;
+    timings: CheckoutDiffTimings | undefined;
+  }): void {
+    if (!this.logger.isLevelEnabled("debug")) return;
+    this.logger.debug(
+      {
+        cwd: input.cwd,
+        mode: input.compare.mode,
+        files: input.payload.files.length,
+        bytes: Buffer.byteLength(JSON.stringify(input.payload)),
+        totalMs: Math.round(performance.now() - input.startedAt),
+        ...(input.timings
+          ? {
+              listMs: Math.round(input.timings.listMs),
+              patchMs: Math.round(input.timings.patchMs),
+              blobMs: Math.round(input.timings.blobMs),
+              highlightMs: Math.round(input.timings.highlightMs),
+            }
+          : {}),
+      },
+      "checkout diff snapshot",
+    );
   }
 
   private async refreshTarget(target: CheckoutDiffWatchTarget, force: boolean): Promise<void> {
