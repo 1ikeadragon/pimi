@@ -169,6 +169,7 @@ import { UsageReader } from "./usage/aggregate.js";
 import { UsageScanner } from "./usage/scanner.js";
 import { importCarriedTimelines } from "./agent/carried-timeline.js";
 import { SqliteTimelineStore } from "./agent/sqlite-timeline-store.js";
+import { startEventLoopStallWatchdog } from "./event-loop-stall-watchdog.js";
 import { createHandoffServices, listOpenTasksForAgent } from "./agent/handoff/services.js";
 import { TranscriptStore } from "./agent/handoff/transcript-file.js";
 import { TimelineIndexer } from "./agent/timeline-search/indexer.js";
@@ -748,6 +749,7 @@ export async function createPimiDaemon(
     home: config.pimiHome,
     onError: (error, message) => logger.warn({ err: error }, message),
   });
+  const stopEventLoopStallWatchdog = startEventLoopStallWatchdog(logger);
   const orchestrationSkills = createOrchestrationSkills(daemonConfigStore);
   void orchestrationSkills.autoUpdate().catch((error) => {
     logger.error({ err: error }, "Failed to maintain orchestration skills at startup");
@@ -2468,6 +2470,7 @@ export async function createPimiDaemon(
     }
     await serviceProxy.stopStandalone();
     await resourceMonitor.stop();
+    stopEventLoopStallWatchdog();
     await networkLog.close();
     pimiDatabase.close();
     timelineDatabase.close();
