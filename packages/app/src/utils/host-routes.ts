@@ -537,6 +537,7 @@ export const HOST_SECTION_SLUGS = [
   "usage",
   "terminals",
   "plugins",
+  "vault",
   "host",
 ] as const;
 

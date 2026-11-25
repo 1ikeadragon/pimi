@@ -3,6 +3,7 @@ import { realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import type pino from "pino";
 import {
+  VAULT_MIN_PASSPHRASE_LENGTH,
   VaultEnvNameSchema,
   VaultSecretNameSchema,
   type VaultAuditEntry,
@@ -24,7 +25,6 @@ import {
 import { VaultAudit } from "./audit.js";
 import { BITWARDEN_CACHE_TTL_MS, type BitwardenCli } from "./sources/bitwarden-cli.js";
 import {
-  MIN_PASSPHRASE_LENGTH,
   VAULT_FORMAT_VERSION,
   deriveVaultKey,
   keysEqual,
@@ -300,10 +300,10 @@ export class VaultService implements OutputRedactor {
     if (this.state !== "uninitialized") {
       throw new VaultError("already_initialized", "A vault already exists.");
     }
-    if (passphrase.normalize("NFKC").length < MIN_PASSPHRASE_LENGTH) {
+    if (passphrase.normalize("NFKC").length < VAULT_MIN_PASSPHRASE_LENGTH) {
       throw new VaultError(
         "weak_passphrase",
-        `Use a passphrase of at least ${MIN_PASSPHRASE_LENGTH} characters.`,
+        `Use a passphrase of at least ${VAULT_MIN_PASSPHRASE_LENGTH} characters.`,
       );
     }
     const kdf = newKdfParams();

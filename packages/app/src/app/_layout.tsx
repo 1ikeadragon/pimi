@@ -87,6 +87,7 @@ import { SessionProvider } from "@/contexts/session-context";
 import { SidebarCalloutProvider } from "@/contexts/sidebar-callout-context";
 import { ToastProvider } from "@/contexts/toast-context";
 import { AutomationDraftWatcher } from "@/components/automations/automation-draft-watcher";
+import { VaultApprovalWatcher } from "@/screens/settings/vault/approval-watcher";
 import { VoiceProvider } from "@/contexts/voice-context";
 import {
   resolveStartupBlocker,
@@ -1137,6 +1138,7 @@ function AppShellBase() {
         <OpenProjectListener />
         <AgentNavigationListener />
         <AutomationDraftWatcher />
+        <VaultApprovalWatcher />
         <AppWithSidebar>
           <WorkspaceRouteNavigationBridge />
           <RootStack />

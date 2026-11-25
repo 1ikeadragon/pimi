@@ -45,11 +45,6 @@ export const SALT_BYTES = 16;
 export const NONCE_BYTES = 12;
 export const TAG_BYTES = 16;
 
-// Shortest passphrase initialize accepts. NIST SP 800-63B sets 8 for online-attack-limited
-// secrets. This one also faces offline attack by any process that can read vault.json (every
-// same-user agent), so it is raised to 12.
-export const MIN_PASSPHRASE_LENGTH = 12;
-
 // ---
 
 export interface KdfParams {

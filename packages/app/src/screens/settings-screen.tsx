@@ -37,6 +37,7 @@ import {
   Sparkles,
   Mic,
   Blocks,
+  KeyRound,
   MessageSquare,
   ChevronRight,
 } from "lucide-react-native";
@@ -110,6 +111,7 @@ import {
 import { PluginSettingsContent } from "@/plugins/settings";
 import { usePluginDisplayName } from "@/plugins/plugin-list";
 import { HostPluginsPage } from "@/screens/settings/plugins-page";
+import { HostVaultPage } from "@/screens/settings/vault/vault-page";
 import { MetadataGenerationPage } from "@/screens/settings/metadata-generation-page";
 import { ResourcesSection } from "@/screens/settings/resources/resources-section";
 import { HostVoicePage } from "@/screens/settings/voice/voice-page";
@@ -242,6 +244,7 @@ const HOST_SECTION_ICONS: Record<HostSectionSlug, SettingsIcon> = {
   projects: FolderGit2,
   terminals: SquareTerminal,
   plugins: Blocks,
+  vault: KeyRound,
   host: Server,
 };
 
@@ -271,6 +274,8 @@ function renderHostSettingsContent(
       return <HostTerminalsPage serverId={view.serverId} />;
     case "plugins":
       return <HostPluginsPage serverId={view.serverId} />;
+    case "vault":
+      return <HostVaultPage serverId={view.serverId} />;
     case "host":
       return <HostSettingsPage serverId={view.serverId} onHostRemoved={onHostRemoved} />;
   }

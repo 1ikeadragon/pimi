@@ -3,6 +3,11 @@ import { z } from "zod";
 // The vault holds secrets an agent can use through `vault_run` but never read. Nothing in this
 // file carries a secret value: values go in on `vault.set_secret.request` and never come back.
 
+// Shortest passphrase initialize accepts. NIST SP 800-63B sets 8 for online-attack-limited
+// secrets. This one also faces offline attack by any process that can read vault.json (every
+// same-user agent), so it is raised to 12.
+export const VAULT_MIN_PASSPHRASE_LENGTH = 12;
+
 /** What agents write in `vault_run.secrets`. Lower-case-first so it cannot collide with an env name. */
 export const VaultSecretNameSchema = z
   .string()
