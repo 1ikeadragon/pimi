@@ -92,6 +92,16 @@ const SCHEMA_STEPS: readonly string[] = [
   // 7: a cursor remembers a hash of its file's first bytes, so a file that was rewritten under the
   // same name is read again from its start. Existing cursors have none and are trusted as before.
   `ALTER TABLE usage_scan_cursors ADD COLUMN prefix_hash TEXT;`,
+  // 8: every provider session id a chat has used. A rewind forks the provider session, so the
+  // usage rows written before it carry an id that agents.provider_session_id no longer holds; the
+  // ledger folds them into the chat that owns the fork through this table.
+  `CREATE TABLE agent_provider_sessions (
+     provider TEXT NOT NULL, session_id TEXT NOT NULL,
+     agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+     PRIMARY KEY (provider, session_id)) STRICT, WITHOUT ROWID;
+   INSERT OR IGNORE INTO agent_provider_sessions (provider, session_id, agent_id)
+     SELECT persistence_provider, provider_session_id, id FROM agents
+     WHERE persistence_provider IS NOT NULL AND provider_session_id IS NOT NULL;`,
 ];
 
 // pimi-timeline.db: chat timelines and their search index. Large and rebuildable from provider

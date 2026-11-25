@@ -248,12 +248,16 @@ export class UsageReader {
          GROUP BY provider, model, session_id, subagent_id, parent_session_id, cwd, bucket`,
       )
       .all(...params);
+    const current = this.currentSessionIds();
     return rows.map((row) => ({
       provider: String(row.provider),
       model: row.model === null ? null : String(row.model),
-      sessionId: String(row.session_id),
+      sessionId: current(String(row.provider), String(row.session_id)),
       subagentId: row.subagent_id === null ? null : String(row.subagent_id),
-      parentSessionId: row.parent_session_id === null ? null : String(row.parent_session_id),
+      parentSessionId:
+        row.parent_session_id === null
+          ? null
+          : current(String(row.provider), String(row.parent_session_id)),
       cwd: row.cwd === null ? null : String(row.cwd),
       bucket: String(row.bucket),
       input: Number(row.input),
@@ -299,6 +303,25 @@ export class UsageReader {
       label: String(row.name),
       usage: { ...finish(emptyAccumulator()), events: Number(row.calls) },
     }));
+  }
+
+  /**
+   * Maps a provider session id to the one its chat holds now. A rewind forks the session, so the
+   * rows from before it would otherwise read as a second chat run outside Pimi.
+   */
+  private currentSessionIds(): (provider: string, sessionId: string) => string {
+    const current = new Map<string, string>();
+    const rows = this.database.db
+      .prepare(
+        `SELECT s.provider, s.session_id, a.provider_session_id AS current
+         FROM agent_provider_sessions s JOIN agents a ON a.id = s.agent_id
+         WHERE a.persistence_provider = s.provider AND a.provider_session_id IS NOT NULL
+           AND a.provider_session_id != s.session_id`,
+      )
+      .all();
+    for (const row of rows)
+      current.set(`${String(row.provider)}:${String(row.session_id)}`, String(row.current));
+    return (provider, sessionId) => current.get(`${provider}:${sessionId}`) ?? sessionId;
   }
 
   private loadOwners(): Map<string, OwnerInfo> {

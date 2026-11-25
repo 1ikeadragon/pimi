@@ -308,6 +308,12 @@ export class AgentStorage {
       native,
       JSON.stringify(rest),
     );
+    if (persistence?.sessionId) {
+      prepared(
+        `INSERT INTO agent_provider_sessions (provider, session_id, agent_id) VALUES (?, ?, ?)
+         ON CONFLICT(provider, session_id) DO UPDATE SET agent_id = excluded.agent_id`,
+      ).run(persistence.provider, persistence.sessionId, record.id);
+    }
     if (persistence === undefined) {
       prepared("DELETE FROM agent_persistence WHERE agent_id = ?").run(record.id);
     } else {
