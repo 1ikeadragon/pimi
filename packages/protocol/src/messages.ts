@@ -2851,6 +2851,16 @@ export const CheckoutDiffGetRequestSchema = z.object({
  */
 export const NESTED_CHECKOUT_SCAN_DEPTH = 3;
 
+/**
+ * Repositories whose working tree one nested-changes subscription watches recursively. Each
+ * recursive observer keeps up to 250,000 inventory entries (docs/file-observation.md), so the
+ * number stays small; the app also expands this many repositories by default.
+ */
+export const MAX_WATCHED_NESTED_CHECKOUTS = 3;
+
+/** Changed files listed per repository; beyond it the repository reports `truncated`. */
+export const MAX_NESTED_CHANGED_FILES = 500;
+
 export const CheckoutNestedListRequestSchema = z.object({
   type: z.literal("checkout.nested.list.request"),
   cwd: z.string(),

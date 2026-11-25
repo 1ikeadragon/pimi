@@ -27,10 +27,12 @@ import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import pLimit from "p-limit";
 import type pino from "pino";
 import { getErrorMessage } from "@pimi/protocol/error-utils";
-import type {
-  NestedChangedFile,
-  NestedChangesRepository,
-  NestedFileState,
+import {
+  MAX_NESTED_CHANGED_FILES,
+  MAX_WATCHED_NESTED_CHECKOUTS,
+  type NestedChangedFile,
+  type NestedChangesRepository,
+  type NestedFileState,
 } from "@pimi/protocol/messages";
 import { DEFAULT_GIT_PROCESS_POLICY } from "../../utils/git-process-scheduler.js";
 import { runGitCommand, type RunGitCommand } from "../../utils/run-git-command.js";
@@ -53,15 +55,12 @@ export const MAX_NESTED_CHECKOUTS = 200;
  */
 const MAX_SCANNED_DIRECTORIES = 10_000;
 
-/** Files listed per repository. Beyond it the repository reports `truncated: true`. */
-export const MAX_FILES_PER_CHECKOUT = 500;
-
 /**
  * Status output is read in full before it is parsed, so it needs its own ceiling: the file cap times
  * PATH_MAX (4096) covers 500 entries made of maximum-length paths. Output that still exceeds it is
  * cut by the Git runner and reported as `truncated`.
  */
-const NESTED_STATUS_MAX_OUTPUT_BYTES = MAX_FILES_PER_CHECKOUT * 4096;
+const NESTED_STATUS_MAX_OUTPUT_BYTES = MAX_NESTED_CHANGED_FILES * 4096;
 
 /** Half the shared Git process pool, so folder refreshes leave room for everything else. */
 export const NESTED_STATUS_CONCURRENCY = Math.max(
@@ -77,9 +76,6 @@ export const NESTED_VISIBLE_POLL_MS = WORKSPACE_GIT_AUXILIARY_READ_TTL_MS;
 
 /** Minimum time between two status runs of one repository, absorbing watcher bursts. */
 export const NESTED_STATUS_MIN_GAP_MS = WORKSPACE_GIT_INTERNAL_MIN_GAP_MS;
-
-/** Repositories whose working tree is watched recursively, per subscription (docs/file-observation.md). */
-export const MAX_WATCHED_NESTED_CHECKOUTS = 3;
 
 /** Concurrent filesystem probes, shared by every discovery walk in the process. */
 const PROBE_CONCURRENCY = 16;
@@ -224,6 +220,8 @@ export async function discoverNestedRepositories(
   options: { depth: number; signal?: AbortSignal },
 ): Promise<NestedDiscovery> {
   const root = resolve(folder);
+  // A missing folder is an error for the caller, unlike a missing worktree container below it.
+  if (!(await stat(root)).isDirectory()) throw new Error(`${root} is not a directory`);
   const found = new Map<string, DiscoveredRepository>();
   let scanned = 0;
   let scanTruncated = false;
@@ -357,7 +355,7 @@ export interface ParsedStatus {
   ahead: number;
   behind: number;
   files: NestedChangedFile[];
-  /** More entries existed than MAX_FILES_PER_CHECKOUT. */
+  /** More entries existed than MAX_NESTED_CHANGED_FILES. */
   overflowed: boolean;
 }
 
@@ -382,7 +380,7 @@ export function parsePorcelainV2Status(
       ? readBranchHeader(record, result)
       : readChangeEntries(record, oldPath, childPaths);
     for (const entry of entries) {
-      if (result.files.length >= MAX_FILES_PER_CHECKOUT) result.overflowed = true;
+      if (result.files.length >= MAX_NESTED_CHANGED_FILES) result.overflowed = true;
       else result.files.push(entry);
     }
   }
