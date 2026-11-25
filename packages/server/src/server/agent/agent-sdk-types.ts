@@ -18,6 +18,7 @@ import type {
 } from "@pimi/protocol/agent-types";
 import type { AgentMessage } from "@pimi/protocol/agent-message";
 import type { AgentAttachment } from "@pimi/protocol/messages";
+import type { BackgroundWorkOutputPage } from "./background-work/output.js";
 import type { PimiToolCatalog } from "./tools/types.js";
 import type { HarnessInstallation } from "./harness-updates.js";
 
@@ -270,6 +271,7 @@ export type ToolCallDetail =
       /** How far into the command's whole output `output` starts, when its beginning is left out. */
       outputOffset?: number;
       exitCode?: number | null;
+      backgroundId?: string;
     }
   | {
       type: "read";
@@ -825,6 +827,12 @@ export interface AgentSession {
   wrapProviderSubagentMessage?(subagentId: string, text: string): string | null;
   /** Stop one currently owned background item and wait for provider confirmation. */
   stopBackgroundWork?(id: string): Promise<void>;
+  /**
+   * Read one page of a background item's output. `cursor` is null for the first read, which starts
+   * at the newest page, and otherwise the cursor of the previous page. Rejects when the output can
+   * no longer be read.
+   */
+  readBackgroundWorkOutput?(id: string, cursor: number | null): Promise<BackgroundWorkOutputPage>;
   /** True only when releasing this runtime loses no background work or pending replies.
    * An optional additional veto: missing methods use daemon baseline eligibility;
    * implemented checks that reject or return false keep the runtime resident. */

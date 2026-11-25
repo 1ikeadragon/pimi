@@ -1303,6 +1303,10 @@ type CorrelatedResponsePayload<TType extends CorrelatedResponseType> =
 export type AgentBackgroundWorkListPayload =
   CorrelatedResponsePayload<"agent.background_work.list.response">;
 export type AgentBackgroundWorkItem = AgentBackgroundWorkListPayload["items"][number];
+export type AgentBackgroundWorkOutputPayload = Omit<
+  CorrelatedResponsePayload<"agent.background_work.read_output.response">,
+  "requestId" | "error"
+>;
 
 type PluginCatalogResponseEntry =
   CorrelatedResponsePayload<"plugin.catalog.get.response">["plugins"][number];
@@ -3999,6 +4003,32 @@ export class DaemonClient {
         },
       });
     if (payload.error) throw new Error(payload.error);
+  }
+
+  async readAgentBackgroundWorkOutput(
+    agentId: string,
+    itemId: string,
+    cursor: number | null,
+    options: { requestId?: string; timeout?: number } = {},
+  ): Promise<AgentBackgroundWorkOutputPayload> {
+    const {
+      requestId: _requestId,
+      error,
+      ...page
+    } = await this.sendNamespacedCorrelatedSessionRequest<"agent.background_work.read_output.response">(
+      {
+        requestId: options.requestId,
+        timeout: options.timeout,
+        message: {
+          type: "agent.background_work.read_output.request",
+          agentId,
+          itemId,
+          cursor,
+        },
+      },
+    );
+    if (error) throw new Error(error);
+    return page;
   }
 
   async sendProviderSubagentMessage(

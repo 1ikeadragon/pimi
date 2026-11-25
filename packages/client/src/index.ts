@@ -53,6 +53,7 @@ export type {
 import type { PluginTimelineItem } from "@pimi/protocol/agent-types";
 import type {
   AgentBackgroundWorkItem,
+  AgentBackgroundWorkOutputPayload,
   AgentForkContextOptions,
   AgentForkContextPayload,
   FetchAgentsEntry,
@@ -348,6 +349,7 @@ export interface PimiAgentTimelineHandle {
 }
 
 export type PimiAgentBackgroundWorkItem = AgentBackgroundWorkItem;
+export type PimiAgentBackgroundWorkOutput = AgentBackgroundWorkOutputPayload;
 
 export interface PimiAgentBackgroundWorkHandle {
   /** Stop one item and wait for provider confirmation. */
@@ -355,6 +357,15 @@ export interface PimiAgentBackgroundWorkHandle {
     item: PimiAgentBackgroundWorkItem,
     options?: { requestId?: string; timeout?: number },
   ): Promise<void>;
+  /**
+   * Reads one page of an item's output, at most 64 KB. A null cursor starts at the newest page;
+   * otherwise pass the previous page's cursor. The page says whether the item was still running.
+   */
+  readOutput(
+    itemId: string,
+    cursor: number | null,
+    options?: { requestId?: string; timeout?: number },
+  ): Promise<PimiAgentBackgroundWorkOutput>;
   /** Reads the agent's current background work once. */
   list(options?: { requestId?: string; timeout?: number }): Promise<PimiAgentBackgroundWorkItem[]>;
   /**
@@ -1038,6 +1049,8 @@ function createAgentHandleFactory(
       },
       backgroundWork: {
         stop: (item, options) => daemonClient.stopAgentBackgroundWork(id, item, options),
+        readOutput: (itemId, cursor, options) =>
+          daemonClient.readAgentBackgroundWorkOutput(id, itemId, cursor, options),
         list: (options) => daemonClient.listAgentBackgroundWork(id, options),
         subscribe: (listener, options) => {
           const observation = observeBackgroundWork();

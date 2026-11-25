@@ -275,6 +275,8 @@ export type ToolCallDetail =
       /** How far into the command's whole output `output` starts, when its beginning is left out. */
       outputOffset?: number;
       exitCode?: number | null;
+      /** The background work item this command started; its output stays readable after the call settles. */
+      backgroundId?: string;
     }
   | {
       type: "read";

@@ -936,6 +936,7 @@ const ToolCallDetailPayloadSchema: z.ZodType<ToolCallDetail, unknown> = z.discri
       output: z.string().optional(),
       outputOffset: z.number().int().nonnegative().optional(),
       exitCode: z.number().nullable().optional(),
+      backgroundId: z.string().optional(),
     }),
     z.object({
       type: z.literal("read"),
@@ -2676,6 +2677,15 @@ export const AgentBackgroundWorkStopRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
+export const AgentBackgroundWorkReadOutputRequestMessageSchema = z.object({
+  type: z.literal("agent.background_work.read_output.request"),
+  agentId: z.string(),
+  itemId: z.string(),
+  // Null starts at the newest page; otherwise the cursor of the previous response.
+  cursor: z.number().int().nonnegative().nullable(),
+  requestId: z.string(),
+});
+
 export const ProviderSubagentTimelineRequestMessageSchema = z.object({
   type: z.literal("agent.provider_subagents.timeline.get.request"),
   parentAgentId: z.string(),
@@ -4316,6 +4326,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ProviderSubagentListRequestMessageSchema,
   AgentBackgroundWorkListRequestMessageSchema,
   AgentBackgroundWorkStopRequestMessageSchema,
+  AgentBackgroundWorkReadOutputRequestMessageSchema,
   ProviderSubagentSendMessageRequestMessageSchema,
   ProviderSubagentTimelineRequestMessageSchema,
   SetAgentTimelineSubscriptionRequestMessageSchema,
@@ -5586,6 +5597,7 @@ export const AgentBackgroundWorkItemSchema = z.object({
   startedAt: z.string(),
   canStop: z.boolean().optional(),
   stopToken: z.string().optional(),
+  hasOutput: z.boolean().optional(),
 });
 
 export type AgentBackgroundWorkItemPayload = z.infer<typeof AgentBackgroundWorkItemSchema>;
@@ -5616,6 +5628,22 @@ export const AgentBackgroundWorkStopResponseMessageSchema = z.object({
     requestId: z.string(),
     agentId: z.string(),
     itemId: z.string(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentBackgroundWorkReadOutputResponseMessageSchema = z.object({
+  type: z.literal("agent.background_work.read_output.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    itemId: z.string(),
+    output: z.string(),
+    cursor: z.number().int().nonnegative(),
+    // Output before `output` was left out.
+    skipped: z.boolean(),
+    // False once the item had left the inventory before this read; the read is then final.
+    running: z.boolean(),
     error: z.string().nullable(),
   }),
 });
@@ -8544,6 +8572,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   ProviderSubagentUpdateMessageSchema,
   AgentBackgroundWorkListResponseMessageSchema,
   AgentBackgroundWorkStopResponseMessageSchema,
+  AgentBackgroundWorkReadOutputResponseMessageSchema,
   ProviderSubagentSendMessageResponseMessageSchema,
   AgentBackgroundWorkUpdateMessageSchema,
   SetAgentTimelineSubscriptionResponseMessageSchema,

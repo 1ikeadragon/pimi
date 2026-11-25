@@ -7,6 +7,8 @@ export interface AgentBackgroundWorkInput {
   description: string | null;
   command?: string;
   canStop?: boolean;
+  /** The provider can read this item's output through `readBackgroundWorkOutput`. */
+  hasOutput?: boolean;
 }
 
 export interface AgentBackgroundWorkItem extends AgentBackgroundWorkInput {
@@ -40,6 +42,7 @@ export class AgentBackgroundWorkStore {
         kind: input.kind,
         description: input.description,
         ...(input.command ? { command: input.command } : {}),
+        ...(input.hasOutput ? { hasOutput: true } : {}),
         ...(input.canStop
           ? { canStop: true, stopToken: previousById.get(input.id)?.stopToken ?? randomUUID() }
           : {}),
@@ -80,6 +83,7 @@ function sameItems(
         item.description === other.description &&
         item.command === other.command &&
         item.canStop === other.canStop &&
+        item.hasOutput === other.hasOutput &&
         item.stopToken === other.stopToken &&
         item.startedAt === other.startedAt
       );

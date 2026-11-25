@@ -121,6 +121,7 @@ import {
   type ProviderSubagentStoreEvent,
 } from "./provider-subagents/store.js";
 import { AgentBackgroundWorkStore, type AgentBackgroundWorkItem } from "./background-work/index.js";
+import type { BackgroundWorkOutputRead } from "./background-work/output.js";
 import { lazyPimiToolCatalog } from "./tools/lazy-tool-groups.js";
 import { CREW_DELEGATE_TOOL, crewChangeNote } from "./tools/crew-delegate.js";
 import { withTimeout } from "../../utils/promise-timeout.js";
@@ -450,6 +451,12 @@ async function assertUsableWorkingDirectory(cwd: string): Promise<void> {
     }
     throw new Error(`Failed to access working directory: ${cwd}`, { cause: error });
   }
+}
+
+interface ReadAgentBackgroundWorkOutputOptions {
+  agentId: string;
+  itemId: string;
+  cursor: number | null;
 }
 
 interface StopAgentBackgroundWorkOptions {
@@ -1952,6 +1959,20 @@ export class AgentManager {
     if (!item?.canStop || item.stopToken !== stopToken)
       throw new Error("Background work is no longer available to stop");
     await agent.session.stopBackgroundWork(itemId);
+  }
+
+  async readAgentBackgroundWorkOutput({
+    agentId,
+    itemId,
+    cursor,
+  }: ReadAgentBackgroundWorkOutputOptions): Promise<BackgroundWorkOutputRead> {
+    const agent = this.requirePublicAgent(agentId);
+    if (!agent.session?.readBackgroundWorkOutput)
+      throw new Error("Background work output cannot be read");
+    // Decided before the read: a response that says the item had left was read after it ended.
+    const running = this.backgroundWork.list(agentId).some((entry) => entry.id === itemId);
+    const page = await agent.session.readBackgroundWorkOutput(itemId, cursor);
+    return { ...page, running };
   }
 
   getAgentBackgroundWorkSummary(agentId: string): { count: number } | undefined {

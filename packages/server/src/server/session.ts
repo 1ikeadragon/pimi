@@ -3037,6 +3037,8 @@ export class Session {
         return this.handleProviderSubagentSendMessageRequest(msg);
       case "agent.background_work.stop.request":
         return this.handleAgentBackgroundWorkStopRequest(msg);
+      case "agent.background_work.read_output.request":
+        return this.handleAgentBackgroundWorkReadOutputRequest(msg);
       case "agent.provider_subagents.timeline.get.request":
         return this.handleProviderSubagentTimelineRequest(msg, source);
       case "session.events.set_subscription.request": {
@@ -8744,6 +8746,35 @@ export class Session {
         error,
       },
     });
+  }
+
+  private async handleAgentBackgroundWorkReadOutputRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.background_work.read_output.request" }>,
+  ): Promise<void> {
+    const identity = { requestId: msg.requestId, agentId: msg.agentId, itemId: msg.itemId };
+    try {
+      const read = await this.agentManager.readAgentBackgroundWorkOutput({
+        agentId: msg.agentId,
+        itemId: msg.itemId,
+        cursor: msg.cursor,
+      });
+      this.emit({
+        type: "agent.background_work.read_output.response",
+        payload: { ...identity, ...read, error: null },
+      });
+    } catch (error) {
+      this.emit({
+        type: "agent.background_work.read_output.response",
+        payload: {
+          ...identity,
+          output: "",
+          cursor: msg.cursor ?? 0,
+          skipped: false,
+          running: false,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
   }
 
   private async handleAgentBackgroundWorkListRequest(

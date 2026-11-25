@@ -454,6 +454,7 @@ export function wrapSessionProvider(provider: AgentProvider, inner: AgentSession
     describePersistence: () => mapPersistenceHandle(provider, inner.describePersistence()),
     interrupt: () => inner.interrupt(),
     stopBackgroundWork: inner.stopBackgroundWork?.bind(inner),
+    readBackgroundWorkOutput: inner.readBackgroundWorkOutput?.bind(inner),
     sendProviderSubagentMessage: inner.sendProviderSubagentMessage?.bind(inner),
     wrapProviderSubagentMessage: inner.wrapProviderSubagentMessage?.bind(inner),
     close: () => inner.close(),
