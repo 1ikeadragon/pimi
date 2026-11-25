@@ -1599,7 +1599,7 @@ export class Session {
   ): void {
     try {
       if (!this.pushNotifier) throw new Error("Push is unavailable");
-      this.pushNotifier.add(request.handle);
+      this.pushNotifier.upsert(request.handle, request.previewKey);
       this.currentClientMetadata().pushHandle = request.handle;
       this.emit({
         type: "push.register_handle.response",

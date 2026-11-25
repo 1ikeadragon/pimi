@@ -1,0 +1,30 @@
+apply plugin: 'com.android.library'
+
+group = 'sh.pimi.pushpreview'
+version = '0.1.0'
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+apply from: expoModulesCorePlugin
+applyKotlinExpoModulesCorePlugin()
+useCoreDependencies()
+useExpoPublishing()
+useDefaultAndroidSdkVersions()
+
+android {
+  namespace "sh.pimi.pushpreview"
+}
+
+dependencies {
+  // Both ship in the app already (expo-notifications as a prebuilt artifact, not a Gradle project;
+  // keep its version equal to the exact pin in packages/app/package.json). Compile-only and
+  // non-transitive: resolving their transitive graph here pulls unverified artifact versions.
+  compileOnly('host.exp.exponent:expo.modules.notifications:57.0.23') { transitive = false }
+  compileOnly('com.google.firebase:firebase-messaging:25.0.1') { transitive = false }
+  // Supertype of RemoteMessage; needed to compile against it.
+  compileOnly('com.google.android.gms:play-services-basement:18.4.0') { transitive = false }
+}
+
+// Pin resolved dependency versions in gradle.lockfile. Refresh with --write-locks.
+dependencyLocking {
+  lockAllConfigurations()
+}

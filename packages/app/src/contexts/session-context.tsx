@@ -35,7 +35,13 @@ import {
   type SessionState,
 } from "@/stores/session-store";
 import { sendOsNotification } from "@/utils/os-notifications";
+import {
+  genericBodyWhenPreviewWithheld,
+  setPreviewsEnabled,
+  setPreviewsHiddenWhileLocked,
+} from "@/utils/push-preview";
 import { syncPushRegistration } from "@/utils/push-registration";
+import { useAppSettings } from "@/hooks/use-settings";
 import { getIsAppActivelyVisible, getIsAppVisible } from "@/utils/app-visibility";
 import {
   getInitKey,
@@ -248,10 +254,25 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
   const pushEndpoint = useSessionStore(
     (state) => state.sessions[serverId]?.serverInfo?.pushEndpoint ?? null,
   );
+  const { settings, isLoading: settingsLoading } = useAppSettings();
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const pushPreviews = settings.pushPreviews;
+  const hidePreviewsWhileLocked = settings.pushPreviewsHideWhenLocked;
+  // The native FCM service reads these settings itself while the app is not running. Until the
+  // stored settings load, `settings` holds defaults, which must not overwrite the real values.
   useEffect(() => {
-    if (!isConnected || !pushEndpoint) return;
-    void syncPushRegistration({ client, serverId, pushEndpoint });
-  }, [client, isConnected, pushEndpoint, serverId]);
+    if (settingsLoading) return;
+    void setPreviewsHiddenWhileLocked(hidePreviewsWhileLocked);
+  }, [hidePreviewsWhileLocked, settingsLoading]);
+  useEffect(() => {
+    if (settingsLoading) return;
+    void setPreviewsEnabled(pushPreviews);
+  }, [pushPreviews, settingsLoading]);
+  useEffect(() => {
+    if (settingsLoading || !isConnected || !pushEndpoint) return;
+    void syncPushRegistration({ client, serverId, pushEndpoint, previews: pushPreviews });
+  }, [client, isConnected, pushEndpoint, pushPreviews, serverId, settingsLoading]);
 
   // Client activity tracking (heartbeat)
   useClientActivity({
@@ -306,10 +327,11 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
         return;
       }
 
+      const withheldBody = genericBodyWhenPreviewWithheld(settingsRef.current, params.reason);
       void sendOsNotification({
         identifier: `agent:${params.agentId}`,
         title: notification.title,
-        body: notification.body,
+        body: withheldBody ?? notification.body,
         data: notification.data,
       });
     },

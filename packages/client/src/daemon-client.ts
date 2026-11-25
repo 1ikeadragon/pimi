@@ -2665,10 +2665,10 @@ export class DaemonClient {
     }
   }
 
-  async registerPushHandle(handle: string): Promise<void> {
+  async registerPushHandle(handle: string, previewKey: string | null): Promise<void> {
     const response =
       await this.sendNamespacedCorrelatedSessionRequest<"push.register_handle.response">({
-        message: { type: "push.register_handle.request", handle },
+        message: { type: "push.register_handle.request", handle, previewKey },
       });
     if (!response.success) {
       throw new Error(response.error ?? "Failed to register push handle");

@@ -99,10 +99,11 @@ import type { WorkspaceScriptRuntimeStore } from "./workspace-script-runtime-sto
 import type { SpeechReadinessSnapshot, SpeechService } from "./speech/speech-runtime.js";
 import type { VoiceCallerContext, VoiceSpeakHandler } from "./voice-types.js";
 import { computeNotificationPlan, type ClientPresenceState } from "./agent-attention-policy.js";
-import { PushNotifier, type PushKind } from "./push/push-notifier.js";
+import { PushNotifier, type PushKind, type PushPreview } from "./push/push-notifier.js";
 import {
   buildAgentAttentionNotificationPayload,
   findLatestPermissionRequest,
+  resolveChatTitle,
 } from "@pimi/protocol/agent-attention-notification";
 import { createGitHubService } from "../services/github-service.js";
 import type { ForgeService } from "../services/forge-service.js";
@@ -1136,6 +1137,11 @@ export class VoiceAssistantWebSocketServer {
       else ws.close(WS_CLOSE_DAEMON_AUTH_FAILED, "Pairing reset");
     }
     return count;
+  }
+
+  /** Pairing reset revokes every phone: forget their push handles and preview keys. */
+  public clearPushDevices(): void {
+    this.pushNotifier.clear();
   }
 
   public beginAcceptingConnections(): void {
@@ -2712,6 +2718,7 @@ export class VoiceAssistantWebSocketServer {
     id: string,
     title: string | null,
     workspaceId?: string,
+    preview?: PushPreview,
   ): void {
     if (!plan.shouldPush) return;
     let handles: string[] | null = null;
@@ -2721,7 +2728,7 @@ export class VoiceAssistantWebSocketServer {
       if (!handle) return;
       handles = [handle];
     }
-    this.pushNotifier.notify({ handles, kind, id, title, workspaceId });
+    this.pushNotifier.notify({ handles, kind, id, title, workspaceId, preview });
   }
 
   private async broadcastAgentAttention(params: {
@@ -2769,12 +2776,18 @@ export class VoiceAssistantWebSocketServer {
       nowMs,
     });
     if (params.reason !== "error") {
+      // The raw title can run to hundreds of characters; every push path gets the capped one.
+      const pushTitle = resolveChatTitle(chatTitle);
       this.pushAttention(
         plan,
         notificationEntries,
         params.reason === "permission" ? "agent_permission" : "agent_finished",
         params.agentId,
-        chatTitle,
+        pushTitle,
+        undefined,
+        // Same text the connected clients show locally, so a push and a local notification
+        // for one agent replace each other invisibly. Sealed per phone before it leaves.
+        { reason: params.reason, title: pushTitle ?? "", body: notification.body },
       );
     }
 

@@ -2394,6 +2394,8 @@ export async function createPimiDaemon(
                   daemonKeyPair = rotateDaemonKeyPair(config.pimiHome, logger);
                   // The LAN offer embeds the old key and its access code.
                   await localNetworkPairing.request({ action: "disable" });
+                  // A revoked phone still holds its push handle and preview key.
+                  wsServer?.clearPushDevices();
                   // After the response is queued: the requester may itself be remote.
                   setTimeout(() => {
                     // Pending Noise handshakes are not in wsServer's identities yet.

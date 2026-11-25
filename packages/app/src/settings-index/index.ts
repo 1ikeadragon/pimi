@@ -3,6 +3,7 @@ import { chatSettings } from "@/screens/settings/chat/chat.settings";
 import { diagnosticsSettings } from "@/screens/settings/diagnostics.settings";
 import { editorSettings } from "@/screens/settings/editor.settings";
 import { generalSettings } from "@/screens/settings/general/general.settings";
+import { pushNotificationsSettings } from "@/screens/settings/general/notifications.settings";
 import { sendingSettings } from "@/screens/settings/general/sending.settings";
 import { openLocationSettings } from "@/screens/settings/open-location/open-location.settings";
 import { appearanceSettings } from "@/screens/settings/appearance/appearance.settings";
@@ -43,6 +44,7 @@ const SETTINGS_PAGES: readonly SettingsPage[] = [
   appearanceSettings,
   sidebarSettings,
   sendingSettings,
+  pushNotificationsSettings,
   chatSettings,
   editorSettings,
   terminalSettings,

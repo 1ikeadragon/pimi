@@ -3735,9 +3735,15 @@ export const WorkspaceClearAttentionRequestSchema = z.object({
 // Opaque push handle issued by the push service (256-bit, base64url).
 const PushHandleSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
+// AES-256 key (32 bytes, base64url) the phone seals notification previews with. Travels only inside
+// the encrypted session, never to the push service or Google.
+const PushPreviewKeySchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+
 export const PushRegisterHandleRequestSchema = z.object({
   type: z.literal("push.register_handle.request"),
   handle: PushHandleSchema,
+  /** null: this device wants generic notifications, no previews. */
+  previewKey: PushPreviewKeySchema.nullable(),
   requestId: z.string(),
 });
 

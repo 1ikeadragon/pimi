@@ -50,7 +50,7 @@ read by Expo arrives under `userInfo.body`; simulator payloads must match:
 An Android FCM launch intent needs `google.message_id` and a JSON `body` extra.
 An arbitrary Activity launch with data extras does not exercise Expo's FCM path.
 
-Android pushes are titled with the chat or terminal name, carry fixed body text, and the same `body` JSON (`serverId`, `agentId` or `terminalId`, `reason`). Terminal pushes carry their workspace ID, so a tap opens the terminal. See [Push](android.md#push).
+Android pushes for phones with previews on are data-only: `data.enc` holds the sealed preview, and the app's own FCM service (`modules/pimi-push-preview`, intent priority above Expo's) decrypts it before Expo presents the notification. The tap payload is unchanged. Terminal pushes and phones with previews off use the legacy notification message: the chat or terminal name with fixed body text. Both carry the same `body` JSON (`serverId`, `agentId` or `terminalId`, `reason`). Terminal pushes carry their workspace ID, so a tap opens the terminal. See [Push](android.md#push).
 
 Foreground pushes remain in Notification Center without a banner or sound.
 This preserves notifications sent with stale presence information.

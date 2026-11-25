@@ -138,6 +138,26 @@ const buildPermissionDetails = (
   return request.name?.trim() || request.kind;
 };
 
+/** Question permissions carry their real text in `input.questions[].question`, not in the title. */
+const findQuestionText = (
+  request: NotificationPermissionRequest | null | undefined,
+): string | null => {
+  if (request?.kind !== "question") {
+    return null;
+  }
+  const questions = request.input?.questions;
+  if (!Array.isArray(questions)) {
+    return null;
+  }
+  for (const entry of questions) {
+    const text = (entry as { question?: unknown } | null)?.question;
+    if (typeof text === "string" && text.trim().length > 0) {
+      return text;
+    }
+  }
+  return null;
+};
+
 export function findLatestAssistantMessageFromTimeline(
   timeline: readonly AssistantTimelineItem[],
 ): string | null {
@@ -184,6 +204,10 @@ function resolveAgentAttentionPreview(
     return buildNotificationPreview(input.assistantMessage);
   }
   if (input.reason === "permission") {
+    const question = findQuestionText(input.permissionRequest);
+    if (question) {
+      return buildNotificationPreview(question);
+    }
     return buildNotificationPreview(buildPermissionDetails(input.permissionRequest));
   }
   return null;
@@ -197,7 +221,7 @@ function resolveAgentAttentionFallbackBody(reason: AgentAttentionReason): string
 
 const MAX_CHAT_TITLE_CHARS = 80;
 
-function resolveChatTitle(chatTitle: string | null | undefined): string | null {
+export function resolveChatTitle(chatTitle: string | null | undefined): string | null {
   const clean = chatTitle?.replace(/\s+/g, " ").trim();
   if (!clean) return null;
   const chars = Array.from(clean);

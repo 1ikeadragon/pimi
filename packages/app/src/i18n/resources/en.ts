@@ -382,6 +382,8 @@ export const en = {
   },
   common: {
     agentNotificationChannel: "Agent activity",
+    agentFinishedGeneric: "An agent finished.",
+    agentNeedsApprovalGeneric: "An agent needs your approval.",
     bottomSheetBackdrop: "Bottom sheet backdrop",
     back: "Back",
     loading: "Loading...",
@@ -4304,6 +4306,17 @@ export const en = {
     general: {
       title: "General",
       sending: "Sending",
+      notifications: {
+        title: "Notifications",
+        previews: {
+          label: "Message previews",
+          hint: "Show the agent's last message or question in notifications. Previews are end-to-end encrypted: the relay and Google cannot read them.",
+        },
+        hideWhenLocked: {
+          label: "Hide previews while locked",
+          hint: "Show only the chat name until you unlock the phone.",
+        },
+      },
       setup: {
         label: "First-run setup",
         description: "Walk through appearance, providers, projects and phone pairing again",
