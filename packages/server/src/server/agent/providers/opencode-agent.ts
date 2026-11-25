@@ -87,6 +87,7 @@ import {
 import type { OpenCodeBridge } from "./opencode/bridge.js";
 import {
   OpenCodeEventConsumer,
+  WATCHDOG_MS,
   type OpenCodeEventStreamDiagnostics,
   type OpenCodeEventSource,
   type OpenCodeEventSourceInput,
@@ -3473,6 +3474,8 @@ class OpenCodeAgentSession implements AgentSession {
   private releaseBridge: (() => void) | null;
   private ingress = Promise.resolve();
   private gapRepairRevision = 0;
+  private lastOwnedEventAt = 0;
+  private quietTurnTimer: ReturnType<typeof setTimeout> | null = null;
   private recoveryAbortController = new AbortController();
   private unsubscribeEvents: (() => void) | null = null;
   private closed = false;
@@ -3959,6 +3962,7 @@ class OpenCodeAgentSession implements AgentSession {
     const turnId = this.createTurnId();
     this.materializedParts.clear();
     this.turnState = { status: "running", turnId };
+    this.armQuietTurnWatchdog();
     this.notifySubscribers({ type: "turn_started", provider: "opencode" }, turnId);
 
     const slashCommand = await this.resolveSlashCommandInvocation(prompt);
@@ -4463,6 +4467,52 @@ class OpenCodeAgentSession implements AgentSession {
     await this.consumeOpenCodeStreamEvent({ rawEvent: input, eventCount: 0 });
   }
 
+  /**
+   * A lost terminal event leaves a turn running forever, and `reconcileAfterGap` otherwise runs only
+   * when the event stream reconnects. The event stream's own watchdog (`WATCHDOG_MS`) sees the
+   * connection's heartbeats, so it cannot tell that this session's events stopped. While a turn
+   * runs, a session silent for `WATCHDOG_MS` is read back from the server on the ingress chain,
+   * where it cannot interleave with live events. A turn that is only quiet, such as a long tool
+   * call, is read the same way and left running.
+   */
+  private armQuietTurnWatchdog(): void {
+    this.lastOwnedEventAt = Date.now();
+    if (this.quietTurnTimer) return;
+    this.scheduleQuietTurnCheck(WATCHDOG_MS);
+  }
+
+  private scheduleQuietTurnCheck(delayMs: number): void {
+    this.quietTurnTimer = setTimeout(() => {
+      this.quietTurnTimer = null;
+      if (
+        this.closed ||
+        this.recoveryAbortController.signal.aborted ||
+        this.activeForegroundTurnId === null
+      )
+        return;
+      const quietMs = Date.now() - this.lastOwnedEventAt;
+      if (quietMs < WATCHDOG_MS) {
+        this.scheduleQuietTurnCheck(WATCHDOG_MS - quietMs);
+        return;
+      }
+      this.logger.warn(
+        { sessionId: this.sessionId, quietMs, turnId: this.activeForegroundTurnId },
+        "OpenCode session sent no events during a turn; reading its state back",
+      );
+      this.lastOwnedEventAt = Date.now();
+      this.ingress = this.ingress
+        .then(() => this.reconcileAfterGap(++this.gapRepairRevision, false))
+        .catch((error: unknown) => {
+          this.logger.warn(
+            { err: error, sessionId: this.sessionId },
+            "OpenCode quiet-turn reconciliation failed",
+          );
+        });
+      this.scheduleQuietTurnCheck(WATCHDOG_MS);
+    }, delayMs);
+    this.quietTurnTimer.unref();
+  }
+
   private async reconcileAfterGap(revision: number, refresh = true, delay = 100): Promise<void> {
     if (revision !== this.gapRepairRevision) return;
     const turnId = this.activeForegroundTurnId;
@@ -4651,6 +4701,8 @@ class OpenCodeAgentSession implements AgentSession {
     if (!event) {
       return;
     }
+    const eventSessionId = getOpenCodeEventSessionId(event);
+    if (eventSessionId && this.isOwnedSessionId(eventSessionId)) this.lastOwnedEventAt = Date.now();
     this.observeRunnerStatusEvent(event);
     if (this.discardEventWhileStopping(event, eventCount)) {
       return;
@@ -4754,6 +4806,7 @@ class OpenCodeAgentSession implements AgentSession {
     const turnId = this.createTurnId();
     this.materializedParts.clear();
     this.turnState = { status: "running", turnId };
+    this.armQuietTurnWatchdog();
     this.runningToolCalls.clear();
     this.subAgentsByCallId.clear();
     this.subAgentCallIdByChildSessionId.clear();
@@ -5145,6 +5198,8 @@ class OpenCodeAgentSession implements AgentSession {
       this.closed = true;
       this.abortController?.abort();
       this.recoveryAbortController.abort();
+      if (this.quietTurnTimer) clearTimeout(this.quietTurnTimer);
+      this.quietTurnTimer = null;
       this.unsubscribeEvents?.();
       this.unsubscribeEvents = null;
       await this.ingress.catch(() => undefined);

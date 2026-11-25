@@ -36,7 +36,11 @@ export interface OpenCodeEventConsumerOptions {
 }
 
 const FIRST_RECORD_WATCHDOG_MS = 5_000;
-const WATCHDOG_MS = 30_000;
+// Idle limit once connected: 3 x the 10s `server.heartbeat` that /global/event emits
+// (packages/opencode/src/server/routes/instance/httpapi/handlers/global.ts, v1.14.46 and v1.19.6),
+// so two lost heartbeats are tolerated. `opencode-agent.ts` reuses it as the quiet limit for one
+// session's own events.
+export const WATCHDOG_MS = 30_000;
 const MAX_BACKOFF_MS = 5_000;
 const RECONNECT_BASE_MS = 100;
 export const FAILURE_WARNING_ATTEMPT = 4;
