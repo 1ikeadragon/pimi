@@ -321,7 +321,9 @@ export class VaultService implements OutputRedactor {
   }
 
   async unlock(passphrase: string): Promise<void> {
-    if (this.unlocked) return;
+    // The session marks the caller as operator after this returns, so an already-unlocked vault
+    // must still check the passphrase, or any client could become operator with a wrong one.
+    if (this.unlocked) return this.verifyPassphrase(passphrase);
     this.assertAttemptAllowed();
     const stored = await this.loadStoredOrThrow();
     const key = await deriveVaultKey(passphrase, stored.header.kdf);
