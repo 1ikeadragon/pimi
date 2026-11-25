@@ -105,6 +105,7 @@ export class OpenCodeV2Session implements AgentSession {
       id: info.id,
       cwd: config.cwd,
       emit: (event) => this.emit(event),
+      timeline: (item) => this.emitTimeline({ type: "timeline", provider: "opencode", item }),
       report: (error) =>
         this.logger.warn(
           { error: toDiagnosticErrorMessage(error) },

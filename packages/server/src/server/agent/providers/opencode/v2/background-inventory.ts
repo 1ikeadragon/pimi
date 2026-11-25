@@ -1,5 +1,6 @@
 import type { OpenCodeEvent, SessionMessageInfo, ShellInfo } from "@opencode/client";
-import type { AgentStreamEvent } from "../../../agent-sdk-types.js";
+import { withToolCallStartedAt } from "@pimi/protocol/tool-call-timing";
+import type { AgentStreamEvent, AgentTimelineItem } from "../../../agent-sdk-types.js";
 import type { V2Api } from "./api.js";
 import { messages } from "./history.js";
 import {
@@ -33,6 +34,8 @@ export class OpenCodeBackgroundInventory {
   private inputs = new Map<string, unknown>();
   private descriptions = new Map<string, string>();
   private promoted = new Set<string>();
+  // The promoted shells of the last roster, to describe one that ends before it can be read.
+  private listed = new Map<string, ShellInfo>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private current: InventoryEvent | null = null;
   private readonly listeners = new Set<() => void>();
@@ -84,27 +87,46 @@ export class OpenCodeBackgroundInventory {
   async readOutput(id: string, cursor: number | null): Promise<BackgroundWorkOutputPage> {
     const client = this.client;
     if (!client) throw new Error("Background shell is no longer available");
-    const location = { directory: this.cwd };
-    const shell = await client.shell.get({ id, location });
-    if (shell.data.metadata.sessionID !== this.id)
+    await this.requireOwnShell(client, id);
+    return this.readPage(client, id, cursor);
+  }
+  private async requireOwnShell(client: V2Api, id: string): Promise<ShellInfo> {
+    const shell = (await client.shell.get({ id, location: { directory: this.cwd } })).data;
+    if (shell.metadata.sessionID !== this.id)
       throw new Error("Background shell is no longer available");
+    return shell;
+  }
+  private async readPage(
+    client: V2Api,
+    id: string,
+    cursor: number | null,
+  ): Promise<BackgroundWorkOutputPage> {
+    const location = { directory: this.cwd };
+    const limit = BACKGROUND_OUTPUT_PAGE_LIMIT;
     let from = cursor ?? 0;
-    let page = (
-      await client.shell.output({ id, location, cursor: from, limit: BACKGROUND_OUTPUT_PAGE_LIMIT })
-    ).data;
-    const behind = page.size - from > BACKGROUND_OUTPUT_PAGE_LIMIT;
+    let page = (await client.shell.output({ id, location, cursor: from, limit })).data;
+    const behind = page.size - from > limit;
     if (behind) {
-      from = page.size - BACKGROUND_OUTPUT_PAGE_LIMIT;
-      page = (
-        await client.shell.output({
-          id,
-          location,
-          cursor: from,
-          limit: BACKGROUND_OUTPUT_PAGE_LIMIT,
-        })
-      ).data;
+      from = page.size - limit;
+      page = (await client.shell.output({ id, location, cursor: from, limit })).data;
     }
     return { output: page.output, cursor: page.cursor, skipped: behind };
+  }
+  /** A promoted shell ended: the timeline gets one shell row with its newest output. */
+  private async finishShell(client: V2Api, exited: ShellExit) {
+    const listed = this.listed.get(exited.id);
+    if (!listed) return;
+    // Stopping a shell deletes it, output included; the row then has only what the roster knew.
+    const output = await this.readFinishedOutput(client, exited.id);
+    this.timeline(toFinishedShellRow({ ...listed, ...exited }, output));
+  }
+  private async readFinishedOutput(client: V2Api, id: string): Promise<string> {
+    try {
+      await this.requireOwnShell(client, id);
+      return (await this.readPage(client, id, null)).output;
+    } catch {
+      return "";
+    }
   }
   private notify() {
     for (const listener of this.listeners) listener();
@@ -113,16 +135,19 @@ export class OpenCodeBackgroundInventory {
     id: string;
     cwd: string;
     emit: (event: InventoryEvent) => void;
+    timeline: (item: AgentTimelineItem) => void;
     report: (error: unknown) => void;
   }) {
     this.id = options.id;
     this.cwd = options.cwd;
     this.emit = options.emit;
+    this.timeline = options.timeline;
     this.report = options.report;
   }
   private readonly id: string;
   private readonly cwd: string;
   private readonly emit: (event: InventoryEvent) => void;
+  private readonly timeline: (item: AgentTimelineItem) => void;
   private readonly report: (error: unknown) => void;
   snapshot() {
     return this.current;
@@ -148,6 +173,7 @@ export class OpenCodeBackgroundInventory {
     this.timer = null;
     if (lost) {
       this.promoted.clear();
+      this.listed.clear();
       this.descriptions.clear();
       this.current = null;
       this.emit({ type: "background_work", provider: "opencode", items: null });
@@ -234,6 +260,10 @@ export class OpenCodeBackgroundInventory {
       this.events.push(event);
       return;
     }
+    if (event.type === "shell.exited" && this.promoted.has(event.data.id)) {
+      const client = this.client;
+      this.finishShell(client, event.data).catch((error: unknown) => this.report(error));
+    }
     this.apply(event);
     if (event.type !== "session.tool.input.started" && event.type !== "session.tool.input.ended") {
       this.dirty = true;
@@ -314,6 +344,9 @@ export class OpenCodeBackgroundInventory {
         .map((shell) => shell.id),
     );
     this.promoted = new Set([...this.promoted].filter((id) => live.has(id)));
+    this.listed = new Map(
+      shells.filter((shell) => this.promoted.has(shell.id)).map((shell) => [shell.id, shell]),
+    );
     for (const id of this.descriptions.keys()) if (!live.has(id)) this.descriptions.delete(id);
     this.current = {
       type: "background_work",
@@ -337,4 +370,25 @@ export class OpenCodeBackgroundInventory {
     this.emit(this.current);
     this.notify();
   }
+}
+
+type ShellExit = Extract<OpenCodeEvent, { type: "shell.exited" }>["data"];
+
+function toFinishedShellRow(shell: ShellInfo & ShellExit, output: string): AgentTimelineItem {
+  const base = {
+    type: "tool_call" as const,
+    callId: `background_shell_${shell.id}`,
+    name: "shell",
+    detail: {
+      type: "shell" as const,
+      command: shell.command,
+      ...(output ? { output } : {}),
+      ...(shell.exit !== undefined ? { exitCode: shell.exit } : {}),
+    },
+    metadata: withToolCallStartedAt(undefined, new Date(shell.time.started).toISOString()),
+  };
+  if (shell.status === "killed") return { ...base, status: "canceled", error: null };
+  if (shell.status === "timeout")
+    return { ...base, status: "failed", error: { message: "The command timed out" } };
+  return { ...base, status: "completed", error: null };
 }
