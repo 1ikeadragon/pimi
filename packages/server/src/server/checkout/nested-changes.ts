@@ -27,6 +27,11 @@ import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import pLimit from "p-limit";
 import type pino from "pino";
 import { getErrorMessage } from "@pimi/protocol/error-utils";
+import type {
+  NestedChangedFile,
+  NestedChangesRepository,
+  NestedFileState,
+} from "@pimi/protocol/messages";
 import { DEFAULT_GIT_PROCESS_POLICY } from "../../utils/git-process-scheduler.js";
 import { runGitCommand, type RunGitCommand } from "../../utils/run-git-command.js";
 import {
@@ -94,36 +99,6 @@ const SKIPPED_DIRECTORY_NAMES: ReadonlySet<string> = new Set(["node_modules"]);
 
 // ---
 // Types
-
-export type NestedFileState =
-  | "modified"
-  | "added"
-  | "deleted"
-  | "renamed"
-  | "untracked"
-  | "conflicted";
-
-export interface NestedChangedFile {
-  path: string;
-  oldPath?: string;
-  state: NestedFileState;
-  staged: boolean;
-}
-
-export interface NestedRepositoryChanges {
-  root: string;
-  /** Path relative to the folder, `/`-separated. */
-  name: string;
-  branch: string | null;
-  isWorktree: boolean;
-  ahead: number;
-  behind: number;
-  files: NestedChangedFile[];
-  truncated: boolean;
-  error: string | null;
-  /** Epoch milliseconds when the status finished; null until the first status completes. */
-  checkedAt: number | null;
-}
 
 export interface DiscoveredRepository {
   root: string;
@@ -486,7 +461,7 @@ function splitFields(record: string, count: number): { head: string[]; path: str
 export async function readRepositoryChanges(
   repository: Pick<DiscoveredRepository, "root" | "name" | "isWorktree" | "childPaths">,
   options: { runGit?: RunGitCommand; now?: () => number; signal?: AbortSignal } = {},
-): Promise<NestedRepositoryChanges> {
+): Promise<NestedChangesRepository> {
   const runGit = options.runGit ?? runGitCommand;
   const now = options.now ?? Date.now;
   const base = {
@@ -546,7 +521,7 @@ export async function readRepositoryChanges(
 
 export interface NestedChangesUpdate {
   /** Repositories whose result changed or was re-checked since the previous update. */
-  repositories: NestedRepositoryChanges[];
+  repositories: NestedChangesRepository[];
   /** Roots that disappeared from the folder. */
   removed: string[];
   truncated: boolean;
@@ -554,7 +529,7 @@ export interface NestedChangesUpdate {
 
 export interface NestedChangesSnapshot {
   folder: string;
-  repositories: NestedRepositoryChanges[];
+  repositories: NestedChangesRepository[];
   truncated: boolean;
 }
 
@@ -566,8 +541,11 @@ export interface NestedChangesSubscription {
    * the roots actually watched.
    */
   setWatchedRoots(roots: readonly string[]): Promise<string[]>;
-  /** Re-discovers the folder and re-reads every repository, ignoring the minimum gap. */
-  refresh(): Promise<void>;
+  /**
+   * Re-reads one repository, or re-discovers the folder and re-reads every repository when `root`
+   * is null, ignoring the minimum gap. Resolves when the results were emitted.
+   */
+  refresh(root: string | null): Promise<void>;
   unsubscribe(): Promise<void>;
 }
 
@@ -587,7 +565,7 @@ interface Unsubscribable {
 
 interface RepositoryState {
   discovered: DiscoveredRepository;
-  latest: NestedRepositoryChanges;
+  latest: NestedChangesRepository;
   fingerprint: string;
   fileObservers: Promise<Unsubscribable[]>;
   workingTreeWatchers: Map<Subscriber, Promise<Unsubscribable | null>>;
@@ -599,16 +577,20 @@ interface RepositoryState {
 
 interface Subscriber {
   onUpdate(update: NestedChangesUpdate): void;
+  /** False until the snapshot was taken, so no update older than the snapshot reaches the client. */
+  live: boolean;
   watched: string[];
 }
 
 interface FolderState {
+  key: string;
   folder: string;
   depth: number;
   subscribers: Set<Subscriber>;
   repositories: Map<string, RepositoryState>;
   truncated: boolean;
   abort: AbortController;
+  firstDiscovery: Promise<void> | null;
   pollTimer: NodeJS.Timeout | null;
   pass: Promise<void> | null;
   passQueued: boolean;
@@ -632,45 +614,56 @@ export class NestedChangesService {
     onUpdate: (update: NestedChangesUpdate) => void,
   ): Promise<NestedChangesSubscription> {
     const folder = resolve(folderPath);
-    let state = this.folders.get(folder);
+    // A different depth finds different repositories, so it is a different folder state.
+    const key = `${options.depth}\0${folder}`;
+    let state = this.folders.get(key);
     if (!state) {
       state = {
+        key,
         folder,
         depth: options.depth,
         subscribers: new Set(),
         repositories: new Map(),
         truncated: false,
         abort: new AbortController(),
+        firstDiscovery: null,
         pollTimer: null,
         pass: null,
         passQueued: false,
         closed: false,
       };
-      this.folders.set(folder, state);
+      this.folders.set(key, state);
     }
-    const subscriber: Subscriber = { onUpdate, watched: [] };
+    const subscriber: Subscriber = { onUpdate, live: false, watched: [] };
     const folderState = state;
     folderState.subscribers.add(subscriber);
     try {
-      if (folderState.repositories.size === 0 && !folderState.pass) {
-        await this.discover(folderState);
-      } else {
-        await folderState.pass;
-      }
+      folderState.firstDiscovery ??= this.discover(folderState);
+      await folderState.firstDiscovery;
+      if (folderState.closed) throw new Error(`Nested changes for ${folder} were closed`);
     } catch (error) {
+      folderState.firstDiscovery = null;
       await this.removeSubscriber(folderState, subscriber);
       throw error;
     }
+    const initial = this.snapshot(folderState);
+    subscriber.live = true;
     // The first statuses stream in as updates; the snapshot returns as soon as the list is known.
     this.startPass(folderState, { discover: false, force: true });
     this.armPoll(folderState);
 
     let released = false;
     return {
-      initial: this.snapshot(folderState),
+      initial,
       setWatchedRoots: (roots) => this.setWatchedRoots(folderState, subscriber, roots),
-      refresh: async () => {
-        await this.runPass(folderState, { discover: true, force: true });
+      refresh: async (root) => {
+        if (root === null) {
+          await this.runPass(folderState, { discover: true, force: true });
+          return;
+        }
+        const repository = folderState.repositories.get(resolve(root));
+        if (!repository) throw new Error(`${root} is not a repository in ${folderState.folder}`);
+        await this.scheduleRepository(folderState, repository, { force: true });
       },
       unsubscribe: async () => {
         if (released) return;
@@ -722,7 +715,7 @@ export class NestedChangesService {
     if (state.closed) return;
     state.closed = true;
     state.abort.abort();
-    if (this.folders.get(state.folder) === state) this.folders.delete(state.folder);
+    if (this.folders.get(state.key) === state) this.folders.delete(state.key);
     if (state.pollTimer) clearTimeout(state.pollTimer);
     state.pollTimer = null;
     await Promise.all([...state.repositories.values()].map((repo) => this.teardown(state, repo)));
@@ -746,7 +739,7 @@ export class NestedChangesService {
       state.repositories.delete(root);
       await this.teardown(state, repository);
     }
-    const added: NestedRepositoryChanges[] = [];
+    const added: NestedChangesRepository[] = [];
     for (const discovered of discovery.repositories) {
       const existing = state.repositories.get(discovered.root);
       if (existing) {
@@ -844,7 +837,7 @@ export class NestedChangesService {
   private async readRepository(
     state: FolderState,
     repository: RepositoryState,
-  ): Promise<NestedRepositoryChanges | null> {
+  ): Promise<NestedChangesRepository | null> {
     try {
       return await this.statusLimit(() =>
         readRepositoryChanges(repository.discovered, {
@@ -966,7 +959,9 @@ export class NestedChangesService {
   }
 
   private emit(state: FolderState, update: NestedChangesUpdate): void {
-    for (const subscriber of state.subscribers) subscriber.onUpdate(update);
+    for (const subscriber of state.subscribers) {
+      if (subscriber.live) subscriber.onUpdate(update);
+    }
   }
 
   // --- working-tree watching

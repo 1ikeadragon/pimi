@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { FlatList, Text, View } from "react-native";
 import { GitBranch } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { NESTED_CHECKOUT_SCAN_DEPTH } from "@pimi/protocol/messages";
 import { useTranslation } from "@/i18n/use-translation";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -401,7 +402,8 @@ function useNestedCheckouts(serverId: string): string[] {
   const results = useFetchQueries(
     folders.map((cwd) => ({
       queryKey: nestedCheckoutsQueryKey(serverId, cwd),
-      queryFn: async () => (client ? (await client.listNestedCheckouts(cwd)).checkouts : []),
+      queryFn: async () =>
+        client ? (await client.listNestedCheckouts(cwd, NESTED_CHECKOUT_SCAN_DEPTH)).checkouts : [],
       enabled: !!client && isConnected,
       dataShape: "list" as const,
       // An older daemon rejects the request; asking again will not change that.

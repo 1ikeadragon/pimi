@@ -48,6 +48,7 @@ export interface AutomationServices {
   attackScheduler: AttackScheduler;
 }
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
+import type { NestedChangesService } from "./checkout/nested-changes.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
 import {
   type ServerInfoStatusPayload,
@@ -522,20 +523,25 @@ export class MissingDaemonVersionError extends Error {
 interface RequiredWebSocketServices {
   automationServices: AutomationServices;
   checkoutDiffManager: CheckoutDiffManager;
+  nestedChanges: NestedChangesService;
 }
 
 function requireWebSocketServices(params: {
   automationServices?: AutomationServices;
   checkoutDiffManager?: CheckoutDiffManager;
+  nestedChanges?: NestedChangesService;
 }): RequiredWebSocketServices {
-  const { automationServices, checkoutDiffManager } = params;
+  const { automationServices, checkoutDiffManager, nestedChanges } = params;
   if (!automationServices) {
     throw new Error("VoiceAssistantWebSocketServer requires the automation services.");
   }
   if (!checkoutDiffManager) {
     throw new Error("VoiceAssistantWebSocketServer requires a checkout diff manager.");
   }
-  return { automationServices, checkoutDiffManager };
+  if (!nestedChanges) {
+    throw new Error("VoiceAssistantWebSocketServer requires the nested changes service.");
+  }
+  return { automationServices, checkoutDiffManager, nestedChanges };
 }
 
 /**
@@ -576,6 +582,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly labelService: LabelService | null;
   private readonly automationServices: AutomationServices;
   private readonly checkoutDiffManager: CheckoutDiffManager;
+  private readonly nestedChanges: NestedChangesService;
   private readonly github: ForgeService;
   private readonly workspaceGitService: WorkspaceGitService;
   private readonly workspaceAutoName: WorkspaceAutoName;
@@ -700,6 +707,7 @@ export class VoiceAssistantWebSocketServer {
     private readonly usageLedger?: SessionOptions["usageLedger"],
     private readonly actionItemsService?: ActionItemsService,
     private readonly recap?: SessionOptions["recap"],
+    nestedChanges?: NestedChangesService,
   ) {
     this.logger = logger.child({ module: "websocket-server" });
     this.workspaceSetupRuntime = workspaceSetupRuntime;
@@ -764,9 +772,11 @@ export class VoiceAssistantWebSocketServer {
     const requiredServices = requireWebSocketServices({
       automationServices,
       checkoutDiffManager,
+      nestedChanges,
     });
     this.automationServices = requiredServices.automationServices;
     this.checkoutDiffManager = requiredServices.checkoutDiffManager;
+    this.nestedChanges = requiredServices.nestedChanges;
     this.github = github ?? createGitHubService();
     this.workspaceGitService = workspaceGitService ?? createFallbackWorkspaceGitService();
     this.worktreesRoot = daemonRuntimeConfig?.worktreesRoot;
@@ -1205,6 +1215,7 @@ export class VoiceAssistantWebSocketServer {
     await Promise.all(cleanupPromises);
     this.providerSnapshotManager.destroy();
     this.checkoutDiffManager.dispose();
+    await this.nestedChanges.dispose();
     await this.workspaceGitService.dispose();
     this.pendingConnections.clear();
     this.sessions.clear();
@@ -1656,6 +1667,7 @@ export class VoiceAssistantWebSocketServer {
       attackService: this.automationServices.attackService,
       attackScheduler: this.automationServices.attackScheduler,
       checkoutDiffManager: this.checkoutDiffManager,
+      nestedChanges: this.nestedChanges,
       github: this.github,
       workspaceGitService: this.workspaceGitService,
       workspaceRuntimeStore: this.workspaceRuntimeStore,

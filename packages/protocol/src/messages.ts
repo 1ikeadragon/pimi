@@ -2845,9 +2845,39 @@ export const CheckoutDiffGetRequestSchema = z.object({
   requestId: z.string(),
 });
 
+/**
+ * Directory levels below a folder searched for Git checkouts. Three covers `folder/repo`,
+ * `folder/group/repo` and `folder/repo/.worktrees/x`; deeper walks reach dependency-sized trees.
+ */
+export const NESTED_CHECKOUT_SCAN_DEPTH = 3;
+
 export const CheckoutNestedListRequestSchema = z.object({
   type: z.literal("checkout.nested.list.request"),
   cwd: z.string(),
+  depth: z.number().int().min(1).max(NESTED_CHECKOUT_SCAN_DEPTH),
+  requestId: z.string(),
+});
+
+export const CheckoutNestedSubscribeChangesRequestSchema = z.object({
+  type: z.literal("checkout.nested.subscribe_changes.request"),
+  cwd: z.string(),
+  depth: z.number().int().min(1).max(NESTED_CHECKOUT_SCAN_DEPTH),
+  requestId: z.string(),
+});
+
+export const CheckoutNestedRefreshRequestSchema = z.object({
+  type: z.literal("checkout.nested.refresh.request"),
+  subscriptionId: z.string(),
+  /** One repository's root, or null for the whole folder (which also looks for new repositories). */
+  root: z.string().nullable(),
+  requestId: z.string(),
+});
+
+export const CheckoutNestedSetWatchedRootsRequestSchema = z.object({
+  type: z.literal("checkout.nested.set_watched_roots.request"),
+  subscriptionId: z.string(),
+  /** Least to most recently expanded. The daemon watches only the most recent few. */
+  roots: z.array(z.string()),
   requestId: z.string(),
 });
 
@@ -4055,6 +4085,9 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutStatusRequestSchema,
   CheckoutDiffGetRequestSchema,
   CheckoutNestedListRequestSchema,
+  CheckoutNestedSubscribeChangesRequestSchema,
+  CheckoutNestedRefreshRequestSchema,
+  CheckoutNestedSetWatchedRootsRequestSchema,
   SubscribeCheckoutDiffRequestSchema,
   UnsubscribeCheckoutDiffRequestSchema,
   CheckoutCommitRequestSchema,
@@ -6173,8 +6206,83 @@ export const CheckoutNestedListResponseSchema = z.object({
   type: z.literal("checkout.nested.list.response"),
   payload: z.object({
     cwd: z.string(),
-    /** Absolute paths of the Git checkouts directly inside cwd. */
+    /** Absolute paths of the Git checkouts found inside cwd, most recently used first. */
     checkouts: z.array(z.string()),
+    /** More checkouts or directories existed than one walk reports. */
+    truncated: z.boolean(),
+    error: z.string().nullable(),
+    requestId: z.string(),
+  }),
+});
+
+export const NestedChangedFileSchema = z.object({
+  /** Relative to the repository root. */
+  path: z.string(),
+  oldPath: z.string().optional(),
+  state: z.enum(["modified", "added", "deleted", "renamed", "untracked", "conflicted"]),
+  staged: z.boolean(),
+});
+
+export const NestedChangesRepositorySchema = z.object({
+  root: z.string(),
+  /** Path relative to the subscribed folder, `/`-separated. */
+  name: z.string(),
+  /** Null while detached or when `error` is set. */
+  branch: z.string().nullable(),
+  isWorktree: z.boolean(),
+  ahead: z.number().int(),
+  behind: z.number().int(),
+  files: z.array(NestedChangedFileSchema),
+  /** The repository has more changed files than `files` lists. */
+  truncated: z.boolean(),
+  /** Why this repository's status could not be read; the other repositories are unaffected. */
+  error: z.string().nullable(),
+  /** Epoch milliseconds when the status finished; null until the first status completes. */
+  checkedAt: z.number().nullable(),
+});
+
+export const CheckoutNestedSubscribeChangesResponseSchema = z.object({
+  type: z.literal("checkout.nested.subscribe_changes.response"),
+  payload: z.object({
+    subscriptionId: z.string(),
+    cwd: z.string(),
+    repositories: z.array(NestedChangesRepositorySchema),
+    truncated: z.boolean(),
+    error: z.string().nullable(),
+    requestId: z.string(),
+  }),
+});
+
+/**
+ * Follows `checkout.nested.subscribe_changes.response` for the life of the subscription. There is
+ * no terminal response: the client releases the subscription through `subscription.release.request`
+ * (as it does for `fs.file.update`). `repositories` holds only the repositories re-checked since the
+ * previous update; the client merges them by `root`.
+ */
+export const CheckoutNestedChangesUpdateSchema = z.object({
+  type: z.literal("checkout.nested.changes.update"),
+  payload: z.object({
+    subscriptionId: z.string(),
+    repositories: z.array(NestedChangesRepositorySchema),
+    /** Roots that left the folder. */
+    removed: z.array(z.string()),
+    truncated: z.boolean(),
+  }),
+});
+
+export const CheckoutNestedRefreshResponseSchema = z.object({
+  type: z.literal("checkout.nested.refresh.response"),
+  payload: z.object({
+    error: z.string().nullable(),
+    requestId: z.string(),
+  }),
+});
+
+export const CheckoutNestedSetWatchedRootsResponseSchema = z.object({
+  type: z.literal("checkout.nested.set_watched_roots.response"),
+  payload: z.object({
+    /** Roots whose working tree is watched now; the rest rely on polling and turn end. */
+    watched: z.array(z.string()),
     error: z.string().nullable(),
     requestId: z.string(),
   }),
@@ -8131,6 +8239,10 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutStatusUpdateSchema,
   CheckoutDiffGetResponseSchema,
   CheckoutNestedListResponseSchema,
+  CheckoutNestedSubscribeChangesResponseSchema,
+  CheckoutNestedChangesUpdateSchema,
+  CheckoutNestedRefreshResponseSchema,
+  CheckoutNestedSetWatchedRootsResponseSchema,
   SubscribeCheckoutDiffResponseSchema,
   CheckoutDiffUpdateSchema,
   CheckoutCommitResponseSchema,
@@ -8837,6 +8949,16 @@ export type FileEntryDeleteRequest = z.infer<typeof FileEntryDeleteRequestSchema
 export type FileEntryDeleteResponse = z.infer<typeof FileEntryDeleteResponseSchema>;
 export type FileWriteResult = z.infer<typeof FileWriteResultSchema>;
 export type FileUpdate = z.infer<typeof FileUpdateSchema>;
+export type NestedChangedFile = z.infer<typeof NestedChangedFileSchema>;
+export type NestedFileState = NestedChangedFile["state"];
+export type NestedChangesRepository = z.infer<typeof NestedChangesRepositorySchema>;
+export type CheckoutNestedSubscribeChangesRequest = z.infer<
+  typeof CheckoutNestedSubscribeChangesRequestSchema
+>;
+export type CheckoutNestedRefreshRequest = z.infer<typeof CheckoutNestedRefreshRequestSchema>;
+export type CheckoutNestedSetWatchedRootsRequest = z.infer<
+  typeof CheckoutNestedSetWatchedRootsRequestSchema
+>;
 export type ProjectIconRequest = z.infer<typeof ProjectIconRequestSchema>;
 export type ProjectIconResponse = z.infer<typeof ProjectIconResponseSchema>;
 export type ProjectIconGetRequest = z.infer<typeof ProjectIconGetRequestSchema>;
