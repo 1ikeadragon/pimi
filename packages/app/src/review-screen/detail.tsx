@@ -163,7 +163,7 @@ function PullRequestPage({
 }
 
 function WorktreePage({
-  source,
+  source: requestedSource,
   navigation,
   onHome,
   focus,
@@ -173,7 +173,8 @@ function WorktreePage({
   onHome: () => void;
   focus: ReviewDeskFocus | null;
 }) {
-  const worktree = useWorktreeHeader(source);
+  const worktree = useWorktreeHeader(requestedSource);
+  const source = worktree?.source ?? requestedSource;
   const { push } = navigation;
   // Each compare is its own history entry, so back steps through them.
   const onCompareChange = useCallback(

@@ -53,6 +53,7 @@ import {
   type ReviewCheckSection,
   type ReviewTimeline,
 } from "./use-review-timeline";
+import { useCheckoutStatusQuery } from "@/git/use-status-query";
 import { useCheckoutDiff } from "./desk/use-files-model";
 import { prefetchChangeRequest } from "./queries";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
@@ -323,6 +324,8 @@ export function ReviewDetailBar({
 // ---- worktree header ----
 
 export interface WorktreeHeader {
+  /** The requested source, with a base compare turned into uncommitted when there is no base. */
+  source: CheckoutSource;
   title: string;
   branch: string | null;
   baseRef: string | null;
@@ -341,9 +344,38 @@ export function worktreeNameOf(cwd: string): string {
   );
 }
 
+function useWorktreeSource(requestedSource: CheckoutSource | null): {
+  source: CheckoutSource | null;
+  branch: string | null;
+  baseRef: string | null;
+} {
+  const { status } = useCheckoutStatusQuery({
+    serverId: requestedSource?.serverId ?? "",
+    cwd: requestedSource?.cwd ?? "",
+  });
+  const knownStatus = status && status.isGit ? status : null;
+  const currentBranch = knownStatus?.currentBranch;
+  const branch = currentBranch && currentBranch !== "HEAD" ? currentBranch : null;
+  const rawBase = knownStatus?.baseRef ?? requestedSource?.compare.baseRef;
+  const comparisonRef = rawBase?.replace(/^refs\/(?:heads|remotes)\//, "") ?? null;
+  // A branch compared with itself has no base to show or to diff against.
+  const baseRef = comparisonRef && comparisonRef !== branch ? comparisonRef : null;
+  const statusKnown = knownStatus !== null;
+  // Without a base the base compare is empty and the control has no option to select it.
+  const source = useMemo<CheckoutSource | null>(
+    () =>
+      requestedSource && statusKnown && baseRef === null && requestedSource.compare.mode === "base"
+        ? { ...requestedSource, compare: { ...requestedSource.compare, mode: "uncommitted" } }
+        : requestedSource,
+    [baseRef, requestedSource, statusKnown],
+  );
+  return { source, branch, baseRef };
+}
+
 /** What a worktree page's header shows: all of it reads caches the Files tab fills. */
-export function useWorktreeHeader(source: CheckoutSource | null): WorktreeHeader | null {
-  const { gitStatus, baseRef, workspace, diff } = useCheckoutDiff(source);
+export function useWorktreeHeader(requestedSource: CheckoutSource | null): WorktreeHeader | null {
+  const { source, branch, baseRef } = useWorktreeSource(requestedSource);
+  const { workspace, diff } = useCheckoutDiff(source);
   const { ref } = useCheckoutChangeRequest(source);
   const stat = useMemo(() => {
     if (diff.isLoading || diff.payloadError) return null;
@@ -356,14 +388,11 @@ export function useWorktreeHeader(source: CheckoutSource | null): WorktreeHeader
     return { additions, deletions, files: diff.files.length };
   }, [diff.files, diff.isLoading, diff.payloadError]);
   if (!source) return null;
-  const branch =
-    gitStatus?.currentBranch && gitStatus.currentBranch !== "HEAD" ? gitStatus.currentBranch : null;
-  const comparisonRef = baseRef?.replace(/^refs\/(?:heads|remotes)\//, "") ?? null;
   return {
+    source,
     title: workspace?.title || workspace?.name || worktreeNameOf(source.cwd),
     branch,
-    // A branch compared with itself has no base to show or to diff against.
-    baseRef: comparisonRef && comparisonRef !== branch ? comparisonRef : null,
+    baseRef,
     stat,
     pullRequest: ref,
   };
