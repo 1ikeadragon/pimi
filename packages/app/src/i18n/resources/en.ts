@@ -3320,6 +3320,8 @@ export const en = {
       edit: "Edit review comment",
       delete: "Delete review comment",
       label: "Review comment",
+      addNote: "Add note",
+      lines: "Lines {{start}}–{{end}}",
       placeholder: "Leave a comment",
       cancel: "Cancel",
       cancelAccessibility: "Cancel review comment",

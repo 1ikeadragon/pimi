@@ -3,7 +3,7 @@
 // pressing it opens the thread panel. Notes are the existing annotate-a-line flow
 // (`useInlineReviewController`): they persist per review and travel to chat as a `review`
 // attachment. Threads the document cannot place are listed in the strip above it.
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "@/i18n/use-translation";
 import type { ParsedDiffFile } from "@pimi/protocol/messages";
 import {
@@ -13,7 +13,13 @@ import {
   type InlineReviewActions,
   type InlineReviewSubmitActions,
 } from "@/review";
-import { useReviewCommentCount } from "@/review/store";
+import { resolveNotes } from "@/review/anchor";
+import {
+  relocateReviewDraftComments,
+  useReviewCommentCount,
+  useReviewDraftComments,
+  type ReviewDraftComment,
+} from "@/review/store";
 import { buildReviewableDiffTargetKey, type ReviewableDiffTarget } from "@/utils/diff-layout";
 import type { ChangeRequestSource } from "../types";
 import { newMutationId, type WriteResult } from "../write/use-review-writes";
@@ -83,6 +89,8 @@ export interface ReviewMarkers {
   draftCount: number;
   /** Threads the document cannot draw: no line, or a line outside the patch. */
   detached: Array<{ thread: ForgeThread; reason: "no_line" | "outside_diff" }>;
+  /** Notes whose quoted lines are not in the diff any more. They stay in the review. */
+  outdatedNotes: ReviewDraftComment[];
   /** The thread the panel shows, if it is still on this review. */
   openThread: ForgeThread | null;
   onOpenThread: (id: string) => void;
@@ -93,13 +101,35 @@ export function useReviewMarkers(input: {
   reviewDraftKey: string;
   threads: readonly ForgeThread[];
   loadedFiles: ReadonlyMap<string, ParsedDiffFile>;
+  /** Every changed file without hunks; the ones not in `loadedFiles` have a patch still coming. */
+  stubs: readonly ParsedDiffFile[];
   /** Posts a single line comment to the forge; null where the source has no forge to post to. */
   postLineComment: PostLineComment | null;
 }): ReviewMarkers {
-  const { reviewDraftKey, threads, loadedFiles, postLineComment } = input;
+  const { reviewDraftKey, threads, loadedFiles, stubs, postLineComment } = input;
   const { t } = useTranslation();
   const controller = useInlineReviewController({ reviewDraftKey, presentation: "review-desk" });
   const draftCount = useReviewCommentCount(reviewDraftKey);
+  const notes = useReviewDraftComments(reviewDraftKey);
+  const pendingPaths = useMemo(() => {
+    const pending = new Set<string>();
+    for (const stub of stubs) {
+      if (loadedFiles.has(stub.path)) continue;
+      pending.add(stub.path);
+      if (stub.oldPath) pending.add(stub.oldPath);
+    }
+    return pending;
+  }, [loadedFiles, stubs]);
+  const noteResolution = useMemo(
+    () => resolveNotes(notes, loadedFiles, pendingPaths),
+    [loadedFiles, notes, pendingPaths],
+  );
+  // The store is written only when a note moved or gained its anchor, so the next pass finds
+  // nothing to do and the effect does not feed itself.
+  const { relocations } = noteResolution;
+  useEffect(() => {
+    if (relocations.length > 0) relocateReviewDraftComments({ key: reviewDraftKey, relocations });
+  }, [relocations, reviewDraftKey]);
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
 
   const { threadsByTarget, detached } = useMemo(() => {
@@ -211,6 +241,7 @@ export function useReviewMarkers(input: {
     reviewActions,
     controller,
     draftCount,
+    outdatedNotes: noteResolution.outdated,
     detached,
     openThread,
     onOpenThread,

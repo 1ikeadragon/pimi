@@ -25,6 +25,7 @@ import {
   hitTestDiffDocument,
   selectAllSource,
   selectCellSource,
+  selectedReviewRange,
   selectedSourceText,
 } from "./hit-testing";
 import { retainHorizontalOffsetMapForPaths } from "./horizontal-offsets";
@@ -123,6 +124,7 @@ export function DiffSurface(props: DiffSurfaceProps) {
     ReturnType<typeof buildDiffDocumentModel>["files"]
   >([]);
   const [hasSelection, setHasSelection] = useState(false);
+  const [hasReviewRange, setHasReviewRange] = useState(false);
   const [contextHit, setContextHit] = useState<Extract<DiffHit, { kind: "cell" }> | null>(null);
   const [hoveredAffordance, setHoveredAffordance] = useState<{
     hit: Extract<DiffHit, { kind: "cell" }>;
@@ -173,6 +175,7 @@ export function DiffSurface(props: DiffSurfaceProps) {
   const measurement =
     readyTypographyResource === typographyResource ? typographyResource.measureText : null;
   const reviewActions = props.mode.kind === "working" ? props.mode.reviewActions : undefined;
+  const rangeBarsRef = useRef<ReadonlySet<string> | undefined>(undefined);
   const model = useMemo(() => {
     if (!loadedTypography || !measurement) {
       return emptyDiffDocumentModel({
@@ -355,6 +358,7 @@ export function DiffSurface(props: DiffSurfaceProps) {
       viewportHeight: canvasHeight,
       horizontalOffsets: horizontalOffsetsRef.current,
       selection: selectionRef.current,
+      rangeBars: rangeBarsRef.current,
       findHighlights: findHighlightsRef.current,
       activeHeaderPath: activeHeaderPathRef.current,
       devicePixelRatio: ratio,
@@ -369,6 +373,11 @@ export function DiffSurface(props: DiffSurfaceProps) {
     },
     [paint],
   );
+  const rangeBars = reviewActions?.rangeBars;
+  useEffect(() => {
+    rangeBarsRef.current = rangeBars;
+    schedulePaint();
+  }, [rangeBars, schedulePaint]);
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -583,6 +592,9 @@ export function DiffSurface(props: DiffSurfaceProps) {
     setHasSelection(
       Boolean(selection && currentModel && selectedSourceText(currentModel, selection).length > 0),
     );
+    setHasReviewRange(
+      Boolean(selection && currentModel && selectedReviewRange(currentModel, selection)),
+    );
     schedulePaint();
   });
   // Source and code-layout changes invalidate selection coordinates. A new
@@ -752,6 +764,13 @@ export function DiffSurface(props: DiffSurfaceProps) {
     const selection = selectionRef.current;
     if (currentModel && selection) writeSourceText(selectedSourceText(currentModel, selection));
   }, [writeSourceText]);
+  const addNoteToSelection = useCallback(() => {
+    const currentModel = modelRef.current;
+    const selection = selectionRef.current;
+    if (!currentModel || !selection || !reviewActions) return;
+    const range = selectedReviewRange(currentModel, selection);
+    if (range) reviewActions.onStartComment(range.last, range.startLineNumber);
+  }, [reviewActions]);
   const copyContextLine = useCallback(() => {
     const currentModel = modelRef.current;
     if (!currentModel || !contextHit) return;
@@ -942,6 +961,15 @@ export function DiffSurface(props: DiffSurfaceProps) {
         >
           {t("common.actions.copy")}
         </ContextMenuItem>
+        {reviewActions ? (
+          <ContextMenuItem
+            disabled={!hasReviewRange}
+            onSelect={addNoteToSelection}
+            testID="diff-source-add-note"
+          >
+            {t("review.comment.addNote")}
+          </ContextMenuItem>
+        ) : null}
         <ContextMenuItem
           disabled={!contextHit}
           onSelect={copyContextLine}

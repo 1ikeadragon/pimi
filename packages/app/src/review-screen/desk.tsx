@@ -177,6 +177,7 @@ function ReadyDesk({
     reviewDraftKey: model.draftKey,
     threads: model.threads.threads,
     loadedFiles,
+    stubs,
     postLineComment,
   });
   const unresolvedByPath = useMemo(() => {

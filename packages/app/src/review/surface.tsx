@@ -25,6 +25,7 @@ import {
   type EditingTextInputHandle,
 } from "@/components/ui/text-input";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { noteStartLine } from "./anchor";
 import { createReviewEditorScope } from "./editor";
 import { isWeb } from "@/constants/platform";
 import { isMacUserAgent } from "@/utils/mac-user-agent";
@@ -106,6 +107,19 @@ export function InlineReviewAddButton({
   );
 }
 
+/** The target key of every line a range note covers, first to last. */
+export function rangeBarKeys(comments: readonly ReviewDraftComment[]): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const comment of comments) {
+    const start = noteStartLine(comment);
+    if (start === comment.lineNumber) continue;
+    for (let line = start; line <= comment.lineNumber; line += 1) {
+      keys.add(buildReviewableDiffTargetKey({ ...comment, lineNumber: line }));
+    }
+  }
+  return keys;
+}
+
 export function groupInlineReviewCommentsByTarget(
   comments: readonly ReviewDraftComment[],
 ): Map<string, ReviewDraftComment[]> {
@@ -135,6 +149,7 @@ export function useInlineReviewController(input: {
     () => groupInlineReviewCommentsByTarget(reviewComments),
     [reviewComments],
   );
+  const rangeBars = useMemo(() => rangeBarKeys(reviewComments), [reviewComments]);
   const model = useMemo(
     () => reviewEditors.forDraft(input.reviewDraftKey, input.presentation ?? "diff"),
     [input.reviewDraftKey, input.presentation],
@@ -143,6 +158,7 @@ export function useInlineReviewController(input: {
   return useMemo(
     () => ({
       commentsByTarget,
+      rangeBars,
       editor: isCompact ? null : editor,
       sheetEditor: isCompact ? editor : null,
       onChangeEditorBody: model.setBody,
@@ -152,7 +168,7 @@ export function useInlineReviewController(input: {
       onSaveEditor: model.save,
       onDeleteComment: model.delete,
     }),
-    [commentsByTarget, editor, isCompact, model],
+    [commentsByTarget, rangeBars, editor, isCompact, model],
   );
 }
 
@@ -421,6 +437,13 @@ function CommentRow({
   return (
     <View style={styles.commentBlock}>
       <Text style={styles.commentBody} numberOfLines={2}>
+        {noteStartLine(comment) < comment.lineNumber ? (
+          // Inline, so the row keeps the height the document reserved for it.
+          <Text style={styles.commentRange}>
+            {t("review.comment.lines", { start: noteStartLine(comment), end: comment.lineNumber })}
+            {"  "}
+          </Text>
+        ) : null}
         {comment.body}
       </Text>
       <View style={styles.commentActions}>
@@ -712,6 +735,10 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
     fontSize: theme.fontSize.content,
     lineHeight: theme.fontSize.content * 1.4,
+  },
+  commentRange: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
   },
   commentActions: {
     flexDirection: "row",

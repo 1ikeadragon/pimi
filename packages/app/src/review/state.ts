@@ -3,11 +3,24 @@ import { z } from "zod";
 export type ReviewDraftMode = "uncommitted" | "base" | "all";
 export type ReviewDraftSide = "old" | "new";
 
+/** What a note covers and what surrounds it, so it can find its lines again after the diff changes. */
+export interface ReviewNoteAnchor {
+  /** The covered lines' text, first to last. */
+  lines: string[];
+  /** Up to `CONTEXT_RADIUS` lines before and after, within the same hunk and side. */
+  before: string[];
+  after: string[];
+}
+
 export interface ReviewDraftComment {
   id: string;
   filePath: string;
   side: ReviewDraftSide;
+  /** The last line covered, and the line the note's thread draws under. */
   lineNumber: number;
+  /** The first line of a range on the same side, never after `lineNumber`; absent for one line. */
+  startLineNumber?: number;
+  anchor?: ReviewNoteAnchor;
   body: string;
   createdAt: string;
   updatedAt: string;
@@ -28,6 +41,15 @@ export const ReviewDraftCommentSchema: z.ZodType<ReviewDraftComment> = z.strictO
   filePath: z.string(),
   side: z.enum(["old", "new"]),
   lineNumber: z.number().int().positive(),
+  // COMPAT(@pimi:review-draft-store): notes saved before ranges and anchors have neither field.
+  startLineNumber: z.number().int().positive().optional(),
+  anchor: z
+    .strictObject({
+      lines: z.array(z.string()),
+      before: z.array(z.string()),
+      after: z.array(z.string()),
+    })
+    .optional(),
   body: z.string(),
   createdAt: IsoDateTimeSchema,
   updatedAt: IsoDateTimeSchema,
@@ -109,6 +131,42 @@ export function deleteCommentsFromState(
   return { ...state, drafts: nextDrafts };
 }
 
+export interface ReviewCommentRelocation {
+  id: string;
+  filePath?: string;
+  startLineNumber?: number;
+  lineNumber?: number;
+  anchor?: ReviewNoteAnchor;
+}
+
+function relocated(comment: ReviewDraftComment, relocation: ReviewCommentRelocation) {
+  const { id: _id, ...moves } = relocation;
+  const moved: ReviewDraftComment = { ...comment, ...moves };
+  // A single line carries no start: it is the line itself.
+  if (moved.startLineNumber !== undefined && moved.startLineNumber >= moved.lineNumber) {
+    delete moved.startLineNumber;
+  }
+  return moved;
+}
+
+/** Applies where notes moved (or the anchor they gained) in one update; ids it does not know are skipped. */
+export function relocateCommentsInState(
+  state: ReviewDraftStoreState,
+  input: { key: string; relocations: readonly ReviewCommentRelocation[] },
+): ReviewDraftStoreState {
+  const comments = state.drafts[input.key];
+  if (!comments || input.relocations.length === 0) return state;
+  const byId = new Map(input.relocations.map((relocation) => [relocation.id, relocation]));
+  let changed = false;
+  const next = comments.map((comment) => {
+    const relocation = byId.get(comment.id);
+    if (!relocation) return comment;
+    changed = true;
+    return relocated(comment, relocation);
+  });
+  return changed ? { ...state, drafts: { ...state.drafts, [input.key]: next } } : state;
+}
+
 export function clearReviewInState(
   state: ReviewDraftStoreState,
   input: { key: string },
@@ -145,13 +203,5 @@ function applyCommentUpdates(
   if (comment.id !== targetId) {
     return comment;
   }
-  return {
-    id: comment.id,
-    filePath: comment.filePath,
-    side: comment.side,
-    lineNumber: comment.lineNumber,
-    body: updates.body ?? comment.body,
-    createdAt: comment.createdAt,
-    updatedAt,
-  };
+  return { ...comment, body: updates.body ?? comment.body, updatedAt };
 }

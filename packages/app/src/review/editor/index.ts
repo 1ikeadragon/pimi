@@ -6,7 +6,8 @@ export interface ReviewCommentWriter {
   saveComment: (input: {
     key: string;
     id: string | null;
-    comment: Pick<ReviewDraftComment, "filePath" | "side" | "lineNumber" | "body">;
+    comment: Pick<ReviewDraftComment, "filePath" | "side" | "lineNumber" | "body"> &
+      Partial<Pick<ReviewDraftComment, "startLineNumber">>;
   }) => void;
   deleteComment: (input: { key: string; id: string }) => void;
 }
@@ -35,9 +36,16 @@ function buildReviewEditor(key: string, writer: ReviewCommentWriter, onUnused: (
         });
       };
     },
-    start: (target: ReviewableDiffTarget) => publish({ target, commentId: null, body: "" }),
+    /** `startLineNumber` makes the note a range ending at the target's line. */
+    start: (target: ReviewableDiffTarget, startLineNumber?: number) =>
+      publish({ target, commentId: null, body: "", startLineNumber }),
     edit: (target: ReviewableDiffTarget, comment: ReviewDraftComment) =>
-      publish({ target, commentId: comment.id, body: comment.body }),
+      publish({
+        target,
+        commentId: comment.id,
+        body: comment.body,
+        startLineNumber: comment.startLineNumber,
+      }),
     setBody: (body: string) => {
       if (editor) publish({ ...editor, body });
     },
@@ -52,6 +60,7 @@ function buildReviewEditor(key: string, writer: ReviewCommentWriter, onUnused: (
           filePath: editor.target.filePath,
           side: editor.target.side,
           lineNumber: editor.target.lineNumber,
+          startLineNumber: editor.startLineNumber,
           body: trimmedBody,
         },
       });

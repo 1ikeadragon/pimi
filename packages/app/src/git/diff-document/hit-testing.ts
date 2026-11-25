@@ -1,3 +1,4 @@
+import type { ReviewableDiffTarget } from "@/utils/diff-layout";
 import { fileAtDocumentOffset, fragmentWidthForRange } from "./model";
 import type {
   DiffCell,
@@ -103,6 +104,53 @@ export function selectedSourceText(model: DiffDocumentModel, selection: DiffSele
   return selectedCellRanges(model, selection)
     .map(({ cell, start, end }) => cell.content.slice(start, end))
     .join("\n");
+}
+
+/**
+ * The longest range a note covers. A range's text travels to the agent as a quote, so it is
+ * bounded; 200 lines is a judgement: a screenful is about 50, and a function rarely runs past 200.
+ */
+export const MAX_NOTE_RANGE_LINES = 200;
+
+export interface SelectedReviewRange {
+  /** The last line covered: the note's thread draws under it. */
+  last: ReviewableDiffTarget;
+  startLineNumber: number;
+}
+
+/**
+ * The lines a selection can carry a note on. The first line the selection touches fixes the file,
+ * hunk and side; lines of another file, hunk or side are not part of the note, because one note
+ * quotes one contiguous run on one side. A line the selection only reaches the start of (its
+ * selected text is empty) is not covered. Null when the selection touches no reviewable line.
+ */
+export function selectedReviewRange(
+  model: DiffDocumentModel,
+  selection: DiffSelection,
+): SelectedReviewRange | null {
+  const targets: ReviewableDiffTarget[] = [];
+  for (const range of selectedCellRanges(model, selection)) {
+    const target = range.cell.reviewTarget;
+    if (!target) continue;
+    if (range.end <= range.start && range.cell.content.length > 0) continue;
+    targets.push(target);
+  }
+  const first = targets[0];
+  if (!first) return null;
+  let last = first;
+  for (const target of targets) {
+    if (
+      target.filePath !== first.filePath ||
+      target.hunkIndex !== first.hunkIndex ||
+      target.side !== first.side ||
+      target.lineNumber < first.lineNumber ||
+      target.lineNumber - first.lineNumber >= MAX_NOTE_RANGE_LINES
+    ) {
+      continue;
+    }
+    if (target.lineNumber > last.lineNumber) last = target;
+  }
+  return { last, startLineNumber: first.lineNumber };
 }
 
 export function selectCellSource(
