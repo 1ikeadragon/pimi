@@ -4012,7 +4012,7 @@ export const en = {
       },
     },
     vault: {
-      title: "Vault",
+      statusTitle: "Status",
       info: "Agents can use a secret through vault_run but never read it. Secret values are encrypted with your passphrase, which the daemon keeps only in memory while unlocked.",
       loading: "Loading the vault",
       retry: "Retry",

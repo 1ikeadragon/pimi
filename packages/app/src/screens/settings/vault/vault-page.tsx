@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { Text, View } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 import { VAULT_MIN_PASSPHRASE_LENGTH, type VaultStatus } from "@pimi/protocol/vault/types";
 import { SettingsCard, SettingsRow } from "@/components/settings";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
@@ -68,7 +69,7 @@ function CreateVault({ serverId }: { serverId: string }) {
     client.vaultInitialize({ passphrase }),
   );
   return (
-    <SettingsSection title={t("settings.vault.title")}>
+    <View style={styles.stack}>
       <Alert
         size="sm"
         variant="info"
@@ -90,7 +91,7 @@ function CreateVault({ serverId }: { serverId: string }) {
       <Text style={settingsStyles.rowHint}>
         {t("settings.vault.create.minimum", { count: VAULT_MIN_PASSPHRASE_LENGTH })}
       </Text>
-    </SettingsSection>
+    </View>
   );
 }
 
@@ -100,7 +101,7 @@ function UnlockVault({ serverId }: { serverId: string }) {
     client.vaultUnlock({ passphrase }),
   );
   return (
-    <SettingsSection title={t("settings.vault.title")}>
+    <View style={styles.stack}>
       <SettingsCard>
         <SecretInputForm
           label={t("settings.vault.passphrase")}
@@ -111,7 +112,7 @@ function UnlockVault({ serverId }: { serverId: string }) {
           testID="vault-unlock"
         />
       </SettingsCard>
-    </SettingsSection>
+    </View>
   );
 }
 
@@ -149,7 +150,7 @@ function UnlockedVault({
   const handleLock = useCallback(() => lock.mutate(null), [lock]);
   return (
     <View testID="vault-page">
-      <SettingsSection title={t("settings.vault.title")} info={t("settings.vault.info")}>
+      <SettingsSection title={t("settings.vault.statusTitle")} info={t("settings.vault.info")}>
         <SettingsCard>
           <SettingsRow
             label={t("settings.vault.unlockedTitle")}
@@ -190,3 +191,7 @@ function UnlockedVault({
     </View>
   );
 }
+
+const styles = StyleSheet.create((theme) => ({
+  stack: { marginBottom: theme.spacing[6], gap: theme.spacing[3] },
+}));
