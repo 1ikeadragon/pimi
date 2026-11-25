@@ -170,7 +170,11 @@ function secondaryWorkspaceTabTargetsEqual(
     return workspaceFileLocationsEqual(left, right);
   }
   if (left.kind === "working_diff" && right.kind === "working_diff") {
-    return left.focusPath === right.focusPath && left.focusRequestId === right.focusRequestId;
+    return (
+      left.root === right.root &&
+      left.focusPath === right.focusPath &&
+      left.focusRequestId === right.focusRequestId
+    );
   }
   if (left.kind === right.kind && PARAMETERLESS_TAB_KINDS.has(left.kind)) {
     return true;
@@ -325,10 +329,12 @@ function normalizeCommitDiffTabTarget(
 function normalizeWorkingDiffTabTarget(
   value: Extract<WorkspaceTabTarget, { kind: "working_diff" }>,
 ): WorkspaceTabTarget | null {
+  const root = trimNonEmpty(value.root);
   const focusPath = trimNonEmpty(value.focusPath)?.replace(/\\/g, "/") ?? null;
   const focusRequestId = normalizePositiveInteger(value.focusRequestId);
   return {
     kind: "working_diff" as const,
+    ...(root ? { root } : {}),
     ...(focusPath ? { focusPath } : {}),
     ...(focusRequestId ? { focusRequestId } : {}),
   };

@@ -16,6 +16,11 @@ export interface WorkspaceDraftTabSetup {
 
 export interface WorkspaceWorkingDiffTabTarget {
   kind: "working_diff";
+  /**
+   * The Git repository the diff is of, when it is not the workspace directory itself: a repository
+   * inside a plain folder. Absent means the workspace directory, which saved layouts rely on.
+   */
+  root?: string;
   focusPath?: string;
   focusRequestId?: number;
 }
