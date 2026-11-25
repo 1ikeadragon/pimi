@@ -55,6 +55,7 @@ import type {
   TextMeasurer,
 } from "./types";
 import { useDiffFind } from "./use-diff-find.web";
+import { isTokenOnlyUpdate } from "../diff-sharing";
 import { useDiffDocumentWorkspaceCache } from "./workspace-cache";
 
 const DEFAULT_MONO_STACK = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
@@ -602,13 +603,17 @@ export function DiffSurface(props: DiffSurfaceProps) {
   useEffect(() => {
     dragRef.current = null;
     setSelection(null);
-  }, [
-    props.collapsedFilePaths,
-    props.displayPreferences.layout,
-    props.files,
-    desiredTypography,
-    setSelection,
-  ]);
+  }, [props.collapsedFilePaths, props.displayPreferences.layout, desiredTypography, setSelection]);
+  // The same text with syntax colours arriving keeps every row where it was, so a selection
+  // made on the uncoloured diff still points at the same characters.
+  const filesRef = useRef(props.files);
+  useEffect(() => {
+    const previous = filesRef.current;
+    filesRef.current = props.files;
+    if (previous !== props.files && isTokenOnlyUpdate(previous, props.files)) return;
+    dragRef.current = null;
+    setSelection(null);
+  }, [props.files, setSelection]);
   const pointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) return;

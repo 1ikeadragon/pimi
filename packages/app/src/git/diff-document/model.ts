@@ -8,6 +8,7 @@ import {
 } from "@/utils/diff-layout";
 import { compactHighlightTokens } from "@/utils/diff-rendering";
 import { getInlineReviewThreadState, getSplitInlineReviewThreadState } from "@/review/geometry";
+import { textPredecessorOf } from "../diff-sharing";
 import { advancesFor, requiresShaping } from "./text-measurement";
 import type {
   BuildDiffDocumentModelInput,
@@ -52,6 +53,8 @@ interface ReusableModelIndex {
 interface ReusableFileRows {
   model: DiffDocumentModel;
   file: DiffFileSection;
+  /** The rows were laid out for the file's text predecessor: same text, other syntax tokens. */
+  retokenize: boolean;
 }
 
 interface FileRowsResult {
@@ -93,6 +96,8 @@ export function buildDiffDocumentModel(input: BuildDiffDocumentModelInput): Diff
               input,
               model: reusableModel,
               file: reusableFile,
+              sourceFile: file,
+              retokenize: reusable.retokenize,
               fileIndex,
               fileTop,
               bodyTop,
@@ -147,6 +152,9 @@ function appendReusableFileRows(candidate: {
   input: BuildDiffDocumentModelInput;
   model: DiffDocumentModel;
   file: DiffFileSection;
+  /** The file the new model shows; `file.file` is the one the reused rows were laid out for. */
+  sourceFile: BuildDiffDocumentModelInput["files"][number];
+  retokenize: boolean;
   fileIndex: number;
   fileTop: number;
   bodyTop: number;
@@ -164,6 +172,9 @@ function appendReusableFileRows(candidate: {
       retainsRowGeometry && reusedRow.top === top
         ? reusedRow
         : repositionReusedRow(reusedRow, candidate, top);
+    if (candidate.retokenize) {
+      nextRow = retokenizeRow(nextRow, candidate.sourceFile, candidate.input.palette);
+    }
     if (
       nextRow.kind === "line" &&
       (intersectsMaterializationWindow(candidate.input, top, top + nextRow.height) ||
@@ -172,7 +183,7 @@ function appendReusableFileRows(candidate: {
     ) {
       const cells = materializeCells(
         nextRow.cells,
-        candidate.file.file,
+        candidate.sourceFile,
         candidate.file.gutterWidth,
         candidate.input,
       );
@@ -217,6 +228,42 @@ function repositionReusedRow(
     height: row.height - row.reviewHeight + reviewHeight,
     reviewHeight,
   };
+}
+
+/**
+ * The row with its measured cells recoloured from `file`'s tokens. Text decides every height and
+ * fragment, so those carry over untouched and nothing is measured; a cell is replaced only when
+ * its runs change, so painters keyed by cell identity redraw exactly the cells that took colour.
+ */
+function retokenizeRow(
+  row: DiffRow,
+  file: BuildDiffDocumentModelInput["files"][number],
+  palette: BuildDiffDocumentModelInput["palette"],
+): DiffRow {
+  if (row.kind !== "line") return row;
+  let changed = false;
+  const cells = row.cells.map((cell) => {
+    if (!cell || cell.fragments.length === 0 || cell.type === "header") return cell;
+    const sourceLine =
+      file.hunks[cell.sourceIdentity.hunkIndex]!.lines[cell.sourceIdentity.lineIndex]!;
+    const tokens = tokenRuns(compactHighlightTokens(sourceLine.tokens ?? []), palette);
+    if (equalTokenRuns(cell.tokens, tokens)) return cell;
+    changed = true;
+    return { ...cell, tokens };
+  }) as DiffLineRow["cells"];
+  return changed ? { ...row, cells } : row;
+}
+
+function equalTokenRuns(left: readonly DiffTokenRun[], right: readonly DiffTokenRun[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (run, index) =>
+        run.start === right[index]!.start &&
+        run.end === right[index]!.end &&
+        run.color === right[index]!.color,
+    )
+  );
 }
 
 function appendNewFileRows(candidate: {
@@ -578,8 +625,10 @@ function findReusableFileRows(candidate: {
   fileTop: number;
   bodyTop: number;
 }): ReusableFileRows | null {
+  const predecessor = textPredecessorOf(candidate.sourceFile);
   for (const index of candidate.indexes) {
-    const file = index.filesBySource.get(candidate.sourceFile);
+    const exact = index.filesBySource.get(candidate.sourceFile);
+    const file = exact ?? (predecessor ? index.filesBySource.get(predecessor) : undefined);
     if (
       file &&
       canReuseFileRows({
@@ -590,7 +639,7 @@ function findReusableFileRows(candidate: {
         bodyTop: candidate.bodyTop,
       })
     ) {
-      return { model: index.model, file };
+      return { model: index.model, file, retokenize: exact === undefined };
     }
   }
   return null;
@@ -632,7 +681,7 @@ function measureCell(input: {
     type: input.source.type,
     content: input.source.content,
     lineNumber: input.source.lineNumber,
-    tokens: tokenRuns(input.source, input.input.palette),
+    tokens: tokenRuns(input.source.tokenText, input.input.palette),
     fragments,
     reviewTarget: input.source.reviewTarget,
     sourceIdentity: input.source.sourceIdentity,
@@ -640,12 +689,12 @@ function measureCell(input: {
 }
 
 function tokenRuns(
-  source: CellSource,
+  tokenText: CellSource["tokenText"],
   palette: BuildDiffDocumentModelInput["palette"],
 ): DiffTokenRun[] {
   const runs: DiffTokenRun[] = [];
   let offset = 0;
-  for (const token of source.tokenText) {
+  for (const token of tokenText) {
     const end = offset + token.text.length;
     const color = token.style
       ? (palette.syntax[token.style] ?? palette.foreground)

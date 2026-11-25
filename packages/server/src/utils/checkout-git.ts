@@ -919,6 +919,13 @@ export interface CheckoutDiffTimings {
   highlightMs: number;
 }
 
+/**
+ * Called once per read, as soon as the patches are parsed and before any blob is read or
+ * highlighted, with the files exactly as the finished read will return them minus syntax tokens.
+ * Never called when the whole diff is too large to return.
+ */
+export type CheckoutDiffPlainListener = (files: ParsedDiffFile[]) => void;
+
 export type CheckoutDiffResult =
   | {
       diff: string;
@@ -3209,7 +3216,7 @@ interface AppendStructuredTrackedDiffsInput {
   trackedChanges: CheckoutFileChange[];
   trackedNumstatByPath: Map<string, FileStat>;
   trackedPlaceholderByPath: Map<string, { status: "binary" | "too_large"; stat: FileStat }>;
-  trackedDiffText: string;
+  parsedTrackedByPath: Map<string, ParsedDiffFile>;
   refsForDiff: CheckoutDiffRefs;
   ignoreWhitespace: boolean;
   structured: StructuredDiffAccumulator;
@@ -3218,6 +3225,18 @@ interface AppendStructuredTrackedDiffsInput {
     status: "binary" | "too_large",
   ) => void;
   timings: CheckoutDiffTimings;
+}
+
+/** A parsed patch under the identity `git` listed for it; the highlighted and plain forms share it. */
+function withChangeIdentity(file: ParsedDiffFile, change: CheckoutFileChange): ParsedDiffFile {
+  return {
+    ...file,
+    path: change.path,
+    ...(change.oldPath ? { oldPath: change.oldPath } : {}),
+    isNew: change.isNew,
+    isDeleted: change.isDeleted,
+    status: "ok",
+  };
 }
 
 async function buildHighlightedTrackedDiffFile(input: {
@@ -3229,6 +3248,9 @@ async function buildHighlightedTrackedDiffFile(input: {
   contents?: Map<string, string | null>;
 }): Promise<ParsedDiffFile> {
   const { cwd, change, parsedFile, refsForDiff } = input;
+  // A read that was superseded keeps no tokens (highlighting declines once aborted), so its
+  // blobs would be read for nothing.
+  if (input.signal?.aborted) return withChangeIdentity(parsedFile, change);
   const refPath = change.oldPath ?? change.path;
   const [oldFileContent, newFileContent] = input.contents
     ? [
@@ -3248,14 +3270,7 @@ async function buildHighlightedTrackedDiffFile(input: {
     oldFileContent,
     newFileContent,
   });
-  return {
-    ...highlightedFile,
-    path: change.path,
-    ...(change.oldPath ? { oldPath: change.oldPath } : {}),
-    isNew: change.isNew,
-    isDeleted: change.isDeleted,
-    status: "ok",
-  };
+  return withChangeIdentity(highlightedFile, change);
 }
 
 function isWhitespaceOnlyTrackedChange(input: {
@@ -3284,6 +3299,95 @@ function readTrackedDiffContents(
   return readGitFileContents(cwd, specs);
 }
 
+type TrackedChangePlan =
+  | { kind: "file"; file: ParsedDiffFile; placeholderStatus?: "binary" | "too_large" }
+  | { kind: "patch"; parsedFile: ParsedDiffFile }
+  | { kind: "skip" };
+
+/**
+ * What a tracked change contributes to the structured diff, decided from the listing, numstat
+ * and parsed patches alone: no blob is read. The plain and the highlighted passes both follow it,
+ * so the two cannot disagree about which files exist.
+ */
+function planTrackedChange(input: {
+  change: CheckoutFileChange;
+  trackedNumstatByPath: Map<string, FileStat>;
+  trackedPlaceholderByPath: Map<string, { status: "binary" | "too_large"; stat: FileStat }>;
+  parsedTrackedByPath: Map<string, ParsedDiffFile>;
+  ignoreWhitespace: boolean;
+}): TrackedChangePlan {
+  const { change } = input;
+  const placeholder = input.trackedPlaceholderByPath.get(change.path);
+  if (placeholder) {
+    return {
+      kind: "file",
+      file: buildPlaceholderParsedDiffFile(change, {
+        status: placeholder.status,
+        stat: placeholder.stat,
+      }),
+      placeholderStatus: placeholder.status,
+    };
+  }
+
+  const stat = input.trackedNumstatByPath.get(change.path) ?? null;
+  const parsedFile = input.parsedTrackedByPath.get(change.path);
+  if (parsedFile) return { kind: "patch", parsedFile };
+
+  // `git diff -w --name-status` can still report a modified path even when the
+  // whitespace-filtered patch and numstat are both empty. Skip emitting a
+  // structured placeholder in that case so whitespace-only edits truly disappear.
+  if (isWhitespaceOnlyTrackedChange({ change, stat, ignoreWhitespace: input.ignoreWhitespace })) {
+    return { kind: "skip" };
+  }
+
+  return {
+    kind: "file",
+    file: {
+      path: change.path,
+      ...(change.oldPath ? { oldPath: change.oldPath } : {}),
+      isNew: change.isNew,
+      isDeleted: change.isDeleted,
+      additions: stat?.additions ?? 0,
+      deletions: stat?.deletions ?? 0,
+      hunks: [],
+      status: "ok",
+    },
+  };
+}
+
+/**
+ * The structured diff before any blob is read or highlighted: every file the finished read
+ * returns, with the same text and no tokens. Null when it exceeds the structured size cap, which
+ * the highlighted read, only larger, would exceed too.
+ */
+function buildPlainStructuredFiles(input: {
+  trackedChanges: CheckoutFileChange[];
+  placeholderChanges: CheckoutFileChange[];
+  untrackedPlaceholders: ReadonlyMap<string, UntrackedPlaceholder> | undefined;
+  trackedNumstatByPath: Map<string, FileStat>;
+  trackedPlaceholderByPath: Map<string, { status: "binary" | "too_large"; stat: FileStat }>;
+  parsedTrackedByPath: Map<string, ParsedDiffFile>;
+  ignoreWhitespace: boolean;
+}): ParsedDiffFile[] | null {
+  const structured = createStructuredDiffAccumulator();
+  for (const change of input.trackedChanges) {
+    const plan = planTrackedChange({ ...input, change });
+    if (plan.kind === "skip") continue;
+    const file = plan.kind === "patch" ? withChangeIdentity(plan.parsedFile, change) : plan.file;
+    if (!appendStructuredFile(structured, file)) return null;
+  }
+  for (const change of input.placeholderChanges) {
+    const placeholder = input.untrackedPlaceholders?.get(change.path);
+    if (!placeholder) {
+      throw new Error(`Untracked placeholder missing for ${change.path}`);
+    }
+    if (!appendStructuredFile(structured, buildUntrackedPlaceholderFile(change, placeholder))) {
+      return null;
+    }
+  }
+  return structured.files;
+}
+
 async function appendStructuredTrackedDiffs(
   input: AppendStructuredTrackedDiffsInput,
 ): Promise<boolean> {
@@ -3292,7 +3396,7 @@ async function appendStructuredTrackedDiffs(
     trackedChanges,
     trackedNumstatByPath,
     trackedPlaceholderByPath,
-    trackedDiffText,
+    parsedTrackedByPath,
     refsForDiff,
     ignoreWhitespace,
     structured,
@@ -3300,10 +3404,8 @@ async function appendStructuredTrackedDiffs(
     timings,
   } = input;
 
-  const parsedTrackedFiles = trackedDiffText.length > 0 ? parseDiff(trackedDiffText) : [];
-  const parsedTrackedByPath = new Map(parsedTrackedFiles.map((file) => [file.path, file]));
-
   const readContents = async (changes: CheckoutFileChange[]) => {
+    if (input.signal?.aborted) return null;
     const startedAt = performance.now();
     try {
       return await readTrackedDiffContents(
@@ -3324,60 +3426,39 @@ async function appendStructuredTrackedDiffs(
     load: readContents,
   })) {
     for (const change of changes) {
-      const placeholder = trackedPlaceholderByPath.get(change.path);
-      if (placeholder) {
-        const file = buildPlaceholderParsedDiffFile(change, {
-          status: placeholder.status,
-          stat: placeholder.stat,
-        });
-        if (!appendStructuredFile(structured, file)) {
+      const plan = planTrackedChange({
+        change,
+        trackedNumstatByPath,
+        trackedPlaceholderByPath,
+        parsedTrackedByPath,
+        ignoreWhitespace,
+      });
+      if (plan.kind === "skip") continue;
+      if (plan.kind === "file") {
+        if (!appendStructuredFile(structured, plan.file)) {
           return false;
         }
-        appendTrackedPlaceholderComment(change, placeholder.status);
-        continue;
-      }
-
-      const stat = trackedNumstatByPath.get(change.path) ?? null;
-      const parsedFile = parsedTrackedByPath.get(change.path);
-      if (parsedFile) {
-        const highlightStartedAt = performance.now();
-        const file = await buildHighlightedTrackedDiffFile({
-          signal: input.signal,
-          cwd,
-          change,
-          parsedFile,
-          refsForDiff,
-          contents: contents ?? undefined,
-        });
-        timings.highlightMs += performance.now() - highlightStartedAt;
-        if (!appendStructuredFile(structured, file)) {
-          return false;
+        if (plan.placeholderStatus) {
+          appendTrackedPlaceholderComment(change, plan.placeholderStatus);
         }
-        // Batched blobs remove the per-file I/O pause; keep serving other daemon work.
-        await setImmediate();
         continue;
       }
 
-      // `git diff -w --name-status` can still report a modified path even when the
-      // whitespace-filtered patch and numstat are both empty. Skip emitting a
-      // structured placeholder in that case so whitespace-only edits truly disappear.
-      if (isWhitespaceOnlyTrackedChange({ change, stat, ignoreWhitespace })) {
-        continue;
-      }
-
-      const file = {
-        path: change.path,
-        ...(change.oldPath ? { oldPath: change.oldPath } : {}),
-        isNew: change.isNew,
-        isDeleted: change.isDeleted,
-        additions: stat?.additions ?? 0,
-        deletions: stat?.deletions ?? 0,
-        hunks: [],
-        status: "ok",
-      } satisfies ParsedDiffFile;
+      const highlightStartedAt = performance.now();
+      const file = await buildHighlightedTrackedDiffFile({
+        signal: input.signal,
+        cwd,
+        change,
+        parsedFile: plan.parsedFile,
+        refsForDiff,
+        contents: contents ?? undefined,
+      });
+      timings.highlightMs += performance.now() - highlightStartedAt;
       if (!appendStructuredFile(structured, file)) {
         return false;
       }
+      // Batched blobs remove the per-file I/O pause; keep serving other daemon work.
+      await setImmediate();
     }
   }
 
@@ -3789,6 +3870,7 @@ export async function getCheckoutDiff(
   compare: CheckoutDiffCompare,
   context?: CheckoutContext,
   signal?: AbortSignal,
+  onPlain?: CheckoutDiffPlainListener,
 ): Promise<CheckoutDiffResult> {
   cwd = await requireGitWorktreeRoot(cwd);
 
@@ -3812,6 +3894,7 @@ export async function getCheckoutDiff(
         untracked: prepared?.untracked,
       },
       signal,
+      onPlain,
     );
   } finally {
     await prepared?.index?.cleanup();
@@ -3823,6 +3906,7 @@ async function readCheckoutDiff(
   compare: CheckoutDiffCompare,
   refsForDiff: CheckoutDiffRefs,
   signal?: AbortSignal,
+  onPlain?: CheckoutDiffPlainListener,
 ): Promise<CheckoutDiffResult> {
   const ignoreWhitespace = compare.ignoreWhitespace === true;
   let effectiveRefsForDiff = refsForDiff;
@@ -3900,13 +3984,30 @@ async function readCheckoutDiff(
   };
 
   if (compare.includeStructured) {
+    const parsedTrackedFiles =
+      trackedDiff.trackedDiffText.length > 0 ? parseDiff(trackedDiff.trackedDiffText) : [];
+    const parsedTrackedByPath = new Map(parsedTrackedFiles.map((file) => [file.path, file]));
+    if (onPlain) {
+      const plainFiles = buildPlainStructuredFiles({
+        trackedChanges,
+        placeholderChanges,
+        untrackedPlaceholders: refsForDiff.untracked?.placeholders,
+        trackedNumstatByPath,
+        trackedPlaceholderByPath: trackedDiff.trackedPlaceholderByPath,
+        parsedTrackedByPath,
+        ignoreWhitespace,
+      });
+      // Tokens only add bytes, so a plain diff over the cap means the highlighted one is too.
+      if (!plainFiles) return { diff: "", structured: [], diffTooLarge: true };
+      onPlain(plainFiles);
+    }
     const didAppendTrackedDiffs = await appendStructuredTrackedDiffs({
       signal,
       cwd,
       trackedChanges,
       trackedNumstatByPath,
       trackedPlaceholderByPath: trackedDiff.trackedPlaceholderByPath,
-      trackedDiffText: trackedDiff.trackedDiffText,
+      parsedTrackedByPath,
       refsForDiff: effectiveRefsForDiff,
       ignoreWhitespace,
       structured,

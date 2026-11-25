@@ -202,6 +202,32 @@ function withoutHunks(file: ParsedDiffFile): ParsedDiffFile {
   return { ...file, hunks: [] };
 }
 
+/**
+ * The previous stubs where nothing a stub carries changed. A stub has no hunks, so a diff that
+ * only gains syntax colours leaves every stub as it was and the file tree and header need not
+ * render again.
+ */
+function retainStubs(previous: ParsedDiffFile[], next: ParsedDiffFile[]): ParsedDiffFile[] {
+  const byPath = new Map(previous.map((stub) => [stub.path, stub]));
+  let unchanged = previous.length === next.length;
+  const stubs = next.map((stub, index) => {
+    const old = byPath.get(stub.path);
+    const retained =
+      old &&
+      old.oldPath === stub.oldPath &&
+      old.status === stub.status &&
+      old.isNew === stub.isNew &&
+      old.isDeleted === stub.isDeleted &&
+      old.additions === stub.additions &&
+      old.deletions === stub.deletions
+        ? old
+        : stub;
+    unchanged &&= retained === previous[index];
+    return retained;
+  });
+  return unchanged ? previous : stubs;
+}
+
 /** The live diff of a worktree under the compare the source names, with what it is read through. */
 export function useCheckoutDiff(source: CheckoutSource | null) {
   const serverId = source?.serverId ?? "";
@@ -274,10 +300,15 @@ export function useCheckoutFilesModel(source: CheckoutSource, view: FilesView): 
   });
 
   const ordered = useMemo(() => orderCheckoutDiffFiles(diff.files), [diff.files]);
-  const stubs = useMemo(
-    () => (ordered.length === 0 ? NO_STUBS : ordered.map(withoutHunks)),
-    [ordered],
-  );
+  const previousStubs = useRef(NO_STUBS);
+  const stubs = useMemo(() => {
+    const next =
+      ordered.length === 0
+        ? NO_STUBS
+        : retainStubs(previousStubs.current, ordered.map(withoutHunks));
+    previousStubs.current = next;
+    return next;
+  }, [ordered]);
   const byPath = useMemo(() => new Map(ordered.map((file) => [file.path, file])), [ordered]);
   const paths = useMemo(() => stubs.map((file) => file.path), [stubs]);
   // The diff is already in memory, so only the file count bounds continuous scroll.
