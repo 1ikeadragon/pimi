@@ -3,8 +3,14 @@ import { PIMI_HTML_FENCE, PIMI_HTML_VARIABLES } from "./chat-html.js";
 import { PIMI_VEGA_FENCE } from "./chat-vega.js";
 import { PIMI_VIEW_FENCE, VIEW_NODE_FIELDS, VIEW_TONES } from "./chat-view.js";
 
-/** Agents are not taught the chart node: a chart is a pimi-vega block. Stored chats still draw it. */
-const TAUGHT_NODE_FIELDS = Object.entries(VIEW_NODE_FIELDS).filter(([type]) => type !== "chart");
+/**
+ * Agents are not taught the chart node (a chart is a pimi-vega block) or the table node (a table
+ * is a Markdown table, which chat renders as prose). Stored chats still draw both.
+ */
+const UNTAUGHT_NODES: readonly string[] = ["chart", "table"];
+const TAUGHT_NODE_FIELDS = Object.entries(VIEW_NODE_FIELDS).filter(
+  ([type]) => !UNTAUGHT_NODES.includes(type),
+);
 
 /** The core Pimi tool that returns the block formats to a provider that cannot read skills. */
 export const PIMI_VISUALIZATION_GUIDE_TOOL = "get_pimi_visualization_guide";
@@ -46,5 +52,6 @@ export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   "",
   "mermaid: a Mermaid diagram, scaled down to fit the reply's width. Node and edge labels do not wrap.",
   "",
+  "Chat Markdown renders GFM tables. Write a table as a Markdown table.",
   "Chat Markdown does not render math. Write formulas in Unicode, not LaTeX.",
 ].join("\n");
