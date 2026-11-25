@@ -142,6 +142,11 @@ export interface CheckoutSessionOptions {
  * and refresh the workspace git snapshot through gitMutation.notifyGitMutation(); the
  * workspace git observer streams branch changes through emitStatusUpdate().
  */
+/** A relative or empty folder would resolve against the daemon's own working directory. */
+function assertAbsoluteFolder(cwd: string): void {
+  if (!isAbsolute(cwd)) throw new Error(`Folder must be an absolute path: "${cwd}"`);
+}
+
 export class CheckoutSession {
   private static readonly PIMI_STASH_PREFIX = "pimi-auto-stash:";
 
@@ -456,6 +461,7 @@ export class CheckoutSession {
     let truncated = false;
     let error: string | null = null;
     try {
+      assertAbsoluteFolder(cwd);
       const discovery = await discoverNestedRepositories(cwd, { depth: msg.depth });
       checkouts = discovery.repositories.map((repository) => repository.root);
       truncated = discovery.truncated;
@@ -494,6 +500,7 @@ export class CheckoutSession {
       });
     const cwd = expandTilde(msg.cwd);
     try {
+      assertAbsoluteFolder(cwd);
       bootstrap = this.nestedChanges.subscribe(cwd, { depth: msg.depth }, (update) => {
         if (owner.signal.aborted) return;
         if (ready) emitUpdate(update);
