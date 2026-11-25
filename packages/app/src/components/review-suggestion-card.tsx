@@ -113,10 +113,13 @@ const ReviewSuggestionCardView = memo(function ReviewSuggestionCardView({
     initialIsBelow: isCompactFormFactor,
   });
   const { openReview, warm, openChanges, nothingLeft } = useReviewOffer(offer);
-  const { stats, summary, branch, baseRef } = offer;
+  const { stats, summary, branch } = offer;
+  // The offer carries the exact ref the review compares against; the card shows its short name.
+  const baseName = offer.baseRef?.replace(/^refs\/(?:heads|remotes)\//, "");
 
   let detail = summary ?? null;
-  if (!detail && branch) detail = baseRef && baseRef !== branch ? `${branch} → ${baseRef}` : branch;
+  if (!detail && branch)
+    detail = baseName && baseName !== branch ? `${branch} → ${baseName}` : branch;
 
   let headline: string;
   if (nothingLeft) headline = t("agentStream.reviewSuggestion.stale");
