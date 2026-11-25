@@ -180,6 +180,7 @@ import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
 import { readEnvScrubNames, removeEnvNames } from "./vault/env-scrub.js";
+import { VaultService } from "./vault/service.js";
 import { resolveProjectReference } from "./resolve-project-reference.js";
 import { createPimiMemoryHandler } from "./pimi-memory-route.js";
 import { PimiSpaces } from "./pimi-spaces.js";
@@ -1249,6 +1250,8 @@ export async function createPimiDaemon(
     if (git) configureGitProcessPolicy(git);
   });
   const initialAgentManagerState = providerSnapshotManager.getAgentManagerProviderState();
+  const vaultService = new VaultService({ pimiHome: config.pimiHome, env: process.env, logger });
+  await vaultService.load();
   const agentManager: AgentManager = new AgentManager({
     handoff: createHandoffServices({
       transcripts: transcriptStore,
@@ -2307,7 +2310,14 @@ export async function createPimiDaemon(
               },
               projectRegistry,
               workspaceRegistry,
-              { automationService, flowService, heartbeatService, attackService, attackScheduler },
+              {
+                automationService,
+                flowService,
+                heartbeatService,
+                attackService,
+                attackScheduler,
+                vaultService,
+              },
               checkoutDiffManager,
               serviceProxy,
               scriptRuntimeStore,
@@ -2484,6 +2494,7 @@ export async function createPimiDaemon(
     await heartbeatService.stop().catch(() => undefined);
     await attackScheduler.stop().catch(() => undefined);
     await attackService.stop().catch(() => undefined);
+    await vaultService.lock().catch((error) => logger.error({ err: error }, "Vault lock failed"));
     await relayRuntime?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();

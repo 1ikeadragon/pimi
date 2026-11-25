@@ -225,6 +225,8 @@ import {
   createGitMetadataGenerator,
 } from "./session/checkout/git-metadata-generator.js";
 import { AutomationSession } from "./session/automation/automation-session.js";
+import { VaultSession } from "./session/vault/vault-session.js";
+import type { VaultService } from "./vault/service.js";
 import { AttackSession } from "./session/attack/attack-session.js";
 import type { AttackService } from "./attack/service.js";
 import type { AttackScheduler } from "./attack/schedules.js";
@@ -516,6 +518,7 @@ export interface SessionOptions {
   automationService: AutomationService;
   flowService: FlowService;
   heartbeatService: HeartbeatService;
+  vaultService: VaultService;
   attackService: AttackService;
   attackScheduler: AttackScheduler;
   checkoutDiffManager: CheckoutDiffManager;
@@ -824,6 +827,9 @@ export class Session {
   private readonly checkoutSession: CheckoutSession;
   private readonly changeRequestSession: ChangeRequestSession;
   private readonly automationSession: AutomationSession;
+  private readonly vaultSession: VaultSession;
+  private readonly vaultService: VaultService;
+  private unsubscribeVault: (() => void) | null = null;
   private readonly flowSession: FlowSession;
   private readonly attackSession: AttackSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
@@ -864,6 +870,7 @@ export class Session {
       automationService,
       flowService,
       heartbeatService,
+      vaultService,
       attackService,
       attackScheduler,
       checkoutDiffManager,
@@ -1030,6 +1037,12 @@ export class Session {
       host: { emit: (msg) => this.emit(msg) },
       automationService,
       heartbeatService,
+      logger: this.sessionLogger,
+    });
+    this.vaultService = vaultService;
+    this.vaultSession = new VaultSession({
+      host: { emit: (msg) => this.emit(msg) },
+      vault: vaultService,
       logger: this.sessionLogger,
     });
     this.flowSession = new FlowSession({
@@ -1825,6 +1838,7 @@ export class Session {
       this.unsubscribeActionItems?.();
       this.unsubscribeActionItems = null;
     }
+    this.syncVaultSubscription();
     if (this.wantsEvent("status.automation_drafts_changed"))
       this.unsubscribeAutomationDrafts ??= this.automationService.onDraftsChanged(() => {
         this.emit({ type: "status", payload: { status: "automation_drafts_changed" } });
@@ -1833,6 +1847,17 @@ export class Session {
       this.unsubscribeAutomationDrafts?.();
       this.unsubscribeAutomationDrafts = null;
     }
+  }
+
+  private syncVaultSubscription(): void {
+    if (this.wantsEvent("status.vault_changed")) {
+      this.unsubscribeVault ??= this.vaultService.onChanged(() => {
+        this.emit({ type: "status", payload: { status: "vault_changed" } });
+      });
+      return;
+    }
+    this.unsubscribeVault?.();
+    this.unsubscribeVault = null;
   }
 
   private enqueueRegistryMutation(handleMutation: () => Promise<void>): Promise<void> {
@@ -2486,7 +2511,7 @@ export class Session {
       this.dispatchPluginDirectoryMessage(msg) ??
       this.dispatchPluginMessage(msg) ??
       this.dispatchPluginRpcMessage(msg) ??
-      this.dispatchHostServiceMessage(msg) ??
+      this.dispatchHostServiceMessage(msg, source) ??
       this.dispatchMiscMessage(msg);
     if (promise) await promise;
   }
@@ -2550,11 +2575,15 @@ export class Session {
     return Promise.resolve();
   }
 
-  private dispatchHostServiceMessage(msg: SessionInboundMessage): Promise<void> | undefined {
+  private dispatchHostServiceMessage(
+    msg: SessionInboundMessage,
+    source?: object,
+  ): Promise<void> | undefined {
     return (
       this.dispatchTerminalMessage(msg) ??
       this.dispatchChatSearchMessage(msg) ??
       this.automationSession.dispatch(msg) ??
+      this.vaultSession.dispatch(msg, source) ??
       this.flowSession.dispatch(msg) ??
       this.taskSession?.dispatch(msg) ??
       this.actionItemsSession?.dispatch(msg) ??
@@ -9348,6 +9377,8 @@ export class Session {
     this.unsubscribePluginChanges = null;
     this.unsubscribeAutomationDrafts?.();
     this.unsubscribeAutomationDrafts = null;
+    this.unsubscribeVault?.();
+    this.unsubscribeVault = null;
     this.unsubscribeTasks?.();
     this.unsubscribeTasks = null;
     this.unsubscribeActionItems?.();
@@ -9437,6 +9468,27 @@ function featureEventCategory(message: SessionOutboundMessage): SessionEventSubs
   return attackEventCategory(message);
 }
 
+function statusEventCategory(status: string): SessionEventSubscription | null {
+  switch (status) {
+    case "server_info":
+      return "status.server_info";
+    case "daemon_config_changed":
+      return "status.daemon_config_changed";
+    case "plugin_catalog_changed":
+      return "status.plugin_catalog_changed";
+    case "plugin_settings_changed":
+      return "status.plugin_settings_changed";
+    case "automation_drafts_changed":
+      return "status.automation_drafts_changed";
+    case "tasks_changed":
+      return "status.tasks_changed";
+    case "vault_changed":
+      return "status.vault_changed";
+    default:
+      return null;
+  }
+}
+
 function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubscription | null {
   switch (message.type) {
     case "project.update":
@@ -9453,22 +9505,7 @@ function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubs
     case "activity_log":
       return message.type;
     case "status":
-      switch (message.payload.status) {
-        case "server_info":
-          return "status.server_info";
-        case "daemon_config_changed":
-          return "status.daemon_config_changed";
-        case "plugin_catalog_changed":
-          return "status.plugin_catalog_changed";
-        case "plugin_settings_changed":
-          return "status.plugin_settings_changed";
-        case "automation_drafts_changed":
-          return "status.automation_drafts_changed";
-        case "tasks_changed":
-          return "status.tasks_changed";
-        default:
-          return null;
-      }
+      return statusEventCategory(message.payload.status);
     default:
       return featureEventCategory(message);
   }
