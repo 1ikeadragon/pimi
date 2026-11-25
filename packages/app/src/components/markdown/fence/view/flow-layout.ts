@@ -53,6 +53,13 @@ const SWEEPS = 4;
  */
 const TILE_SIZE = LINE_HEIGHT + BOX_PADDING_CROSS * 2;
 const TILE_STRIP = 22;
+/**
+ * The smallest scale a flow is drawn at to fit its column; below it the flow keeps this scale and
+ * scrolls sideways. A judgement value, not a measured one: at 0.8 the 12px box labels draw at 9.6px
+ * and the 11px edge labels at 8.8px, the smallest text that still reads on a phone. Smaller keeps
+ * more of the graph in view and costs legibility; larger turns more graphs vertical or scrolling.
+ */
+const MIN_FIT_SCALE = 0.8;
 
 export { FONT_SIZE as FLOW_FONT_SIZE, LINE_HEIGHT as FLOW_LINE_HEIGHT };
 export { EDGE_LABEL_FONT_SIZE as FLOW_EDGE_LABEL_FONT_SIZE };
@@ -103,8 +110,13 @@ export interface FlowTarget {
 }
 
 export interface FlowScene {
+  /** Layout size in unscaled pixels. The drawn size is this times `scale`. */
   width: number;
   height: number;
+  /** How much the scene is drawn smaller than its layout to fit the column; 1 when it fits. */
+  scale: number;
+  /** The scene is still wider than the column at `scale`, so the view scrolls sideways. */
+  scrolls: boolean;
   direction: FlowDirection;
   lanes: FlowLane[];
   boxes: FlowBox[];
@@ -745,7 +757,14 @@ function separateLabels(
   }
 }
 
-function paintLayout(flow: FlowNode, layout: FlowLayout, available: number): FlowScene {
+/** `available` is the column's width in layout pixels: the drawn width divided by `scale`. */
+function paintLayout(
+  flow: FlowNode,
+  layout: FlowLayout,
+  available: number,
+  scale: number,
+  scrolls: boolean,
+): FlowScene {
   const { horizontal, vertices, routes, crossCenter, mainBounds } = layout;
   const natural = naturalWidth(layout);
   const width = Math.max(natural, available);
@@ -850,6 +869,8 @@ function paintLayout(flow: FlowNode, layout: FlowLayout, available: number): Flo
   return {
     width: round(width),
     height: round(height),
+    scale,
+    scrolls,
     direction: horizontal ? "right" : "down",
     lanes: lanes.filter((lane) => lane.box.width > 0 && lane.box.height > 0),
     boxes,
@@ -858,34 +879,74 @@ function paintLayout(flow: FlowNode, layout: FlowLayout, available: number): Flo
   };
 }
 
+interface Fit {
+  layout: FlowLayout;
+  /** min(1, column / natural width): 1 when the layout fits as is. */
+  fit: number;
+}
+
 /**
- * Lays a flow out for a column `width` wide. It tries the asked-for direction, then the other one.
- * When neither fits it wraps labels narrower, first only in ranks that hold several boxes, then
- * everywhere, and keeps the first layout that fits. When none fits, the narrowest wins and the
- * scene scrolls sideways.
+ * The best layout of a flow in one direction: the first of wide, crowded (narrow labels only in
+ * ranks that hold several boxes) and narrow labels whose natural width fits the column, else the
+ * narrowest, with the scale that shrinks it to the column.
+ */
+function bestFit(flow: FlowNode, direction: FlowDirection, width: number): Fit {
+  const wide = layoutFlow(
+    flow,
+    direction,
+    flow.nodes.map(() => TEXT_WIDTH),
+  );
+  if (naturalWidth(wide) <= width) return { layout: wide, fit: 1 };
+  const perRank = new Map<number, number>();
+  for (const rank of wide.rank) perRank.set(rank, (perRank.get(rank) ?? 0) + 1);
+  const crowded = layoutFlow(
+    flow,
+    direction,
+    wide.rank.map((rank) => ((perRank.get(rank) ?? 0) > 1 ? NARROW_TEXT_WIDTH : TEXT_WIDTH)),
+  );
+  if (naturalWidth(crowded) <= width) return { layout: crowded, fit: 1 };
+  const narrow = layoutFlow(
+    flow,
+    direction,
+    flow.nodes.map(() => NARROW_TEXT_WIDTH),
+  );
+  const narrowest = [wide, crowded, narrow].reduce((best, next) =>
+    naturalWidth(next) < naturalWidth(best) ? next : best,
+  );
+  return { layout: narrowest, fit: Math.min(1, width / naturalWidth(narrowest)) };
+}
+
+/**
+ * Lays a flow out for a column `width` wide. An explicit `direction` is always kept. Without one,
+ * the flow runs right unless that would have to shrink below MIN_FIT_SCALE and down would not;
+ * when neither meets the bar, the one that shrinks less wins. Whatever the direction, a layout
+ * that does not fit is drawn scaled down to fit, to no less than MIN_FIT_SCALE, and scrolls
+ * sideways only when even that is wider than the column.
  */
 export function buildFlowScene(flow: FlowNode, width: number): FlowScene {
-  const preferred: FlowDirection = flow.direction ?? "right";
-  const directions: FlowDirection[] = [preferred, preferred === "right" ? "down" : "right"];
-  const wide = flow.nodes.map(() => TEXT_WIDTH);
-  const first = layoutFlow(flow, preferred, wide);
-  if (width <= 0 || naturalWidth(first) <= width) return paintLayout(flow, first, width);
-  const perRank = new Map<number, number>();
-  for (const rank of first.rank) perRank.set(rank, (perRank.get(rank) ?? 0) + 1);
-  const crowded = first.rank.map((rank) =>
-    (perRank.get(rank) ?? 0) > 1 ? NARROW_TEXT_WIDTH : TEXT_WIDTH,
-  );
-  const narrow = flow.nodes.map(() => NARROW_TEXT_WIDTH);
-  let narrowest = first;
-  for (const textWidths of [wide, crowded, narrow]) {
-    for (const direction of directions) {
-      if (textWidths === wide && direction === preferred) continue;
-      const layout = layoutFlow(flow, direction, textWidths);
-      if (naturalWidth(layout) <= width) return paintLayout(flow, layout, width);
-      if (naturalWidth(layout) < naturalWidth(narrowest)) narrowest = layout;
+  if (width <= 0) {
+    return paintLayout(
+      flow,
+      bestFit(flow, flow.direction ?? "right", Infinity).layout,
+      width,
+      1,
+      false,
+    );
+  }
+  let chosen: Fit;
+  if (flow.direction) {
+    chosen = bestFit(flow, flow.direction, width);
+  } else {
+    const right = bestFit(flow, "right", width);
+    if (right.fit >= MIN_FIT_SCALE) {
+      chosen = right;
+    } else {
+      const down = bestFit(flow, "down", width);
+      chosen = down.fit >= MIN_FIT_SCALE || down.fit > right.fit ? down : right;
     }
   }
-  return paintLayout(flow, narrowest, width);
+  const scale = Math.max(chosen.fit, MIN_FIT_SCALE);
+  return paintLayout(flow, chosen.layout, width / scale, scale, chosen.fit < MIN_FIT_SCALE);
 }
 
 const HIT_SLOP = 4;
