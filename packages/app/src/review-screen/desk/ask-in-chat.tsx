@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AnnotationAttachmentSchema } from "@/annotations/model";
 import { Button } from "@/components/ui/button";
+import { createControlGeometry } from "@/components/ui/control-geometry";
 import { MAX_CHIPS } from "@/composer/chips/model";
 import { useToast } from "@/contexts/toast-api-context";
 import { useTranslation } from "@/i18n/use-translation";
@@ -173,7 +174,6 @@ export function AskInChat({
   const [sending, setSending] = useState(false);
   const [pickOpen, setPickOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
-  const openAsk = useCallback(() => setAskOpen(true), []);
 
   const sendTo = useCallback(
     async (chat: NoteChatCandidate) => {
@@ -245,7 +245,6 @@ export function AskInChat({
     if (target.kind === "chat") void sendTo(target.chat);
     else setPickOpen(true);
   }, [sendTo, target]);
-  const openPick = useCallback(() => setPickOpen(true), []);
 
   const attach = useCallback(
     (workspace: WorkspaceDescriptor) => {
@@ -287,11 +286,10 @@ export function AskInChat({
         <DropdownMenuTrigger
           accessibilityRole="button"
           accessibilityLabel={copy.askInChat}
+          style={styles.menuTrigger}
           testID="review-desk-ask-trigger"
         >
-          <Button variant="default" size="sm" onPress={openAsk}>
-            {copy.askInChat}
-          </Button>
+          <Text style={styles.menuTriggerLabel}>{copy.askInChat}</Text>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" minWidth={260} side="top" testID="review-desk-ask-menu">
           {candidates.length === 0 ? (
@@ -322,16 +320,11 @@ export function AskInChat({
         <DropdownMenuTrigger
           accessibilityRole="button"
           accessibilityLabel={t("reviewScreen.notes.sendToChat")}
+          disabled={sending}
+          style={styles.menuTrigger}
+          testID="review-notes-send"
         >
-          <Button
-            variant="default"
-            size="sm"
-            loading={sending}
-            onPress={openPick}
-            testID="review-notes-send"
-          >
-            {t("reviewScreen.notes.sendToChat")}
-          </Button>
+          <Text style={styles.menuTriggerLabel}>{t("reviewScreen.notes.sendToChat")}</Text>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" minWidth={260} side="top" testID="review-notes-send-menu">
           {target.chats.map((chat) => (
@@ -394,17 +387,37 @@ function AskTarget({
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
-  bar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[3],
-    paddingHorizontal: theme.spacing[3],
-    paddingVertical: theme.spacing[2],
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.surface1,
-  },
-  count: { flex: 1, fontSize: theme.fontSize.sm, color: theme.colors.foregroundMuted },
-  error: { fontSize: theme.fontSize.sm, color: theme.colors.destructive },
-}));
+const styles = StyleSheet.create((theme) => {
+  const geometry = createControlGeometry(theme);
+  return {
+    // The trigger is the pressable itself, drawn as a small default Button: a Button inside the
+    // trigger would nest a <button> in a <button> and fire two presses.
+    menuTrigger: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: theme.spacing[2],
+      borderWidth: 1,
+      borderColor: theme.colors.accent,
+      backgroundColor: theme.colors.accent,
+      ...geometry.buttonSm,
+    },
+    menuTriggerLabel: {
+      color: theme.colors.accentForeground,
+      fontWeight: theme.fontWeight.medium,
+      ...geometry.buttonTextSm,
+    },
+    bar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing[3],
+      paddingHorizontal: theme.spacing[3],
+      paddingVertical: theme.spacing[2],
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+      backgroundColor: theme.colors.surface1,
+    },
+    count: { flex: 1, fontSize: theme.fontSize.sm, color: theme.colors.foregroundMuted },
+    error: { fontSize: theme.fontSize.sm, color: theme.colors.destructive },
+  };
+});
