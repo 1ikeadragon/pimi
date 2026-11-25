@@ -699,6 +699,11 @@ function ensurePersistedExplorerSidebarPane(input: {
   };
 }
 
+/** IDE Mode's editor centre is "main" and may sit empty; no other mode has such a pane. */
+function emptyCenterPaneIdForMode(mode: WorkbenchMode | undefined): string | null {
+  return mode === "editor" ? DEFAULT_PANE_ID : null;
+}
+
 function getWorkbenchPlacement(
   state: WorkspaceLayoutStore,
   workspaceKey: string,
@@ -1659,11 +1664,18 @@ export function createWorkspaceLayoutStore(
               layout,
               state.explorerSidebarPaneIdByWorkspace[normalizedWorkspaceKey],
             );
+            const emptyCenterPaneId = emptyCenterPaneIdForMode(
+              state.workbenchByWorkspace[normalizedWorkspaceKey]?.mode,
+            );
             const closingPane = findPaneContainingTab(layout.root, normalizedTabId);
             const closingTab = collectAllTabs(layout.root).find(
               (tab) => tab.tabId === normalizedTabId,
             );
-            if (closingPane?.tabIds.length === 1 && closingTab?.target.kind === "new_tab") {
+            if (
+              closingPane?.tabIds.length === 1 &&
+              closingTab?.target.kind === "new_tab" &&
+              closingPane.id !== emptyCenterPaneId
+            ) {
               const nextLayout =
                 closingPane.id === explorerSidebarPaneId
                   ? setPaneHiddenInLayout({
@@ -1692,6 +1704,7 @@ export function createWorkspaceLayoutStore(
               layout,
               tabId: normalizedTabId,
               explorerSidebarPaneId,
+              emptyCenterPaneId,
             });
             const nextLayoutBeforeFocusNormalization =
               closedLayout &&
@@ -1975,6 +1988,9 @@ export function createWorkspaceLayoutStore(
                   state.workbenchByWorkspace[normalizedWorkspaceKey]?.mode === "attack"
                     ? ATTACK_HOLDING_PANE_ID
                     : null,
+                emptyCenterPaneId: emptyCenterPaneIdForMode(
+                  state.workbenchByWorkspace[normalizedWorkspaceKey]?.mode,
+                ),
               },
               snapshot,
             );
@@ -2614,6 +2630,7 @@ export function createWorkspaceLayoutStore(
                 explorerSidebarPaneIdByWorkspace[workspaceKey],
               ),
               ids.createNodeId,
+              emptyCenterPaneIdForMode(result.data.workbenchByWorkspace?.[workspaceKey]?.mode),
             );
             const explorerSidebar = ensurePersistedExplorerSidebarPane({
               layout: restoredLayout,
