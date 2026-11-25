@@ -29,6 +29,7 @@ import {
   useActionItemsFloating,
 } from "@/action-items/floating";
 import { ArchivedAgentCallout } from "@/components/archived-agent-callout";
+import { VaultRequestSlot } from "@/components/vault/vault-request-slot";
 import { useProviderIcon } from "@/components/provider-icons";
 import { ComposerDock } from "@/composer/dock";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
@@ -1754,6 +1755,7 @@ function ActiveAgentComposer({
 
   return (
     <View style={animatedStaticStyles.inputAreaWrapper} onLayout={onInputAreaLayout}>
+      <VaultRequestSlot serverId={serverId} agentId={agentId} />
       <Composer
         agentId={agentId}
         serverId={serverId}

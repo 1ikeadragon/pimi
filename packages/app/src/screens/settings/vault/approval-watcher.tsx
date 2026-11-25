@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/toast-context";
 import { useTranslation } from "@/i18n/use-translation";
 import { useHostRuntimeConnectionStatuses, useHosts } from "@/runtime/host-runtime";
-import { useVaultEnabled, vaultErrorCode } from "./use-vault";
+import { useVaultEnabled, useVaultSync, vaultErrorCode } from "./use-vault";
 import { useSessionStore } from "@/stores/session-store";
-import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import { buildHostAgentDetailRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
 
 // Long enough to read and reach the Review button, short enough not to pile up behind a second
 // request. The request itself waits ten minutes on the daemon; the toast is only the nudge.
@@ -45,22 +45,33 @@ function HostApprovalWatcher({ serverId }: { serverId: string }): ReactElement |
 }
 
 /**
- * A host's first report after connecting only sets the baseline: a request already pending then
- * is not announced again on every reconnect.
+ * Announces each request once, by id, including requests already waiting when the app connects.
+ * A reconnect does not repeat a toast, and nothing is announced for the chat in front of you
+ * (its card is above the composer) or while the Vault page lists the request.
  */
 function EnabledHostApprovalWatcher({ serverId }: { serverId: string }): null {
   const { t } = useTranslation();
   const router = useRouter();
   const toast = useToast();
-  const pending = useRef<number | undefined>(undefined);
+  useVaultSync(serverId);
+  const announced = useRef(new Set<string>());
   // Read when a request arrives, so moving between pages does not resubscribe the feed.
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
 
   const open = useCallback(
-    (id: string) => router.push(buildSettingsHostSectionRoute(id, "vault")),
-    [router],
+    (agentId: string | null) => {
+      const agent = agentId
+        ? useSessionStore.getState().sessions[serverId]?.agents?.get(agentId)
+        : undefined;
+      router.push(
+        agentId
+          ? buildHostAgentDetailRoute(serverId, agentId, agent?.workspaceId)
+          : buildSettingsHostSectionRoute(serverId, "vault"),
+      );
+    },
+    [router, serverId],
   );
 
   useEffect(() => {
@@ -68,25 +79,29 @@ function EnabledHostApprovalWatcher({ serverId }: { serverId: string }): null {
     if (!client) return;
     const check = async () => {
       try {
-        const { status } = await client.vaultGetStatus();
-        const previous = pending.current;
-        pending.current = status.pendingRequests;
-        if (previous === undefined || status.pendingRequests <= previous) return;
-        // The Vault page already lists the request.
-        if (pathnameRef.current === buildSettingsHostSectionRoute(serverId, "vault")) return;
-        toast.show(
-          <ApprovalToast
-            serverId={serverId}
-            message={t("vaultApprovals.toast")}
-            actionLabel={t("vaultApprovals.open")}
-            onOpen={open}
-          />,
-          { variant: "warning", durationMs: APPROVAL_TOAST_MS },
-        );
+        const { requests } = await client.vaultListRequests();
+        const ids = new Set(requests.map((request) => request.id));
+        for (const id of announced.current) {
+          if (!ids.has(id)) announced.current.delete(id);
+        }
+        const session = useSessionStore.getState().sessions[serverId];
+        const onVaultPage =
+          pathnameRef.current === buildSettingsHostSectionRoute(serverId, "vault");
+        for (const request of requests) {
+          if (announced.current.has(request.id)) continue;
+          announced.current.add(request.id);
+          const chatFocused =
+            request.agentId !== null && session?.focusedAgentId === request.agentId;
+          if (onVaultPage || chatFocused) continue;
+          toast.show(
+            <ApprovalToast serverId={serverId} agentId={request.agentId} onOpen={open} />,
+            { variant: "warning", durationMs: APPROVAL_TOAST_MS },
+          );
+        }
       } catch (error) {
         // Turning the vault off locks it, and that change event arrives before this host's config.
         if (vaultErrorCode(error) === "vault_disabled") return;
-        console.warn("[Vault] Failed to read approval status", error);
+        console.warn("[Vault] Failed to read vault requests", error);
       }
     };
     const observation = client.observeEvents(["status.vault_changed"]);
@@ -97,7 +112,6 @@ function EnabledHostApprovalWatcher({ serverId }: { serverId: string }): null {
       },
     });
     return () => {
-      pending.current = undefined;
       void observation
         .release()
         .catch((error: unknown) => console.warn("[Vault] Failed to release approval feed", error));
@@ -107,23 +121,27 @@ function EnabledHostApprovalWatcher({ serverId }: { serverId: string }): null {
   return null;
 }
 
+/** Reads the chat's title live, so a toast raised before the chat list loaded still names it. */
 function ApprovalToast({
   serverId,
-  message,
-  actionLabel,
+  agentId,
   onOpen,
 }: {
   serverId: string;
-  message: string;
-  actionLabel: string;
-  onOpen: (serverId: string) => void;
+  agentId: string | null;
+  onOpen: (agentId: string | null) => void;
 }): ReactElement {
-  const press = useCallback(() => onOpen(serverId), [onOpen, serverId]);
+  const { t } = useTranslation();
+  const title = useSessionStore((state) =>
+    agentId ? state.sessions[serverId]?.agents?.get(agentId)?.title : null,
+  );
+  const chat = title || agentId?.slice(0, 8) || t("vaultRequest.untitledChat");
+  const press = useCallback(() => onOpen(agentId), [agentId, onOpen]);
   return (
     <View style={styles.row} testID="vault-approval-toast">
-      <Text style={styles.message}>{message}</Text>
+      <Text style={styles.message}>{t("vaultApprovals.toast", { chat })}</Text>
       <Button size="sm" variant="outline" onPress={press} testID="vault-approval-toast-action">
-        {actionLabel}
+        {t("vaultRequest.review")}
       </Button>
     </View>
   );
