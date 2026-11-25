@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from "react";
+import { useCallback, useReducer, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,8 @@ interface SecretInputFormProps {
   onSubmit: (value: string) => void;
   /** Called when the user edits a field, so a failed attempt's error goes away. */
   onEdit?: () => void;
+  /** Rendered between the fields and the submit button. */
+  children?: ReactNode;
   testID: string;
 }
 
@@ -55,6 +57,7 @@ export function SecretInputForm({
   error,
   onSubmit,
   onEdit,
+  children,
   testID,
 }: SecretInputFormProps) {
   const { t } = useTranslation();
@@ -86,7 +89,7 @@ export function SecretInputForm({
     <View style={styles.form} testID={testID}>
       <Field
         label={label}
-        error={tooShort ? t("settings.vault.create.minimum", { count: minLength }) : undefined}
+        error={tooShort ? t("settings.vault.setup.minimum", { count: minLength }) : undefined}
       >
         <FormTextInput
           initialValue=""
@@ -104,7 +107,7 @@ export function SecretInputForm({
       {confirmLabel === undefined ? null : (
         <Field
           label={confirmLabel}
-          error={mismatch ? t("settings.vault.create.mismatch") : undefined}
+          error={mismatch ? t("settings.vault.setup.mismatch") : undefined}
         >
           <FormTextInput
             initialValue=""
@@ -120,6 +123,7 @@ export function SecretInputForm({
           />
         </Field>
       )}
+      {children}
       {error ? (
         <Text accessibilityRole="alert" style={settingsStyles.rowError}>
           {error}

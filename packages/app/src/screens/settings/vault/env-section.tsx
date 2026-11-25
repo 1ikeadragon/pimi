@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { VaultEnvCandidate, VaultEnvImportAction } from "@pimi/protocol/vault/types";
 import { SettingsCard, SettingsRow } from "@/components/settings";
@@ -8,7 +8,21 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useTranslation } from "@/i18n/use-translation";
+import { settingsStyles } from "@/styles/settings";
 import { useVaultAction, vaultErrorMessage } from "./use-vault";
+
+// Variables the agent CLIs read to run at all: Claude Code (ANTHROPIC_API_KEY, CLAUDE_CODE_*, such
+// as its OAuth token) and Codex (OPENAI_API_KEY, CODEX_*). Hiding one stops that CLI, so they sit
+// last, with Move and Hide off.
+const AGENT_TOOL_ENV_NAMES: ReadonlySet<string> = new Set(["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
+const AGENT_TOOL_ENV_PREFIXES = ["CLAUDE_CODE_", "CODEX_"] as const;
+
+function isAgentToolEnv(name: string): boolean {
+  return (
+    AGENT_TOOL_ENV_NAMES.has(name) ||
+    AGENT_TOOL_ENV_PREFIXES.some((prefix) => name.startsWith(prefix))
+  );
+}
 
 interface EnvSectionProps {
   serverId: string;
@@ -27,6 +41,8 @@ export function EnvSection({ serverId, candidates, operator }: EnvSectionProps) 
     client.vaultEnvImport({ names: [input.name], action: input.action }),
   );
   if (candidates.length === 0) return null;
+  const ordinary = candidates.filter((candidate) => !isAgentToolEnv(candidate.name));
+  const needed = candidates.filter((candidate) => isAgentToolEnv(candidate.name));
   const skipped = run.data?.skipped ?? [];
   return (
     <SettingsSection title={t("settings.vault.env.title")} info={t("settings.vault.env.info")}>
@@ -41,7 +57,7 @@ export function EnvSection({ serverId, candidates, operator }: EnvSectionProps) 
         />
       ) : null}
       <SettingsCard testID="vault-env-candidates">
-        {candidates.map((candidate) => (
+        {ordinary.map((candidate) => (
           <EnvRow
             key={candidate.name}
             candidate={candidate}
@@ -51,6 +67,27 @@ export function EnvSection({ serverId, candidates, operator }: EnvSectionProps) 
           />
         ))}
       </SettingsCard>
+      {needed.length > 0 ? (
+        <>
+          <Text style={settingsStyles.rowTitle}>{t("settings.vault.env.needed")}</Text>
+          <SettingsCard testID="vault-env-needed">
+            {needed.map((candidate) => (
+              <SettingsRow
+                key={candidate.name}
+                label={candidate.name}
+                hint={t("settings.vault.env.neededHint")}
+              >
+                <View style={styles.trailing}>
+                  <Button variant="outline" disabled>
+                    {t("settings.vault.env.hide")}
+                  </Button>
+                  <Button disabled>{t("settings.vault.env.move")}</Button>
+                </View>
+              </SettingsRow>
+            ))}
+          </SettingsCard>
+        </>
+      ) : null}
     </SettingsSection>
   );
 }

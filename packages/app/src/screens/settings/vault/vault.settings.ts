@@ -4,7 +4,7 @@ export const vaultSettings = defineSettingsPage({ kind: "host", section: "vault"
   {
     id: "vault.enabled",
     title: t("settings.vault.enable"),
-    keywords: ["enable", "turn on", "secrets", "security", "passphrase"],
+    keywords: ["enable", "turn on", "turn off", "secrets", "security", "passphrase"],
   },
   {
     id: "vault.requests",
@@ -17,6 +17,11 @@ export const vaultSettings = defineSettingsPage({ kind: "host", section: "vault"
     keywords: ["secret", "password", "token", "api key", "credential", "add secret"],
   },
   {
+    id: "vault.import",
+    title: t("settings.vault.import.title"),
+    keywords: ["import", ".env", "dotenv", "paste", "csv", "apple passwords", "passwords export"],
+  },
+  {
     id: "vault.grants",
     title: t("settings.vault.grants.title"),
     keywords: ["approved commands", "always allow", "allowlist", "permissions"],
@@ -27,9 +32,21 @@ export const vaultSettings = defineSettingsPage({ kind: "host", section: "vault"
     keywords: ["env", "environment", "scrub", "hide", "variables", "dotenv"],
   },
   {
-    id: "vault.bitwarden",
-    title: t("settings.vault.bitwarden.title"),
-    keywords: ["bw", "password manager", "login", "master password"],
+    id: "vault.sources",
+    title: t("settings.vault.sources.title"),
+    keywords: [
+      "bitwarden",
+      "bw",
+      "password manager",
+      "login",
+      "master password",
+      "apple passwords",
+    ],
+  },
+  {
+    id: "vault.unlocking",
+    title: t("settings.vault.unlocking.title"),
+    keywords: ["touch id", "idle", "lock after", "auto lock", "timeout", "lock now", "biometric"],
   },
   {
     id: "vault.audit",

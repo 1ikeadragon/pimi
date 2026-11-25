@@ -1,288 +1,425 @@
-import { useCallback, useReducer, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { StyleSheet } from "react-native-unistyles";
-import type { VaultBitwardenItem, VaultBitwardenMissing } from "@pimi/protocol/vault/types";
-import { SettingsCard, SettingsRow } from "@/components/settings";
+import {
+  secretNameFromEnvName,
+  type VaultBitwardenItem,
+  type VaultBitwardenStatus,
+} from "@pimi/protocol/vault/types";
+import { SettingsCard } from "@/components/settings";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FormTextInput } from "@/components/ui/form-field";
+import { useFetchQuery } from "@/data/query";
+import { useAppSettings } from "@/hooks/use-settings";
 import { useTranslation } from "@/i18n/use-translation";
+import { useHostRuntimeClient } from "@/runtime/host-runtime";
 import { settingsStyles } from "@/styles/settings";
+import { useRebindStore } from "./rebind-store";
 import { SecretInputForm } from "./secret-input-form";
+import { envNameFromParts } from "./secret-names";
 import {
   secretNameIssues,
   useBitwardenStatus,
   useVaultAction,
   vaultErrorMessage,
+  vaultRoot,
 } from "./use-vault";
+
+// A pause this long after the last keystroke sends one search to the index.
+const SEARCH_DEBOUNCE_MS = 150;
 
 interface BitwardenSectionProps {
   serverId: string;
   operator: boolean;
 }
 
-interface Binding {
-  itemId: string;
-  itemName: string;
-  field: string;
-}
-
 export function BitwardenSection({ serverId, operator }: BitwardenSectionProps) {
   const { t } = useTranslation();
   const status = useBitwardenStatus(serverId, true);
-  const unlock = useVaultAction(serverId, (client, masterPassword: string) =>
-    client.vaultBitwardenUnlock({ masterPassword }),
+  const refresh = useVaultAction(serverId, (client, _input: null) =>
+    client.vaultBitwardenRefresh(),
   );
-  const drop = useVaultAction(serverId, (client, _input: null) => client.vaultBitwardenLock());
-  const dropValues = useCallback(() => drop.mutate(null), [drop]);
-  const missing: VaultBitwardenMissing[] = status.data?.missing ?? [];
+  const checkAgain = useCallback(() => refresh.mutate(null), [refresh]);
+  const rebind = useRebindStore((state) => state.target);
+  const cancelRebind = useRebindStore((state) => state.clear);
+  const [query, setQuery] = useState("");
   const data = status.data;
   return (
     <SettingsSection
       title={t("settings.vault.bitwarden.title")}
       info={t("settings.vault.bitwarden.info")}
     >
+      {rebind ? (
+        <Alert
+          size="sm"
+          variant="info"
+          title={t("settings.vault.bitwarden.rebinding", { name: rebind.name })}
+        >
+          <Button variant="outline" onPress={cancelRebind}>
+            {t("settings.vault.bitwarden.cancelRebind")}
+          </Button>
+        </Alert>
+      ) : null}
       {data && !data.installed ? (
-        <Alert size="sm" variant="info" title={t("settings.vault.bitwarden.notInstalled")} />
+        <CommandCard
+          title={t("settings.vault.bitwarden.notInstalled")}
+          command="brew install bitwarden-cli"
+          pending={refresh.isPending}
+          onCheckAgain={checkAgain}
+          testID="vault-bitwarden-missing"
+        />
       ) : null}
       {data?.installed && data.authState === "unauthenticated" ? (
-        <Alert size="sm" variant="warning" title={t("settings.vault.bitwarden.notLoggedIn")} />
+        <CommandCard
+          title={t("settings.vault.bitwarden.signedOut")}
+          command="bw login"
+          pending={refresh.isPending}
+          onCheckAgain={checkAgain}
+          testID="vault-bitwarden-signed-out"
+        />
       ) : null}
-      {data?.installed ? (
-        <>
-          <SettingsCard testID="vault-bitwarden">
-            <SettingsRow
-              label={t("settings.vault.bitwarden.loadedTitle")}
-              hint={
-                data.loadedSecrets.length > 0 && data.loadedUntil
-                  ? t("settings.vault.bitwarden.loadedUntil", {
-                      count: data.loadedSecrets.length,
-                      when: new Date(data.loadedUntil).toLocaleTimeString(),
-                    })
-                  : t("settings.vault.bitwarden.nothingLoaded")
-              }
-            >
-              {data.loadedSecrets.length > 0 ? (
-                <Button variant="outline" onPress={dropValues} disabled={drop.isPending}>
-                  {t("settings.vault.bitwarden.drop")}
-                </Button>
-              ) : null}
-            </SettingsRow>
-            {operator ? (
-              <SecretInputForm
-                label={t("settings.vault.bitwarden.masterPassword")}
-                submitLabel={t("settings.vault.bitwarden.load")}
-                pending={unlock.isPending}
-                error={unlock.error ? vaultErrorMessage(unlock.error) : null}
-                onSubmit={unlock.mutate}
-                testID="vault-bitwarden-unlock"
-              />
-            ) : (
-              <View style={styles.pad}>
-                <Text style={settingsStyles.rowHint}>
-                  {t("settings.vault.bitwarden.needsOperator")}
-                </Text>
-              </View>
-            )}
-          </SettingsCard>
-          {missing.length > 0 ? (
-            <Alert
-              size="sm"
-              variant="warning"
-              title={t("settings.vault.bitwarden.missing", {
-                names: missing.map((entry) => `${entry.secret} (${entry.reason})`).join(", "),
-              })}
-            />
-          ) : null}
-          {operator ? <BitwardenBind serverId={serverId} /> : null}
-        </>
+      {data?.installed && data.authState !== "unauthenticated" ? (
+        <BitwardenAccount
+          serverId={serverId}
+          data={data}
+          operator={operator}
+          query={query}
+          onQuery={setQuery}
+        />
       ) : null}
     </SettingsSection>
   );
 }
 
-interface SearchState {
-  masterPassword: string;
-  query: string;
-  resetKey: number;
-}
-
-type SearchAction =
-  | { type: "field"; field: "masterPassword" | "query"; value: string }
-  | { type: "clearPassword" };
-
-function searchReducer(state: SearchState, action: SearchAction): SearchState {
-  if (action.type === "clearPassword") {
-    return { ...state, masterPassword: "", resetKey: state.resetKey + 1 };
-  }
-  return { ...state, [action.field]: action.value };
-}
-
-function BitwardenBind({ serverId }: { serverId: string }) {
+function CommandCard({
+  title,
+  command,
+  pending,
+  onCheckAgain,
+  testID,
+}: {
+  title: string;
+  command: string;
+  pending: boolean;
+  onCheckAgain: () => void;
+  testID: string;
+}) {
   const { t } = useTranslation();
-  const [state, dispatch] = useReducer(searchReducer, {
-    masterPassword: "",
-    query: "",
-    resetKey: 0,
-  });
-  const [binding, setBinding] = useState<Binding | null>(null);
-  const closeBinding = useCallback(() => setBinding(null), []);
-  const search = useVaultAction(
-    serverId,
-    (client, input: { masterPassword: string; query: string }) =>
-      client.vaultBitwardenSearchItems(input),
-  );
-  const setPassword = useCallback(
-    (value: string) => dispatch({ type: "field", field: "masterPassword", value }),
-    [],
-  );
-  const setQuery = useCallback(
-    (value: string) => dispatch({ type: "field", field: "query", value }),
-    [],
-  );
-  const canSearch = state.masterPassword.length > 0 && state.query.length > 0 && !search.isPending;
-  const submit = useCallback(() => {
-    if (!canSearch) return;
-    search.mutate({ masterPassword: state.masterPassword, query: state.query });
-    dispatch({ type: "clearPassword" });
-  }, [canSearch, search, state.masterPassword, state.query]);
+  const [copied, setCopied] = useState(false);
+  const copy = useCallback(() => {
+    void Clipboard.setStringAsync(command).then(() => setCopied(true));
+  }, [command]);
   return (
-    <View style={[settingsStyles.card, styles.form]} testID="vault-bitwarden-search">
-      <Text style={settingsStyles.rowTitle}>{t("settings.vault.bitwarden.bindTitle")}</Text>
-      <Field label={t("settings.vault.bitwarden.queryLabel")}>
+    <SettingsCard testID={testID}>
+      <View style={styles.pad}>
+        <Text style={settingsStyles.rowTitle}>{title}</Text>
+        <Text style={styles.command} selectable>
+          {command}
+        </Text>
+        <View style={styles.actions}>
+          <Button variant="outline" onPress={copy} testID={`${testID}-copy`}>
+            {copied ? t("settings.vault.bitwarden.copied") : t("settings.vault.bitwarden.copy")}
+          </Button>
+          <Button
+            variant="outline"
+            onPress={onCheckAgain}
+            disabled={pending}
+            testID={`${testID}-check`}
+          >
+            {t("settings.vault.bitwarden.checkAgain")}
+          </Button>
+        </View>
+      </View>
+    </SettingsCard>
+  );
+}
+
+interface BitwardenAccountProps {
+  serverId: string;
+  data: VaultBitwardenStatus;
+  operator: boolean;
+  query: string;
+  onQuery: (query: string) => void;
+}
+
+function BitwardenAccount({ serverId, data, operator, query, onQuery }: BitwardenAccountProps) {
+  const { t } = useTranslation();
+  const { settings } = useAppSettings();
+  const synced = data.lastSyncAt
+    ? new Date(data.lastSyncAt).toLocaleString()
+    : t("settings.vault.bitwarden.never");
+  const account =
+    data.userEmail && !settings.streamerMode
+      ? t("settings.vault.bitwarden.account", { email: data.userEmail, when: synced })
+      : t("settings.vault.bitwarden.accountHidden", { when: synced });
+  const open = data.indexedItems !== null;
+  return (
+    <>
+      <SettingsCard testID="vault-bitwarden">
+        <View style={styles.pad}>
+          <Text style={settingsStyles.rowHint}>{account}</Text>
+          {open ? (
+            <OpenState serverId={serverId} data={data} />
+          ) : (
+            <LockedState serverId={serverId} operator={operator} />
+          )}
+        </View>
+      </SettingsCard>
+      {open && data.synced === false ? (
+        <Alert
+          size="sm"
+          variant="warning"
+          title={t("settings.vault.bitwarden.syncFailed", { when: synced })}
+        />
+      ) : null}
+      {open && operator ? (
+        <BitwardenPicker serverId={serverId} query={query} onQuery={onQuery} />
+      ) : null}
+    </>
+  );
+}
+
+function LockedState({ serverId, operator }: { serverId: string; operator: boolean }) {
+  const { t } = useTranslation();
+  const unlock = useVaultAction(serverId, (client, masterPassword: string) =>
+    client.vaultBitwardenUnlock({ masterPassword }),
+  );
+  if (!operator) {
+    return (
+      <Text style={settingsStyles.rowHint}>{t("settings.vault.bitwarden.needsOperator")}</Text>
+    );
+  }
+  return (
+    <>
+      <SecretInputForm
+        label={t("settings.vault.bitwarden.masterPassword")}
+        submitLabel={t("settings.vault.bitwarden.unlock")}
+        pending={unlock.isPending}
+        error={unlock.error ? vaultErrorMessage(unlock.error) : null}
+        onSubmit={unlock.mutate}
+        onEdit={unlock.reset}
+        testID="vault-bitwarden-unlock"
+      />
+      <Text style={settingsStyles.rowHint}>{t("settings.vault.bitwarden.unlockHint")}</Text>
+    </>
+  );
+}
+
+function OpenState({ serverId, data }: { serverId: string; data: VaultBitwardenStatus }) {
+  const { t } = useTranslation();
+  const drop = useVaultAction(serverId, (client, _input: null) => client.vaultBitwardenLock());
+  const dropNow = useCallback(() => drop.mutate(null), [drop]);
+  const until = data.loadedUntil ? new Date(data.loadedUntil).toLocaleTimeString() : "";
+  return (
+    <View style={styles.actions}>
+      <Text style={settingsStyles.rowTitle} testID="vault-bitwarden-open">
+        {t("settings.vault.bitwarden.open", { count: data.indexedItems ?? 0, when: until })}
+      </Text>
+      <Button
+        variant="outline"
+        onPress={dropNow}
+        disabled={drop.isPending}
+        testID="vault-bitwarden-drop"
+      >
+        {t("settings.vault.bitwarden.dropNow")}
+      </Button>
+    </View>
+  );
+}
+
+function useDebounced(value: string): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [value]);
+  return debounced;
+}
+
+interface FieldChoice {
+  item: VaultBitwardenItem;
+  field: string;
+}
+
+function BitwardenPicker({
+  serverId,
+  query,
+  onQuery,
+}: {
+  serverId: string;
+  query: string;
+  onQuery: (query: string) => void;
+}) {
+  const { t } = useTranslation();
+  const client = useHostRuntimeClient(serverId);
+  const [choice, setChoice] = useState<FieldChoice | null>(null);
+  const pause = useDebounced(query.trim());
+  const results = useFetchQuery({
+    queryKey: [...vaultRoot(serverId), "bitwarden-search", pause],
+    enabled: pause.length > 0 && client !== null,
+    dataShape: "list",
+    staleTimeMs: 30_000,
+    queryFn: async () => {
+      if (!client) throw new Error(t("settings.vault.offlineTitle"));
+      return (await client.vaultBitwardenSearchItems({ query: pause })).items;
+    },
+  });
+  const clearChoice = useCallback(() => setChoice(null), []);
+  const items = pause.length > 0 ? (results.data ?? []) : [];
+  return (
+    <View style={[settingsStyles.card, styles.pad]} testID="vault-bitwarden-search">
+      <Field label={t("settings.vault.bitwarden.searchLabel")}>
         <FormTextInput
-          initialValue=""
-          resetKey={state.resetKey}
-          onChangeText={setQuery}
+          initialValue={query}
+          onChangeText={onQuery}
           autoCapitalize="none"
           autoCorrect={false}
-          accessibilityLabel={t("settings.vault.bitwarden.queryLabel")}
+          placeholder={t("settings.vault.bitwarden.searchPlaceholder")}
+          accessibilityLabel={t("settings.vault.bitwarden.searchLabel")}
+          testID="vault-bitwarden-query"
         />
       </Field>
-      <Field label={t("settings.vault.bitwarden.masterPassword")}>
-        <FormTextInput
-          initialValue=""
-          resetKey={state.resetKey}
-          onChangeText={setPassword}
-          onSubmitEditing={submit}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-          accessibilityLabel={t("settings.vault.bitwarden.masterPassword")}
-        />
-      </Field>
-      {search.error ? (
+      {results.error ? (
         <Text accessibilityRole="alert" style={settingsStyles.rowError}>
-          {vaultErrorMessage(search.error)}
+          {vaultErrorMessage(results.error)}
         </Text>
       ) : null}
-      <Button onPress={submit} disabled={!canSearch}>
-        {search.isPending ? t("settings.vault.working") : t("settings.vault.bitwarden.search")}
-      </Button>
-      {(search.data?.items ?? []).map((item) => (
-        <BitwardenItemRow key={item.id} item={item} onBind={setBinding} />
+      {pause.length > 0 && results.isSuccess && items.length === 0 ? (
+        <Text style={settingsStyles.rowHint}>{t("settings.vault.bitwarden.noMatches")}</Text>
+      ) : null}
+      {items.map((item) => (
+        <BitwardenItemRow key={item.id} item={item} onChoose={setChoice} />
       ))}
-      {binding ? <BindForm serverId={serverId} binding={binding} onDone={closeBinding} /> : null}
+      {choice ? (
+        <BitwardenAddForm
+          key={`${choice.item.id}:${choice.field}`}
+          serverId={serverId}
+          choice={choice}
+          onDone={clearChoice}
+        />
+      ) : null}
     </View>
   );
 }
 
 function BitwardenItemRow({
   item,
-  onBind,
+  onChoose,
 }: {
   item: VaultBitwardenItem;
-  onBind: (binding: Binding) => void;
+  onChoose: (choice: FieldChoice) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const toggle = useCallback(() => setExpanded((value) => !value), []);
   return (
     <View style={styles.item}>
-      <Text style={settingsStyles.rowTitle}>{item.name}</Text>
-      <View style={styles.fields}>
-        {item.fields.map((field) => (
-          <BindButton key={field} item={item} field={field} onBind={onBind} />
-        ))}
-      </View>
+      <Button variant="ghost" onPress={toggle} testID={`vault-bitwarden-item-${item.id}`}>
+        {item.username ? `${item.name} - ${item.username}` : item.name}
+      </Button>
+      {expanded ? (
+        <View style={styles.actions}>
+          {item.fields.map((field) => (
+            <FieldButton key={field} item={item} field={field} onChoose={onChoose} />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
 
-function BindButton({
+function FieldButton({
   item,
   field,
-  onBind,
+  onChoose,
 }: {
   item: VaultBitwardenItem;
   field: string;
-  onBind: (binding: Binding) => void;
+  onChoose: (choice: FieldChoice) => void;
 }) {
-  const press = useCallback(
-    () => onBind({ itemId: item.id, itemName: item.name, field }),
-    [field, item.id, item.name, onBind],
-  );
+  const press = useCallback(() => onChoose({ item, field }), [field, item, onChoose]);
   return (
-    <Button variant="outline" onPress={press}>
+    <Button variant="outline" onPress={press} testID={`vault-bitwarden-field-${field}`}>
       {field}
     </Button>
   );
 }
 
-function BindForm({
+/** The picked field as a secret, prefilled; one press adds it. A rebind keeps the secret's name. */
+function BitwardenAddForm({
   serverId,
-  binding,
+  choice,
   onDone,
 }: {
   serverId: string;
-  binding: Binding;
+  choice: FieldChoice;
   onDone: () => void;
 }) {
   const { t } = useTranslation();
-  const [name, setName] = useState("");
-  const [envName, setEnvName] = useState("");
-  const create = useVaultAction(serverId, (client, input: { name: string; envName: string }) =>
+  const rebind = useRebindStore((state) => state.target);
+  const clearRebind = useRebindStore((state) => state.clear);
+  const [envName, setEnvName] = useState(
+    rebind?.envName ?? envNameFromParts(choice.item.name, choice.field),
+  );
+  const name = rebind?.name ?? secretNameFromEnvName(envName);
+  const issues = secretNameIssues(name, envName);
+  const create = useVaultAction(serverId, (client, _input: null) =>
     client.vaultSetSecret({
-      name: input.name,
-      envName: input.envName,
-      description: `${binding.itemName} / ${binding.field}`,
-      source: { kind: "bitwarden", itemId: binding.itemId, field: binding.field },
+      name,
+      envName,
+      description: `${choice.item.name} / ${choice.field}`,
+      source: { kind: "bitwarden", itemId: choice.item.id, field: choice.field },
       value: null,
     }),
   );
   const { mutate } = create;
-  const issues = secretNameIssues(name, envName);
   const submit = useCallback(() => {
-    mutate({ name, envName }, { onSuccess: onDone });
-  }, [envName, mutate, name, onDone]);
+    mutate(null, {
+      onSuccess: () => {
+        clearRebind();
+        onDone();
+      },
+    });
+  }, [clearRebind, mutate, onDone]);
   return (
-    <View style={styles.form}>
-      <Text style={settingsStyles.rowHint}>
-        {t("settings.vault.bitwarden.binding", { item: binding.itemName, field: binding.field })}
+    <View style={styles.pad} testID="vault-bitwarden-add">
+      <Text style={settingsStyles.rowTitle}>
+        {rebind
+          ? t("settings.vault.bitwarden.rebindTitle", {
+              name: rebind.name,
+              item: choice.item.name,
+              field: choice.field,
+            })
+          : t("settings.vault.bitwarden.addTitle", {
+              item: choice.item.name,
+              field: choice.field,
+            })}
       </Text>
-      <Field label={t("settings.vault.secrets.nameLabel")} error={issues.name}>
+      <Field label={t("settings.vault.secrets.variableLabel")} error={issues.envName}>
         <FormTextInput
-          initialValue=""
-          onChangeText={setName}
-          autoCapitalize="none"
-          autoCorrect={false}
-          accessibilityLabel={t("settings.vault.secrets.nameLabel")}
-        />
-      </Field>
-      <Field label={t("settings.vault.secrets.envLabel")} error={issues.envName}>
-        <FormTextInput
-          initialValue=""
+          initialValue={envName}
           onChangeText={setEnvName}
+          editable={!rebind}
           autoCapitalize="none"
           autoCorrect={false}
-          accessibilityLabel={t("settings.vault.secrets.envLabel")}
+          accessibilityLabel={t("settings.vault.secrets.variableLabel")}
+          testID="vault-bitwarden-add-env"
         />
       </Field>
+      <Text style={settingsStyles.rowHint}>{t("settings.vault.secrets.nameSeen", { name })}</Text>
       {create.error ? (
         <Text accessibilityRole="alert" style={settingsStyles.rowError}>
           {vaultErrorMessage(create.error)}
         </Text>
       ) : null}
-      <Button onPress={submit} disabled={!issues.valid || create.isPending}>
-        {t("settings.vault.bitwarden.bind")}
+      <Button
+        onPress={submit}
+        disabled={!issues.valid || create.isPending}
+        testID="vault-bitwarden-add-submit"
+      >
+        {t("settings.vault.secrets.add")}
       </Button>
     </View>
   );
@@ -290,18 +427,22 @@ function BindForm({
 
 const styles = StyleSheet.create((theme) => ({
   pad: {
-    padding: theme.spacing[4],
-  },
-  form: {
     gap: theme.spacing[3],
     padding: theme.spacing[4],
   },
-  item: {
-    gap: theme.spacing[2],
+  command: {
+    color: theme.colors.foreground,
+    fontFamily: theme.fontFamily.mono,
+    fontSize: theme.fontSize.sm,
   },
-  fields: {
+  actions: {
     flexDirection: "row",
     flexWrap: "wrap",
+    alignItems: "center",
     gap: theme.spacing[2],
+  },
+  item: {
+    gap: theme.spacing[2],
+    alignItems: "flex-start",
   },
 }));

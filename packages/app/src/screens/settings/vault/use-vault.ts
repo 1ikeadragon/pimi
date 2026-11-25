@@ -2,7 +2,9 @@ import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { VaultEnvNameSchema, VaultSecretNameSchema } from "@pimi/protocol/vault/types";
+import { getIsElectronMac } from "@/constants/platform";
 import { useFetchQuery } from "@/data/query";
+import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 
@@ -10,7 +12,7 @@ import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-
 // for the case where a push is missed; a refetch on mount covers a reopened page.
 const VAULT_STALE_MS = 30_000;
 
-function vaultRoot(serverId: string) {
+export function vaultRoot(serverId: string) {
   return ["vault", serverId] as const;
 }
 
@@ -204,4 +206,13 @@ export function useVaultAction<Input, Result>(
     mutationFn: (input: Input) => run(requireClient(client), input),
     onSettled: () => queryClient.invalidateQueries({ queryKey: vaultRoot(serverId) }),
   });
+}
+
+/**
+ * Touch ID is offered only in the desktop app on the Mac that runs the host's own daemon: a
+ * prompt on a Mac the user is not at would let a remote client interrupt them.
+ */
+export function useCanUseTouchId(serverId: string): boolean {
+  const isLocalDaemon = useIsLocalDaemon(serverId);
+  return getIsElectronMac() && isLocalDaemon;
 }
