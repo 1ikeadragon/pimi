@@ -59,7 +59,7 @@ const TILE_STRIP = 22;
  * and the 11px edge labels at 8.8px, the smallest text that still reads on a phone. Smaller keeps
  * more of the graph in view and costs legibility; larger turns more graphs vertical or scrolling.
  */
-const MIN_FIT_SCALE = 0.8;
+export const MIN_FIT_SCALE = 0.8;
 
 export { FONT_SIZE as FLOW_FONT_SIZE, LINE_HEIGHT as FLOW_LINE_HEIGHT };
 export { EDGE_LABEL_FONT_SIZE as FLOW_EDGE_LABEL_FONT_SIZE };

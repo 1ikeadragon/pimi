@@ -17,6 +17,7 @@ import { useOpenChatVisualInTab } from "../open-in-tab";
 import { MermaidIframeRuntime, type MermaidRenderedMessage } from "./iframe-runtime.web";
 import { useMermaidRenderModel } from "./use-render-model";
 import { getDiagramBoxStyle } from "./presentation";
+import { MIN_FIT_SCALE } from "../view/flow-layout";
 
 interface MermaidFenceHostImplProps extends MarkdownFenceRendererProps {
   colorScheme?: "light" | "dark";
@@ -75,8 +76,16 @@ function MermaidFenceHostImpl({
   // A diagram wider than the column is drawn smaller to fit it, so the box takes the height the
   // drawing ends up with. At the diagram's full height a phone shows a small drawing in a tall
   // empty box.
+  // A diagram that would shrink below MIN_FIT_SCALE to fit keeps that scale and scrolls sideways
+  // instead, as the flow view does.
+  const columnInnerWidth = columnWidth - padding * 2;
+  const scrollWidth =
+    visible && columnInnerWidth > 0 && visible.width * MIN_FIT_SCALE > columnInnerWidth
+      ? Math.ceil(visible.width * MIN_FIT_SCALE)
+      : null;
+  const fixedWidth = ganttWidth ?? scrollWidth;
   const runtimeHeight = Math.max(
-    fittedDiagramHeight(visible, ganttWidth ?? columnWidth - padding * 2) + padding * 2,
+    fittedDiagramHeight(visible, fixedWidth ?? columnInnerWidth) + padding * 2,
     1,
   );
   const actions = useMemo(
@@ -104,9 +113,9 @@ function MermaidFenceHostImpl({
       getDiagramBoxStyle(textStyle),
       containerStyle,
       { height: Math.min(runtimeHeight, MAX_PREVIEW_HEIGHT), minHeight: MIN_DIAGRAM_BOX_HEIGHT },
-      ganttWidth === null ? null : { width: ganttWidth + padding * 2 },
+      fixedWidth === null ? null : { width: fixedWidth + padding * 2 },
     ],
-    [ganttWidth, padding, runtimeHeight, textStyle],
+    [fixedWidth, padding, runtimeHeight, textStyle],
   );
   const diagramSize = useMemo(() => {
     if (visible) return { width: visible.width, height: visible.height };
@@ -117,7 +126,7 @@ function MermaidFenceHostImpl({
   if (!diagramVisible) {
     viewportStyle = ganttWidth === null ? measuringStyle : [measuringStyle, { width: ganttWidth }];
   }
-  const scrollStyle = ganttWidth !== null && diagramVisible ? ganttScrollStyle : boundaryStyle;
+  const scrollStyle = fixedWidth !== null && diagramVisible ? sideScrollStyle : boundaryStyle;
 
   return (
     <>
@@ -190,7 +199,7 @@ const boundaryStyle: React.CSSProperties = { display: "contents" };
 const GANTT_SOURCE = /^\s*gantt\b/m;
 /** Wide enough for a year of month ticks and task labels beside their bars. */
 const GANTT_MIN_WIDTH = 760;
-const ganttScrollStyle: React.CSSProperties = { overflowX: "auto", overflowY: "hidden" };
+const sideScrollStyle: React.CSSProperties = { overflowX: "auto", overflowY: "hidden" };
 const sourceContainerStyle: ViewStyle = { position: "relative" };
 /**
  * The viewport's own root is `flex: 1`, so as a flex item it has `flex-basis: 0%` and that basis

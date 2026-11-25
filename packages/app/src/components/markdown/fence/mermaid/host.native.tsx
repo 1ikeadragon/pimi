@@ -5,6 +5,7 @@ import {
   StyleSheet as RNStyleSheet,
   ScrollView,
   View,
+  type LayoutChangeEvent,
   type TextStyle,
   type ViewStyle,
 } from "react-native";
@@ -25,6 +26,7 @@ import { MermaidRuntimeRequestDriver } from "./runtime/request-driver";
 import { useMermaidRenderModel } from "./use-render-model";
 import { useMermaidRuntimeHtml } from "./use-runtime-html";
 import { getDiagramBoxStyle } from "./presentation";
+import { MIN_FIT_SCALE } from "../view/flow-layout";
 
 interface MermaidFenceHostImplProps extends MarkdownFenceRendererProps {
   colorScheme?: "light" | "dark";
@@ -319,14 +321,38 @@ function MermaidFenceHostImpl({
   const closeViewer = useCallback(() => setViewerOpen(false), []);
   const visible = state.visible;
   const canShowDiagram = visible !== null && hasRuntimeContent;
-  const previewInnerStyle = useMemo(
-    () =>
-      canShowDiagram && visible
-        ? { height: Math.min(visible.height, MAX_PREVIEW_HEIGHT) }
-        : previewStyles.measuringInner,
-    [canShowDiagram, visible],
-  );
+  const [columnWidth, setColumnWidth] = useState(0);
+  const measureColumn = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    const measured = Math.floor(nativeEvent.layout.width);
+    // A hidden retained panel reports zero; keep the last real width.
+    if (measured > 0) setColumnWidth(measured);
+  }, []);
   const diagramBoxStyle = getDiagramBoxStyle(textStyle);
+  const boxInset =
+    (typeof textStyle.padding === "number" ? textStyle.padding : 0) +
+    (typeof textStyle.borderWidth === "number" ? textStyle.borderWidth : 0);
+  const columnInnerWidth = columnWidth - boxInset * 2;
+  // A diagram that would shrink below MIN_FIT_SCALE to fit the column keeps that scale and scrolls
+  // sideways instead, as the flow view does.
+  const scrollWidth =
+    canShowDiagram &&
+    visible &&
+    columnInnerWidth > 0 &&
+    visible.width * MIN_FIT_SCALE > columnInnerWidth
+      ? Math.ceil(visible.width * MIN_FIT_SCALE)
+      : null;
+  const previewInnerStyle = useMemo(() => {
+    if (!canShowDiagram || !visible) return previewStyles.measuringInner;
+    if (scrollWidth === null) return { height: Math.min(visible.height, MAX_PREVIEW_HEIGHT) };
+    return {
+      width: scrollWidth,
+      height: Math.min(
+        Math.ceil((visible.height * scrollWidth) / visible.width),
+        MAX_PREVIEW_HEIGHT,
+      ),
+    };
+  }, [canShowDiagram, scrollWidth, visible]);
+  const scrollContentStyle = scrollWidth === null ? previewStyles.fullWidth : undefined;
 
   return (
     <>
@@ -338,26 +364,39 @@ function MermaidFenceHostImpl({
           textStyle={textStyle}
         />
       ) : null}
-      <Pressable
-        onPress={openViewer}
-        disabled={!canShowDiagram}
-        accessibilityRole={canShowDiagram ? "imagebutton" : undefined}
-        accessibilityLabel={t("message.diagram.diagram")}
+      <View onLayout={measureColumn} style={previewStyles.columnProbe} />
+      {/* One tree for measuring and showing, so the WebView is never remounted between them. */}
+      <View
         style={
           canShowDiagram
             ? [diagramBoxStyle, previewStyles.preview]
             : [diagramBoxStyle, previewStyles.measuring]
         }
       >
-        <View style={previewInnerStyle} pointerEvents="none">
-          <MermaidWebView
-            request={request}
-            interactive={false}
-            onRendered={handleRendered}
-            onRenderFailed={renderFailed}
-          />
-        </View>
-      </Pressable>
+        <ScrollView
+          horizontal
+          scrollEnabled={scrollWidth !== null}
+          showsHorizontalScrollIndicator={scrollWidth !== null}
+          contentContainerStyle={scrollContentStyle}
+        >
+          <Pressable
+            onPress={openViewer}
+            style={previewStyles.fill}
+            disabled={!canShowDiagram}
+            accessibilityRole={canShowDiagram ? "imagebutton" : undefined}
+            accessibilityLabel={t("message.diagram.diagram")}
+          >
+            <View style={previewInnerStyle} pointerEvents="none">
+              <MermaidWebView
+                request={request}
+                interactive={false}
+                onRendered={handleRendered}
+                onRenderFailed={renderFailed}
+              />
+            </View>
+          </Pressable>
+        </ScrollView>
+      </View>
       {viewerOpen && canShowDiagram && visible ? (
         <MermaidDiagramViewer
           code={visible.source}
@@ -381,6 +420,9 @@ const previewStyles = RNStyleSheet.create({
   },
   measuringInner: { height: 240 },
   preview: { overflow: "hidden" },
+  fullWidth: { width: "100%" },
+  fill: { flexGrow: 1 },
+  columnProbe: { alignSelf: "stretch", height: 0 },
 });
 
 const mapColorScheme = (theme: Theme) => ({ colorScheme: theme.colorScheme });
