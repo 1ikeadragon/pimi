@@ -913,6 +913,22 @@ export type VaultEnvImportPayload = Extract<
   SessionOutboundMessage,
   { type: "vault.env.import.response" }
 >["payload"];
+export type VaultSourceBitwardenGetStatusPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.source.bitwarden.get_status.response" }
+>["payload"];
+export type VaultSourceBitwardenUnlockPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.source.bitwarden.unlock.response" }
+>["payload"];
+export type VaultSourceBitwardenLockPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.source.bitwarden.lock.response" }
+>["payload"];
+export type VaultSourceBitwardenSearchItemsPayload = Extract<
+  SessionOutboundMessage,
+  { type: "vault.source.bitwarden.search_items.response" }
+>["payload"];
 export type FetchAgentTimelinePayload = FetchAgentTimelineResponseMessage["payload"];
 export type AgentForkContextPayload = AgentForkContextResponseMessage["payload"];
 
@@ -8075,6 +8091,42 @@ export class DaemonClient {
   }): Promise<VaultEnvImportPayload> {
     return this.sendNamespacedCorrelatedSessionRequest({
       message: { type: "vault.env.import.request", names: options.names, action: options.action },
+    });
+  }
+
+  async vaultBitwardenGetStatus(): Promise<VaultSourceBitwardenGetStatusPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.source.bitwarden.get_status.request" },
+    });
+  }
+
+  async vaultBitwardenUnlock(options: {
+    masterPassword: string;
+  }): Promise<VaultSourceBitwardenUnlockPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: {
+        type: "vault.source.bitwarden.unlock.request",
+        masterPassword: options.masterPassword,
+      },
+    });
+  }
+
+  async vaultBitwardenLock(): Promise<VaultSourceBitwardenLockPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: { type: "vault.source.bitwarden.lock.request" },
+    });
+  }
+
+  async vaultBitwardenSearchItems(options: {
+    masterPassword: string;
+    query: string;
+  }): Promise<VaultSourceBitwardenSearchItemsPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      message: {
+        type: "vault.source.bitwarden.search_items.request",
+        masterPassword: options.masterPassword,
+        query: options.query,
+      },
     });
   }
 

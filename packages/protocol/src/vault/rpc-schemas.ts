@@ -1,6 +1,9 @@
 import { z } from "zod";
 import {
   VaultAuditEntrySchema,
+  VaultBitwardenItemSchema,
+  VaultBitwardenMissingSchema,
+  VaultBitwardenStatusSchema,
   VaultEnvCandidateSchema,
   VaultEnvImportActionSchema,
   VaultEnvImportSkipSchema,
@@ -182,4 +185,49 @@ export const VaultEnvImportResponseSchema = z.object({
     scrubbed: z.array(z.string()),
     skipped: z.array(VaultEnvImportSkipSchema),
   }),
+});
+
+// Bitwarden, through the user's own `bw` CLI. The master password travels inbound only and is
+// used for one operation.
+const MasterPasswordSchema = z.string().min(1).max(1024);
+
+export const VaultSourceBitwardenGetStatusRequestSchema = z.object({
+  type: z.literal("vault.source.bitwarden.get_status.request"),
+  requestId: z.string(),
+});
+export const VaultSourceBitwardenUnlockRequestSchema = z.object({
+  type: z.literal("vault.source.bitwarden.unlock.request"),
+  requestId: z.string(),
+  masterPassword: MasterPasswordSchema,
+});
+export const VaultSourceBitwardenLockRequestSchema = z.object({
+  type: z.literal("vault.source.bitwarden.lock.request"),
+  requestId: z.string(),
+});
+export const VaultSourceBitwardenSearchItemsRequestSchema = z.object({
+  type: z.literal("vault.source.bitwarden.search_items.request"),
+  requestId: z.string(),
+  masterPassword: MasterPasswordSchema,
+  query: z.string().min(1).max(200),
+});
+
+export const VaultSourceBitwardenGetStatusResponseSchema = z.object({
+  type: z.literal("vault.source.bitwarden.get_status.response"),
+  payload: z.object({ requestId: z.string(), status: VaultBitwardenStatusSchema }),
+});
+export const VaultSourceBitwardenUnlockResponseSchema = z.object({
+  type: z.literal("vault.source.bitwarden.unlock.response"),
+  payload: z.object({
+    requestId: z.string(),
+    status: VaultBitwardenStatusSchema,
+    missing: z.array(VaultBitwardenMissingSchema),
+  }),
+});
+export const VaultSourceBitwardenLockResponseSchema = z.object({
+  type: z.literal("vault.source.bitwarden.lock.response"),
+  payload: z.object({ requestId: z.string(), status: VaultBitwardenStatusSchema }),
+});
+export const VaultSourceBitwardenSearchItemsResponseSchema = z.object({
+  type: z.literal("vault.source.bitwarden.search_items.response"),
+  payload: z.object({ requestId: z.string(), items: z.array(VaultBitwardenItemSchema) }),
 });

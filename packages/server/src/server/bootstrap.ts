@@ -181,6 +181,7 @@ import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
 import { readEnvScrubNames, removeEnvNames } from "./vault/env-scrub.js";
 import { VaultService } from "./vault/service.js";
+import { BitwardenCli } from "./vault/sources/bitwarden-cli.js";
 import { VAULT_INSTRUCTIONS } from "./agent/tools/vault-tools.js";
 import { resolveProjectReference } from "./resolve-project-reference.js";
 import { createPimiMemoryHandler } from "./pimi-memory-route.js";
@@ -1251,7 +1252,12 @@ export async function createPimiDaemon(
     if (git) configureGitProcessPolicy(git);
   });
   const initialAgentManagerState = providerSnapshotManager.getAgentManagerProviderState();
-  const vaultService = new VaultService({ pimiHome: config.pimiHome, env: process.env, logger });
+  const vaultService = new VaultService({
+    pimiHome: config.pimiHome,
+    env: process.env,
+    bitwarden: new BitwardenCli({ env: process.env }),
+    logger,
+  });
   await vaultService.load();
   const agentManager: AgentManager = new AgentManager({
     vault: {

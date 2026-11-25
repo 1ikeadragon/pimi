@@ -17,7 +17,7 @@ export const VaultSecretSourceSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("bitwarden"),
     itemId: z.string().min(1),
-    /** `password`, `username`, `totp` or the name of a custom field. */
+    /** `password`, `username` or the name of a custom field. */
     field: z.string().min(1),
   }),
 ]);
@@ -146,3 +146,35 @@ export const VaultErrorCodeSchema = z.enum([
   "source_unavailable",
 ]);
 export type VaultErrorCode = z.infer<typeof VaultErrorCodeSchema>;
+
+export const VaultBitwardenAuthStateSchema = z.enum([
+  "unauthenticated",
+  "locked",
+  "unlocked",
+  "unknown",
+]);
+
+export const VaultBitwardenStatusSchema = z.object({
+  installed: z.boolean(),
+  /** What `bw status` reports. This is the CLI's own session, not the vault's use of it. */
+  authState: VaultBitwardenAuthStateSchema,
+  /** Secrets whose value is in daemon memory right now. */
+  loadedSecrets: z.array(VaultSecretNameSchema),
+  /** When the loaded values are dropped. Null when none are loaded. */
+  loadedUntil: z.string().nullable(),
+});
+export type VaultBitwardenStatus = z.infer<typeof VaultBitwardenStatusSchema>;
+
+export const VaultBitwardenItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** Names only: `password`, `username` and custom field names. */
+  fields: z.array(z.string()),
+});
+export type VaultBitwardenItem = z.infer<typeof VaultBitwardenItemSchema>;
+
+export const VaultBitwardenMissingSchema = z.object({
+  secret: VaultSecretNameSchema,
+  reason: z.enum(["item_not_found", "field_not_found"]),
+});
+export type VaultBitwardenMissing = z.infer<typeof VaultBitwardenMissingSchema>;

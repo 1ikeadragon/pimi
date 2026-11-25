@@ -14,11 +14,15 @@ import {
   type VaultRequest,
   type VaultRequestDecision,
   type VaultSecretMeta,
+  type VaultBitwardenItem,
+  type VaultBitwardenMissing,
+  type VaultBitwardenStatus,
   type VaultSecretSource,
   type VaultState,
   type VaultStatus,
 } from "@pimi/protocol/vault/types";
 import { VaultAudit } from "./audit.js";
+import { BITWARDEN_CACHE_TTL_MS, type BitwardenCli } from "./sources/bitwarden-cli.js";
 import {
   MIN_PASSPHRASE_LENGTH,
   VAULT_FORMAT_VERSION,
@@ -90,6 +94,8 @@ interface Unlocked {
 }
 
 export interface VaultServiceOptions {
+  /** The user's `bw` CLI. Without it Bitwarden-backed secrets cannot be loaded. */
+  bitwarden: BitwardenCli;
   pimiHome: string;
   /** The environment the daemon spawns children from; names the vault manages are removed from it. */
   env: NodeJS.ProcessEnv;
@@ -171,6 +177,8 @@ export class VaultService implements OutputRedactor {
   private readonly store: VaultStore;
   private readonly audit: VaultAudit;
   private readonly env: NodeJS.ProcessEnv;
+  private readonly bitwarden: BitwardenCli;
+  private externalTimer: NodeJS.Timeout | null = null;
   private readonly logger: pino.Logger;
   private header: VaultHeader | null = null;
   private unreadable: VaultError | null = null;
@@ -191,6 +199,7 @@ export class VaultService implements OutputRedactor {
     this.store = new VaultStore(options.pimiHome);
     this.audit = new VaultAudit(options.pimiHome);
     this.env = options.env;
+    this.bitwarden = options.bitwarden;
     this.logger = options.logger.child({ module: "vault" });
   }
 
@@ -377,7 +386,7 @@ export class VaultService implements OutputRedactor {
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = null;
     this.idleLockAt = null;
-    this.externalValues.clear();
+    this.dropExternalValues();
     this.tickets.clear();
     this.redactor = new Redactor([]);
     for (const entry of this.pending.values()) {
@@ -498,17 +507,73 @@ export class VaultService implements OutputRedactor {
     return value;
   }
 
-  /** Bitwarden values live only here, until `expiresAt`. */
-  setExternalValue(name: string, value: string, expiresAt: number): void {
-    this.externalValues.set(name, { value, expiresAt });
-    this.rebuildRedactor();
-    this.emitChanged();
+  private dropExternalValues(): void {
+    if (this.externalTimer) clearTimeout(this.externalTimer);
+    this.externalTimer = null;
+    this.externalValues.clear();
   }
 
-  clearExternalValues(): void {
-    this.externalValues.clear();
+  // --- Bitwarden
+
+  private bitwardenBindings(): Array<{ secretName: string; itemId: string; field: string }> {
+    const bindings = [];
+    for (const record of this.requireUnlocked().payload.secrets) {
+      if (record.source.kind === "bitwarden") {
+        bindings.push({
+          secretName: record.name,
+          itemId: record.source.itemId,
+          field: record.source.field,
+        });
+      }
+    }
+    return bindings;
+  }
+
+  async bitwardenStatus(): Promise<VaultBitwardenStatus> {
+    this.requireUnlocked();
+    const auth = await this.bitwarden.getAuthState();
+    const expiries = [...this.externalValues.values()].map((entry) => entry.expiresAt);
+    return {
+      installed: auth.installed,
+      authState: auth.authState,
+      loadedSecrets: [...this.externalValues.keys()],
+      loadedUntil: expiries.length > 0 ? new Date(Math.min(...expiries)).toISOString() : null,
+    };
+  }
+
+  /** Copies every Bitwarden-bound secret into memory for `BITWARDEN_CACHE_TTL_MS`. */
+  async bitwardenUnlock(masterPassword: string): Promise<VaultBitwardenMissing[]> {
+    const bindings = this.bitwardenBindings();
+    this.touch();
+    const fetched = await this.bitwarden.fetch(masterPassword, bindings);
+    this.dropExternalValues();
+    const expiresAt = Date.now() + BITWARDEN_CACHE_TTL_MS;
+    for (const [name, value] of fetched.values) this.externalValues.set(name, { value, expiresAt });
+    this.externalTimer = setTimeout(() => this.bitwardenLock(), BITWARDEN_CACHE_TTL_MS);
+    this.externalTimer.unref();
+    this.rebuildRedactor();
+    await this.auditEventBestEffort(
+      "bitwarden_unlocked",
+      null,
+      `loaded=${[...fetched.values.keys()].join(",")} missing=${fetched.missing.map((m) => m.secretName).join(",")}`,
+    );
+    this.emitChanged();
+    return fetched.missing.map((entry) => ({ secret: entry.secretName, reason: entry.reason }));
+  }
+
+  bitwardenLock(): void {
+    this.dropExternalValues();
     this.rebuildRedactor();
     this.emitChanged();
+    this.auditEventBestEffort("bitwarden_locked", null, "Bitwarden values dropped").catch(
+      (error: unknown) => this.logger.error({ err: error }, "Bitwarden lock audit failed"),
+    );
+  }
+
+  async bitwardenSearch(masterPassword: string, query: string): Promise<VaultBitwardenItem[]> {
+    this.requireUnlocked();
+    this.touch();
+    return this.bitwarden.searchItems(masterPassword, query);
   }
 
   listSecrets(): VaultSecretMeta[] {

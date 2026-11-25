@@ -23,6 +23,7 @@ interface OperatorMark {
 
 type VaultRequestType = Extract<SessionInboundMessage["type"], `vault.${string}`>;
 type VaultRequest = Extract<SessionInboundMessage, { type: VaultRequestType }>;
+type BitwardenRequest = Extract<VaultRequest, { type: `vault.source.bitwarden.${string}` }>;
 
 export class VaultSession {
   private readonly host: VaultSessionOptions["host"];
@@ -224,6 +225,48 @@ export class VaultSession {
           payload: { requestId: msg.requestId, ...result },
         };
       }
+      default:
+        return this.respondBitwarden(msg, source);
+    }
+  }
+
+  private async respondBitwarden(
+    msg: BitwardenRequest,
+    source: object | undefined,
+  ): Promise<SessionOutboundMessage> {
+    switch (msg.type) {
+      case "vault.source.bitwarden.get_status.request":
+        return {
+          type: "vault.source.bitwarden.get_status.response",
+          payload: { requestId: msg.requestId, status: await this.vault.bitwardenStatus() },
+        };
+      case "vault.source.bitwarden.unlock.request": {
+        this.requireOperator(source);
+        const missing = await this.vault.bitwardenUnlock(msg.masterPassword);
+        return {
+          type: "vault.source.bitwarden.unlock.response",
+          payload: {
+            requestId: msg.requestId,
+            status: await this.vault.bitwardenStatus(),
+            missing,
+          },
+        };
+      }
+      case "vault.source.bitwarden.lock.request":
+        this.vault.bitwardenLock();
+        return {
+          type: "vault.source.bitwarden.lock.response",
+          payload: { requestId: msg.requestId, status: await this.vault.bitwardenStatus() },
+        };
+      case "vault.source.bitwarden.search_items.request":
+        this.requireOperator(source);
+        return {
+          type: "vault.source.bitwarden.search_items.response",
+          payload: {
+            requestId: msg.requestId,
+            items: await this.vault.bitwardenSearch(msg.masterPassword, msg.query),
+          },
+        };
       default:
         return assertNever(msg);
     }
