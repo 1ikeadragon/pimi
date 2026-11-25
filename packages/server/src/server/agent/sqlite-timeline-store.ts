@@ -709,6 +709,18 @@ export class SqliteTimelineStore {
     return typeof row?.seq === "number" ? row.seq : null;
   }
 
+  /** Whether a rebuild would discard stored rows: carried rows survive a rebuild, the rest do not. */
+  hasReplaceableRows(agentId: string): boolean {
+    const key = this.bound.get(agentId)?.key ?? this.getAgent(agentId)?.key;
+    if (key === undefined) return false;
+    this.flush();
+    return (
+      this.stmt(
+        "SELECT 1 AS found FROM timeline_rows WHERE agent_key = ? AND carried = 0 LIMIT 1",
+      ).get(key) !== undefined
+    );
+  }
+
   private turnStartAtOrBefore(key: number, seq: number, below: number): number {
     const row = this.stmt(
       `SELECT MAX(seq) AS seq FROM timeline_rows

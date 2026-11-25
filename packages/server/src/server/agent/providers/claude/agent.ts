@@ -302,6 +302,26 @@ export function normalizeClaudeAskUserQuestionUpdatedInput(
   };
 }
 
+/**
+ * The transcript exists (or may exist) but could not be read or converted. Thrown by streamHistory
+ * so the manager keeps the stored timeline instead of replacing it with an empty replay.
+ */
+export class ClaudeHistoryLoadError extends Error {
+  constructor(
+    readonly sessionId: string,
+    readonly historyPath: string | null,
+    options: { cause: unknown },
+  ) {
+    super(
+      `Could not read the Claude transcript for session ${sessionId}: ${
+        options.cause instanceof Error ? options.cause.message : String(options.cause)
+      }`,
+      options,
+    );
+    this.name = "ClaudeHistoryLoadError";
+  }
+}
+
 class ClaudeQuestionAnswerRequiredError extends Error {
   readonly code = "question_answer_required" as const;
 
@@ -2447,8 +2467,10 @@ class ClaudeAgentSession implements AgentSession {
     { type: "provider_subagent" }
   >[] = [];
   private historyPending = false;
-  // Readiness never rejects; history/rebind failures are logged at their owning boundary.
+  // Readiness never rejects, so a send is not blocked by an unreadable transcript. A failed history
+  // read is kept in `historyLoadFailure` and thrown once by streamHistory().
   private historyReady: Promise<void> | null = null;
+  private historyLoadFailure: ClaudeHistoryLoadError | null = null;
   private historySessionId: string | null = null;
   private replayingHistory = false;
   private readonly windowedHistory: boolean;
@@ -2820,6 +2842,13 @@ class ClaudeAgentSession implements AgentSession {
 
   async *streamHistory(): AsyncGenerator<AgentStreamEvent> {
     await this.ensureHistoryReady();
+    const failure = this.historyLoadFailure;
+    if (failure) {
+      // Reported once; the next call reads the transcript again instead of repeating the failure.
+      this.historyLoadFailure = null;
+      this.historyReady = null;
+      throw failure;
+    }
     if (
       !this.historyPending ||
       (this.persistedHistory.length === 0 && this.persistedProviderSubagentEvents.length === 0)
@@ -5718,6 +5747,7 @@ class ClaudeAgentSession implements AgentSession {
   private async loadPersistedHistory(sessionId: string): Promise<void> {
     let historyPath: string | null = null;
     this.replayingHistory = true;
+    this.historyLoadFailure = null;
     this.olderHistory = null;
     this.sidechainSources = null;
     this.loadedSidechainIds.clear();
@@ -5772,13 +5802,32 @@ class ClaudeAgentSession implements AgentSession {
         );
       });
     } catch (error) {
-      this.logger.warn(
+      this.logger.error(
         { err: error, sessionId, historyPath },
         "Failed to load Claude history from transcript",
       );
+      this.discardPartialHistory();
+      this.historyLoadFailure = new ClaudeHistoryLoadError(sessionId, historyPath, {
+        cause: error,
+      });
     } finally {
       this.replayingHistory = false;
     }
+  }
+
+  /** A failed read must not leave half a replay behind for the retry to append to. */
+  private discardPartialHistory(): void {
+    this.persistedHistory = [];
+    this.persistedProviderSubagentEvents = [];
+    this.historyPending = false;
+    this.userMessageIds = [];
+    this.emittedUserMessageIds.clear();
+    this.rewindTurnAnchors.length = 0;
+    this.toolUseCache.clear();
+    this.taskState.reset();
+    this.olderHistory = null;
+    this.sidechainSources = null;
+    this.loadedSidechainIds.clear();
   }
 
   /**

@@ -33,6 +33,7 @@ export type AgentLoaderManager = Pick<
   | "getRegisteredProviderIds"
   | "hydrateTimelineFromProvider"
   | "resumeAgentFromPersistence"
+  | "closeAgent"
 > &
   Partial<Pick<AgentManager, "waitForAgentClose">>;
 
@@ -47,9 +48,7 @@ export interface EnsureAgentLoadedDeps {
 
 export async function ensureUnarchivedAgentLoaded(
   agentId: string,
-  deps: EnsureAgentLoadedDeps & {
-    agentManager: AgentLoaderManager & Pick<AgentManager, "closeAgent">;
-  },
+  deps: EnsureAgentLoadedDeps,
 ): Promise<ManagedAgent> {
   const record = await deps.agentStorage.get(agentId);
   if (record?.archivedAt) {
@@ -145,9 +144,21 @@ export async function ensureAgentLoaded(
     }
 
     const hydrateStartedAt = performance.now();
-    await deps.agentManager.hydrateTimelineFromProvider(agentId, {
-      broadcast: () => pendingOptions.broadcastTimeline,
-    });
+    try {
+      await deps.agentManager.hydrateTimelineFromProvider(agentId, {
+        broadcast: () => pendingOptions.broadcastTimeline,
+      });
+    } catch (error) {
+      // A registered agent whose history failed to load would be returned as loaded, empty, by the
+      // next call. Closing it makes the retry read the history again; the stored rows are untouched.
+      await deps.agentManager.closeAgent(agentId).catch((closeError: unknown) => {
+        deps.logger.warn(
+          { err: closeError, agentId },
+          "Failed to close agent after its history failed to load",
+        );
+      });
+      throw error;
+    }
     deps.logger.debug(
       {
         agentId,

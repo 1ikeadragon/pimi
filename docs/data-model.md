@@ -109,6 +109,13 @@ case rebuilds from the provider, replacing the non-carried rows under a new epoc
 4. `row_format` equals `TIMELINE_ROW_FORMAT`; bump it when an item mapping changes;
 5. the chat has no provider subagents, whose state is rebuilt only from provider history.
 
+A rebuild replaces stored rows only with a replay that read. A transcript that fails to read
+(any error other than a missing file) makes the open fail with the cause, and a provider replay
+that returns nothing for a chat that still has stored rows fails the open too
+(`StoredTimelineKeptError`). Either way the stored rows stay and the chat is closed, so the next
+open reads the provider again. A rewind is the exception for an empty replay: its result can
+legitimately be empty.
+
 Known gap: turns added to the provider session outside Pimi are not seen until the next rebuild.
 There is no transcript fingerprint check yet.
 

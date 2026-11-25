@@ -136,11 +136,13 @@ function parseRecord(line: string): TranscriptEntry | null {
   }
 }
 
+/** Null only when the file does not exist; any other read failure must reach the caller. */
 async function readOptionalFile(file: string): Promise<string | null> {
   try {
     return await fs.readFile(file, "utf8");
-  } catch {
-    return null;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
   }
 }
 

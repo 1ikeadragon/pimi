@@ -434,6 +434,17 @@ export class AgentManagerShuttingDownError extends Error {
   }
 }
 
+/** The provider replayed no history for a chat whose stored timeline still holds messages. */
+export class StoredTimelineKeptError extends Error {
+  constructor(agentId: string) {
+    super(
+      `The provider returned no history for chat ${agentId}, but its saved messages are still ` +
+        "stored. They were kept; open the chat again once the provider transcript is readable.",
+    );
+    this.name = "StoredTimelineKeptError";
+  }
+}
+
 export class AgentRunCancellationError extends Error {
   constructor(agentId: string, action: "reload" | "replace" | "rewind" | "stop" | "switch") {
     super(
@@ -6305,6 +6316,21 @@ export class AgentManager {
     return timestamp ? { timestamp } : undefined;
   }
 
+  /**
+   * An empty replay of the provider's own history is not evidence that the chat is empty: its
+   * transcript can be missing or unreachable. Replacing the stored copy then loses messages that
+   * exist nowhere else, so the stored rows are kept and the open fails until the read works.
+   */
+  private assertReplayMayReplaceStoredCopy(
+    agent: ActiveManagedAgent,
+    replay: { provided: boolean; events: number },
+  ): void {
+    // A caller-provided history (an import, startup rows) is the new truth even when empty.
+    if (replay.provided || replay.events > 0 || agent.internal) return;
+    if (!this.timelineArchive?.hasReplaceableRows(agent.id)) return;
+    throw new StoredTimelineKeptError(agent.id);
+  }
+
   /** Start the stored copy of a timeline that was just rebuilt from the provider. */
   private beginArchivedTimeline(agent: ActiveManagedAgent, complete: boolean): void {
     if (!this.timelineArchive || agent.internal) return;
@@ -6391,10 +6417,9 @@ export class AgentManager {
   private async primeTimelineFromLegacyProviderHistory(
     agent: ActiveManagedAgent,
     broadcast: boolean | (() => boolean),
-    history:
-      | AsyncIterable<AgentStreamEvent>
-      | Iterable<AgentStreamEvent> = agent.session.streamHistory(),
+    importedHistory?: AsyncIterable<AgentStreamEvent> | Iterable<AgentStreamEvent>,
   ): Promise<void> {
+    const history = importedHistory ?? agent.session.streamHistory();
     const deferredBroadcast = typeof broadcast === "function";
     const historyEvents: Extract<AgentStreamEvent, { type: "timeline" }>[] = [];
     const historySubagentEvents: Extract<AgentStreamEvent, { type: "provider_subagent" }>[] = [];
@@ -6422,6 +6447,10 @@ export class AgentManager {
     }
 
     const collectedMs = performance.now() - primeStartedAt;
+    this.assertReplayMayReplaceStoredCopy(agent, {
+      provided: importedHistory !== undefined,
+      events: historyEvents.length + historySubagentEvents.length,
+    });
     // A windowed replay read only the newest turns. An empty timeline numbers them from a high
     // base so older blocks can be added below; a timeline that already holds carried rows needs
     // the whole history before it can be recorded.
