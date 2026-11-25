@@ -299,6 +299,7 @@ function ProviderSubagentPanel() {
       isActive: descriptor?.status === "running",
       isCancelling: false,
       startedAt: null,
+      awaitingModelSince: null,
       turnId: null,
     }),
     [descriptor?.status],

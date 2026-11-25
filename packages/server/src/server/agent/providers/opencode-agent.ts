@@ -87,6 +87,7 @@ import {
 import type { OpenCodeBridge } from "./opencode/bridge.js";
 import {
   OpenCodeEventConsumer,
+  WATCHDOG_MS,
   type OpenCodeEventStreamDiagnostics,
   type OpenCodeEventSource,
   type OpenCodeEventSourceInput,
@@ -3473,6 +3474,9 @@ class OpenCodeAgentSession implements AgentSession {
   private releaseBridge: (() => void) | null;
   private ingress = Promise.resolve();
   private gapRepairRevision = 0;
+  private lastOwnedEventAt = 0;
+  private modelWaiting = false;
+  private quietTurnTimer: ReturnType<typeof setTimeout> | null = null;
   private recoveryAbortController = new AbortController();
   private unsubscribeEvents: (() => void) | null = null;
   private closed = false;
@@ -3959,7 +3963,11 @@ class OpenCodeAgentSession implements AgentSession {
     const turnId = this.createTurnId();
     this.materializedParts.clear();
     this.turnState = { status: "running", turnId };
+    this.armQuietTurnWatchdog();
     this.notifySubscribers({ type: "turn_started", provider: "opencode" }, turnId);
+    // A new turn starts a new wait even if the last one was left open by a path that skips close.
+    this.modelWaiting = false;
+    this.setModelWait(true);
 
     const slashCommand = await this.resolveSlashCommandInvocation(prompt);
     if (slashCommand) {
@@ -4463,6 +4471,52 @@ class OpenCodeAgentSession implements AgentSession {
     await this.consumeOpenCodeStreamEvent({ rawEvent: input, eventCount: 0 });
   }
 
+  /**
+   * A lost terminal event leaves a turn running forever, and `reconcileAfterGap` otherwise runs only
+   * when the event stream reconnects. The event stream's own watchdog (`WATCHDOG_MS`) sees the
+   * connection's heartbeats, so it cannot tell that this session's events stopped. While a turn
+   * runs, a session silent for `WATCHDOG_MS` is read back from the server on the ingress chain,
+   * where it cannot interleave with live events. A turn that is only quiet, such as a long tool
+   * call, is read the same way and left running.
+   */
+  private armQuietTurnWatchdog(): void {
+    this.lastOwnedEventAt = Date.now();
+    if (this.quietTurnTimer) return;
+    this.scheduleQuietTurnCheck(WATCHDOG_MS);
+  }
+
+  private scheduleQuietTurnCheck(delayMs: number): void {
+    this.quietTurnTimer = setTimeout(() => {
+      this.quietTurnTimer = null;
+      if (
+        this.closed ||
+        this.recoveryAbortController.signal.aborted ||
+        this.activeForegroundTurnId === null
+      )
+        return;
+      const quietMs = Date.now() - this.lastOwnedEventAt;
+      if (quietMs < WATCHDOG_MS) {
+        this.scheduleQuietTurnCheck(WATCHDOG_MS - quietMs);
+        return;
+      }
+      this.logger.warn(
+        { sessionId: this.sessionId, quietMs, turnId: this.activeForegroundTurnId },
+        "OpenCode session sent no events during a turn; reading its state back",
+      );
+      this.lastOwnedEventAt = Date.now();
+      this.ingress = this.ingress
+        .then(() => this.reconcileAfterGap(++this.gapRepairRevision, false))
+        .catch((error: unknown) => {
+          this.logger.warn(
+            { err: error, sessionId: this.sessionId },
+            "OpenCode quiet-turn reconciliation failed",
+          );
+        });
+      this.scheduleQuietTurnCheck(WATCHDOG_MS);
+    }, delayMs);
+    this.quietTurnTimer.unref();
+  }
+
   private async reconcileAfterGap(revision: number, refresh = true, delay = 100): Promise<void> {
     if (revision !== this.gapRepairRevision) return;
     const turnId = this.activeForegroundTurnId;
@@ -4651,6 +4705,8 @@ class OpenCodeAgentSession implements AgentSession {
     if (!event) {
       return;
     }
+    const eventSessionId = getOpenCodeEventSessionId(event);
+    if (eventSessionId && this.isOwnedSessionId(eventSessionId)) this.lastOwnedEventAt = Date.now();
     this.observeRunnerStatusEvent(event);
     if (this.discardEventWhileStopping(event, eventCount)) {
       return;
@@ -4692,6 +4748,7 @@ class OpenCodeAgentSession implements AgentSession {
       if (e.type === "timeline" && e.item.type === "tool_call") {
         this.trackToolCall(e.item);
       }
+      this.observeModelWait(e);
       const terminalEvent = toTerminalTurnEvent(e);
       if (terminalEvent) {
         this.traceOpenCode("provider.opencode.event.terminal", {
@@ -4754,6 +4811,7 @@ class OpenCodeAgentSession implements AgentSession {
     const turnId = this.createTurnId();
     this.materializedParts.clear();
     this.turnState = { status: "running", turnId };
+    this.armQuietTurnWatchdog();
     this.runningToolCalls.clear();
     this.subAgentsByCallId.clear();
     this.subAgentCallIdByChildSessionId.clear();
@@ -4790,6 +4848,7 @@ class OpenCodeAgentSession implements AgentSession {
     this.pendingSteerSubmissions = [];
     this.turnState = { status: "idle" };
     this.abortController = null;
+    this.setModelWait(false);
     this.notifySubscribers(event, turnId);
   }
 
@@ -4881,7 +4940,38 @@ class OpenCodeAgentSession implements AgentSession {
     const contextWindowMaxTokens = this.resolveSelectedModelContextWindowMaxTokens();
     this.accumulatedUsage = contextWindowMaxTokens !== undefined ? { contextWindowMaxTokens } : {};
     this.turnState = { status: "idle" };
+    this.setModelWait(false);
     stop.terminal.resolve();
+  }
+
+  /**
+   * v1 has no event for a model request, so the wait is inferred from the turn: it opens when the
+   * prompt is sent and again when the last running tool finishes (the next request follows), and
+   * closes on the first assistant text, reasoning, or tool call. A retry notice is not output.
+   * Unlike v2 this is only an inference: a turn that ends a step without tools reads as waiting
+   * until its terminal event.
+   */
+  private observeModelWait(event: AgentStreamEvent): void {
+    if (event.type !== "timeline") return;
+    const { item } = event;
+    if (item.type === "tool_call") {
+      this.setModelWait(item.status !== "running" && this.runningToolCalls.size === 0);
+    } else if (item.type === "assistant_message" || item.type === "reasoning") {
+      this.setModelWait(false);
+    }
+  }
+
+  private setModelWait(waiting: boolean): void {
+    if (this.modelWaiting === waiting) return;
+    this.modelWaiting = waiting;
+    this.notifySubscribers(
+      {
+        type: "model_wait_changed",
+        provider: "opencode",
+        since: waiting ? new Date().toISOString() : null,
+      },
+      null,
+    );
   }
 
   private trackToolCall(item: ToolCallTimelineItem): void {
@@ -5145,6 +5235,8 @@ class OpenCodeAgentSession implements AgentSession {
       this.closed = true;
       this.abortController?.abort();
       this.recoveryAbortController.abort();
+      if (this.quietTurnTimer) clearTimeout(this.quietTurnTimer);
+      this.quietTurnTimer = null;
       this.unsubscribeEvents?.();
       this.unsubscribeEvents = null;
       await this.ingress.catch(() => undefined);
@@ -5564,11 +5656,20 @@ class OpenCodeAgentSession implements AgentSession {
     }
 
     try {
-      await this.client.permission.reply({
+      // The SDK returns an HTTP failure as `error` instead of throwing. Treating it as approved
+      // would hide the prompt while OpenCode keeps waiting for a reply.
+      const response = await this.client.permission.reply({
         requestID: request.id,
         directory,
         reply: "once",
       });
+      if (response.error) {
+        this.logger.warn(
+          { err: response.error, requestId: request.id },
+          "OpenCode rejected the auto-approval of a tool permission; asking the user",
+        );
+        return false;
+      }
       return true;
     } catch (error) {
       this.logger.warn(

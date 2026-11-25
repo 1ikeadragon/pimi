@@ -176,7 +176,8 @@ export class SessionTurns {
   private requestReconciliation() {
     void this.reconcile().catch((error: unknown) => this.options.reportReconciliationError(error));
   }
-  // Recovery reads state; a quiet stream (including SSE comment heartbeats) is not a reason to reconnect.
+  // Recovery reads state. A quiet event feed is healthy, so it never triggers a reconnect here;
+  // a quiet transport (no bytes, not even heartbeats) is caught by `createGuardedFetch`.
   private scheduleRecovery() {
     if (this.retryTimer || !this.turn || this.options.signal.aborted) return;
     this.retryTimer = setTimeout(() => {

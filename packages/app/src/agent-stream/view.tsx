@@ -1274,6 +1274,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       label: workingLabel,
       specific: workingSpecific,
       urgent: workingUrgent,
+      modelWaitSince: workingModelWaitSince,
     } = useMemo(
       () =>
         resolveWorkingStatus({
@@ -1282,6 +1283,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           agentStatus: context.status,
           providerLabel,
           turnStartedAt: effectiveTurnPresentation.startedAt,
+          awaitingModelSince: effectiveTurnPresentation.awaitingModelSince,
           latest: effectiveStreamHead?.at(-1) ?? effectiveStreamItems.at(-1),
           activeTurnId: effectiveTurnPresentation.turnId,
           cwd: context.cwd,
@@ -1292,6 +1294,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         context.status,
         effectiveStreamHead,
         effectiveStreamItems,
+        effectiveTurnPresentation.awaitingModelSince,
         effectiveTurnPresentation.isCancelling,
         effectiveTurnPresentation.startedAt,
         effectiveTurnPresentation.turnId,
@@ -1326,6 +1329,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         label: workingLabel,
         specific: workingSpecific,
         urgent: workingUrgent,
+        modelWaitSince: workingModelWaitSince,
         stepCount: liveSummary.stepCount,
         failedCount: liveSummary.failedCount,
         canExpand: liveRun !== null,
@@ -1339,6 +1343,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         toggleLiveSteps,
         workingKind,
         workingLabel,
+        workingModelWaitSince,
         workingSpecific,
         workingUrgent,
       ],

@@ -10,6 +10,9 @@ function normalizeTurn(snapshot: AgentSnapshotPayload): TurnLiveness {
     phase: "open",
     turnId: snapshot.activeTurn.turnId,
     startedAt: snapshot.activeTurn.startedAt ? new Date(snapshot.activeTurn.startedAt) : null,
+    awaitingModelSince: snapshot.activeTurn.awaitingModelSince
+      ? new Date(snapshot.activeTurn.awaitingModelSince)
+      : null,
     cancellationRequestId: null,
   };
 }
@@ -21,6 +24,9 @@ function projectActiveTurn(agent: Agent): Pick<AgentSnapshotPayload, "activeTurn
     activeTurn: {
       turnId: agent.turn.turnId,
       startedAt: agent.turn.startedAt?.toISOString() ?? null,
+      ...(agent.turn.awaitingModelSince
+        ? { awaitingModelSince: agent.turn.awaitingModelSince.toISOString() }
+        : {}),
     },
   };
 }

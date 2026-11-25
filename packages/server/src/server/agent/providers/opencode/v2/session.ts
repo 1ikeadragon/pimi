@@ -2,9 +2,11 @@ import { OpenCodeBackgroundInventory } from "./background-inventory.js";
 import { SessionChildren } from "./children.js";
 import { SessionTurns } from "./turns.js";
 import { V2Timeline } from "./timeline.js";
+import { ModelWait } from "./model-wait.js";
+import { FAILURE_WARNING_ATTEMPT, reconnectDelayMs } from "../event-consumer.js";
 import { waitForLocationReady, awaitPimiPlugin } from "./readiness.js";
 
-import type { SessionInfo, SessionMessageInfo } from "@opencode/client";
+import type { OpenCodeEvent, SessionInfo, SessionMessageInfo } from "@opencode/client";
 
 import { setTimeout as delay } from "node:timers/promises";
 import { randomUUID } from "node:crypto";
@@ -42,12 +44,30 @@ import { SessionUsage } from "./usage.js";
 import { ToolCallOutputStream } from "../../../tool-call-output-stream.js";
 import { ShellOutputTail } from "./shell-tail.js";
 
+// The first connection must reconcile within this bound or `initialize` fails (`startStream`).
+// A reconnect applies the same bound to the same work, so a hung request cannot hold the event
+// loop forever. Reconciling reads whole histories, so it gets the readiness bound, not the 5s of
+// a single plugin poll (readiness.ts).
+const STREAM_READY_TIMEOUT_MS = 30_000;
+
+export class OpenCodeConnectionReconcileTimeoutError extends Error {
+  constructor(readonly waitedMs: number) {
+    super(`OpenCode did not finish reconciling after reconnecting within ${waitedMs}ms`);
+    this.name = "OpenCodeConnectionReconcileTimeoutError";
+  }
+}
+
 export class OpenCodeV2Session implements AgentSession {
   readonly provider = "opencode";
   readonly capabilities = V2_CAPABILITIES;
   private readonly listeners = new Set<(event: AgentStreamEvent) => void>();
   private readonly usageSessionKey = randomUUID();
-  private readonly timeline = new V2Timeline();
+  private readonly timeline = new V2Timeline((divergence) =>
+    this.logger.warn({ ...divergence, sessionId: this.info.id }, "OpenCode rewrote published text"),
+  );
+  private readonly modelWait = new ModelWait((since) =>
+    this.emit({ type: "model_wait_changed", provider: "opencode", since }),
+  );
   private readonly abort = new AbortController();
   private readonly permissions: SessionPermissions;
   private readonly turns: SessionTurns;
@@ -102,6 +122,10 @@ export class OpenCodeV2Session implements AgentSession {
       emit: (event) => this.emit(event),
       reconcilePermissions: (id) => this.permissions.reconcile(id),
       bindChild,
+      reportError: (error) =>
+        this.logger.warn({ error: toDiagnosticErrorMessage(error) }, "OpenCode child sync failed"),
+      reportDivergence: (divergence) =>
+        this.logger.warn({ ...divergence, sessionId: this.info.id }, "OpenCode child rewrote text"),
     });
     this.turns = new SessionTurns({
       client: () => this.client,
@@ -247,7 +271,7 @@ export class OpenCodeV2Session implements AgentSession {
     });
     this.stream = this.consume(ready, fail);
     await raceProviderRefreshAbort(
-      AbortSignal.any([this.abort.signal, AbortSignal.timeout(30_000)]),
+      AbortSignal.any([this.abort.signal, AbortSignal.timeout(STREAM_READY_TIMEOUT_MS)]),
       first,
     );
   }
@@ -324,8 +348,10 @@ export class OpenCodeV2Session implements AgentSession {
       event.type === "turn_completed" ||
       event.type === "turn_failed" ||
       event.type === "turn_canceled"
-    )
+    ) {
+      this.modelWait.end();
       this.shellTail.stopAll();
+    }
     this.toolOutput.observe(event);
     for (const listener of this.listeners) listener(event);
   }
@@ -334,7 +360,14 @@ export class OpenCodeV2Session implements AgentSession {
   }
   async *streamHistory() {
     await this.reconnectIfExited();
-    const history = new V2Timeline(false);
+    const history = new V2Timeline(
+      (divergence) =>
+        this.logger.warn(
+          { ...divergence, sessionId: this.info.id },
+          "OpenCode history rewrote published text",
+        ),
+      false,
+    );
     const events: AgentStreamEvent[] = [];
     await history.messages(await messages(this.client, this.id), (event) => {
       events.push(event);
@@ -526,6 +559,17 @@ export class OpenCodeV2Session implements AgentSession {
       await this.reconcileSnapshot();
     }
   }
+  // The abandoned reconcile keeps running and holds `sync`, so a retry waits behind it and times
+  // out in turn; that surfaces as a warning per attempt instead of a silent stall.
+  private async reconcileConnectionWithin(timeoutMs: number) {
+    try {
+      await raceProviderRefreshAbort(AbortSignal.timeout(timeoutMs), this.reconcileConnection());
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "TimeoutError")
+        throw new OpenCodeConnectionReconcileTimeoutError(timeoutMs);
+      throw error;
+    }
+  }
   private async reconcileConnection() {
     await this.connection.bindSession(this.id, this.config.cwd);
     // Session environments are process-local. Reapply this agent's snapshot before
@@ -554,6 +598,17 @@ export class OpenCodeV2Session implements AgentSession {
       return;
     }
     if (!("sessionID" in event.data) || event.data.sessionID !== this.id) return;
+    this.modelWait.observe(event);
+    if (event.type === "session.retry.scheduled") {
+      // v1 shows the same item for its `session.status` retry. OpenCode retries without a limit,
+      // so without it a failing gateway reads as a turn that is merely working.
+      this.emitTimeline({
+        type: "timeline",
+        provider: "opencode",
+        item: { type: "error", message: retryMessage(event) },
+      });
+      return;
+    }
     if (event.type === "session.text.started" || event.type === "session.reasoning.started") {
       if (event.type === "session.text.started" && this.turns.hasStructuredOutput) return;
       this.timeline.startPart({
@@ -567,13 +622,13 @@ export class OpenCodeV2Session implements AgentSession {
       // A structured-output turn supplies its answer through a tool, so streamed
       // prose is not part of the result and must not reach the timeline.
       if (isText && this.turns.hasStructuredOutput) return;
-      const streamed = this.timeline.delta({
+      for (const streamed of this.timeline.delta({
         assistantMessageID: event.data.assistantMessageID,
         ordinal: event.data.ordinal,
         delta: event.data.delta,
         type: isText ? "text" : "reasoning",
-      });
-      if (streamed) this.emitTimeline(streamed);
+      }))
+        this.emitTimeline(streamed);
       return;
     }
     if (event.type === "session.tool.progress")
@@ -585,26 +640,64 @@ export class OpenCodeV2Session implements AgentSession {
     this.turns.observe(event);
     this.scheduleReconcile();
   }
+  /** Applies one event; returns true when it was the connection handshake and reconciled. */
+  private async handleStreamEvent(
+    event: import("@opencode/client").OpenCodeEvent,
+    signal: AbortSignal,
+    progress: { handlingFailed: boolean },
+  ): Promise<boolean> {
+    const handshake = event.type === "server.connected";
+    try {
+      if (handshake) {
+        // Output events missed during a gap cannot be attributed, so the wait cannot be trusted.
+        this.modelWait.end();
+        this.timeline.resetStreams();
+        await this.reconcileConnectionWithin(STREAM_READY_TIMEOUT_MS);
+        signal.throwIfAborted();
+        this.background.start(this.client);
+      }
+      this.background.observe(event);
+      this.children.observe(event);
+      this.observeOwnEvent(event);
+    } catch (error) {
+      progress.handlingFailed = true;
+      throw error;
+    }
+    return handshake;
+  }
+  // A server Pimi did not start (explicit or discovered) can die with nobody to report it. After as
+  // many consecutive failures as the v1 event consumer tolerates before it warns
+  // (`FAILURE_WARNING_ATTEMPT`), release it so this and every other session select a server again.
+  private declareUnreachable(consecutiveFailures: number): boolean {
+    const { unreachable } = this.connection;
+    if (!unreachable || consecutiveFailures < FAILURE_WARNING_ATTEMPT) return false;
+    const error = new Error(
+      `OpenCode server unreachable after ${consecutiveFailures} failed event stream attempts`,
+    );
+    this.logger.warn({ error: error.message }, "OpenCode server unreachable; releasing it");
+    unreachable(error);
+    return true;
+  }
   private async consume(ready: () => void, fail: (error: unknown) => void) {
     const signal = AbortSignal.any([this.abort.signal, this.streamAbort.signal]);
     let connected = false;
+    let reconnectAttempt = 0;
     while (!this.closed && !signal.aborted) {
+      // Only a connection that reconciled and then lost its transport counts as progress. One that
+      // fails while handling an event would otherwise reset the backoff and retry every 100ms.
+      let established = false;
+      const progress = { handlingFailed: false };
       try {
         for await (const event of this.client.event.subscribe({ signal })) {
           if (this.closed || signal.aborted) return;
-          if (event.type === "server.connected") {
-            this.timeline.resetStreams();
-            await this.reconcileConnection();
-            signal.throwIfAborted();
-            this.background.start(this.client);
+          if (await this.handleStreamEvent(event, signal, progress)) {
             connected = true;
+            established = true;
             ready();
           }
-          this.background.observe(event);
-          await this.children.observe(event);
-          this.observeOwnEvent(event);
         }
         if (!connected) throw new Error("OpenCode event stream ended before connecting");
+        this.logger.warn("OpenCode event stream ended; reconciling on reconnect");
       } catch (error) {
         if (this.closed || signal.aborted) return;
         if (!connected) {
@@ -617,7 +710,9 @@ export class OpenCodeV2Session implements AgentSession {
         );
       }
       this.background.disconnect();
-      await delay(100, undefined, { signal }).catch(() => undefined);
+      reconnectAttempt = established && !progress.handlingFailed ? 0 : reconnectAttempt + 1;
+      if (this.declareUnreachable(reconnectAttempt)) return;
+      await delay(reconnectDelayMs(reconnectAttempt), undefined, { signal }).catch(() => undefined);
     }
   }
   async canStopRuntime(): Promise<boolean> {
@@ -674,4 +769,14 @@ export class OpenCodeV2Session implements AgentSession {
     }
     this.listeners.clear();
   }
+}
+
+function retryMessage(event: Extract<OpenCodeEvent, { type: "session.retry.scheduled" }>): string {
+  const { attempt, at, error } = event.data;
+  const detail = error.message.trim();
+  const status = error.status === undefined ? "" : ` (HTTP ${error.status})`;
+  // Both timestamps are the OpenCode server's clock, so the delay is free of clock skew with Pimi.
+  const delaySeconds = Math.max(0, Math.round((at - event.created) / 1000));
+  const base = `Provider retry (attempt ${attempt}): ${detail || error.type}${status}`;
+  return `${base}. Retrying in ${delaySeconds}s`;
 }

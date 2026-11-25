@@ -5,9 +5,9 @@ import { fileURLToPath } from "node:url";
 import type { Logger } from "pino";
 import type { ProviderRuntimeSettings } from "../../../provider-launch-config.js";
 import type { OpenCodeBridge } from "../bridge.js";
-import { OpenCodeHttpError } from "../http-error.js";
 import { resolveOpenCodeHomeDir } from "../paths.js";
 import { openCodeConfigDirectory, provisionLocalBridge } from "./bridge-provisioning.js";
+import { createGuardedFetch } from "./guarded-fetch.js";
 import { awaitPimiPlugin } from "./readiness.js";
 import {
   compatibleVersion,
@@ -26,6 +26,8 @@ export interface SharedService {
   client: V2Api;
   exited: Promise<Error>;
   stop(): Promise<void>;
+  /** The server stopped answering: end every lease so sessions select a server again. */
+  unreachable(error: Error): void;
   bindSession(sessionId: string, cwd: string): Promise<void>;
   unbindSession(sessionId: string, cwd: string): Promise<void>;
   refreshLocation(cwd: string, signal?: AbortSignal): Promise<void>;
@@ -49,18 +51,7 @@ export async function connectSharedService(
   const client = OpenCode.make({
     baseUrl: server.url,
     ...(authorization ? { headers: { Authorization: authorization } } : {}),
-    fetch: async (request, init) => {
-      const signal = init?.signal
-        ? AbortSignal.any([init.signal, lifetime.signal])
-        : lifetime.signal;
-      const response = await fetch(request, { ...init, signal });
-      const html = response.headers.get("content-type")?.includes("text/html") ?? false;
-      if (!response.ok || html) {
-        const requestUrl = request instanceof Request ? request.url : String(request);
-        throw new OpenCodeHttpError(new URL(requestUrl).pathname, response.status, html);
-      }
-      return response;
-    },
+    fetch: createGuardedFetch(lifetime.signal, logger),
   });
   let info: Awaited<ReturnType<typeof client.server.info>>;
   try {
@@ -109,6 +100,11 @@ export async function connectSharedService(
       if (lifetime.signal.aborted) return;
       lifetime.abort(closed);
       resolveExited(closed);
+    },
+    unreachable: (error) => {
+      if (lifetime.signal.aborted) return;
+      lifetime.abort(error);
+      resolveExited(error);
     },
     exited,
     ...bridgeBindings(client, bridge, advertised, pluginDirectory),

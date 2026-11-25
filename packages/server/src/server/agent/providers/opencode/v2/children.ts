@@ -1,4 +1,4 @@
-import { V2Timeline } from "./timeline.js";
+import { V2Timeline, type TextDivergence } from "./timeline.js";
 
 import type { SessionInfo } from "@opencode/client";
 
@@ -16,6 +16,8 @@ interface ChildrenOptions {
   emit(event: AgentStreamEvent): void;
   reconcilePermissions(id: string): Promise<void>;
   bindChild?: (id: string) => void;
+  reportDivergence(divergence: TextDivergence): void;
+  reportError(error: unknown): void;
 }
 export class SessionChildren {
   private readonly children = new Map<string, V2Timeline>();
@@ -24,21 +26,29 @@ export class SessionChildren {
   has(id: string): boolean {
     return this.children.has(id);
   }
-  async observe(event: import("@opencode/client").OpenCodeEvent) {
+  // A child's session lookup and history read can be slow or hang. They run on their own queue,
+  // in event order, so they never hold up the parent session's event loop.
+  private tail: Promise<void> = Promise.resolve();
+  private enqueue(work: () => Promise<void>) {
+    this.tail = this.tail.then(work).catch((error: unknown) => this.options.reportError(error));
+  }
+  observe(event: import("@opencode/client").OpenCodeEvent) {
     if (
       event.type === "session.created" &&
       event.data.parentID &&
       (event.data.parentID === this.options.id || this.children.has(event.data.parentID))
     ) {
-      await this.reconcile(event.data.parentID);
+      const parentID = event.data.parentID;
+      this.enqueue(() => this.reconcile(parentID));
     }
     if (
       "sessionID" in event.data &&
       typeof event.data.sessionID === "string" &&
       this.children.has(event.data.sessionID)
     ) {
-      await this.reconcileChild(
-        await this.options.client().session.get({ sessionID: event.data.sessionID }),
+      const sessionID = event.data.sessionID;
+      this.enqueue(async () =>
+        this.reconcileChild(await this.options.client().session.get({ sessionID })),
       );
     }
   }
@@ -60,7 +70,7 @@ export class SessionChildren {
     await this.options.reconcilePermissions(info.id);
     let timeline = this.children.get(info.id);
     if (!timeline) {
-      timeline = new V2Timeline();
+      timeline = new V2Timeline((divergence) => this.options.reportDivergence(divergence));
       this.children.set(info.id, timeline);
       this.options.bindChild?.(info.id);
     }

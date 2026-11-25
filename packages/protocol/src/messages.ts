@@ -1377,6 +1377,8 @@ const AgentRuntimeInfoSchema: z.ZodType<AgentRuntimeInfo> = z.object({
 const AgentActiveTurnPayloadSchema = z.object({
   turnId: z.string(),
   startedAt: z.string().nullable(),
+  // When the provider sent a model request and has seen no output for it yet. Absent otherwise.
+  awaitingModelSince: z.string().optional(),
 });
 
 export const AgentSnapshotPayloadSchema = z.object({

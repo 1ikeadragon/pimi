@@ -843,6 +843,8 @@ interface ManagedAgentBase {
   handoffSummarising?: boolean;
   activeTurnId: string | null;
   activeTurnStartedAt: Date | null;
+  /** The provider sent a model request at this time and has seen no output for it yet. */
+  awaitingModelSince: Date | null;
   lastUsage?: AgentUsage;
   lastError?: string;
   attention: AttentionState;
@@ -3479,6 +3481,7 @@ export class AgentManager {
         activeForegroundTurnId: null,
         activeTurnId: null,
         activeTurnStartedAt: null,
+        awaitingModelSince: null,
         foregroundTurnWaiters: new Set(),
         finalizedForegroundTurnIds: new Set(),
         unsubscribeSession: null,
@@ -4432,6 +4435,7 @@ export class AgentManager {
   private openActiveTurn(agent: ActiveManagedAgent, turnId: string, startedAt: Date): void {
     agent.activeTurnId = turnId;
     agent.activeTurnStartedAt = startedAt;
+    agent.awaitingModelSince = null;
   }
 
   private applyActiveTurnTerminal(
@@ -4444,6 +4448,7 @@ export class AgentManager {
     if (turnId && agent.activeTurnId !== turnId) return "stale";
     agent.activeTurnId = null;
     agent.activeTurnStartedAt = null;
+    agent.awaitingModelSince = null;
     // A turn can create a PR, push, or merge on the forge without touching anything a local
     // watcher sees, so every provider's turn end re-reads the checkout and forge.
     this.onWorkspaceStateMayHaveChanged?.({ cwd: agent.cwd });
@@ -5654,6 +5659,7 @@ export class AgentManager {
       activeForegroundTurnId: null,
       activeTurnId: null,
       activeTurnStartedAt: null,
+      awaitingModelSince: null,
       foregroundTurnWaiters: new Set<ForegroundTurnWaiter>(),
       finalizedForegroundTurnIds: new Set<string>(),
       unsubscribeSession: null,
@@ -5700,6 +5706,7 @@ export class AgentManager {
       activeForegroundTurnId: null,
       activeTurnId: null,
       activeTurnStartedAt: null,
+      awaitingModelSince: null,
       pendingPermissions: new Map(),
       bufferedPermissionResolutions: new Map(),
       inFlightPermissionResponses: new Set(),
@@ -6707,6 +6714,9 @@ export class AgentManager {
         flags.shouldDispatchEvent = false;
         this.emitState(agent);
         return undefined;
+      case "model_wait_changed":
+        this.onStreamModelWaitChanged(agent, event, flags);
+        return undefined;
       case "thinking_option_changed":
         agent.config.thinkingOptionId = event.thinkingOptionId ?? undefined;
         if (agent.runtimeInfo) {
@@ -6760,6 +6770,18 @@ export class AgentManager {
       default:
         return undefined;
     }
+  }
+
+  private onStreamModelWaitChanged(
+    agent: ActiveManagedAgent,
+    event: Extract<AgentStreamEvent, { type: "model_wait_changed" }>,
+    flags: StreamEventFlags,
+  ): void {
+    flags.shouldDispatchEvent = false;
+    // A wait belongs to the open turn; a late report after the turn ended is dropped.
+    if (event.since !== null && !agent.activeTurnId) return;
+    agent.awaitingModelSince = event.since === null ? null : new Date(event.since);
+    this.emitState(agent);
   }
 
   private onStreamThreadStarted(agent: ActiveManagedAgent): void {

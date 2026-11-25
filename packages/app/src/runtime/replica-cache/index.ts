@@ -735,6 +735,8 @@ function deserializeAgent(serverId: string, stored: StoredAgent): Agent {
       phase: "open",
       turnId: stored.turn.turnId,
       startedAt: stored.turn.startedAt ? new Date(stored.turn.startedAt) : null,
+      // A stored wait is stale by the time it is read back, so it is never persisted.
+      awaitingModelSince: null,
       cancellationRequestId: null,
     };
   }

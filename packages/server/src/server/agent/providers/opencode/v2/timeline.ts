@@ -28,27 +28,76 @@ export class V2Timeline {
     this.streams.set(textPartKey(part.assistantMessageID, part.type, part.ordinal), "");
   }
 
-  constructor(private readonly includeClientMessageId = true) {}
+  constructor(
+    private readonly onDivergence: (divergence: TextDivergence) => void,
+    private readonly includeClientMessageId = true,
+  ) {}
 
-  delta(event: TextPartDelta): AgentStreamEvent | null {
+  delta(event: TextPartDelta): AgentStreamEvent[] {
     const key = textPartKey(event.assistantMessageID, event.type, event.ordinal);
     const streamed = this.streams.get(key);
     // Deltas are ephemeral and have no offset. After reconnect, only stream
     // parts whose start we observed; snapshots recover any interrupted part.
-    if (streamed === undefined || event.delta.length === 0) return null;
+    if (streamed === undefined || event.delta.length === 0) return [];
     const text = streamed + event.delta;
     this.streams.set(key, text);
+    const items = this.advance({
+      messageID: event.assistantMessageID,
+      part: event.type,
+      ordinal: event.ordinal,
+      text,
+      source: "stream",
+    });
+    const timestamp = new Date().toISOString();
+    return items.map((item) => ({
+      type: "timeline",
+      provider: "opencode",
+      item,
+      timestamp,
+    }));
+  }
+
+  /**
+   * The items that bring the published text of a part up to `text`. The text only ever grows, so
+   * a snapshot that lags the stream publishes nothing. A `text` that is not an extension of what
+   * was published means OpenCode rewrote the part, for example by restarting its stream after a
+   * provider retry. The newest text is the authority: it replaces the stored text and is published
+   * whole behind a notice, because published timeline text cannot be edited in place.
+   */
+  private advance(input: {
+    messageID: string;
+    part: "text" | "reasoning";
+    ordinal: number;
+    text: string;
+    source: TextDivergence["source"];
+  }): AgentTimelineItem[] {
+    const { messageID, part, ordinal, text, source } = input;
+    const key = textPartKey(messageID, part, ordinal);
     const emitted = this.content.get(key) ?? "";
-    if (text.length <= emitted.length) return null;
-    if (!text.startsWith(emitted))
-      throw new Error("OpenCode changed previously emitted message content");
+    if (text.length <= emitted.length && emitted.startsWith(text)) return [];
+    const grows = text.startsWith(emitted);
     this.content.set(key, text);
-    const suffix = detachedSuffix(text, emitted.length);
-    const item: AgentTimelineItem =
-      event.type === "text"
-        ? { type: "assistant_message", text: suffix, messageId: event.assistantMessageID }
+    const published = (suffix: string): AgentTimelineItem =>
+      part === "text"
+        ? { type: "assistant_message", text: suffix, messageId: messageID }
         : { type: "reasoning", text: suffix };
-    return { type: "timeline", provider: "opencode", item, timestamp: new Date().toISOString() };
+    if (grows) return [published(detachedSuffix(text, emitted.length))];
+    const divergence: TextDivergence = {
+      messageId: messageID,
+      part,
+      ordinal,
+      emittedLength: emitted.length,
+      incomingLength: text.length,
+      source,
+    };
+    this.onDivergence(divergence);
+    return [
+      {
+        type: "error",
+        message: `OpenCode rewrote the ${part === "text" ? "reply" : "reasoning"} it had already sent (${emitted.length} characters before, ${text.length} now). The earlier text above is stale; the revised version follows.`,
+      },
+      published(detachedSuffix(text, 0)),
+    ];
   }
 
   private pendingMessages: Promise<unknown> = Promise.resolve();
@@ -153,17 +202,14 @@ export class V2Timeline {
     push: (item: AgentTimelineItem) => void,
   ) {
     if (state.structured && part.type === "text") return;
-    const key = textPartKey(messageID, part.type, ordinal);
-    const previous = this.content.get(key) ?? "";
-    // Upstream snapshots may briefly lag the volatile delta stream.
-    if (part.text.length <= previous.length) return;
-    if (!part.text.startsWith(previous))
-      throw new Error("OpenCode changed previously emitted message content");
-    this.content.set(key, part.text);
-    const suffix = detachedSuffix(part.text, previous.length);
-    if (part.type === "text")
-      push({ type: "assistant_message", text: suffix, messageId: messageID });
-    else push({ type: "reasoning", text: suffix });
+    for (const item of this.advance({
+      messageID,
+      part: part.type,
+      ordinal,
+      text: part.text,
+      source: "snapshot",
+    }))
+      push(item);
   }
 
   private async toolPart(
@@ -218,6 +264,16 @@ interface TextPartIdentity {
 
 interface TextPartDelta extends TextPartIdentity {
   delta: string;
+}
+
+export interface TextDivergence {
+  messageId: string;
+  part: "text" | "reasoning";
+  ordinal: number;
+  emittedLength: number;
+  incomingLength: number;
+  /** Whether the rewritten text came from a history snapshot or the live delta stream. */
+  source: "snapshot" | "stream";
 }
 function splitToolContent(state: SessionMessageAssistantTool["state"]): {
   output: string | undefined;
