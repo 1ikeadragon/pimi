@@ -190,6 +190,20 @@ promise for completion: equal results, including equal discovery timestamps, emi
 
 ---
 
+## Instruction layers
+
+`provider.instructions.list` answers "what does this agent start with?" for an existing agent (`target.kind: "agent"`) or a chat not yet started (`"draft"`: provider, cwd, optional agent profile). The result lists layers in load order: the provider's own files, then Pimi's profile, host System prompt and built-in parts. Code: `packages/server/src/server/agent/instructions/`; the app renders it from `packages/app/src/instructions/` (the chat actions menu, and Instructions on a project's settings page).
+
+- **One rule table per provider family** (`rules-claude.ts`, `rules-codex.ts`, `rules-opencode.ts` for 1.x and 2.x, `rules-pi.ts`, `rules-copilot.ts`), selected by the built-in provider a custom provider extends. A provider with no table resolves to `ruleset: "unknown"`, and the view says so rather than guessing.
+- **Resolvers are pure over an injected filesystem** and read only paths their rule table produces from the cwd, the provider's home directories and its own config. No caller-supplied path is read.
+- **A layer says why it does not apply.** `status` and `reason` carry skipped, shadowed, over-budget and on-demand files; a setting the resolver could not read becomes a `notice`, not a silent default.
+- **Guards set `truncated`.** Limits in `limits.ts` are labelled as mirroring a provider rule or as a Pimi choice; a guard that trips tells the client the list may be incomplete.
+- **Add a provider** by writing its rule table, citing the source of each rule in its header (real tool behaviour or its docs, and which), and adding it to `resolve.ts` and the `InstructionRuleset` enum.
+
+The list reflects the files on disk when asked. It is not a record of what an already-running agent received at launch.
+
+---
+
 ## Usage sources
 
 See the [public usage source reference](../public-docs/plugins/reference.md#usage-sources) for the

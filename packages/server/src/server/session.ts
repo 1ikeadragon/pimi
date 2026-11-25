@@ -243,6 +243,7 @@ import {
 } from "./session/speech/speech-models-session.js";
 import { WorkspaceFilesSession } from "./session/files/workspace-files-session.js";
 import { AgentConfigSession } from "./session/agent-config/agent-config-session.js";
+import { InstructionsSession } from "./session/instructions/instructions-session.js";
 import { ProjectConfigSession } from "./session/project-config/project-config-session.js";
 import { DaemonSession, type DaemonRuntimeConfig } from "./session/daemon/daemon-session.js";
 import type { PushNotifier } from "./push/push-notifier.js";
@@ -845,6 +846,7 @@ export class Session {
   private readonly workspaceFilesSession: WorkspaceFilesSession;
   private readonly agentConfigSession: AgentConfigSession;
   private readonly projectConfigSession: ProjectConfigSession;
+  private readonly instructionsSession: InstructionsSession;
   private readonly daemonSession: DaemonSession;
   private readonly workspaceScripts: WorkspaceScriptsService;
   private readonly messageReceipts: Pick<MessageReceipts, "send">;
@@ -1138,6 +1140,18 @@ export class Session {
         emit: (msg) => this.emit(msg),
       },
       projectRegistry: this.projectRegistry,
+      logger: this.sessionLogger,
+    });
+    this.instructionsSession = new InstructionsSession({
+      host: {
+        emit: (msg) => this.emit(msg),
+      },
+      agentManager: this.agentManager,
+      agentStorage: this.agentStorage,
+      providerSnapshotManager,
+      projectRegistry: this.projectRegistry,
+      workspaceRegistry: this.workspaceRegistry,
+      getAgentProfiles: () => this.daemonConfigStore.get().agentProfiles ?? [],
       logger: this.sessionLogger,
     });
     this.daemonSession = new DaemonSession({
@@ -3464,6 +3478,8 @@ export class Session {
         return this.providerCatalogSession.handleRefreshProvidersSnapshotRequest(msg);
       case "provider.harness_updates.check.request":
         return this.providerCatalogSession.handleHarnessUpdatesRequest(msg);
+      case "provider.instructions.list.request":
+        return this.instructionsSession.handleListRequest(msg);
       case "provider_diagnostic_request":
         return this.providerCatalogSession.handleProviderDiagnosticRequest(msg);
       case "usage.list_reports.request":

@@ -31,6 +31,7 @@ import { SettingsGroup } from "@/components/settings/headings/settings-group";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { settingsStyles } from "@/styles/settings";
 import { useProjects } from "@/hooks/use-projects";
+import { ProjectInstructionsSection } from "@/instructions/project-instructions-section";
 import type { ProjectEditFormSnapshot } from "@/projects/edit-form";
 import { useProjectIcons } from "@/projects/icons";
 import { createProjectIconTarget } from "@/projects/icon-target";
@@ -385,6 +386,7 @@ function renderContent({
       baseConfig={loadedConfig}
       revision={loadedRevision}
       hasUncommittedWorktreeSetupChanges={hasUncommittedWorktreeSetupChanges}
+      serverId={selectedHost.serverId}
       repoRoot={selectedHost.repoRoot}
       queryKey={queryKey}
       client={client}
@@ -466,6 +468,7 @@ interface ProjectConfigFormProps {
   baseConfig: PimiConfigRaw;
   revision: PimiConfigRevision | null;
   hasUncommittedWorktreeSetupChanges: boolean;
+  serverId: string;
   repoRoot: string;
   queryKey: readonly [string, string, string];
   client: DaemonClient;
@@ -476,6 +479,7 @@ function ProjectConfigForm({
   baseConfig,
   revision,
   hasUncommittedWorktreeSetupChanges,
+  serverId,
   repoRoot,
   queryKey,
   client,
@@ -763,6 +767,8 @@ function ProjectConfigForm({
           />
         ))}
       </SettingsGroup>
+
+      <ProjectInstructionsSection serverId={serverId} repoRoot={repoRoot} />
 
       {isStale ? (
         <View style={styles.calloutWrap}>

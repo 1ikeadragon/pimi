@@ -555,7 +555,7 @@ function toPiBuiltinMcpServers(
   return piServers;
 }
 
-function resolvePiAgentDir(env: Record<string, string> | undefined): string {
+export function resolvePiAgentDir(env: Record<string, string> | undefined): string {
   const configured = env?.PI_CODING_AGENT_DIR?.trim() || process.env.PI_CODING_AGENT_DIR?.trim();
   if (!configured) {
     return join(homedir(), ".pi", "agent");

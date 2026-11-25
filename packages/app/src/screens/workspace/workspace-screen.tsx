@@ -234,6 +234,7 @@ import { getIsElectron, isNative, isWeb } from "@/constants/platform";
 import { buildHostRootRoute, buildSettingsHostRoute } from "@/utils/host-routes";
 import { useWorkspaceTerminals } from "@/screens/workspace/terminals/use-workspace-terminals";
 import type { TerminalProfile } from "@pimi/protocol/messages";
+import { InstructionsSheet } from "@/instructions/instructions-sheet";
 import {
   WorkspaceHeaderMenuDesktop,
   WorkspaceHeaderMenuMobile,
@@ -564,11 +565,13 @@ interface WorkspaceHeaderTitleBarProps {
   showWorkspaceSetup: boolean;
   importAgentDisabled: boolean;
   copyPathDisabled: boolean;
+  instructionsDisabled: boolean;
   onOpenImportSheet: () => void;
   onCopyWorkspacePath: () => void;
   onCopyBranchName: () => void;
   onOpenSetupTab: () => void;
   onRenameChat: () => void;
+  onShowInstructions: () => void;
 }
 
 function WorkspaceHeaderTitleBarBase({
@@ -582,11 +585,13 @@ function WorkspaceHeaderTitleBarBase({
   showWorkspaceSetup,
   importAgentDisabled,
   copyPathDisabled,
+  instructionsDisabled,
   onOpenImportSheet,
   onCopyWorkspacePath,
   onCopyBranchName,
   onOpenSetupTab,
   onRenameChat,
+  onShowInstructions,
 }: WorkspaceHeaderTitleBarProps) {
   const actionsInBar = resolveWorkspaceActionPlacement(useWindowLayout()) === "vertical-bar";
   return (
@@ -616,11 +621,13 @@ function WorkspaceHeaderTitleBarBase({
             showWorkspaceSetup={showWorkspaceSetup}
             importAgentDisabled={importAgentDisabled}
             copyPathDisabled={copyPathDisabled}
+            instructionsDisabled={instructionsDisabled}
             onOpenImportSheet={onOpenImportSheet}
             onCopyWorkspacePath={onCopyWorkspacePath}
             onCopyBranchName={onCopyBranchName}
             onOpenSetupTab={onOpenSetupTab}
             onRenameChat={onRenameChat}
+            onShowInstructions={onShowInstructions}
           />
         </View>
       )}
@@ -2325,6 +2332,9 @@ function WorkspaceScreenContent({
   const [isRenameChatOpen, setIsRenameChatOpen] = useState(false);
   const handleOpenRenameChat = useCallback(() => setIsRenameChatOpen(true), []);
   const handleCloseRenameChat = useCallback(() => setIsRenameChatOpen(false), []);
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const handleShowInstructions = useCallback(() => setIsInstructionsOpen(true), []);
+  const handleCloseInstructions = useCallback(() => setIsInstructionsOpen(false), []);
   const handleOpenSetupTab = useCallback(() => {
     if (!persistenceKey) {
       return;
@@ -3441,11 +3451,13 @@ function WorkspaceScreenContent({
         showWorkspaceSetup={showWorkspaceSetup}
         importAgentDisabled={!canOpenImportSheet}
         copyPathDisabled={!workspaceDirectory}
+        instructionsDisabled={focusedPaneAgentId === null}
         onOpenImportSheet={openImportSheet}
         onCopyWorkspacePath={handleCopyWorkspacePath}
         onCopyBranchName={handleCopyBranchName}
         onOpenSetupTab={handleOpenSetupTab}
         onRenameChat={handleOpenRenameChat}
+        onShowInstructions={handleShowInstructions}
       />
     ),
     [
@@ -3455,6 +3467,8 @@ function WorkspaceScreenContent({
       handleCopyWorkspacePath,
       handleOpenSetupTab,
       handleOpenRenameChat,
+      handleShowInstructions,
+      focusedPaneAgentId,
       isWorkspaceHeaderLoading,
       normalizedServerId,
       normalizedWorkspaceId,
@@ -3586,6 +3600,7 @@ function WorkspaceScreenContent({
             createTerminalDisabled={createTerminalDisabled}
             importAgentDisabled={!canOpenImportSheet}
             copyPathDisabled={!workspaceDirectory}
+            instructionsDisabled={focusedPaneAgentId === null}
             onCreateTerminalWithProfile={handleCreateTerminalWithProfile}
             onCreateBrowser={handleCreateBrowserTab}
             onOpenImportSheet={openImportSheet}
@@ -3593,6 +3608,7 @@ function WorkspaceScreenContent({
             onCopyBranchName={handleCopyBranchName}
             onOpenSetupTab={handleOpenSetupTab}
             onRenameChat={handleOpenRenameChat}
+            onShowInstructions={handleShowInstructions}
           />
         </CompactWorkspaceHeader>
       );
@@ -3613,6 +3629,8 @@ function WorkspaceScreenContent({
       handleCreateBrowserTab,
       handleCreateTerminalWithProfile,
       handleOpenRenameChat,
+      handleShowInstructions,
+      focusedPaneAgentId,
       handleOpenSetupTab,
       handleToggleExplorerSidebar,
       isMobile,
@@ -3998,6 +4016,13 @@ function WorkspaceScreenContent({
           visible={isRenameChatOpen}
           isRouteFocused={isRouteFocused}
           onClose={handleCloseRenameChat}
+        />
+        <InstructionsSheet
+          serverId={normalizedServerId}
+          agentId={focusedPaneAgentId}
+          visible={isInstructionsOpen}
+          isRouteFocused={isRouteFocused}
+          onClose={handleCloseInstructions}
         />
         <WorkspaceTabRenameModal
           renamingTab={isRouteFocused ? renamingTab : null}

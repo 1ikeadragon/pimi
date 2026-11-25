@@ -51,7 +51,7 @@ import type { ProviderRegistration } from "@pimi/plugin/server/provider";
 import { PluginAgentClientRegistry } from "./plugin-provider.js";
 import type { ProviderHarnessUpdate } from "@pimi/protocol/provider-harness-updates";
 import type { PackagePolicy } from "@pimi/protocol/package-runner-policy";
-import { HarnessUpdateCatalog } from "./harness-updates.js";
+import { HarnessUpdateCatalog, type HarnessInstallation } from "./harness-updates.js";
 import { buildDetectedProviderOverrides, type DetectedInstall } from "../provider-config-dirs.js";
 
 const DEFAULT_REFRESH_TIMEOUT_MS = 120_000;
@@ -576,6 +576,13 @@ export class ProviderSnapshotManager {
     const defaultModeId = entry.defaultModeId ?? undefined;
     if (!defaultModeId || !entry.modes?.some((mode) => mode.id === defaultModeId)) return resolved;
     return { ...resolved, modeId: defaultModeId };
+  }
+
+  /** The installed harness version for one provider, or null when it cannot be probed. */
+  async getHarnessInstallation(provider: AgentProvider): Promise<HarnessInstallation | null> {
+    const definition = this.generation.definitions[provider];
+    if (!definition) return null;
+    return (await this.ensureClient(provider, definition).getHarnessInstallation?.()) ?? null;
   }
 
   async checkHarnessUpdates(force = false): Promise<ProviderHarnessUpdate[]> {
