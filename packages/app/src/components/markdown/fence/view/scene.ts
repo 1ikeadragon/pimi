@@ -9,7 +9,7 @@ export const SERIES_SLOTS = 8;
 
 const PLOT_INSET = 8;
 const TICK_INTERVALS = 4;
-const TICK_CHARACTER_WIDTH = 6;
+const TICK_CHARACTER_WIDTH = 7;
 const MIN_AXIS_WIDTH = 28;
 const MAX_AXIS_WIDTH = 64;
 const SCATTER_AXIS_HEIGHT = 18;
