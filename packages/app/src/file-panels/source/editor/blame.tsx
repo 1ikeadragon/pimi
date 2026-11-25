@@ -87,7 +87,7 @@ interface LineBlameInput {
 /**
  * Per-line results for the current file content and HEAD. Cursor moves read the cache
  * synchronously, so a revisited line renders instantly and nothing refetches until the content
- * or HEAD changes. An uncached line has no result until its fetch lands.
+ * or HEAD changes. An uncached line shows the last line's result until its own fetch lands.
  */
 function useLineBlame(input: LineBlameInput): CheckoutBlameResult | null {
   const { enabled, client, cwd, path, content, line, head, retry } = input;
@@ -97,6 +97,10 @@ function useLineBlame(input: LineBlameInput): CheckoutBlameResult | null {
     lines: Map<number, CheckoutBlameResult>;
   } | null>(null);
   const hash = useRef<{ content: string; value: Promise<string> } | null>(null);
+  const shown = useRef<{
+    lines: Map<number, CheckoutBlameResult>;
+    result: CheckoutBlameResult;
+  } | null>(null);
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((value) => value + 1), []);
   const scope = `${cwd}\0${path}\0${head ?? ""}\0${retry}`;
@@ -104,6 +108,11 @@ function useLineBlame(input: LineBlameInput): CheckoutBlameResult | null {
     cache.current = { scope, content, lines: new Map() };
   }
   const cached = cache.current.lines.get(line) ?? null;
+  // While a newly reached line's result is in flight, the bar keeps the last line's result rather
+  // than going blank, which read as a flash on every click. It is held only within the same cache
+  // (same content and HEAD), and the new line's result replaces it as soon as it lands.
+  if (cached) shown.current = { lines: cache.current.lines, result: cached };
+  const held = shown.current?.lines === cache.current.lines ? shown.current.result : null;
   const needsFetch = enabled && Boolean(client && cwd) && cached === null;
 
   useEffect(() => {
@@ -133,7 +142,7 @@ function useLineBlame(input: LineBlameInput): CheckoutBlameResult | null {
   }, [needsFetch, client, cwd, path, content, line, scope, refresh]);
 
   void tick;
-  return cached;
+  return cached ?? held;
 }
 
 const styles = StyleSheet.create((theme) => ({
@@ -166,7 +175,7 @@ function blameLabel(
   if (status === "saving") return "Saving… · blame paused";
   if (status !== "clean") return "Unsaved changes · blame paused";
   if (!connected) return "Git blame unavailable";
-  // Nothing (but a line-height placeholder) until this line is ready; no loading flash.
+  // Nothing (but a line-height placeholder) before the first result for this content and HEAD.
   if (!result) return "\u00A0";
   if (result.status !== "committed") return labels[result.status];
   return `${result.author} · ${new Date(
