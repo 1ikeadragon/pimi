@@ -30,12 +30,23 @@ export const motionDuration = {
   toastExit: 180,
   modalEnter: 200,
   modalExit: 150,
+  /**
+   * A checked-off action item stays in place this long after its mark settles, so the check is
+   * seen before the row leaves its list. Chosen by eye, not derived: long enough to read the
+   * struck-through line, short enough that a burst of closures does not stack up.
+   */
+  checkOffDwell: 500,
 } as const;
 
 /** Press feedback scale. Large enough to read as physical, small enough to stay out of the way. */
 export const PRESS_SCALE = 0.97;
 /** Popovers, menus, and modals enter from this scale, never from zero. */
 export const SURFACE_ENTER_SCALE = 0.96;
+/**
+ * A check mark pops in from this scale. Smaller than `SURFACE_ENTER_SCALE` because the glyph is
+ * 18px: at 0.96 the pop is under a pixel and reads as nothing. Chosen by eye, not derived.
+ */
+export const CHECK_POP_START_SCALE = 0.6;
 
 /**
  * Web class that eases a pressable's press scale and hover fill and gives it a keyboard focus ring.
