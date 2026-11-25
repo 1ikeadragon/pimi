@@ -369,9 +369,37 @@ interface SessionReplacementPlan {
   fallback?: SessionReplacementPlan;
 }
 
+/**
+ * A rehydrating reload replays like a first open, windowed so a big transcript is not read
+ * whole. A reload that keeps the timeline continues the released session instead.
+ */
+function replacementResumeOptions(
+  plan: SessionReplacementPlan,
+  progress: SessionReplacementProgress,
+): AgentResumeSessionOptions | undefined {
+  if (plan.rehydrateFromDisk) return { windowedHistory: true };
+  if (progress.continueFrom) return { windowedHistory: true, continueFrom: progress.continueFrom };
+  return undefined;
+}
+
 interface SessionReplacementProgress {
   closed?: ManagedAgentClosed;
+  /** The released session whose unread older history the replacement takes over. */
+  continueFrom?: AgentSession;
 }
+
+/** Why a session was reopened on the thread it already had; logged with every reload. */
+export type SessionReloadReason =
+  /** The user chose Reload agent. */
+  | "user_reload"
+  /** A voice mode or other config change needs a new session. */
+  | "config_override"
+  /** A send found the live session retired by its plugin runtime. */
+  | "stale_provider_session"
+  /** The plugin runtime changed since this session opened. */
+  | "stale_plugin_session"
+  /** A prompt arrived on a session that was opened only to read history. */
+  | "history_session_upgrade";
 
 interface ReplacementLaunch {
   storedConfig: AgentSessionConfig;
@@ -1400,7 +1428,7 @@ export class AgentManager {
     await this.trackAgentRegistrationOperation(
       this.runLifecycleMutation(agentId, async () => {
         if (!this.needsPluginSessionReload(agentId)) return;
-        await this.reloadAgentSessionInternal(agentId);
+        await this.reloadAgentSessionInternal(agentId, "stale_plugin_session");
       }),
     );
   }
@@ -2487,12 +2515,13 @@ export class AgentManager {
   // mutated outside Pimi.
   reloadAgentSession(
     agentId: string,
+    reason: SessionReloadReason,
     overrides?: Partial<AgentSessionConfig>,
     options?: { rehydrateFromDisk?: boolean },
   ): Promise<ManagedAgent> {
     return this.trackAgentRegistrationOperation(
       this.runLifecycleMutation(agentId, () =>
-        this.reloadAgentSessionInternal(agentId, overrides, options),
+        this.reloadAgentSessionInternal(agentId, reason, overrides, options),
       ),
     );
   }
@@ -2516,6 +2545,7 @@ export class AgentManager {
 
   private async reloadAgentSessionInternal(
     agentId: string,
+    reason: SessionReloadReason,
     overrides?: Partial<AgentSessionConfig>,
     options?: { rehydrateFromDisk?: boolean },
   ): Promise<ManagedAgent> {
@@ -2526,6 +2556,20 @@ export class AgentManager {
       existing = this.requireSessionAgent(agentId);
     }
     const rehydrateFromDisk = options?.rehydrateFromDisk ?? false;
+    this.logger.info(
+      {
+        agentId,
+        reason,
+        provider: existing.provider,
+        sessionId: existing.persistence?.sessionId ?? undefined,
+        rehydrateFromDisk,
+        lifecycle: existing.lifecycle,
+        nextTimelineSeq: this.timelineStore.has(agentId)
+          ? this.timelineStore.getNextSeq(agentId)
+          : null,
+      },
+      "agent.session_reload",
+    );
     const plan = this.planSessionResume(existing);
     return this.replaceAgentSession(existing, {
       ...plan,
@@ -2863,9 +2907,15 @@ export class AgentManager {
     plan: SessionReplacementPlan,
   ): Promise<ManagedAgent> {
     const progress: SessionReplacementProgress = {};
-    // The resumed session is opened without a windowed history, so it cannot serve the older
-    // rows the stored timeline is still missing. Read them from the session that holds the cursor.
-    if (!plan.rehydrateFromDisk) {
+    const continues = this.canContinueOlderHistory(agent, plan);
+    if (continues) {
+      // An older block in flight reads from the session about to be released.
+      await this.olderTimelineLoads.get(agent.id)?.catch(() => undefined);
+      progress.continueFrom = agent.session;
+    }
+    // A resumed session that cannot take over the older-history cursor cannot serve the rows the
+    // stored timeline is still missing. Read them from the session that holds the cursor.
+    if (!plan.rehydrateFromDisk && !continues) {
       try {
         await this.ensureTimelineRowsBefore(agent.id, { all: true });
       } catch (error) {
@@ -2895,6 +2945,24 @@ export class AgentManager {
       }
       throw error;
     }
+  }
+
+  /**
+   * The replacement resumes the same provider thread and the timeline already in memory is kept,
+   * so the new session only needs the live state of the newest turns and the old session's
+   * cursor into the older ones.
+   */
+  private canContinueOlderHistory(
+    agent: ActiveManagedAgent,
+    plan: SessionReplacementPlan,
+  ): boolean {
+    return (
+      plan.handle !== null &&
+      plan.handle.provider === agent.provider &&
+      !plan.rehydrateFromDisk &&
+      plan.historyPrimed &&
+      agent.session.capabilities.continuesOlderHistory === true
+    );
   }
 
   /** Everything a replacement needs that can be decided while the current session still runs. */
@@ -3005,9 +3073,10 @@ export class AgentManager {
       this.assertAcceptingAgentRegistrations();
 
       this.recordPimiToolPolicy(agentId, storedConfig.provider, pimiToolPolicy, attackRun);
+      const resumeOptions = replacementResumeOptions(plan, progress);
       session = await withLaunchAgent(agentId, () =>
         plan.handle
-          ? client.resumeSession(plan.handle!, providerLaunchConfig, launchContext)
+          ? client.resumeSession(plan.handle!, providerLaunchConfig, launchContext, resumeOptions)
           : client.createSession(providerLaunchConfig, launchContext),
       );
       await this.requireExternalMcpSupport(session, providerLaunchConfig, launchContext);
@@ -4220,7 +4289,7 @@ export class AgentManager {
           if (this.historySessions.has(current.session)) {
             // Recheck inside the lane: another prompt may already have upgraded it.
             // Reload validates the directory before releasing readable history.
-            await this.reloadAgentSessionInternal(agentId);
+            await this.reloadAgentSessionInternal(agentId, "history_session_upgrade");
           }
         }),
       );

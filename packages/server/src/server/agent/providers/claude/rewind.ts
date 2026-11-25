@@ -120,6 +120,49 @@ export async function findSteeredMessageParent(
   return null;
 }
 
+// The Claude CLI writes each API request body as its own record; none is conversation state.
+const API_REQUEST_RECORD_PREFIX = '{"type":"api-request';
+
+/**
+ * Where a conversation rewind to `userMessageId` must fork, read from the transcript when the
+ * session did not track that turn (it was never replayed into memory). `forkAt` is the last
+ * assistant entry before the target, null when the target opens the conversation, and `found` is
+ * false when the transcript holds no such user entry. Streams the file line by line.
+ */
+export async function findRewindForkPoint(
+  transcriptPath: string,
+  userMessageId: string,
+): Promise<{ found: boolean; forkAt: string | null }> {
+  const input = createReadStream(transcriptPath, { encoding: "utf8" });
+  const lines = createInterface({ input, crlfDelay: Infinity });
+  let lastAssistantId: string | null = null;
+  try {
+    for await (const line of lines) {
+      if (line.startsWith(API_REQUEST_RECORD_PREFIX)) continue;
+      const isTarget = line.includes(userMessageId);
+      if (!isTarget && !line.includes('"type":"assistant"')) continue;
+      let record: { type?: unknown; uuid?: unknown; isSidechain?: unknown };
+      try {
+        record = JSON.parse(line) as typeof record;
+      } catch {
+        // A truncated or foreign line cannot be a conversation entry; the SDK skips it too.
+        continue;
+      }
+      if (record.isSidechain === true) continue;
+      if (record.uuid === userMessageId && record.type === "user") {
+        return { found: true, forkAt: lastAssistantId };
+      }
+      if (record.type === "assistant" && typeof record.uuid === "string") {
+        lastAssistantId = record.uuid;
+      }
+    }
+  } finally {
+    lines.close();
+    input.destroy();
+  }
+  return { found: false, forkAt: null };
+}
+
 export async function revertClaudeConversation(input: {
   sdk: ClaudeRewindSdk;
   sessionId: string | null;

@@ -1289,7 +1289,7 @@ export class Session {
               logger: this.sessionLogger,
             }),
           reloadAgentSession: (agentId, overrides) =>
-            this.agentManager.reloadAgentSession(agentId, overrides),
+            this.agentManager.reloadAgentSession(agentId, "config_override", overrides),
           sendSpokenInput: async (agentId, text) => {
             await this.handleSendAgentMessage(
               agentId,
@@ -5018,7 +5018,7 @@ export class Session {
       const existing = this.agentManager.getAgent(agentId);
       if (existing) {
         await this.interruptAgentIfRunning(agentId);
-        snapshot = await this.agentManager.reloadAgentSession(agentId, undefined, {
+        snapshot = await this.agentManager.reloadAgentSession(agentId, "user_reload", undefined, {
           rehydrateFromDisk: true,
         });
       } else {

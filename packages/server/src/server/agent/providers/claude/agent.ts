@@ -95,6 +95,7 @@ import { renderPromptAttachmentAsText } from "../../prompt-attachments.js";
 import { discoverClaudeModels } from "./model-discovery.js";
 import { claudeQuery, type ClaudeOptions, type ClaudeQueryFactory } from "./query.js";
 import {
+  findRewindForkPoint,
   findSteeredMessageParent,
   realClaudeRewindSdk,
   revertClaudeConversation,
@@ -432,6 +433,7 @@ const CLAUDE_CAPABILITIES: AgentCapabilityFlags = {
   supportsRewindConversation: true,
   supportsRewindFiles: true,
   supportsRewindBoth: true,
+  continuesOlderHistory: true,
 };
 
 /**
@@ -555,6 +557,8 @@ interface ClaudeAgentSessionOptions {
   rewindSdk?: ClaudeRewindSdk;
   /** Replay only the newest turns of a large transcript; see hasOlderHistory. */
   windowedHistory?: boolean;
+  /** The session this one replaces; see AgentResumeSessionOptions.continueFrom. */
+  continueFrom?: ClaudeAgentSession;
 }
 
 type ClaudeThinkingEffort = "low" | "medium" | "high" | "xhigh" | "max";
@@ -1742,6 +1746,10 @@ export class ClaudeAgentClient implements AgentClient {
       cwd: merged.cwd,
     };
     const claudeConfig = this.assertConfig(mergedConfig);
+    const previous = resumeOptions?.continueFrom;
+    if (previous !== undefined && !(previous instanceof ClaudeAgentSession)) {
+      throw new Error("A Claude session can only continue another Claude session");
+    }
     const session = new ClaudeAgentSession(claudeConfig, {
       defaults: this.defaults,
       runtimeSettings: this.runtimeSettings,
@@ -1753,6 +1761,7 @@ export class ClaudeAgentClient implements AgentClient {
       resolveBinary: this.resolveBinary,
       rewindSdk: this.rewindSdk,
       windowedHistory: resumeOptions?.windowedHistory === true,
+      continueFrom: previous,
     });
     await session.ensureHistoryReady();
     return session;
@@ -2474,6 +2483,7 @@ class ClaudeAgentSession implements AgentSession {
   private historySessionId: string | null = null;
   private replayingHistory = false;
   private readonly windowedHistory: boolean;
+  private readonly continueFrom: ClaudeAgentSession | null;
   /** Where the next older block of a windowed replay ends; null once nothing older is unread. */
   private olderHistory: { path: string; endOffset: number } | null = null;
   /** Children and workflows of a windowed replay, read only when a shown turn owns them. */
@@ -2528,6 +2538,7 @@ class ClaudeAgentSession implements AgentSession {
     this.harnessEnvironment = this.buildSdkEnv();
     this.persistSession = options.persistSession;
     this.windowedHistory = options.windowedHistory === true;
+    this.continueFrom = options.continueFrom ?? null;
     this.logger = options.logger.child({ agentId: this.agentId });
     this.queryFactory = options.queryFactory;
     this.resolveBinary = options.resolveBinary;
@@ -3649,6 +3660,13 @@ class ClaudeAgentSession implements AgentSession {
         : null;
       if (steerParent) {
         return { kind: "fork", messageId: steerParent };
+      }
+      // A turn older than the replayed window was never tracked; the transcript still holds it.
+      const lazy = transcriptPath
+        ? await findRewindForkPoint(transcriptPath, targetUserMessageId)
+        : null;
+      if (lazy?.found) {
+        return lazy.forkAt ? { kind: "fork", messageId: lazy.forkAt } : { kind: "fresh-session" };
       }
       throw new Error(`Claude rewind target ${messageId} is not in the tracked conversation`);
     }
@@ -5767,6 +5785,10 @@ class ClaudeAgentSession implements AgentSession {
         return;
       }
       const replayStartedAt = performance.now();
+      if (this.continueFrom) {
+        await this.loadContinuedSessionState(historyPath, this.continueFrom, replayStartedAt);
+        return;
+      }
       if (this.windowedHistory && (await this.loadHistoryWindow(historyPath))) {
         this.logger.info(
           {
@@ -5807,6 +5829,8 @@ class ClaudeAgentSession implements AgentSession {
         "Failed to load Claude history from transcript",
       );
       this.discardPartialHistory();
+      // The manager already holds this session's rows; the unread older history must stay reachable.
+      if (this.continueFrom) this.olderHistory = this.continueFrom.olderHistory;
       this.historyLoadFailure = new ClaudeHistoryLoadError(sessionId, historyPath, {
         cause: error,
       });
@@ -5828,6 +5852,51 @@ class ClaudeAgentSession implements AgentSession {
     this.olderHistory = null;
     this.sidechainSources = null;
     this.loadedSidechainIds.clear();
+  }
+
+  /**
+   * A reload of a session whose rows the manager already holds. The newest turns are read for the
+   * state a live turn needs (rewind anchors, task list, tool calls awaiting results) and then
+   * dropped; the older history the previous session had not read stays unread under its cursor.
+   * Never replays the whole transcript: when no turn boundary is found, rewind targets are
+   * resolved from the transcript on demand (see resolveConversationRewindTarget).
+   */
+  private async loadContinuedSessionState(
+    historyPath: string,
+    previous: ClaudeAgentSession,
+    startedAt: number,
+  ): Promise<void> {
+    this.olderHistory = previous.olderHistory;
+    for (const id of previous.loadedSidechainIds) this.loadedSidechainIds.add(id);
+    this.sidechainSources = await openClaudeSidechainSources(historyPath);
+    const window = await readClaudeTranscriptWindow(historyPath, {
+      prompts: CLAUDE_HISTORY_TAIL_PROMPTS,
+      partial: true,
+    });
+    if (window) {
+      try {
+        await this.convertHistoryWindow(window.entries, { newest: true });
+      } catch (error) {
+        this.logger.warn(
+          { err: error, sessionId: this.historySessionId },
+          "Could not read live state from the transcript tail; rewind targets resolve on demand",
+        );
+      }
+    }
+    this.persistedHistory = [];
+    this.persistedProviderSubagentEvents = [];
+    this.historyPending = false;
+    this.logger.info(
+      {
+        sessionId: this.historySessionId,
+        windowed: true,
+        continued: true,
+        ms: Math.round(performance.now() - startedAt),
+        foundWindow: window !== null,
+        hasOlder: this.olderHistory !== null,
+      },
+      "claude.history_replay",
+    );
   }
 
   /**
