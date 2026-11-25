@@ -73,6 +73,9 @@ export const PermissionResolutionNote = memo(function PermissionResolutionNote({
   );
 });
 
+/** The height of a one-line note on the activity rail; other rail notes share it. */
+export const RAIL_NOTE_HEIGHT = bySizing({ touch: 36, pointer: 28 });
+
 // Sits on the activity rows' rail: same glyph column, text start, size and color.
 const styles = StyleSheet.create((theme) => ({
   row: {
@@ -82,7 +85,7 @@ const styles = StyleSheet.create((theme) => ({
     maxWidth: "100%",
     marginLeft: -theme.spacing[2],
     paddingHorizontal: theme.spacing[2],
-    height: bySizing({ touch: 36, pointer: 28 }),
+    height: RAIL_NOTE_HEIGHT,
     borderRadius: theme.borderRadius.lg,
   },
   rowHovered: {
