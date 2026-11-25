@@ -1,6 +1,9 @@
 import type { Logger } from "pino";
 import type { AgentTimelineRow } from "../agent-timeline-store-types.js";
-import type { SqliteTimelineStore } from "../sqlite-timeline-store.js";
+import {
+  TIMELINE_TURN_EXTENSION_MAX_ROWS,
+  type SqliteTimelineStore,
+} from "../sqlite-timeline-store.js";
 import { buildTimelineDocuments } from "./documents.js";
 
 const PAGE_ROWS = 2000;
@@ -111,13 +114,15 @@ export class TimelineIndexer {
       .get(key, lo, PAGE_ROWS - 1);
     let start = -Infinity;
     if (cut) {
+      // A turn longer than the extension limit is indexed in pieces; see the constant.
+      const floor = Math.max(1, Number(cut.seq) - TIMELINE_TURN_EXTENSION_MAX_ROWS);
       const turn = db
         .prepare(
           `SELECT MAX(seq) AS seq FROM timeline_rows
-            WHERE agent_key = ? AND type = 'user_message' AND seq <= ?`,
+            WHERE agent_key = ? AND type = 'user_message' AND seq <= ? AND seq >= ?`,
         )
-        .get(key, Number(cut.seq));
-      start = typeof turn?.seq === "number" ? turn.seq : Number(cut.seq);
+        .get(key, Number(cut.seq), floor);
+      start = typeof turn?.seq === "number" ? turn.seq : floor;
     }
     const rows = parseRows(
       db

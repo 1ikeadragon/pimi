@@ -19,6 +19,14 @@ const FLUSH_URGENT_BYTES = 1_000_000;
 const FLUSH_CHUNK_ROWS = 500;
 /** Rows read for the newest page of a chat; the page is extended back to a turn start. */
 export const TIMELINE_OPEN_ROWS = 2000;
+/**
+ * Rows a page may be extended back to reach a turn start. A turn can hold tens of thousands of
+ * rows (one 71k-row chat had a 40k-row turn, 300 ms and 100 MB to read at once), so past this a
+ * page starts inside the turn and the rest stays reachable as older rows. It equals the page
+ * size, so a page is at most twice TIMELINE_OPEN_ROWS: about 5 MB at the 1.2 KB average row.
+ * A page that starts mid-turn is already normal: byte-budget trimming produces them.
+ */
+export const TIMELINE_TURN_EXTENSION_MAX_ROWS = TIMELINE_OPEN_ROWS;
 
 export interface StoredTimelineAgent {
   key: number;
@@ -721,12 +729,34 @@ export class SqliteTimelineStore {
     );
   }
 
+  /**
+   * Submitted prompts, oldest first. With `limit`, the newest `limit` of those below `beforeSeq`.
+   * Reads the rows of one type, so the outline never loads the rest of the chat.
+   */
+  readPrompts(
+    agentId: string,
+    options: { beforeSeq?: number; limit?: number } = {},
+  ): AgentTimelineRow[] {
+    const key = this.bound.get(agentId)?.key ?? this.getAgent(agentId)?.key;
+    if (key === undefined) return [];
+    this.flush();
+    return this.stmt(
+      `SELECT ${ROW_COLUMNS} FROM timeline_rows
+        WHERE agent_key = ? AND type = 'user_message' AND seq < ? ORDER BY seq DESC LIMIT ?`,
+    )
+      .all(key, options.beforeSeq ?? Number.MAX_SAFE_INTEGER, options.limit ?? -1)
+      .map(parseRow)
+      .toReversed();
+  }
+
+  /** The start of the turn holding `seq`, no further back than TIMELINE_TURN_EXTENSION_MAX_ROWS. */
   private turnStartAtOrBefore(key: number, seq: number, below: number): number {
+    const floor = Math.max(1, seq - TIMELINE_TURN_EXTENSION_MAX_ROWS);
     const row = this.stmt(
       `SELECT MAX(seq) AS seq FROM timeline_rows
-        WHERE agent_key = ? AND type = 'user_message' AND seq <= ? AND seq < ?`,
-    ).get(key, seq, below);
-    return typeof row?.seq === "number" ? row.seq : seq;
+        WHERE agent_key = ? AND type = 'user_message' AND seq <= ? AND seq < ? AND seq >= ?`,
+    ).get(key, seq, below, floor);
+    return typeof row?.seq === "number" ? row.seq : floor;
   }
 
   private readFrom(key: number, fromSeq: number, belowSeq: number): TimelineRowBlock {

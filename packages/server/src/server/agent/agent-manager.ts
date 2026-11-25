@@ -144,6 +144,14 @@ import { canMessageProviderSubagent } from "@pimi/protocol/provider-subagent-mes
 import { storeProviderImage, type AgentImageStore } from "./agent-images.js";
 import { SlashCommandsCache } from "./slash-commands-cache.js";
 import { SqliteTimelineStore, timelineSessionKey } from "./sqlite-timeline-store.js";
+import { prependInPlace } from "../../utils/array-in-place.js";
+import {
+  buildTimelinePromptIndex,
+  buildTimelinePromptPage,
+  PROMPT_PAGE_MAX_LIMIT,
+  type TimelinePromptIndex,
+  type TimelinePromptPage,
+} from "./timeline-prompt-index.js";
 import type { ChatIndexBackfill } from "./timeline-search/backfill.js";
 import type { ChatSearchService } from "./timeline-search/search-service.js";
 
@@ -1898,6 +1906,39 @@ export class AgentManager {
       this.logger.warn({ err: error, agentId }, "Failed to read stored timeline page");
       return null;
     }
+  }
+
+  /**
+   * The prompt outline from the stored copy, without loading the chat's rows or its provider
+   * session. Null unless the stored copy holds the whole chat and belongs to the loaded timeline
+   * (or, for a chat that is not loaded, would open as it is).
+   */
+  peekStoredPrompts(
+    agentId: string,
+    handle: AgentPersistenceHandle | null,
+    page: { beforeSeq?: number; limit: number } | undefined,
+  ): TimelinePromptIndex | TimelinePromptPage | null {
+    const archive = this.timelineArchive;
+    if (!archive) return null;
+    let epoch: string;
+    if (this.timelineStore.has(agentId)) {
+      epoch = this.timelineStore.getEpoch(agentId);
+      if (!archive.getAgent(agentId)?.complete || archive.getBoundEpoch(agentId) !== epoch) {
+        return null;
+      }
+    } else {
+      const opened = archive.peekOpen(agentId, { sessionKey: timelineSessionKey(handle) });
+      if ("refusal" in opened) return null;
+      epoch = opened.agent.epoch;
+    }
+    if (!page) return buildTimelinePromptIndex(epoch, archive.readPrompts(agentId));
+    // One more than the page, so the builder can tell whether older prompts exist.
+    const limit = Math.min(page.limit, PROMPT_PAGE_MAX_LIMIT) + 1;
+    return buildTimelinePromptPage(
+      epoch,
+      archive.readPrompts(agentId, { beforeSeq: page.beforeSeq, limit }),
+      page,
+    );
   }
 
   fetchTimeline(id: string, options?: AgentTimelineFetchOptions): AgentTimelineFetchResult {
@@ -6120,8 +6161,8 @@ export class AgentManager {
       return true;
     }
     const older = await this.readAllOlderHistory(agent);
-    historyEvents.unshift(...older.timeline);
-    historySubagentEvents.unshift(...older.subagents);
+    prependInPlace(historyEvents, older.timeline);
+    prependInPlace(historySubagentEvents, older.subagents);
     return false;
   }
 
@@ -6204,6 +6245,9 @@ export class AgentManager {
         );
         if (stored.rows.length > 0) {
           this.timelineStore.prependRows(agentId, stored.rows);
+          // Loading every stored block is a loop of synchronous reads; let the daemon serve
+          // other work between them.
+          await new Promise<void>((next) => setImmediate(next));
           continue;
         }
       }
@@ -6430,8 +6474,8 @@ export class AgentManager {
     // A forced rebuild replaces the whole timeline, so a windowed replay is read to its start.
     if (agent.session.hasOlderHistory?.()) {
       const older = await this.readAllOlderHistory(agent);
-      historyEvents.unshift(...older.timeline);
-      providerSubagentEvents.unshift(...older.subagents);
+      prependInPlace(historyEvents, older.timeline);
+      prependInPlace(providerSubagentEvents, older.subagents);
     }
     await this.completeHistoryEvents(agent.id, historyEvents, { fresh: true });
     const prior = this.priorRowTimestamps(agent, historyEvents);
