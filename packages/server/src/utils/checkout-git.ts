@@ -2945,19 +2945,18 @@ async function getCheckoutShortstatUncached(
     facts,
     context,
   });
-  if (!comparisonRef) {
-    return null;
-  }
 
   try {
-    const { stdout: mergeBaseOut } = await getRunGitCommand(context)(
-      ["merge-base", "HEAD", comparisonRef],
-      {
-        cwd,
-        envOverlay: READ_ONLY_GIT_ENV,
-      },
-    );
-    const mergeBase = mergeBaseOut.trim();
+    // Without a base to compare against (a default branch with no remote), the stat is the
+    // working tree against HEAD.
+    const mergeBase = comparisonRef
+      ? (
+          await getRunGitCommand(context)(["merge-base", "HEAD", comparisonRef], {
+            cwd,
+            envOverlay: READ_ONLY_GIT_ENV,
+          })
+        ).stdout.trim()
+      : "HEAD";
     if (!mergeBase) {
       return null;
     }
