@@ -2,6 +2,20 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.74 - 2026-11-25
+
+- Android push notifications show the agent's last message, or the question it is waiting on, instead of fixed text. Previews are end-to-end encrypted: the relay and Google see only ciphertext and no longer see the chat name. Turn them off, or hide them while the phone is locked, in Settings > General. Update the phone together with, or before, the Mac: an older phone can't register for push with this daemon. A pairing reset also stops pushes to the phones it revoked.
+- Vault: a client could unlock an already unlocked vault with any passphrase and become operator; the passphrase is now always checked. URL-encoded secrets that keep `/` are redacted. Approval cards quote arguments and name the chat, forms explain what's wrong and keep what you typed, and the approval toast stays quiet on the Vault page.
+- Review offers appear for repositories with no remote, without a meaningless "main → main" or "vs base". Range notes show their gutter bar, and notes whose lines were deleted are listed as outdated instead of drawn on other lines. The "Send to chat" button fits long titles.
+- Source Control shows a clean error for a missing folder, and the daemon rejects relative folder paths.
+- Rewinding a Claude chat keeps the real time of the last kept turn, and its usage stays with the chat.
+- OpenCode: a stalled helper shows a notice in the chat, a killed helper names the signal, and retry messages read cleanly.
+- The action items note no longer covers messages and their controls; narrow panes show it as a pill.
+- Mobile: diagrams stay readable and scroll sideways, the chat header is solid, Open Usage closes the drawer, and the activity heatmap fits.
+- The phone no longer forgets every paired host when one saved host can't be read.
+- Usage chart axis labels are no longer clipped.
+- IDE Mode: one workbench mode for the whole window, closing a tab no longer adds a stray launcher, closing a deep-linked file returns to the previous tab, and launcher chats open in the side pane without stealing focus.
+
 ## 0.17.73 - 2026-11-25
 
 - Vault: keep secrets in a passphrase-sealed store on the Mac, optionally bound to Bitwarden items. Agents see secret names only and run commands with them through `vault_run`; each new command needs your approval (exact command, folder and secrets shown), and output is redacted. A Vault settings page manages secrets, approved commands and the audit log, and a toast tells you when an agent is waiting for approval.
