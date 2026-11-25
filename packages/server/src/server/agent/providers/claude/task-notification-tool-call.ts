@@ -319,7 +319,11 @@ function buildTaskNotificationStatus(
       error: { message: input.summary ?? "Background task failed" },
     };
   }
-  if (normalizedStatus === "canceled" || normalizedStatus === "cancelled") {
+  if (
+    normalizedStatus === "canceled" ||
+    normalizedStatus === "cancelled" ||
+    normalizedStatus === "stopped"
+  ) {
     return { status: "canceled", error: null };
   }
   return { status: "completed", error: null };

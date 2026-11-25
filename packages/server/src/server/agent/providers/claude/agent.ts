@@ -26,6 +26,7 @@ import {
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { Logger } from "pino";
+import { withToolCallStartedAt } from "@pimi/protocol/tool-call-timing";
 import { AgentContextBreakdownSchema } from "@pimi/protocol/messages";
 import {
   mapClaudeCanceledToolCall,
@@ -39,6 +40,8 @@ import {
   readTaskNotificationToolUseIdFromHistoryRecord,
   readTaskNotificationFromHistoryRecord,
 } from "./task-notification-tool-call.js";
+import { BackgroundWorkOutputUnavailableError, readTaskOutputPage } from "./background-output.js";
+import type { BackgroundWorkOutputPage } from "../../background-work/output.js";
 import { isClaudeInterruptPlaceholderText } from "./interrupt-placeholder.js";
 import {
   getClaudeContextWindowMaxTokens,
@@ -2844,6 +2847,15 @@ class ClaudeAgentSession implements AgentSession {
     }
   }
 
+  async readBackgroundWorkOutput(
+    id: string,
+    cursor: number | null,
+  ): Promise<BackgroundWorkOutputPage> {
+    const launch = this.runtimeSafety.shellLaunch(id);
+    if (!launch) throw new BackgroundWorkOutputUnavailableError();
+    return readTaskOutputPage(launch.outputFile, cursor);
+  }
+
   async interrupt(): Promise<void> {
     if (this.cancelCurrentTurn) {
       this.cancelCurrentTurn();
@@ -4908,7 +4920,7 @@ class ClaudeAgentSession implements AgentSession {
 
     switch (message.type) {
       case "system":
-        this.appendSystemMessageEvents(message, events);
+        await this.appendSystemMessageEvents(message, events);
         break;
       case "user":
         await this.appendUserMessageEvents(message, events);
@@ -5054,10 +5066,10 @@ class ClaudeAgentSession implements AgentSession {
     }
   }
 
-  private appendSystemMessageEvents(
+  private async appendSystemMessageEvents(
     message: Extract<SDKMessage, { type: "system" }>,
     events: AgentStreamEvent[],
-  ): void {
+  ): Promise<void> {
     if (message.subtype === "init") {
       const sessionUpdate = this.handleSystemMessage(message);
       if (sessionUpdate.notice) {
@@ -5124,7 +5136,7 @@ class ClaudeAgentSession implements AgentSession {
       return;
     }
     if (message.subtype === "task_notification") {
-      this.appendTaskNotificationEvents(message, events);
+      await this.appendTaskNotificationEvents(message, events);
       return;
     }
     if (message.subtype === "background_tasks_changed") {
@@ -5139,10 +5151,10 @@ class ClaudeAgentSession implements AgentSession {
     }
   }
 
-  private appendTaskNotificationEvents(
+  private async appendTaskNotificationEvents(
     message: Extract<SDKMessage, { type: "system"; subtype: "task_notification" }>,
     events: AgentStreamEvent[],
-  ): void {
+  ): Promise<void> {
     const taskUseId = message.tool_use_id;
     const cachedTool = taskUseId ? this.toolUseCache.get(taskUseId) : undefined;
     // The task protocol owns provider-subagent identity. Workflow launch results arrive before
@@ -5154,7 +5166,10 @@ class ClaudeAgentSession implements AgentSession {
     ) {
       return;
     }
-    const taskNotificationItem = mapTaskNotificationSystemRecordToToolCall(message);
+    const taskNotificationItem = await this.withFinishedShellOutput(
+      mapTaskNotificationSystemRecordToToolCall(message),
+      message.task_id,
+    );
     const ownerSubagentId = this.taskProtocolSource.resolveTaskOwner(message.task_id, taskUseId);
     if (taskNotificationItem && ownerSubagentId) {
       events.push({
@@ -5171,6 +5186,35 @@ class ClaudeAgentSession implements AgentSession {
         provider: "claude",
       });
     }
+  }
+
+  /**
+   * A finished background shell becomes a shell row: its newest output and the notification's own
+   * summary as the label, which carries the exit code only the prose reports. A shell whose
+   * output cannot be read keeps the plain notification row.
+   */
+  private async withFinishedShellOutput(
+    item: Extract<AgentTimelineItem, { type: "tool_call" }> | null,
+    taskId: string,
+  ): Promise<Extract<AgentTimelineItem, { type: "tool_call" }> | null> {
+    const launch = this.runtimeSafety.shellLaunch(taskId);
+    if (!item || !launch) return item;
+    const notice = item.detail;
+    if (notice.type !== "plain_text") return item;
+    const page = await readTaskOutputPage(launch.outputFile, null).catch((error: unknown) => {
+      this.logger.warn({ err: error, taskId }, "claude.background_shell_output_unreadable");
+      return null;
+    });
+    if (!page) return item;
+    return {
+      ...item,
+      detail: {
+        type: "shell",
+        command: notice.label ?? "Background task finished",
+        ...(page.output ? { output: page.output } : {}),
+      },
+      metadata: withToolCallStartedAt(item.metadata, launch.startedAt),
+    };
   }
 
   private async appendUserMessageEvents(
@@ -6487,7 +6531,7 @@ class ClaudeAgentSession implements AgentSession {
           input: entry?.input ?? null,
           output: output ?? null,
         });
-    this.pushToolCall(settledToolCall, items);
+    this.pushToolCall(this.withBackgroundShellLink(settledToolCall), items);
     this.rememberSettledSubagentToolCall(settledToolCall, entry);
 
     if (images.length > 0) {
@@ -6497,6 +6541,16 @@ class ClaudeAgentSession implements AgentSession {
     if (typeof block.tool_use_id === "string") {
       toolUseCache.delete(block.tool_use_id);
     }
+  }
+
+  /** A Bash call that left a shell running carries the shell's id, so its row can read the output. */
+  private withBackgroundShellLink(
+    item: Extract<AgentTimelineItem, { type: "tool_call" }> | null,
+  ): Extract<AgentTimelineItem, { type: "tool_call" }> | null {
+    if (item?.detail.type !== "shell") return item;
+    const taskId = this.runtimeSafety.shellTaskOf(item.callId);
+    if (!taskId) return item;
+    return { ...item, detail: { ...item.detail, backgroundId: taskId } };
   }
 
   private rememberSettledSubagentToolCall(

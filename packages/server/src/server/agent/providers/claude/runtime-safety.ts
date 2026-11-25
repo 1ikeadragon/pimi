@@ -2,6 +2,7 @@ import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentBackgroundWorkInput } from "../../background-work/index.js";
 import { parseClaudeCodeVersion } from "./model-manifest.js";
 import { toBackgroundWorkInputs, type ClaudeBackgroundTask } from "./background-work.js";
+import { readBackgroundShellLaunch } from "./background-output.js";
 
 /** Process-local background ownership. Completion delivery can follow an empty roster. */
 export class ClaudeRuntimeSafety {
@@ -14,6 +15,11 @@ export class ClaudeRuntimeSafety {
   private readonly monitorTools = new Set<string>();
   private readonly toolInputs = new Map<string, { description?: string; command?: string }>();
   private readonly taskTools = new Map<string, string>();
+  // Background shells launched by a Bash call: where each writes its output, and when it began.
+  private readonly shellLaunches = new Map<
+    string,
+    { toolUseId: string; outputFile: string; startedAt: string }
+  >();
   // Scheduled wakeups (ScheduleWakeup, CronCreate, /loop) live only in this process.
   private scheduledWakeups = 0;
 
@@ -32,6 +38,7 @@ export class ClaudeRuntimeSafety {
     this.monitorTools.clear();
     this.toolInputs.clear();
     this.taskTools.clear();
+    this.shellLaunches.clear();
   }
 
   retire(): void {
@@ -52,7 +59,21 @@ export class ClaudeRuntimeSafety {
     return items;
   }
 
+  /** A background shell this process launched with a Bash call. */
+  shellLaunch(taskId: string): { outputFile: string; startedAt: string } | undefined {
+    return this.shellLaunches.get(taskId);
+  }
+
+  /** The background shell a Bash call started, once its launch result named an output file. */
+  shellTaskOf(toolUseId: string): string | undefined {
+    for (const [taskId, launch] of this.shellLaunches) {
+      if (launch.toolUseId === toolUseId) return taskId;
+    }
+    return undefined;
+  }
+
   private observeTools(message: SDKMessage): boolean {
+    if (message.type === "user") return this.observeLaunch(message);
     if (message.type === "assistant") {
       let relevant = false;
       for (const block of message.message.content) {
@@ -69,6 +90,17 @@ export class ClaudeRuntimeSafety {
         return this.observeMonitor(block.id);
     }
     return false;
+  }
+
+  private observeLaunch(message: SDKMessage): boolean {
+    const launch = readBackgroundShellLaunch(message);
+    if (!launch || this.shellLaunches.has(launch.taskId)) return false;
+    this.shellLaunches.set(launch.taskId, {
+      toolUseId: launch.toolUseId,
+      outputFile: launch.outputFile,
+      startedAt: new Date().toISOString(),
+    });
+    return this.liveTasks.some((task) => task.task_id === launch.taskId);
   }
 
   private observeInput(id: string, value: unknown): boolean {
@@ -148,6 +180,7 @@ export class ClaudeRuntimeSafety {
     return toBackgroundWorkInputs(this.liveTasks).map((item) => {
       const tool = this.taskTools.get(item.id) ?? "";
       if (this.monitorTools.has(tool)) item.kind = "monitor";
+      if (item.kind === "shell" && this.shellLaunches.has(item.id)) item.hasOutput = true;
       const input = this.toolInputs.get(tool);
       if (input?.description) item.description = input.description;
       if (input?.command) item.command = input.command;
@@ -168,7 +201,8 @@ function sameInventory(
         item.kind === right[index].kind &&
         item.description === right[index].description &&
         item.command === right[index].command &&
-        item.canStop === right[index].canStop,
+        item.canStop === right[index].canStop &&
+        item.hasOutput === right[index].hasOutput,
     )
   );
 }
