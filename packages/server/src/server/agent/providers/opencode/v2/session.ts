@@ -683,6 +683,7 @@ export class OpenCodeV2Session implements AgentSession {
     const signal = AbortSignal.any([this.abort.signal, this.streamAbort.signal]);
     let connected = false;
     let reconnectAttempt = 0;
+    let stallNoticed = false;
     while (!this.closed && !signal.aborted) {
       // Only a connection that reconciled and then lost its transport counts as progress. One that
       // fails while handling an event would otherwise reset the backoff and retry every 100ms.
@@ -694,6 +695,7 @@ export class OpenCodeV2Session implements AgentSession {
           if (await this.handleStreamEvent(event, signal, progress)) {
             connected = true;
             established = true;
+            stallNoticed = false;
             ready();
           }
         }
@@ -711,16 +713,19 @@ export class OpenCodeV2Session implements AgentSession {
         );
         // The watchdog closes a silent stream (a stopped or hung helper) without any event, so
         // without a notice the turn reads as working while nothing is coming back.
-        const stalled = stalledStream(error);
-        if (stalled && this.turns.id)
+        // One row per stall episode; a stream that reconnects only to stall again stays quiet. The
+        // idle time is not shown: after a laptop sleep it spans the whole sleep, not the outage.
+        if (stalledStream(error) && this.turns.id && !stallNoticed) {
+          stallNoticed = true;
           this.emitTimeline({
             type: "timeline",
             provider: "opencode",
             item: {
               type: "error",
-              message: `OpenCode stopped responding for ${Math.round(stalled.idleMs / 1000)}s. Reconnecting.`,
+              message: "OpenCode stopped responding. Reconnecting.",
             },
           });
+        }
       }
       this.background.disconnect();
       reconnectAttempt = established && !progress.handlingFailed ? 0 : reconnectAttempt + 1;
