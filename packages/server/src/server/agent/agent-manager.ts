@@ -109,6 +109,7 @@ import type {
   PimiToolRuntimeContext,
 } from "./tools/types.js";
 import { memoryRecallInstructions } from "./tools/project-memory-tools.js";
+import { redactStrings, type OutputRedactor } from "../vault/redact-deep.js";
 import { isPimiToolEnabled, isPimiToolPolicyEnabled } from "./pimi-tool-policy.js";
 import {
   ProviderSubagentStore,
@@ -726,6 +727,12 @@ export interface AgentManagerOptions {
   /** Live supply-chain policy applied to stdio MCP servers launched for agents. */
   getPackagePolicy?: () => PackagePolicy;
   appendSystemPrompt?: string;
+  vault?: {
+    /** Removes secret values from timeline rows and stream events before they are stored or sent. */
+    redactor: OutputRedactor;
+    /** Prompt lines about the vault tools; empty while the user has no vault. */
+    instructions: () => string[];
+  };
   agentStreamCoalesceWindowMs?: number;
   rescueTimeouts?: AgentManagerRescueTimeouts;
   beforeSteerUnavailableFallback?: (input: {
@@ -1251,6 +1258,7 @@ export class AgentManager {
     provider: AgentProvider,
   ) => ProviderPimiToolsPolicy | undefined;
   private appendSystemPrompt: string;
+  private readonly vault: AgentManagerOptions["vault"];
   private onAgentAttention?: AgentAttentionCallback;
   private onAgentArchived?: AgentArchivedCallback;
   private onWorkspaceStateMayHaveChanged?: (params: { cwd: string }) => void;
@@ -1285,6 +1293,7 @@ export class AgentManager {
     this.configurePimiTools(options);
     this.resolvePimiToolPolicy = options.resolvePimiToolPolicy ?? (() => undefined);
     this.appendSystemPrompt = options.appendSystemPrompt ?? "";
+    this.vault = options.vault;
     this.logger = options.logger.child({ module: "agent", component: "agent-manager" });
     this.rescueTimeouts = {
       reloadSessionCloseMs:
@@ -7325,7 +7334,7 @@ export class AgentManager {
       turnId?: string;
     },
   ): AgentTimelineRow {
-    const row = this.timelineStore.append(agentId, item, options);
+    const row = this.timelineStore.append(agentId, this.redactOutput(item), options);
     this.timelineArchive?.put(agentId, row);
     return row;
   }
@@ -7489,15 +7498,24 @@ export class AgentManager {
     });
   }
 
+  private redactOutput<T>(value: T): T {
+    return this.vault ? redactStrings(value, this.vault.redactor) : value;
+  }
+
+  private vaultPrompt(enabled: boolean): string[] {
+    return enabled && this.vault ? this.vault.instructions() : [];
+  }
+
   private dispatchStream(
     agentId: string,
-    event: AgentStreamEvent,
+    rawEvent: AgentStreamEvent,
     metadata?: {
       seq?: number;
       epoch?: string;
       timestamp?: string;
     },
   ): void {
+    const event = this.redactOutput(rawEvent);
     const agent = this.agents.get(agentId);
     this.logger.trace(
       {
@@ -7703,6 +7721,7 @@ export class AgentManager {
     const canRecallMemory =
       this.mcpCallerAuthToken && !storedConfig.internal && options.purpose !== "history";
     const memoryPrompt = canRecallMemory ? memoryRecallInstructions(pimiToolPolicy) : [];
+    const vaultPrompt = this.vaultPrompt(Boolean(canRecallMemory));
     const launchConfig = this.applyDaemonAppendSystemPrompt(
       withRuntimePimiMcpServer({
         config: storedConfig,
@@ -7711,7 +7730,7 @@ export class AgentManager {
           this.pimiToolsEnabled && isPimiToolPolicyEnabled(pimiToolPolicy) ? this.mcpBaseUrl : null,
         mcpAuthToken: this.mcpCallerAuthToken?.(agentId) ?? this.mcpAuthToken,
       }),
-      [...pimiInstructions, ...memoryPrompt].join("\n\n"),
+      [...pimiInstructions, ...memoryPrompt, ...vaultPrompt].join("\n\n"),
     );
     return {
       storedConfig,

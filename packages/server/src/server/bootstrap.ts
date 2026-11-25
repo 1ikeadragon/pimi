@@ -181,6 +181,7 @@ import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
 import { readEnvScrubNames, removeEnvNames } from "./vault/env-scrub.js";
 import { VaultService } from "./vault/service.js";
+import { VAULT_INSTRUCTIONS } from "./agent/tools/vault-tools.js";
 import { resolveProjectReference } from "./resolve-project-reference.js";
 import { createPimiMemoryHandler } from "./pimi-memory-route.js";
 import { PimiSpaces } from "./pimi-spaces.js";
@@ -1253,6 +1254,10 @@ export async function createPimiDaemon(
   const vaultService = new VaultService({ pimiHome: config.pimiHome, env: process.env, logger });
   await vaultService.load();
   const agentManager: AgentManager = new AgentManager({
+    vault: {
+      redactor: vaultService,
+      instructions: () => (vaultService.state === "uninitialized" ? [] : [VAULT_INSTRUCTIONS]),
+    },
     handoff: createHandoffServices({
       transcripts: transcriptStore,
       archive: timelineArchive,
@@ -1942,6 +1947,7 @@ export async function createPimiDaemon(
     automationService,
     flowService,
     heartbeatService,
+    vaultService,
     attackService,
     providerSnapshotManager,
     daemonConfigStore,

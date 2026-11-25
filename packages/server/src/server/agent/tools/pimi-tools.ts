@@ -1,6 +1,8 @@
 import { ATTACK_RUN_LABEL } from "@pimi/protocol/agent-labels";
 import { registerPluginTools } from "./plugin-tools.js";
 import { registerProjectMemoryTools } from "./project-memory-tools.js";
+import { redactCapturedLines, registerVaultTools } from "./vault-tools.js";
+import type { VaultService } from "../../vault/service.js";
 import { registerPimiTaskTools } from "./pimi-task-tools.js";
 import type { TaskService } from "../../task/service.js";
 import type { LabelService } from "../../labels/service.js";
@@ -180,6 +182,7 @@ export interface PimiToolHostDependencies {
   automationService?: AutomationService | null;
   flowService?: FlowService | null;
   heartbeatService?: HeartbeatService | null;
+  vaultService?: VaultService;
   attackService?: AttackService | null;
   providerSnapshotManager: ProviderSnapshotManager;
   daemonConfigStore?: Pick<DaemonConfigStore, "get">;
@@ -1475,6 +1478,8 @@ function createToolCatalog(
       },
     });
   }
+
+  registerVaultTools(options, scope, registerTool, resolveCallerAgent);
 
   if (options.browserToolsEnabled && options.browserToolsBroker) {
     registerBrowserTools({
@@ -2881,7 +2886,7 @@ function createToolCatalog(
         content: [],
         structuredContent: ensureValidJson({
           terminalId,
-          lines: capture.lines,
+          lines: redactCapturedLines(options.vaultService, capture.lines),
           totalLines: capture.totalLines,
         }),
       };
