@@ -119,6 +119,11 @@ export default {
         : []),
       "expo-audio",
       [
+        "expo-local-authentication",
+        { faceIDPermission: "Unlock the Pimi vault passphrase with Face ID." },
+      ],
+      ["expo-secure-store", { faceIDPermission: "Unlock the Pimi vault passphrase with Face ID." }],
+      [
         "expo-gradle-jvmargs",
         {
           xmx: "4096m",
