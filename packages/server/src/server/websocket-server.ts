@@ -36,6 +36,7 @@ import type { ProjectRegistry, WorkspaceRegistry } from "./workspace-registry.js
 import type { ProjectUpdate } from "./workspace-reconciliation-service.js";
 import type { AutomationService } from "./automation/service.js";
 import type { FlowService } from "./flow/service.js";
+import type { PromptService } from "./prompt/service.js";
 import type { HeartbeatService } from "./heartbeat/service.js";
 import type { AttackService } from "./attack/service.js";
 import type { AttackScheduler } from "./attack/schedules.js";
@@ -43,6 +44,7 @@ import type { AttackScheduler } from "./attack/schedules.js";
 export interface AutomationServices {
   automationService: AutomationService;
   flowService: FlowService;
+  promptService: PromptService;
   heartbeatService: HeartbeatService;
   attackService: AttackService;
   attackScheduler: AttackScheduler;
@@ -1652,6 +1654,7 @@ export class VoiceAssistantWebSocketServer {
       directorySync: this.directorySync,
       automationService: this.automationServices.automationService,
       flowService: this.automationServices.flowService,
+      promptService: this.automationServices.promptService,
       heartbeatService: this.automationServices.heartbeatService,
       attackService: this.automationServices.attackService,
       attackScheduler: this.automationServices.attackScheduler,

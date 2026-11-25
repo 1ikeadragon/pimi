@@ -281,7 +281,9 @@ import type { SpeechReadinessSnapshot } from "./speech/speech-runtime.js";
 import type pino from "pino";
 import type { AutomationService } from "./automation/service.js";
 import type { FlowService } from "./flow/service.js";
+import type { PromptService } from "./prompt/service.js";
 import { FlowSession } from "./session/flow/flow-session.js";
+import { PromptSession } from "./session/prompt/prompt-session.js";
 import type { HeartbeatService } from "./heartbeat/service.js";
 import {
   createGitHubService,
@@ -515,6 +517,7 @@ export interface SessionOptions {
   filesystem?: SessionFileSystem;
   automationService: AutomationService;
   flowService: FlowService;
+  promptService: PromptService;
   heartbeatService: HeartbeatService;
   attackService: AttackService;
   attackScheduler: AttackScheduler;
@@ -825,6 +828,7 @@ export class Session {
   private readonly changeRequestSession: ChangeRequestSession;
   private readonly automationSession: AutomationSession;
   private readonly flowSession: FlowSession;
+  private readonly promptSession: PromptSession;
   private readonly attackSession: AttackSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
   private readonly usageSession: UsageSession;
@@ -863,6 +867,7 @@ export class Session {
       filesystem,
       automationService,
       flowService,
+      promptService,
       heartbeatService,
       attackService,
       attackScheduler,
@@ -1035,6 +1040,11 @@ export class Session {
     this.flowSession = new FlowSession({
       host: { emit: (msg) => this.emit(msg) },
       flowService,
+      logger: this.sessionLogger,
+    });
+    this.promptSession = new PromptSession({
+      host: { emit: (msg) => this.emit(msg) },
+      promptService,
       logger: this.sessionLogger,
     });
     this.taskService = options.taskService ?? null;
@@ -2556,6 +2566,7 @@ export class Session {
       this.dispatchChatSearchMessage(msg) ??
       this.automationSession.dispatch(msg) ??
       this.flowSession.dispatch(msg) ??
+      this.promptSession.dispatch(msg) ??
       this.taskSession?.dispatch(msg) ??
       this.actionItemsSession?.dispatch(msg) ??
       this.attackSession.dispatch(msg) ??

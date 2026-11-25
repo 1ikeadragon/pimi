@@ -7,29 +7,32 @@ export type AvailableSlashCommand<
   BuiltIn extends SlashCommandDescriptor,
   Plugin extends SlashCommandDescriptor,
   Flow extends SlashCommandDescriptor,
+  Prompt extends SlashCommandDescriptor,
   Provider extends SlashCommandDescriptor,
 > =
   | { source: "built-in"; command: BuiltIn }
   | { source: "plugin"; command: Plugin }
   | { source: "flow"; command: Flow }
+  | { source: "prompt"; command: Prompt }
   | { source: "provider"; command: Provider };
 
-// Precedence on a name clash: built-in, plugin, flow, provider.
+// Precedence on a name clash: built-in, plugin, flow, prompt, provider.
 export function mergeSlashCommandSources<
   BuiltIn extends SlashCommandDescriptor,
   Plugin extends SlashCommandDescriptor,
   Flow extends SlashCommandDescriptor,
+  Prompt extends SlashCommandDescriptor,
   Provider extends SlashCommandDescriptor,
 >(input: {
   builtIn: readonly BuiltIn[];
   plugins: readonly Plugin[];
   flows: readonly Flow[];
+  prompts: readonly Prompt[];
   provider: readonly Provider[];
   onPluginCollision(command: Plugin, winner: "built-in" | "plugin"): void;
-}): Array<AvailableSlashCommand<BuiltIn, Plugin, Flow, Provider>> {
-  const commands: Array<AvailableSlashCommand<BuiltIn, Plugin, Flow, Provider>> = input.builtIn.map(
-    (command) => ({ source: "built-in", command }),
-  );
+}): Array<AvailableSlashCommand<BuiltIn, Plugin, Flow, Prompt, Provider>> {
+  const commands: Array<AvailableSlashCommand<BuiltIn, Plugin, Flow, Prompt, Provider>> =
+    input.builtIn.map((command) => ({ source: "built-in", command }));
   const claimed = new Map<string, "built-in" | "plugin">();
   for (const command of input.builtIn) {
     claimed.set(command.name, "built-in");
@@ -48,6 +51,11 @@ export function mergeSlashCommandSources<
     if (claimed.has(command.name)) continue;
     claimed.set(command.name, "plugin");
     commands.push({ source: "flow", command });
+  }
+  for (const command of input.prompts) {
+    if (claimed.has(command.name)) continue;
+    claimed.set(command.name, "plugin");
+    commands.push({ source: "prompt", command });
   }
   for (const command of input.provider) {
     if (!claimed.has(command.name)) commands.push({ source: "provider", command });

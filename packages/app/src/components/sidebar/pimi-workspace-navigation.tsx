@@ -16,6 +16,7 @@ import {
   Settings,
   StickyNote,
   SquarePen,
+  MessageSquareText,
   Workflow,
   X,
 } from "lucide-react-native";
@@ -67,11 +68,14 @@ const useWorkspaceActivity = create<Record<PimiActivitySection, boolean>>(() => 
   review: false,
 }));
 
-// The Flows row is the Library screen opened on its flows section.
-function useFlowsLibraryActive(workspaceSection: unknown): boolean {
+// The Flows and Prompts rows are the Library screen opened on their own section.
+function useLibrarySectionActive(
+  workspaceSection: unknown,
+  librarySection: "flows" | "prompts",
+): boolean {
   const pathname = usePathname();
   const { section } = useGlobalSearchParams<{ section?: string }>();
-  return !workspaceSection && pathname === PIMI_LIBRARY_ROUTE && section === "flows";
+  return !workspaceSection && pathname === PIMI_LIBRARY_ROUTE && section === librarySection;
 }
 
 function SidebarIcon({
@@ -243,7 +247,8 @@ export function PimiWorkspaceNavigation({
   const inUsage = pathname === PIMI_USAGE_ROUTE;
   const inReview = pathname === PIMI_REVIEW_ROUTE;
   const inLibrary = pathname === PIMI_LIBRARY_ROUTE;
-  const flowsActive = useFlowsLibraryActive(section);
+  const flowsActive = useLibrarySectionActive(section, "flows");
+  const promptsActive = useLibrarySectionActive(section, "prompts");
   const inAutomations = pathname === buildAutomationsRoute();
   const inHistory = pathname === buildSessionsRoute();
   const inTasks = pathname === PIMI_TASKS_ROUTE;
@@ -300,6 +305,10 @@ export function PimiWorkspaceNavigation({
   const showFlows = useCallback(() => {
     onNavigate?.();
     openPimiLibrary("flows", inLibrary);
+  }, [inLibrary, onNavigate]);
+  const showPrompts = useCallback(() => {
+    onNavigate?.();
+    openPimiLibrary("prompts", inLibrary);
   }, [inLibrary, onNavigate]);
   const showMemory = useCallback(() => {
     onNavigate?.();
@@ -359,6 +368,12 @@ export function PimiWorkspaceNavigation({
       icon: Workflow,
       onPress: showFlows,
       active: flowsActive,
+    },
+    {
+      label: t("prompts.title"),
+      icon: MessageSquareText,
+      onPress: showPrompts,
+      active: promptsActive,
     },
     {
       label: "Memory",

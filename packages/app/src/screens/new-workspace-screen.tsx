@@ -248,11 +248,14 @@ function useWorkspaceIsolation(input: {
   };
 }
 
-function resolveProjectDefaultsKey(
+function resolveHostProjectId(
   project: HostProjectListItem | null,
   serverId: string,
 ): string | null {
-  const projectId = project ? getHostProjectId(project, serverId) : null;
+  return project ? getHostProjectId(project, serverId) : null;
+}
+
+function resolveProjectDefaultsKey(serverId: string, projectId: string | null): string | null {
   return projectId ? projectDefaultsKey(serverId, projectId) : null;
 }
 
@@ -1066,7 +1069,8 @@ export function NewWorkspaceScreen({
     ? getWorktreeSupportForHostProject({ project: selectedProject, serverId: selectedServerId })
     : "unsupported";
   const isPending = isNewWorkspacePending({ pendingAction, isDraftHandoffActive });
-  const projectKey = resolveProjectDefaultsKey(selectedProject, selectedServerId);
+  const selectedProjectId = resolveHostProjectId(selectedProject, selectedServerId);
+  const projectKey = resolveProjectDefaultsKey(selectedServerId, selectedProjectId);
   const { effectiveIsolation, setIsolation, canCreateWorktree, showRefPicker } =
     useWorkspaceIsolation({
       worktreeSupport,
@@ -1675,6 +1679,7 @@ export function NewWorkspaceScreen({
       editingSession={composerEditing.chat}
       agentId={draftKey}
       serverId={selectedServerId}
+      projectId={selectedProjectId}
       isPaneFocused={true}
       onSubmitMessage={handleSubmitNewWorkspace}
       allowEmptySubmit={true}

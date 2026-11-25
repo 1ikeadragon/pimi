@@ -127,6 +127,7 @@ import {
   resolveFlowSlashPrompt,
 } from "@/flows/flow-slash-commands";
 import { requireFlowClient } from "@/flows/use-flows";
+import { expandPromptSlashCommand, usePromptSlashCommands } from "@/prompts/prompt-slash-commands";
 import { usePluginClientSlashCommands } from "@/plugins/client-slash-commands";
 import {
   executePluginClientSlashCommand,
@@ -1185,6 +1186,8 @@ interface ComposerProps {
   agentId: string;
   serverId: string;
   workspaceId?: string | null;
+  /** The project a draft composer will create its chat in; saved prompts follow it. */
+  projectId?: string | null;
   isPaneFocused: boolean;
   onSubmitMessage?: (payload: MessagePayload) => Promise<void>;
   onClientSlashCommand?: (command: ClientSlashCommand, args: string) => Promise<void>;
@@ -1515,6 +1518,7 @@ function ComposerContentImpl({
   agentId,
   serverId,
   workspaceId,
+  projectId = null,
   onSubmitMessage,
   onClientSlashCommand,
   hasExternalContent = false,
@@ -1581,6 +1585,17 @@ function ComposerContentImpl({
   const queuedMessages = queuedMessagesRaw ?? EMPTY_ARRAY;
 
   const setQueuedMessages = useSessionStore((state) => state.setQueuedMessages);
+
+  const workspaceProjectId = useSessionStore((state) =>
+    workspaceId
+      ? (state.sessions[serverId]?.workspaces?.get(workspaceId)?.projectId ?? null)
+      : null,
+  );
+  // Fetched here, not only when the menu opens: `/name text` typed and sent without opening the
+  // menu must still expand, or the agent receives the bare command.
+  const promptCommands = usePromptSlashCommands(serverId, projectId ?? workspaceProjectId, {
+    enabled: inputMode === "chat",
+  });
 
   const isCompactFormFactor = useIsCompactFormFactor();
   const isCompactLayout = resolveCompactLayout(isCompactLayoutOverride, isCompactFormFactor);
@@ -2133,7 +2148,9 @@ function ComposerContentImpl({
         messageInputRef.current?.blur();
       }
       void sendMessageWithContent(
-        flowPrompt ?? payload.text,
+        flowPrompt ??
+          expandPromptSlashCommand({ text: payload.text, commands: promptCommands }) ??
+          payload.text,
         outgoingAttachments,
         payload.forceSend,
         payload.activeTurnBehavior,
@@ -2148,6 +2165,7 @@ function ComposerContentImpl({
       runFlowSlashCommand,
       runClientSlashCommand,
       pluginClientSlashCommands,
+      promptCommands,
       runPluginClientSlashCommand,
       sendMessageWithContent,
       serverId,
@@ -2547,13 +2565,19 @@ function ComposerContentImpl({
         commands: flowCommands,
         t,
       });
-      queueMessage(flowPrompt ?? payload.text, outgoingAttachments);
+      queueMessage(
+        flowPrompt ??
+          expandPromptSlashCommand({ text: payload.text, commands: promptCommands }) ??
+          payload.text,
+        outgoingAttachments,
+      );
     },
     [
       attachments,
       buildOutgoingAttachments,
       hasAgent,
       pluginClientSlashCommands,
+      promptCommands,
       queryClient,
       queueMessage,
       runFlowSlashCommand,
@@ -3012,6 +3036,7 @@ function ComposerContentImpl({
       setUserInput: replaceUserInput,
       serverId,
       agentId,
+      projectId: projectId ?? workspaceProjectId,
       draft: commandDraft,
       onClientSlashCommand: runClientSlashCommandFromMenu,
       pluginClientSlashCommands,
@@ -3020,6 +3045,8 @@ function ComposerContentImpl({
       replaceUserInput,
       serverId,
       agentId,
+      projectId,
+      workspaceProjectId,
       commandDraft,
       runClientSlashCommandFromMenu,
       pluginClientSlashCommands,

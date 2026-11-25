@@ -4900,6 +4900,38 @@ export const en = {
     readyToast: "Automation draft ready",
     failedToast: "Couldn't draft the automation: {{reason}}",
   },
+  prompts: {
+    title: "Prompts",
+    slashTag: "Prompt",
+    intro: "Text you reuse. Type / and its name in a chat to insert it.",
+    empty: "No prompts yet",
+    newPrompt: "New prompt",
+    edit: "Edit",
+    delete: "Delete",
+    deleteTitle: "Delete prompt?",
+    deleteMessage: '"{{name}}" will be deleted.',
+    loading: "Loading...",
+    loadFailed: "Unable to load prompts",
+    retry: "Retry",
+    allProjects: "All projects",
+    unknownProject: "Unknown project",
+    editor: {
+      newTitle: "New prompt",
+      editTitle: "Edit prompt",
+      name: "Name",
+      text: "Prompt",
+      project: "Project",
+      saving: "Saving...",
+      errors: {
+        nameRequired: "Enter a name",
+        badName:
+          "Use lowercase letters, digits, - and _, up to {{nameMax}} characters, such as review-diff",
+        reserved: "This name is a built-in command",
+        textRequired: "Enter the prompt text",
+        textTooLong: "Prompt text is limited to {{textMax}} characters",
+      },
+    },
+  },
   flows: {
     title: "Flows",
     intro:

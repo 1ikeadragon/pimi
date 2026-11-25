@@ -41,6 +41,7 @@ import type {
 } from "@pimi/protocol/attack/types";
 import type { AutomationDefinition, AutomationOrigin } from "@pimi/protocol/automation/types";
 import type { FlowDefinition, FlowOrigin } from "@pimi/protocol/flow/types";
+import type { SavedPromptDefinition } from "@pimi/protocol/prompt/types";
 import type { HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
 import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
@@ -707,6 +708,22 @@ type SubscribeTerminalPayload = SubscribeTerminalResponse["payload"];
 type CloseItemsPayload = CloseItemsResponse["payload"];
 type KillTerminalPayload = KillTerminalResponse["payload"];
 type CaptureTerminalPayload = CaptureTerminalResponse["payload"];
+export type PromptListPayload = Extract<
+  SessionOutboundMessage,
+  { type: "prompt.list.response" }
+>["payload"];
+export type PromptCreatePayload = Extract<
+  SessionOutboundMessage,
+  { type: "prompt.create.response" }
+>["payload"];
+export type PromptUpdatePayload = Extract<
+  SessionOutboundMessage,
+  { type: "prompt.update.response" }
+>["payload"];
+export type PromptDeletePayload = Extract<
+  SessionOutboundMessage,
+  { type: "prompt.delete.response" }
+>["payload"];
 export type FlowCreatePayload = Extract<
   SessionOutboundMessage,
   { type: "flow.create.response" }
@@ -1469,6 +1486,7 @@ const SHARED_READ_REQUESTS: ReadonlySet<string> = new Set([
   "automation.list.request",
   "automation.draft.list.request",
   "flow.list.request",
+  "prompt.list.request",
   "provider.harness_updates.check.request",
 ]);
 
@@ -7610,6 +7628,48 @@ export class DaemonClient {
         input: options.input,
         agentId: options.agentId,
       },
+    });
+  }
+
+  async promptList(options: { requestId?: string } = {}): Promise<PromptListPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "prompt.list.request" },
+    });
+  }
+
+  async promptCreate(options: {
+    requestId?: string;
+    definition: SavedPromptDefinition;
+  }): Promise<PromptCreatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "prompt.create.request", definition: options.definition },
+    });
+  }
+
+  async promptUpdate(options: {
+    requestId?: string;
+    promptId: string;
+    definition: SavedPromptDefinition;
+  }): Promise<PromptUpdatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "prompt.update.request",
+        promptId: options.promptId,
+        definition: options.definition,
+      },
+    });
+  }
+
+  async promptDelete(options: {
+    requestId?: string;
+    promptId: string;
+  }): Promise<PromptDeletePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "prompt.delete.request", promptId: options.promptId },
     });
   }
 

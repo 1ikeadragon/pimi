@@ -178,6 +178,16 @@ import {
   FlowRunPrepareResponseSchema,
 } from "./flow/rpc-schemas.js";
 import {
+  PromptListRequestSchema,
+  PromptCreateRequestSchema,
+  PromptUpdateRequestSchema,
+  PromptDeleteRequestSchema,
+  PromptListResponseSchema,
+  PromptCreateResponseSchema,
+  PromptUpdateResponseSchema,
+  PromptDeleteResponseSchema,
+} from "./prompt/rpc-schemas.js";
+import {
   AttackRunStartRequestSchema,
   AttackRunPauseRequestSchema,
   AttackRunResumeRequestSchema,
@@ -4177,6 +4187,10 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   FlowRunCancelRequestSchema,
   FlowRunRetryRequestSchema,
   FlowRunPrepareRequestSchema,
+  PromptListRequestSchema,
+  PromptCreateRequestSchema,
+  PromptUpdateRequestSchema,
+  PromptDeleteRequestSchema,
   TaskListRequestSchema,
   TaskGetRequestSchema,
   TaskCreateRequestSchema,
@@ -8255,6 +8269,10 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   FlowRunCancelResponseSchema,
   FlowRunRetryResponseSchema,
   FlowRunPrepareResponseSchema,
+  PromptListResponseSchema,
+  PromptCreateResponseSchema,
+  PromptUpdateResponseSchema,
+  PromptDeleteResponseSchema,
   TaskListResponseSchema,
   TaskGetResponseSchema,
   TaskCreateResponseSchema,
