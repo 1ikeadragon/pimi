@@ -4,7 +4,9 @@ import {
   open as openFile,
   readFile,
   stat as statFile,
+  lstat as lstatFile,
   mkdtemp,
+  mkdir,
   copyFile,
   realpath,
   access,
@@ -13,6 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { setImmediate } from "node:timers/promises";
 import { LRUCache } from "lru-cache";
+import pLimit from "p-limit";
 import type { CheckoutCommit, CheckoutCommitFile } from "@pimi/protocol/messages";
 import { parseGitHubRemoteIdentity, parseGitRemoteLocation } from "@pimi/protocol/git-remote";
 import { maxSecuredPlaintextByteLength } from "@pimi/relay";
@@ -39,6 +42,7 @@ import {
   ForgeCommandError,
 } from "../services/forge-cli-command.js";
 import { parseGitRevParsePath, resolveGitRevParsePath } from "./git-rev-parse-path.js";
+import { DEFAULT_GIT_PROCESS_POLICY } from "./git-process-scheduler.js";
 import { runGitCommand, type RunGitCommand } from "./run-git-command.js";
 import { readGitFileContents } from "./git-file-contents.js";
 import { unquoteGitPath } from "./git-quoted-path.js";
@@ -171,11 +175,27 @@ interface CheckoutFileChange {
   isUntracked?: boolean;
 }
 
+type UntrackedPlaceholderKind = "binary" | "too_large" | "opaque";
+
+interface UntrackedPlaceholder {
+  kind: UntrackedPlaceholderKind;
+  stat: FileStat;
+}
+
+/** How each untracked path reaches the diff; see preparePrivateIndex. */
+interface UntrackedChanges {
+  /** Paths git diffs from the private index, so they ride the tracked pipeline. */
+  indexed: ReadonlySet<string>;
+  /** Paths reported without a patch: binary, over the per-file budget, or not a file. */
+  placeholders: ReadonlyMap<string, UntrackedPlaceholder>;
+}
+
 interface CheckoutDiffRefs {
   indexEnv?: { GIT_INDEX_FILE: string };
   baseRef: string;
   targetRef?: string;
   includeUntracked: boolean;
+  untracked?: UntrackedChanges;
 }
 
 function getCheckoutDiffRefArgs(refs: CheckoutDiffRefs): string[] {
@@ -536,23 +556,14 @@ async function listCheckoutFileChanges(
     });
   }
 
-  if (refs.includeUntracked) {
-    const { stdout: untrackedOut } = await runGitCommand(
-      ["ls-files", "-z", "--others", "--exclude-standard"],
-      {
-        cwd,
-        envOverlay: { ...READ_ONLY_GIT_ENV, ...refs.indexEnv },
-      },
-    );
-    for (const file of untrackedOut.split("\0").filter(Boolean)) {
-      changes.push({
-        path: file,
-        status: "U",
-        isNew: true,
-        isDeleted: false,
-        isUntracked: true,
-      });
-    }
+  for (const path of refs.untracked?.placeholders.keys() ?? []) {
+    changes.push({
+      path,
+      status: "U",
+      isNew: true,
+      isDeleted: false,
+      isUntracked: true,
+    });
   }
 
   // Deduplicate by path (prefer tracked status over untracked marker if both appear).
@@ -2305,39 +2316,6 @@ function buildPlaceholderParsedDiffFile(
   };
 }
 
-async function getUntrackedDiffText(
-  cwd: string,
-  change: CheckoutFileChange,
-  ignoreWhitespace = false,
-): Promise<{ text: string; truncated: boolean; stat: FileStat }> {
-  try {
-    const inspected = await inspectUntrackedFile(cwd, change.path);
-    if (inspected.stat?.isBinary || inspected.truncated) {
-      return { text: "", truncated: inspected.truncated, stat: inspected.stat };
-    }
-  } catch {
-    // Fall through to git diff path if metadata probing fails.
-  }
-
-  const result = await runGitCommand(
-    buildGitDiffArgs({
-      ignoreWhitespace,
-      extra: ["--no-index", "/dev/null", "--", change.path],
-    }),
-    {
-      cwd,
-      envOverlay: READ_ONLY_GIT_ENV,
-      maxOutputBytes: PER_FILE_DIFF_MAX_BYTES,
-      acceptExitCodes: [0, 1],
-    },
-  );
-  return {
-    text: result.stdout,
-    truncated: result.truncated,
-    stat: { additions: 0, deletions: 0, isBinary: false },
-  };
-}
-
 export async function getCheckoutStatus(
   cwd: string,
   context?: CheckoutContext,
@@ -3346,78 +3324,48 @@ async function appendStructuredTrackedDiffs(
   return true;
 }
 
-interface ProcessUntrackedChangeInput {
-  signal?: AbortSignal;
-  cwd: string;
-  change: CheckoutFileChange;
-  ignoreWhitespace: boolean;
-  includeStructured: boolean;
-  structured: StructuredDiffAccumulator;
-  appendDiff: (text: string) => void;
-}
-
-async function processUntrackedChange(input: ProcessUntrackedChangeInput): Promise<boolean> {
-  const { cwd, change, ignoreWhitespace, includeStructured, structured, appendDiff } = input;
-  const { text, truncated, stat } = await getUntrackedDiffText(cwd, change, ignoreWhitespace);
-
-  if (!includeStructured) {
-    if (stat?.isBinary) {
-      appendDiff(`# ${change.path}: binary diff omitted\n`);
-    } else if (truncated) {
-      appendDiff(`# ${change.path}: diff too large omitted\n`);
-    } else {
-      appendDiff(text);
-    }
-    return true;
-  }
-
-  if (stat?.isBinary) {
-    if (
-      !appendStructuredFile(
-        structured,
-        buildPlaceholderParsedDiffFile(change, { status: "binary", stat }),
-      )
-    ) {
-      return false;
-    }
-    appendDiff(`# ${change.path}: binary diff omitted\n`);
-    return true;
-  }
-
-  if (truncated) {
-    if (
-      !appendStructuredFile(
-        structured,
-        buildPlaceholderParsedDiffFile(change, { status: "too_large", stat }),
-      )
-    ) {
-      return false;
-    }
-    appendDiff(`# ${change.path}: diff too large omitted\n`);
-    return true;
-  }
-
-  appendDiff(text);
-  const parsed = await parseAndHighlightDiff(text, cwd, { signal: input.signal });
-  const parsedFile =
-    parsed[0] ??
-    ({
+function buildUntrackedPlaceholderFile(
+  change: CheckoutFileChange,
+  placeholder: UntrackedPlaceholder,
+): ParsedDiffFile {
+  if (placeholder.kind === "opaque") {
+    // A directory entry such as a nested repository has no patch; it is listed so it stays visible.
+    return {
       path: change.path,
       isNew: change.isNew,
       isDeleted: change.isDeleted,
-      additions: stat?.additions ?? 0,
-      deletions: stat?.deletions ?? 0,
+      additions: 0,
+      deletions: 0,
       hunks: [],
-    } satisfies ParsedDiffFile);
+      status: "ok",
+    };
+  }
+  return buildPlaceholderParsedDiffFile(change, {
+    status: placeholder.kind,
+    stat: placeholder.stat,
+  });
+}
 
-  const file = {
-    ...parsedFile,
-    path: change.path,
-    isNew: change.isNew,
-    isDeleted: change.isDeleted,
-    status: "ok",
-  } satisfies ParsedDiffFile;
-  return appendStructuredFile(structured, file);
+function appendUntrackedPlaceholder(input: {
+  change: CheckoutFileChange;
+  placeholder: UntrackedPlaceholder;
+  includeStructured: boolean;
+  structured: StructuredDiffAccumulator;
+  appendDiff: (text: string) => void;
+}): boolean {
+  const { change, placeholder, includeStructured, structured, appendDiff } = input;
+  if (
+    includeStructured &&
+    !appendStructuredFile(structured, buildUntrackedPlaceholderFile(change, placeholder))
+  ) {
+    return false;
+  }
+  if (placeholder.kind === "binary") {
+    appendDiff(`# ${change.path}: binary diff omitted\n`);
+  } else if (placeholder.kind === "too_large") {
+    appendDiff(`# ${change.path}: diff too large omitted\n`);
+  }
+  return true;
 }
 
 interface ProcessTrackedChangesInput {
@@ -3543,32 +3491,135 @@ async function resolveCheckoutDiffRefs(
   };
 }
 
-// Git's working-tree diff ignores files absent from the index, even when they
-// exist in the comparison tree. Restore those entries only in a private index.
-async function prepareAllChangesIndex(cwd: string, baseRef: string) {
-  const untracked = await runGitCommand(["ls-files", "-z", "--others", "--exclude-standard"], {
+// A diff request fans out at most this many fs probes and git processes at once: half of the
+// shared git process ceiling, so one diff never occupies every slot other callers queue behind.
+const CHECKOUT_DIFF_CONCURRENCY = Math.floor(DEFAULT_GIT_PROCESS_POLICY.maxProcessConcurrency / 2);
+
+function isMissingFileError(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
+}
+
+type UntrackedClassification = UntrackedPlaceholder | "indexable" | "gone";
+
+async function classifyUntrackedPath(
+  cwd: string,
+  relativePath: string,
+): Promise<UntrackedClassification> {
+  let isSymlink: boolean;
+  try {
+    isSymlink = (await lstatFile(resolve(cwd, relativePath))).isSymbolicLink();
+  } catch (error) {
+    // Deleted between listing and probing: it is no longer an untracked file.
+    if (isMissingFileError(error)) return "gone";
+    throw error;
+  }
+  let inspected: Awaited<ReturnType<typeof inspectUntrackedFile>>;
+  try {
+    inspected = await inspectUntrackedFile(cwd, relativePath);
+  } catch (error) {
+    // A dangling symlink has no target to probe; git still diffs the link itself.
+    if (isSymlink && isMissingFileError(error)) return "indexable";
+    if (isMissingFileError(error)) return "gone";
+    throw error;
+  }
+  if (inspected.stat?.isBinary) return { kind: "binary", stat: inspected.stat };
+  if (inspected.truncated) return { kind: "too_large", stat: inspected.stat };
+  if (!inspected.stat && !isSymlink) return { kind: "opaque", stat: null };
+  return "indexable";
+}
+
+function parseLsTreePaths(output: string): string[] {
+  return output
+    .split("\0")
+    .filter(Boolean)
+    .map((entry) => entry.slice(entry.indexOf("\t") + 1));
+}
+
+async function readBaseTreeEntries(cwd: string, baseRef: string, paths: string[]): Promise<string> {
+  const limit = pLimit(CHECKOUT_DIFF_CONCURRENCY);
+  const batches: string[][] = [];
+  for (let start = 0; start < paths.length; start += TRACKED_DIFF_BATCH_SIZE) {
+    batches.push(paths.slice(start, start + TRACKED_DIFF_BATCH_SIZE));
+  }
+  try {
+    const results = await Promise.all(
+      batches.map((batch) =>
+        limit(() =>
+          runGitCommand(
+            ["ls-tree", "-r", "-z", baseRef, "--", ...batch.map((path) => `:(literal)${path}`)],
+            { cwd, envOverlay: READ_ONLY_GIT_ENV },
+          ),
+        ),
+      ),
+    );
+    return results.map((result) => result.stdout).join("");
+  } catch (error) {
+    // An unborn HEAD has no tree, so nothing untracked can also be in it.
+    const head = await runGitCommand(["rev-parse", "--verify", "--quiet", baseRef], {
+      cwd,
+      envOverlay: READ_ONLY_GIT_ENV,
+      acceptExitCodes: [0, 1],
+    });
+    if (head.exitCode === 0) throw error;
+    return "";
+  }
+}
+
+interface PreparedUntracked {
+  untracked: UntrackedChanges;
+  index: { indexFile: string; cleanup: () => Promise<void> } | null;
+}
+
+/**
+ * Folds untracked files into the diff by way of a private copy of the index, so one `git diff`
+ * covers them instead of one `git diff --no-index` per file. `git diff <ref>` only compares paths
+ * the index knows, so each untracked file is added as an intent-to-add entry (no object is
+ * written, and the real index, objects and status stay untouched). An untracked path that exists
+ * in the base tree gets its base entry back when `restoreBaseEntries` is set, so it diffs as a
+ * modification instead of a new file. Without it, such a path stays out of the private index and
+ * diffs as a deletion, as the real index reports it. Binary files, files over the per-file
+ * budget and non-files stay out of the index and come back as placeholders.
+ */
+async function preparePrivateIndex(
+  cwd: string,
+  baseRef: string,
+  options: { restoreBaseEntries: boolean },
+): Promise<PreparedUntracked> {
+  const listed = await runGitCommand(["ls-files", "-z", "--others", "--exclude-standard"], {
     cwd,
     envOverlay: READ_ONLY_GIT_ENV,
   });
-  const paths = untracked.stdout.split("\0").filter(Boolean);
-  if (paths.length === 0) return null;
-  let entries = "";
-  for (let start = 0; start < paths.length; start += TRACKED_DIFF_BATCH_SIZE) {
-    const result = await runGitCommand(
-      [
-        "ls-tree",
-        "-r",
-        "-z",
-        baseRef,
-        "--",
-        ...paths.slice(start, start + TRACKED_DIFF_BATCH_SIZE).map((path) => `:(literal)${path}`),
-      ],
-      { cwd, envOverlay: READ_ONLY_GIT_ENV },
-    );
-    entries += result.stdout;
+  const paths = listed.stdout.split("\0").filter(Boolean);
+  if (paths.length === 0) {
+    return { untracked: { indexed: new Set(), placeholders: new Map() }, index: null };
   }
-  if (!entries) return null;
-  const directory = await mkdtemp(resolve(tmpdir(), "pimi-all-changes-"));
+
+  const baseEntries = await readBaseTreeEntries(cwd, baseRef, paths);
+  const inBaseTree = new Set(parseLsTreePaths(baseEntries));
+  const candidates = paths.filter((path) => !inBaseTree.has(path));
+
+  const limit = pLimit(CHECKOUT_DIFF_CONCURRENCY);
+  const classified = await Promise.all(
+    candidates.map(async (path) => ({
+      path,
+      classification: await limit(() => classifyUntrackedPath(cwd, path)),
+    })),
+  );
+  const indexable: string[] = [];
+  const placeholders = new Map<string, UntrackedPlaceholder>();
+  for (const { path, classification } of classified) {
+    if (classification === "gone") continue;
+    if (classification === "indexable") {
+      indexable.push(path);
+      continue;
+    }
+    placeholders.set(path, classification);
+  }
+  const untracked: UntrackedChanges = { indexed: new Set(indexable), placeholders };
+  const restoredEntries = options.restoreBaseEntries ? baseEntries : "";
+  if (indexable.length === 0 && !restoredEntries) return { untracked, index: null };
+
+  const directory = await mkdtemp(resolve(tmpdir(), "pimi-private-index-"));
   const indexFile = resolve(directory, "index");
   try {
     const index = await runGitCommand(["rev-parse", "--git-path", "index"], {
@@ -3577,13 +3628,55 @@ async function prepareAllChangesIndex(cwd: string, baseRef: string) {
     });
     const indexPath = resolveGitRevParsePath(cwd, index.stdout);
     if (!indexPath) throw new Error("Git did not return an index path");
-    await copyFile(indexPath, indexFile);
-    await runGitCommand(["update-index", "-z", "--index-info"], {
-      cwd,
-      input: entries,
-      envOverlay: { ...READ_ONLY_GIT_ENV, GIT_INDEX_FILE: indexFile },
-    });
-    return { indexFile, cleanup: () => rm(directory, { recursive: true, force: true }) };
+    try {
+      await copyFile(indexPath, indexFile);
+    } catch (error) {
+      // A repository with nothing staged yet has no index file; git reads that as an empty index,
+      // and starts the private one empty the same way.
+      if (!isMissingFileError(error)) throw error;
+    }
+    const envOverlay = { ...READ_ONLY_GIT_ENV, GIT_INDEX_FILE: indexFile };
+    if (restoredEntries) {
+      await runGitCommand(["update-index", "-z", "--index-info"], {
+        cwd,
+        input: restoredEntries,
+        envOverlay,
+      });
+    }
+    if (indexable.length > 0) {
+      // `git add --intent-to-add` writes the empty blob. It goes to a scratch object directory
+      // that borrows the repository's objects, so the real object database stays untouched.
+      const objects = await runGitCommand(["rev-parse", "--git-path", "objects"], {
+        cwd,
+        envOverlay: READ_ONLY_GIT_ENV,
+      });
+      const objectsPath = resolveGitRevParsePath(cwd, objects.stdout);
+      if (!objectsPath) throw new Error("Git did not return an object directory path");
+      const scratchObjects = resolve(directory, "objects");
+      await mkdir(scratchObjects);
+      await runGitCommand(
+        [
+          "--literal-pathspecs",
+          "add",
+          "--intent-to-add",
+          "--pathspec-from-file=-",
+          "--pathspec-file-nul",
+        ],
+        {
+          cwd,
+          input: `${indexable.join("\0")}\0`,
+          envOverlay: {
+            ...envOverlay,
+            GIT_OBJECT_DIRECTORY: scratchObjects,
+            GIT_ALTERNATE_OBJECT_DIRECTORIES: objectsPath,
+          },
+        },
+      );
+    }
+    return {
+      untracked,
+      index: { indexFile, cleanup: () => rm(directory, { recursive: true, force: true }) },
+    };
   } catch (error) {
     await rm(directory, { recursive: true, force: true });
     throw error;
@@ -3603,20 +3696,24 @@ export async function getCheckoutDiff(
     return { diff: "" };
   }
 
-  const index =
-    compare.mode === "all" ? await prepareAllChangesIndex(cwd, refsForDiff.baseRef) : null;
+  const prepared = refsForDiff.includeUntracked
+    ? await preparePrivateIndex(cwd, refsForDiff.baseRef, {
+        restoreBaseEntries: compare.mode === "all",
+      })
+    : null;
   try {
     return await readCheckoutDiff(
       cwd,
       compare,
       {
         ...refsForDiff,
-        indexEnv: index ? { GIT_INDEX_FILE: index.indexFile } : undefined,
+        indexEnv: prepared?.index ? { GIT_INDEX_FILE: prepared.index.indexFile } : undefined,
+        untracked: prepared?.untracked,
       },
       signal,
     );
   } finally {
-    await index?.cleanup();
+    await prepared?.index?.cleanup();
   }
 }
 
@@ -3662,8 +3759,14 @@ async function readCheckoutDiff(
     }
   };
 
-  const trackedChanges = changes.filter((change) => !change.isUntracked);
-  const untrackedChanges = changes.filter((change) => change.isUntracked === true);
+  // Untracked files folded into the private index follow the tracked ones, as their text always did.
+  const placeholderChanges = changes.filter((change) => change.isUntracked === true);
+  const indexedUntracked = refsForDiff.untracked?.indexed;
+  const gitChanges = changes.filter((change) => !change.isUntracked);
+  const trackedChanges = [
+    ...gitChanges.filter((change) => !indexedUntracked?.has(change.path)),
+    ...gitChanges.filter((change) => indexedUntracked?.has(change.path)),
+  ];
   const trackedDiff = await processTrackedChanges({
     cwd,
     refsForDiff: effectiveRefsForDiff,
@@ -3708,20 +3811,22 @@ async function readCheckoutDiff(
     }
   }
 
-  for (const change of untrackedChanges) {
+  for (const change of placeholderChanges) {
     if (diffBytes >= TOTAL_DIFF_MAX_BYTES) {
       break;
     }
-    const didAppendUntrackedDiff = await processUntrackedChange({
-      signal,
-      cwd,
+    const placeholder = refsForDiff.untracked?.placeholders.get(change.path);
+    if (!placeholder) {
+      throw new Error(`Untracked placeholder missing for ${change.path}`);
+    }
+    const didAppend = appendUntrackedPlaceholder({
       change,
-      ignoreWhitespace,
+      placeholder,
       includeStructured: compare.includeStructured === true,
       structured,
       appendDiff,
     });
-    if (!didAppendUntrackedDiff) {
+    if (!didAppend) {
       return { diff: "", structured: [], diffTooLarge: true };
     }
   }
