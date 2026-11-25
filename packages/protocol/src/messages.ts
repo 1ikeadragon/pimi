@@ -440,6 +440,13 @@ const MutableVaultConfigSchema = z
     idleLockMinutes: z.number().int().min(0).default(15),
   })
   .passthrough();
+// A patch names only what it changes: a defaulted field would otherwise read as "turn it off".
+const MutableVaultConfigPatchSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    idleLockMinutes: z.number().int().min(0).optional(),
+  })
+  .passthrough();
 const MutableRelayConfigSchema = z
   .object({
     enabled: z.boolean(),
@@ -551,7 +558,7 @@ export const MutableDaemonConfigPatchSchema = z
     mcp: z.object({ injectIntoAgents: z.boolean().optional() }).passthrough().optional(),
     usage: z.object({ enabled: z.boolean() }).optional(),
     browserTools: MutableBrowserToolsConfigSchema.partial().optional(),
-    vault: MutableVaultConfigSchema.partial().optional(),
+    vault: MutableVaultConfigPatchSchema.optional(),
     providers: z
       .record(z.string(), MutableDaemonProviderConfigSchema.partial().passthrough())
       .optional(),
