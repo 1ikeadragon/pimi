@@ -300,6 +300,7 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
     isAuthoritativeHistoryReady,
     onNearBottomChange,
     onReadingPositionChange,
+    onNewestVisibleRowChange,
     onNearHistoryStart,
     isLoadingOlderHistory,
     hasOlderHistory,
@@ -695,16 +696,17 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
     if (!isActiveRef.current) {
       return;
     }
-    if (!onReadingPositionChange) {
-      return;
-    }
     const scrollContainer = scrollContainerRef.current;
     const contentNode = contentRef.current;
     if (!scrollContainer || !contentNode) {
-      onReadingPositionChange(null);
+      onReadingPositionChange?.(null);
+      onNewestVisibleRowChange?.(null);
       return;
     }
-    onReadingPositionChange(readingAnchor.getReadingRowId(scrollContainer.scrollTop));
+    onReadingPositionChange?.(readingAnchor.getReadingRowId(scrollContainer.scrollTop));
+    onNewestVisibleRowChange?.(
+      readingAnchor.getNewestVisibleRowId(scrollContainer.scrollTop, scrollContainer.clientHeight),
+    );
   });
 
   const updateScrollMetrics = useCallback(() => {
@@ -784,6 +786,8 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
     // Child layout can change during this commit, ahead of ResizeObserver delivery.
     if (!isActive || measureVirtualizedRows()) return;
     reconcileReadingPosition();
+    // Geometry changed, so the newest visible row may have too.
+    reportReadingPosition();
   }, [
     contentWidth,
     isActive,
@@ -791,6 +795,7 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
     virtualRows,
     measureVirtualizedRows,
     reconcileReadingPosition,
+    reportReadingPosition,
   ]);
 
   const stopFollowingOutputFromUserIntent = useStableEvent(() => {

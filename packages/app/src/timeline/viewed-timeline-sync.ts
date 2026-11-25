@@ -29,7 +29,12 @@ import {
 import { isTimelineResumeSnapshotAuthoritative } from "./timeline-sync-plan";
 import { replaceWithCanonicalStream } from "@/types/stream";
 import type { TurnLivenessTransition } from "./turn-liveness";
-import { canTrimOldest, isReaderFollowingEnd, setReaderPagedBack } from "./reader-follow";
+import {
+  canTrimOldest,
+  getReaderNewestVisibleSeq,
+  isReaderFollowingEnd,
+  setReaderPagedBack,
+} from "./reader-follow";
 
 export interface TimelineReplicaStorage {
   readTimeline(serverId: string, agentId: string): Promise<CachedTimeline | undefined>;
@@ -405,7 +410,9 @@ export function createViewedTimelineOwner(input: {
     recoverTimelineGap: (agentId, cursor) => sync.recoverGap(agentId, cursor),
     onCommitted: (agentId) => {
       if (canTrimOldest(input.serverId, agentId)) {
-        useSessionStore.getState().trimAgentResidentWindow(input.serverId, agentId, "oldest");
+        useSessionStore
+          .getState()
+          .trimAgentResidentWindow(input.serverId, agentId, { end: "oldest" });
       }
       input.replica.timelineUpdated(agentId);
     },
@@ -429,9 +436,10 @@ export function createViewedTimelineOwner(input: {
         if (payload.direction === "before") {
           setReaderPagedBack(input.serverId, payload.agentId, true);
           if (!isReaderFollowingEnd(input.serverId, payload.agentId)) {
-            useSessionStore
-              .getState()
-              .trimAgentResidentWindow(input.serverId, payload.agentId, "newest");
+            useSessionStore.getState().trimAgentResidentWindow(input.serverId, payload.agentId, {
+              end: "newest",
+              keepThroughSeq: getReaderNewestVisibleSeq(input.serverId, payload.agentId),
+            });
           }
         } else {
           // The latest tail replaces the window, so nothing older than it was paged back.
@@ -441,7 +449,7 @@ export function createViewedTimelineOwner(input: {
           if (canTrimOldest(input.serverId, payload.agentId)) {
             useSessionStore
               .getState()
-              .trimAgentResidentWindow(input.serverId, payload.agentId, "oldest");
+              .trimAgentResidentWindow(input.serverId, payload.agentId, { end: "oldest" });
           }
         }
         input.replica.timelineUpdated(payload.agentId);

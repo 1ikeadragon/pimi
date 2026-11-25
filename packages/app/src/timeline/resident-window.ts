@@ -56,7 +56,13 @@ export function exceedsResidentWindow(tail: readonly StreamItem[]): boolean {
   return measureResidentTail(tail).bytes > RESIDENT_WINDOW_CAP.bytes;
 }
 
-export type ResidentTrimEnd = "oldest" | "newest";
+/**
+ * A newest-end trim names the newest row the reader can see, so the cut never takes rows out
+ * from under the viewport. `null` means no mounted view reported one.
+ */
+export type ResidentTrimRequest =
+  | { end: "oldest" }
+  | { end: "newest"; keepThroughSeq: number | null };
 
 export interface ResidentTrimResult {
   tail: StreamItem[];
@@ -101,22 +107,32 @@ function seqOf(item: StreamItem, epoch: string): number | null {
  * client no longer holds (docs/timeline-sync.md, "Client replica lifetime").
  *
  * Returns null when the tail is within the cap or no safe cut exists (a single turn larger
- * than the cap, or rows without a timeline position that a cut would drop).
+ * than the cap, rows without a timeline position that a cut would drop, or, for `newest`, no
+ * turn that starts after the newest row the reader can see).
  */
-export function trimResidentTail(input: {
-  tail: readonly StreamItem[];
-  cursor: TimelineCursor;
-  end: ResidentTrimEnd;
-}): ResidentTrimResult | null {
-  const { tail, cursor, end } = input;
+export function trimResidentTail(
+  input: {
+    tail: readonly StreamItem[];
+    cursor: TimelineCursor;
+  } & ResidentTrimRequest,
+): ResidentTrimResult | null {
+  const { tail, cursor } = input;
   if (!exceedsResidentWindow(tail)) return null;
   const targetItems = Math.floor(RESIDENT_WINDOW_CAP.items * TRIM_TARGET_RATIO);
   const targetBytes = Math.floor(RESIDENT_WINDOW_CAP.bytes * TRIM_TARGET_RATIO);
   const prefix = prefixBytes(tail);
   const total = prefix[tail.length];
-  return end === "oldest"
-    ? trimOldest({ tail, cursor, prefix, total, targetItems, targetBytes })
-    : trimNewest({ tail, cursor, prefix, targetItems, targetBytes });
+  if (input.end === "oldest") {
+    return trimOldest({ tail, cursor, prefix, total, targetItems, targetBytes });
+  }
+  return trimNewest({
+    tail,
+    cursor,
+    prefix,
+    targetItems,
+    targetBytes,
+    keepThroughSeq: input.keepThroughSeq,
+  });
 }
 
 function trimOldest(input: {
@@ -176,14 +192,31 @@ function trimOldest(input: {
   };
 }
 
+/**
+ * A newest-end cut at `cutSeq` keeps exactly the rows below it, so none of them may sit at or
+ * above it, none of the rows it drops may sit below it, and the newest row the reader can see
+ * must stay.
+ */
+function isNewestCutValid(input: {
+  cutSeq: number;
+  minSeqAfter: number;
+  maxSeqBefore: number;
+  keepThroughSeq: number | null;
+}): boolean {
+  const { cutSeq, minSeqAfter, maxSeqBefore, keepThroughSeq } = input;
+  if (minSeqAfter < cutSeq || maxSeqBefore >= cutSeq) return false;
+  return keepThroughSeq === null || cutSeq > keepThroughSeq;
+}
+
 function trimNewest(input: {
   tail: readonly StreamItem[];
   cursor: TimelineCursor;
   prefix: number[];
   targetItems: number;
   targetBytes: number;
+  keepThroughSeq: number | null;
 }): ResidentTrimResult | null {
-  const { tail, cursor, prefix, targetItems, targetBytes } = input;
+  const { tail, cursor, prefix, targetItems, targetBytes, keepThroughSeq } = input;
   // Keep at least one row of the contiguous main range: the cursor identifies the main range
   // as the one containing endSeq.
   let firstMainIndex = tail.length;
@@ -214,7 +247,9 @@ function trimNewest(input: {
     if (unpositionedAfter) continue;
     if (!isCutRow(tail, index, cursor.epoch)) continue;
     const cutSeq = seqOf(tail[index], cursor.epoch);
-    if (cutSeq === null || minSeqAfter < cutSeq || maxSeqBefore[index] >= cutSeq) continue;
+    if (cutSeq === null) continue;
+    const candidate = { cutSeq, minSeqAfter, maxSeqBefore: maxSeqBefore[index], keepThroughSeq };
+    if (!isNewestCutValid(candidate)) continue;
     smallestValid = index;
     if (fit === null && index <= targetItems && prefix[index] <= targetBytes) fit = index;
   }

@@ -1,7 +1,11 @@
 import { useEffect, useRef } from "react";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
-import { setReaderFollowingEnd, setReaderPagedBack } from "@/timeline/reader-follow";
+import {
+  setReaderFollowingEnd,
+  setReaderNewestVisibleSeq,
+  setReaderPagedBack,
+} from "@/timeline/reader-follow";
 import { planTimelineCatchUpAfter, planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import type { NearBottom } from "./near-bottom";
@@ -81,7 +85,7 @@ export function useResidentWindowFollow(input: {
       wasNearBottom.current = following;
       if (!following) return;
       if (returned) setReaderPagedBack(serverId, agentId, false);
-      useSessionStore.getState().trimAgentResidentWindow(serverId, agentId, "oldest");
+      useSessionStore.getState().trimAgentResidentWindow(serverId, agentId, { end: "oldest" });
       if (returned) collapseHistoryWindow();
       loadNewerWhileDetached();
     };
@@ -103,6 +107,7 @@ export function useResidentWindowFollow(input: {
       unsubscribeDetach();
       setReaderFollowingEnd(serverId, agentId, true);
       setReaderPagedBack(serverId, agentId, false);
+      setReaderNewestVisibleSeq(serverId, agentId, null);
     };
   }, [agentId, collapseHistoryWindow, enabled, nearBottom, onForwardLoadError, serverId]);
 }

@@ -37,6 +37,16 @@ export function createReadingAnchor() {
     getRowId,
     getReadingRowId: (scrollTop: number) =>
       readingRow(scrollTop)?.id ?? geometry.at(-1)?.id ?? null,
+    // Rows are in top-to-bottom order, so the last one that starts above the viewport's
+    // bottom edge is the newest the reader can see, however tall it is.
+    getNewestVisibleRowId: (scrollTop: number, viewport: number) => {
+      for (let index = geometry.length - 1; index >= 0; index -= 1) {
+        const row = geometry[index];
+        if (row.top >= scrollTop + viewport) continue;
+        return row.top + row.height > scrollTop ? row.id : null;
+      }
+      return null;
+    },
     project,
     reset() {
       anchor = null;

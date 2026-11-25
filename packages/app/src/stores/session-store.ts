@@ -1,5 +1,5 @@
 import equal from "fast-deep-equal";
-import { trimResidentTail, type ResidentTrimEnd } from "@/timeline/resident-window";
+import { trimResidentTail, type ResidentTrimRequest } from "@/timeline/resident-window";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
@@ -591,7 +591,7 @@ interface SessionStoreActions {
    * Cuts the resident tail back to its cap, dropping whole turns from `end` and moving the
    * range, `hasOlder` and `hasNewer` in the same update. A no-op within the cap.
    */
-  trimAgentResidentWindow: (serverId: string, agentId: string, end: ResidentTrimEnd) => void;
+  trimAgentResidentWindow: (serverId: string, agentId: string, trim: ResidentTrimRequest) => void;
 
   // Initializing agents
   setInitializingAgents: (
@@ -1508,7 +1508,7 @@ export const useSessionStore = create<SessionStore>()(
         });
       },
 
-      trimAgentResidentWindow: (serverId, agentId, end) => {
+      trimAgentResidentWindow: (serverId, agentId, trim) => {
         set((prev) => {
           const session = prev.sessions[serverId];
           if (!session) return prev;
@@ -1516,7 +1516,7 @@ export const useSessionStore = create<SessionStore>()(
           const range = session.agentTimelineCursor.get(agentId);
           if (!tail || !range) return prev;
           if (session.agentAuthoritativeHistoryApplied.get(agentId) !== true) return prev;
-          const trimmed = trimResidentTail({ tail, cursor: range, end });
+          const trimmed = trimResidentTail({ tail, cursor: range, ...trim });
           if (!trimmed) return prev;
           const nextTail = new Map(session.agentStreamTail).set(agentId, trimmed.tail);
           const nextCursor = new Map(session.agentTimelineCursor).set(agentId, trimmed.cursor);

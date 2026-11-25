@@ -16,6 +16,12 @@ const awayFromEnd = new Set<string>();
  */
 const pagedBack = new Set<string>();
 
+/**
+ * The seq of the newest row a mounted view shows, by chat. A trim of the newest turns must
+ * cut above it or the rows under the reader's eyes leave the array.
+ */
+const newestVisibleSeq = new Map<string, number>();
+
 function key(serverId: string, agentId: string): string {
   return `${serverId}:${agentId}`;
 }
@@ -37,4 +43,13 @@ export function setReaderPagedBack(serverId: string, agentId: string, paged: boo
 /** Whether the oldest turns may leave the array: the reader follows the end and has not paged back. */
 export function canTrimOldest(serverId: string, agentId: string): boolean {
   return isReaderFollowingEnd(serverId, agentId) && !pagedBack.has(key(serverId, agentId));
+}
+
+export function setReaderNewestVisibleSeq(serverId: string, agentId: string, seq: number | null) {
+  if (seq === null) newestVisibleSeq.delete(key(serverId, agentId));
+  else newestVisibleSeq.set(key(serverId, agentId), seq);
+}
+
+export function getReaderNewestVisibleSeq(serverId: string, agentId: string): number | null {
+  return newestVisibleSeq.get(key(serverId, agentId)) ?? null;
 }
