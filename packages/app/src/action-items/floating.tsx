@@ -41,22 +41,42 @@ function useIsDocked(workspaceKey: string | null): boolean {
   });
 }
 
+/** The pane width below which the note collapses to its pill: the transcript keeps this much. */
+export const ACTION_ITEMS_CARD_MIN_PANE_WIDTH = 880;
+
+export type ActionItemsFloatingState =
+  | { display: "none" }
+  | {
+      display: "pill" | "card";
+      serverId: string;
+      agentId: string;
+      model: ReturnType<typeof useActionItems>;
+      items: readonly ActionItem[];
+      sawEmpty: boolean;
+      pin: () => void;
+      collapse: () => void;
+      expand: () => void;
+    };
+
 /**
- * The floating note over a chat's transcript: the same list as the Explorer tab, shown while
- * the list is not docked there. It sits in the transcript's own box, so it never reaches the
- * composer, and keeps clear of the scrollbar. It appears once the chat has an item, and
- * collapses to a pill with the open count. Compact layouts use the header menu instead.
+ * State of the floating note over a chat's transcript: the same list as the Explorer tab, shown
+ * while the list is not docked there. It appears once the chat has an item and collapses to a
+ * pill with the open count, also when the pane is `narrow`. Compact layouts use the header menu
+ * instead. The chat pane reads `display` to keep the transcript clear of an open card.
  */
-export function ActionItemsFloating({
+export function useActionItemsFloating({
   serverId,
   workspaceId,
   agentId,
+  narrow,
+  disabled,
 }: {
   serverId: string;
   workspaceId: string;
   agentId: string;
-}): ReactElement | null {
-  const { t } = useTranslation();
+  narrow: boolean;
+  disabled: boolean;
+}): ActionItemsFloatingState {
   const isCompact = useIsCompactFormFactor();
   const paneActive = useRetainedPanelActive();
   const { config } = useDaemonConfig(serverId);
@@ -64,7 +84,7 @@ export function ActionItemsFloating({
   const isDocked = useIsDocked(workspaceKey);
   const prefersDocked = useActionItemsPreferences((state) => state.docked);
   const collapsed = useActionItemsPreferences((state) => state.collapsed);
-  const enabled = !isCompact && config?.metadataGeneration.actionItems !== false;
+  const enabled = !disabled && !isCompact && config?.metadataGeneration.actionItems !== false;
   const model = useActionItems({ serverId, agentId, active: enabled && paneActive && !isDocked });
   const state = model.state?.agentId === agentId ? model.state : null;
   const hasItems = state !== null && state.items.length > 0;
@@ -73,7 +93,7 @@ export function ActionItemsFloating({
   // while the chat is on screen enters.
   const sawEmpty = useRef(false);
   if (state && !hasItems) sawEmpty.current = true;
-  const showsCard = [enabled, !isDocked, hasItems, !collapsed].every(Boolean);
+  const showsCard = [enabled, !isDocked, hasItems, !collapsed, !narrow].every(Boolean);
   useEffect(() => {
     // Collapsing and expanding afterwards must not replay the entrance.
     if (showsCard) sawEmpty.current = false;
@@ -88,27 +108,42 @@ export function ActionItemsFloating({
     openExplorerSidebarView({ isCompact: false, workspaceKey, view: "actionItems" });
   }, [enabled, hasItems, isDocked, prefersDocked, workspaceKey]);
 
-  const handlePin = useCallback(() => {
+  const pin = useCallback(() => {
     useActionItemsPreferences.getState().setDocked(true);
     openExplorerSidebarView({ isCompact: false, workspaceKey, view: "actionItems" });
   }, [workspaceKey]);
-  const handleCollapse = useCallback(
-    () => useActionItemsPreferences.getState().setCollapsed(true),
-    [],
-  );
-  const handleExpand = useCallback(
-    () => useActionItemsPreferences.getState().setCollapsed(false),
-    [],
-  );
+  const collapse = useCallback(() => useActionItemsPreferences.getState().setCollapsed(true), []);
+  const expand = useCallback(() => useActionItemsPreferences.getState().setCollapsed(false), []);
 
-  if (!state || !hasItems || !enabled || isDocked) return null;
+  if (!state || !hasItems || !enabled || isDocked) return { display: "none" };
   // Pinned and not docked yet: the effect above is about to dock it.
-  if (prefersDocked && !appliedDock.current) return null;
-  if (collapsed) return <Pill items={state.items} onPress={handleExpand} />;
+  if (prefersDocked && !appliedDock.current) return { display: "none" };
+  return {
+    display: collapsed || narrow ? "pill" : "card",
+    serverId,
+    agentId,
+    model,
+    items: state.items,
+    sawEmpty: sawEmpty.current,
+    pin,
+    collapse,
+    expand,
+  };
+}
+
+/** The floating note itself: a card over the transcript's top right, or the pill. */
+export function ActionItemsFloating({
+  floating,
+}: {
+  floating: ActionItemsFloatingState;
+}): ReactElement | null {
+  const { t } = useTranslation();
+  if (floating.display === "none") return null;
+  if (floating.display === "pill") return <Pill items={floating.items} onPress={floating.expand} />;
 
   return (
     <View style={styles.anchor} pointerEvents="box-none">
-      <Enter kind="card" animate={sawEmpty.current} style={enterStyle}>
+      <Enter kind="card" animate={floating.sawEmpty} style={enterStyle}>
         <View style={styles.card} testID="action-items-floating">
           <View style={styles.header}>
             <Text style={styles.title} numberOfLines={1}>
@@ -116,7 +151,7 @@ export function ActionItemsFloating({
             </Text>
             <ToolbarButton
               label={t("actionItems.pin")}
-              onPress={handlePin}
+              onPress={floating.pin}
               compact
               testID="action-items-pin"
             >
@@ -124,14 +159,19 @@ export function ActionItemsFloating({
             </ToolbarButton>
             <ToolbarButton
               label={t("actionItems.collapse")}
-              onPress={handleCollapse}
+              onPress={floating.collapse}
               compact
               testID="action-items-collapse"
             >
               <ThemedCollapse size={14} uniProps={mutedMapping} />
             </ToolbarButton>
           </View>
-          <ActionItemsContent serverId={serverId} agentId={agentId} model={model} variant="card" />
+          <ActionItemsContent
+            serverId={floating.serverId}
+            agentId={floating.agentId}
+            model={floating.model}
+            variant="card"
+          />
         </View>
       </Enter>
     </View>
@@ -170,7 +210,9 @@ function pillStyle({ hovered = false }: PressableStateCallbackType & { hovered?:
   return [styles.pill, hovered && styles.pillHovered];
 }
 
-const CARD_WIDTH = 288;
+/** Width of the open card and the room the transcript leaves for it: card, its inset and a gap. */
+export const ACTION_ITEMS_CARD_WIDTH = 288;
+const CARD_WIDTH = ACTION_ITEMS_CARD_WIDTH;
 
 const styles = StyleSheet.create((theme) => ({
   // Top-right of the transcript. The right inset clears the scrollbar; the bottom inset keeps

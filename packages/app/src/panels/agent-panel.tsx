@@ -22,7 +22,12 @@ import { shallow, useShallow } from "zustand/shallow";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useAgentStreamTail } from "@/agent-stream/use-agent-stream-tail";
 import { AgentStreamView, type AgentStreamViewHandle } from "@/agent-stream/view";
-import { ActionItemsFloating } from "@/action-items/floating";
+import {
+  ACTION_ITEMS_CARD_MIN_PANE_WIDTH,
+  ACTION_ITEMS_CARD_WIDTH,
+  ActionItemsFloating,
+  useActionItemsFloating,
+} from "@/action-items/floating";
 import { ArchivedAgentCallout } from "@/components/archived-agent-callout";
 import { useProviderIcon } from "@/components/provider-icons";
 import { ComposerDock } from "@/composer/dock";
@@ -1201,9 +1206,25 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
     onAttentionInputFocus();
     return false;
   }, [onAttentionInputFocus]);
+  const { onLayout: onStreamLayout, isBelow: isNarrowPane } = useContainerWidthBelow(
+    ACTION_ITEMS_CARD_MIN_PANE_WIDTH,
+    { initialIsBelow: true },
+  );
+  const actionItemsFloating = useActionItemsFloating({
+    serverId,
+    workspaceId,
+    agentId,
+    narrow: isNarrowPane,
+    disabled: Boolean(draft),
+  });
   const streamContent = (
     <View
-      style={animatedStaticStyles.content}
+      style={[
+        animatedStaticStyles.content,
+        // An open card owns the transcript's top right, so the transcript keeps clear of it.
+        actionItemsFloating.display === "card" && actionItemsCardInset,
+      ]}
+      onLayout={onStreamLayout}
       onStartShouldSetResponderCapture={handleAttentionInteraction}
     >
       {showsComposer ? null : <SheetAgentFacts serverId={serverId} agentId={agentId} />}
@@ -1229,9 +1250,7 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
           parentAgentId={parentPillAgentId}
         />
       ) : null}
-      {draft ? null : (
-        <ActionItemsFloating serverId={serverId} workspaceId={workspaceId} agentId={agentId} />
-      )}
+      <ActionItemsFloating floating={actionItemsFloating} />
     </View>
   );
 
@@ -1833,6 +1852,9 @@ const foregroundMutedColorMapping = (theme: Theme) => ({
 const foregroundColorMapping = (theme: Theme) => ({
   color: theme.colors.foreground,
 });
+
+// Card width, the 24px inset that clears the scrollbar, and a 16px gap to the transcript.
+const actionItemsCardInset = { paddingRight: ACTION_ITEMS_CARD_WIDTH + 40 } as const;
 
 const animatedStaticStyles = RNStyleSheet.create({
   content: {
