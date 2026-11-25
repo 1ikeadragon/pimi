@@ -7,9 +7,9 @@ import { PIMI_VIEW_FENCE, VIEW_NODE_FIELDS, VIEW_TONES } from "./chat-view.js";
  * Agents are not taught the chart node (a chart is a pimi-vega block) or the table node (a table
  * is a Markdown table, which chat renders as prose). Stored chats still draw both.
  */
-const UNTAUGHT_NODES: readonly string[] = ["chart", "table"];
+const UNTAUGHT_NODES: ReadonlySet<string> = new Set(["chart", "table"]);
 const TAUGHT_NODE_FIELDS = Object.entries(VIEW_NODE_FIELDS).filter(
-  ([type]) => !UNTAUGHT_NODES.includes(type),
+  ([type]) => !UNTAUGHT_NODES.has(type),
 );
 
 /** The core Pimi tool that returns the block formats to a provider that cannot read skills. */
