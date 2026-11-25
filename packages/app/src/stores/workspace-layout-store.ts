@@ -164,7 +164,21 @@ interface WorkspaceLayoutStore {
   sheetsByWorkspace: Record<string, readonly SheetTab[]>;
   layoutByWorkspace: Record<string, WorkspaceLayout>;
   workbenchByWorkspace: Record<string, WorkspaceWorkbench>;
+  /**
+   * The mode the window is in: Agent, IDE or Attack Mode belongs to the window, not to one chat.
+   * `null` until a chat has been shown (older saved layouts have none); the first chat shown then
+   * donates its own mode.
+   */
+  windowWorkbenchMode: WorkbenchMode | null;
+  /** A deliberate mode change: switches this chat and makes the mode the window's. */
   switchWorkbench: (workspaceKey: string, mode: WorkbenchMode) => "ok" | "unsaved" | "unavailable";
+  /** Records the window's mode without touching any chat, for a pick with no chat on screen. */
+  setWindowWorkbenchMode: (mode: WorkbenchMode) => void;
+  /**
+   * Brings a chat that is being shown to the window's mode. Chats the user is not looking at keep
+   * their own mode until they are shown, so a switch never rebuilds every retained chat at once.
+   */
+  followWindowWorkbench: (workspaceKey: string) => "ok" | "unsaved" | "unavailable";
   toggleWorkbenchChat: (workspaceKey: string) => "ok" | "unsaved" | "unavailable";
   /** Attack mode: collapses the findings pane (narrow windows show findings as an overlay) or restores it. */
   setAttackFindingsPaneHidden: (workspaceKey: string, hidden: boolean) => void;
@@ -267,7 +281,10 @@ interface WorkspaceFocusRestorationState {
 // Preserve four user-created split levels beneath that bookkeeping node.
 const MAX_TREE_DEPTH = 5;
 
-const WORKSPACE_LAYOUT_PERSIST_VERSION = 4;
+// COMPAT(window-workbench-mode): layouts saved before version 5 keep a mode per chat and no window
+// mode. They load with `windowWorkbenchMode` unset; the first chat shown donates its mode, which is
+// the chat the user was last looking at (the last-selected chat is not readable synchronously here).
+const WORKSPACE_LAYOUT_PERSIST_VERSION = 5;
 type WorkspaceLayoutPersistedState = z.infer<typeof WorkspaceLayoutPersistedStateSchema>;
 
 function replacePaneInNode(node: SplitNode, paneId: string, replacement: SplitPane): SplitNode {
@@ -1109,6 +1126,7 @@ function restoreAgentIdSets(byWorkspace: Record<string, string[]> | undefined) {
 
 const PERSISTED_SLICES = [
   "layoutByWorkspace",
+  "windowWorkbenchMode",
   "workbenchByWorkspace",
   "pinnedAgentIdsByWorkspace",
   "hiddenAgentIdsByWorkspace",
@@ -1140,6 +1158,7 @@ function createPersistedStateProjection() {
     }
     const state: WorkspaceLayoutPersistedState = {
       layoutByWorkspace,
+      ...(source.windowWorkbenchMode ? { windowWorkbenchMode: source.windowWorkbenchMode } : {}),
       workbenchByWorkspace: source.workbenchByWorkspace,
       pinnedAgentIdsByWorkspace: serializeAgentIdSets(source.pinnedAgentIdsByWorkspace),
       hiddenAgentIdsByWorkspace: serializeAgentIdSets(source.hiddenAgentIdsByWorkspace),
@@ -1168,6 +1187,65 @@ function advancePanelRevision(
       [workspaceKey]: { ...revisions, [tabId]: (revisions[tabId] ?? 0) + 1 },
     },
   };
+}
+
+interface WorkbenchStoreAccess {
+  get: () => WorkspaceLayoutStore;
+  set: (partial: Partial<WorkspaceLayoutStore>) => void;
+  ids: WorkspaceLayoutIdSource;
+}
+
+/** Puts one chat's tree into `mode`. Callers decide whether that mode becomes the window's. */
+function applyWorkbench(
+  { get, set, ids }: WorkbenchStoreAccess,
+  workspaceKey: string,
+  mode: WorkbenchMode,
+): "ok" | "unsaved" | "unavailable" {
+  const state = get();
+  if (!workspaceKey || state.layoutMode !== "split-panes") return "unavailable";
+  const prior = state.workbenchByWorkspace[workspaceKey];
+  if ((prior?.mode ?? "agent") === mode) return "ok";
+  const layout = getWorkspaceLayout(state.layoutByWorkspace, workspaceKey);
+  if (
+    collectAllTabs(layout.root).some(
+      ({ tabId }) => getWorkspacePanelAttributes(workspaceKey, tabId).modified,
+    )
+  )
+    return "unsaved";
+  const current = {
+    layout,
+    explorerPaneId: resolveExplorerSidebarPaneId(
+      layout,
+      state.explorerSidebarPaneIdByWorkspace[workspaceKey],
+    ),
+    sidePaneId: state.sidePaneIdByWorkspace[workspaceKey] ?? null,
+  };
+  const template = prior?.alternates[mode];
+  let next: WorkbenchPreset;
+  if (template) next = restoreWorkbench(template, layout, mode);
+  else if (mode === "attack") next = createAttackWorkbench(current);
+  else next = createEditorWorkbench(current, ids);
+  const { [mode]: _showing, ...alternates } = prior?.alternates ?? {};
+  set({
+    ...withoutFocusRestoration(state, workspaceKey),
+    layoutByWorkspace: { ...state.layoutByWorkspace, [workspaceKey]: next.layout },
+    workbenchByWorkspace: {
+      ...state.workbenchByWorkspace,
+      [workspaceKey]: {
+        mode,
+        alternates: { ...alternates, [prior?.mode ?? "agent"]: current },
+      },
+    },
+    explorerSidebarPaneIdByWorkspace: {
+      ...state.explorerSidebarPaneIdByWorkspace,
+      [workspaceKey]: next.explorerPaneId,
+    },
+    sidePaneIdByWorkspace: {
+      ...state.sidePaneIdByWorkspace,
+      [workspaceKey]: next.sidePaneId,
+    },
+  });
+  return "ok";
 }
 
 export function createWorkspaceLayoutStore(
@@ -1226,52 +1304,27 @@ export function createWorkspaceLayoutStore(
         focusRequest: null,
         layoutByWorkspace: {},
         workbenchByWorkspace: {},
-        switchWorkbench: (workspaceKey, mode) => {
+        windowWorkbenchMode: null,
+        setWindowWorkbenchMode: (mode) => {
+          set((state) =>
+            state.windowWorkbenchMode === mode ? state : { windowWorkbenchMode: mode },
+          );
+        },
+        followWindowWorkbench: (workspaceKey) => {
           const state = get();
           if (!workspaceKey || state.layoutMode !== "split-panes") return "unavailable";
-          const prior = state.workbenchByWorkspace[workspaceKey];
-          if ((prior?.mode ?? "agent") === mode) return "ok";
-          const layout = getWorkspaceLayout(state.layoutByWorkspace, workspaceKey);
-          if (
-            collectAllTabs(layout.root).some(
-              ({ tabId }) => getWorkspacePanelAttributes(workspaceKey, tabId).modified,
-            )
-          )
-            return "unsaved";
-          const current = {
-            layout,
-            explorerPaneId: resolveExplorerSidebarPaneId(
-              layout,
-              state.explorerSidebarPaneIdByWorkspace[workspaceKey],
-            ),
-            sidePaneId: state.sidePaneIdByWorkspace[workspaceKey] ?? null,
-          };
-          const template = prior?.alternates[mode];
-          let next: WorkbenchPreset;
-          if (template) next = restoreWorkbench(template, layout, mode);
-          else if (mode === "attack") next = createAttackWorkbench(current);
-          else next = createEditorWorkbench(current, ids);
-          const { [mode]: _showing, ...alternates } = prior?.alternates ?? {};
-          set({
-            ...withoutFocusRestoration(state, workspaceKey),
-            layoutByWorkspace: { ...state.layoutByWorkspace, [workspaceKey]: next.layout },
-            workbenchByWorkspace: {
-              ...state.workbenchByWorkspace,
-              [workspaceKey]: {
-                mode,
-                alternates: { ...alternates, [prior?.mode ?? "agent"]: current },
-              },
-            },
-            explorerSidebarPaneIdByWorkspace: {
-              ...state.explorerSidebarPaneIdByWorkspace,
-              [workspaceKey]: next.explorerPaneId,
-            },
-            sidePaneIdByWorkspace: {
-              ...state.sidePaneIdByWorkspace,
-              [workspaceKey]: next.sidePaneId,
-            },
-          });
-          return "ok";
+          const windowMode = state.windowWorkbenchMode;
+          if (windowMode === null) {
+            // First chat shown since the window mode was introduced: it donates its mode.
+            set({ windowWorkbenchMode: state.workbenchByWorkspace[workspaceKey]?.mode ?? "agent" });
+            return "ok";
+          }
+          return applyWorkbench({ get, set, ids }, workspaceKey, windowMode);
+        },
+        switchWorkbench: (workspaceKey, mode) => {
+          const result = applyWorkbench({ get, set, ids }, workspaceKey, mode);
+          if (result === "ok") get().setWindowWorkbenchMode(mode);
+          return result;
         },
         setAttackFindingsPaneHidden: (workspaceKey, hidden) => {
           set((state) => {
@@ -2695,6 +2748,7 @@ export function createWorkspaceLayoutStore(
           return {
             ...currentState,
             layoutByWorkspace,
+            windowWorkbenchMode: result.data.windowWorkbenchMode ?? null,
             workbenchByWorkspace: result.data.workbenchByWorkspace ?? {},
             pinnedAgentIdsByWorkspace: restoreAgentIdSets(result.data.pinnedAgentIdsByWorkspace),
             hiddenAgentIdsByWorkspace: restoreAgentIdSets(result.data.hiddenAgentIdsByWorkspace),

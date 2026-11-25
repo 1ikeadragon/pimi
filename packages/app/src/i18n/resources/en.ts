@@ -2295,6 +2295,7 @@ export const en = {
     openFolder: "Open folder in IDE",
     open: "Open",
     unsavedLayout: "Save your changes before switching layouts.",
+    openProject: "Open a project to use IDE Mode.",
     unreachable: "Could not open {{path}} in IDE",
     folderNotHomeRelative: "Enter an absolute path or one relative to this folder.",
   },

@@ -109,6 +109,8 @@ export const WorkspaceLayoutPersistedStateSchema = z.strictObject({
   pinnedAgentIdsByWorkspace: z.record(z.string(), z.array(z.string())).optional(),
   hiddenAgentIdsByWorkspace: z.record(z.string(), z.array(z.string())).optional(),
   layoutByWorkspace: z.record(z.string(), WorkspaceLayoutStorageSchema),
+  // The mode the window is in, shared by every chat. Absent in layouts saved before it existed.
+  windowWorkbenchMode: z.enum(["agent", "editor", "attack"]).optional(),
   workbenchByWorkspace: z
     .record(
       z.string(),
