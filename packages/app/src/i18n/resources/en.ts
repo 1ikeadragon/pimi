@@ -3935,6 +3935,7 @@ export const en = {
       sendFailedTitle: "Unable to send test notification",
     },
     trust: {
+      secrets: "Secrets",
       browser: "Browser",
       agentAccess: "Agent access",
       unavailable: "Connect to this host to manage trust and access",

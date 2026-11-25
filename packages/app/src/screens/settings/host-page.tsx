@@ -403,7 +403,7 @@ export function HostTrustPage({ serverId }: { serverId: string }) {
 
   return (
     <View>
-      <SettingsSection title={t("settings.hostSections.vault")}>
+      <SettingsSection title={t("settings.trust.secrets")}>
         <VaultSummaryRow serverId={serverId} />
       </SettingsSection>
       {isConnected ? (
@@ -463,11 +463,7 @@ export function HostSettingsPage({
 
       {isLocalDaemon ? <LocalDaemonSection /> : null}
 
-      {!isLocalDaemon ? (
-        <SettingAnchor id="host.update">
-          <UpdateDaemonCard key={host.serverId} host={host} />
-        </SettingAnchor>
-      ) : null}
+      {!isLocalDaemon ? <UpdateDaemonCard key={host.serverId} host={host} /> : null}
 
       <SettingAnchor id="host.remove">
         <RemoveHostSection host={host} isLocalDaemon={isLocalDaemon} onRemoved={onHostRemoved} />
