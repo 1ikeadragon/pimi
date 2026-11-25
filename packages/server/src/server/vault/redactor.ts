@@ -17,13 +17,12 @@ function escapeForRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function percentEncodeStrict(value: string): string {
+function percentEncodeStrict(value: string, keepSlash: boolean): string {
+  const safe = keepSlash ? /[A-Za-z0-9\-._~/]/ : /[A-Za-z0-9\-._~]/;
   return [...Buffer.from(value, "utf8")]
     .map((byte) => {
       const char = String.fromCharCode(byte);
-      return /[A-Za-z0-9\-._~]/.test(char)
-        ? char
-        : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+      return safe.test(char) ? char : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
     })
     .join("");
 }
@@ -78,7 +77,9 @@ function variantsOf(value: string): string[] {
     percent,
     percent.replace(/%[0-9A-F]{2}/g, (escape) => escape.toLowerCase()),
     percent.replace(/%20/g, "+"),
-    percentEncodeStrict(value),
+    percentEncodeStrict(value, false),
+    // Python's urllib.parse.quote leaves "/" alone by default.
+    percentEncodeStrict(value, true),
   ];
   return variants;
 }
