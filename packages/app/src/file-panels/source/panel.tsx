@@ -28,6 +28,7 @@ import { FilePanelLoading } from "../loading";
 import type { FileConflictAlertState } from "./conflict-alert";
 import { FileEditorModel, getFileConflictCallout } from "./editor/model";
 import { FileEditorView } from "./editor/view";
+import { useHeadBase } from "./editor/head-base";
 import { FileLineBlame } from "./editor/blame";
 import { selectSourcePresentation } from "./readonly/presentation";
 import { FileSourceView } from "./readonly/view";
@@ -46,6 +47,9 @@ const sourceAppearance = (theme: Theme) => ({
     selection: theme.colors.terminal.selectionBackground,
     monoFont: theme.fontFamily.mono,
     codeFontSize: theme.fontSize.code,
+    changeAdded: theme.colors.statusSuccess,
+    changeModified: theme.colors.statusWarning,
+    changeDeleted: theme.colors.statusDanger,
     syntax: theme.colors.syntax,
   },
 });
@@ -183,6 +187,7 @@ function EditableTextFile({
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const [vimMode, setVimMode] = useState<string | null>(settings.vimKeybindings ? "NORMAL" : null);
   const snapshot = useSyncExternalStore(model.subscribe, model.getSnapshot, model.getSnapshot);
+  const base = useHeadBase({ serverId, workspaceId, path: params.path });
 
   useEffect(() => {
     model.open();
@@ -276,6 +281,7 @@ function EditableTextFile({
             location={editorLocation}
             navigationRevision={revision}
             vimEnabled={settings.vimKeybindings}
+            base={base}
             onCursorChange={setCursor}
             onVimModeChange={setVimMode}
           />

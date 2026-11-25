@@ -278,6 +278,7 @@ import {
   absoluteQuerySearchRoot,
 } from "../utils/directory-suggestions.js";
 import type { CheckoutDiffManager } from "./checkout-diff-manager.js";
+import type { NestedChangesService } from "./checkout/nested-changes.js";
 import type { Resolvable } from "./speech/provider-resolver.js";
 import type { SpeechReadinessSnapshot } from "./speech/speech-runtime.js";
 import type pino from "pino";
@@ -525,6 +526,7 @@ export interface SessionOptions {
   attackService: AttackService;
   attackScheduler: AttackScheduler;
   checkoutDiffManager: CheckoutDiffManager;
+  nestedChanges: NestedChangesService;
   github?: ForgeService;
   createAgentMcpTransport?: AgentMcpTransportFactory;
   // Injected so tests can substitute the git branch rename without module mocks;
@@ -879,6 +881,7 @@ export class Session {
       attackService,
       attackScheduler,
       checkoutDiffManager,
+      nestedChanges,
       github,
       renameCurrentBranch,
       workspaceGitService,
@@ -1011,6 +1014,7 @@ export class Session {
       gitMutation: this.gitMutation,
       workspaceGitService: this.workspaceGitService,
       checkoutDiffManager,
+      nestedChanges,
       gitMetadataGenerator: createGitMetadataGenerator({
         workspaceGitService: this.workspaceGitService,
         generation: createAgentStructuredTextGeneration({
@@ -3255,6 +3259,14 @@ export class Session {
         return this.checkoutSession.handleReadDiffRequest(msg);
       case "checkout.nested.list.request":
         return this.checkoutSession.handleListNestedCheckoutsRequest(msg);
+      case "checkout.nested.subscribe_changes.request":
+        return this.checkoutSession.handleNestedChangesSubscribeRequest(msg, this.delivery);
+      case "checkout.file.get_base.request":
+        return this.checkoutSession.handleFileGetBaseRequest(msg);
+      case "checkout.nested.refresh.request":
+        return this.checkoutSession.handleNestedChangesRefreshRequest(msg);
+      case "checkout.nested.set_watched_roots.request":
+        return this.checkoutSession.handleNestedChangesSetWatchedRootsRequest(msg);
       case "subscribe_checkout_diff_request":
         return this.checkoutSession.handleSubscribeDiffRequest(msg, this.delivery);
       case "unsubscribe_checkout_diff_request":

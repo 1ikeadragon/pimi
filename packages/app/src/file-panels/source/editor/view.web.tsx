@@ -18,6 +18,7 @@ import { Annotation, Compartment, EditorState, Transaction } from "@codemirror/s
 import { EditorView } from "@codemirror/view";
 import { history } from "@codemirror/commands";
 import { getLanguageForFile } from "@pimi/highlight";
+import { changesGutter, setChangesBase } from "./changes-gutter.web";
 import { getCM, vim } from "@replit/codemirror-vim";
 import type { WorkspaceFileLocation } from "@/workspace/file-open";
 import type { FileEditorModel } from "./model";
@@ -37,6 +38,8 @@ interface FileEditorViewProps {
   navigationRevision: number;
   vimEnabled: boolean;
   theme: EditorVisualTheme;
+  /** The file's text at HEAD to mark changes against; null shows no markers. */
+  base: string | null;
   onCursorChange(position: { line: number; column: number }): void;
   onVimModeChange(mode: string | null): void;
   /** The editor shows the file's content. */
@@ -63,6 +66,7 @@ export function FileEditorView({
   navigationRevision,
   vimEnabled,
   theme,
+  base,
   onCursorChange,
   onVimModeChange,
   onReady,
@@ -102,10 +106,19 @@ export function FileEditorView({
     model,
     theme,
     vimEnabled,
+    base,
     content: snapshot.content,
     onReady,
   });
-  initial.current = { filename, model, theme, vimEnabled, content: snapshot.content, onReady };
+  initial.current = {
+    filename,
+    model,
+    theme,
+    vimEnabled,
+    base,
+    content: snapshot.content,
+    onReady,
+  };
   const onCursorChangeRef = useRef(onCursorChange);
   onCursorChangeRef.current = onCursorChange;
 
@@ -123,6 +136,7 @@ export function FileEditorView({
       find.extension,
       annotationEditorExtension,
       ...editorBaseExtensions(() => void values.model.save()),
+      changesGutter(),
       languageCompartment.of(getLanguageForFile(values.filename)?.extension ?? []),
       wrappingCompartment.of(wrappingForFile(values.filename)),
       themeCompartment.of(editorTheme(values.theme)),
@@ -149,6 +163,7 @@ export function FileEditorView({
       scrollTo: restored?.scroll,
     });
     viewRef.current = view;
+    view.dispatch({ effects: setChangesBase.of(values.base) });
     setViewEpoch((epoch) => epoch + 1);
     reportSelection(view.state);
     values.onReady();
@@ -228,6 +243,10 @@ export function FileEditorView({
   useEffect(() => {
     viewRef.current?.dispatch({ effects: themeCompartment.reconfigure(editorTheme(theme)) });
   }, [theme]);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: setChangesBase.of(base) });
+  }, [base, model, retentionKey]);
 
   useEffect(() => {
     const view = viewRef.current;

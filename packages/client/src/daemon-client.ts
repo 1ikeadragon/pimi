@@ -4913,13 +4913,57 @@ export class DaemonClient {
 
   async listNestedCheckouts(
     cwd: string,
+    depth: number,
     requestId?: string,
-  ): Promise<{ cwd: string; checkouts: string[]; error: string | null; requestId: string }> {
+  ): Promise<CorrelatedResponsePayload<"checkout.nested.list.response">> {
     return this.sendCorrelatedSessionRequest({
-      message: { type: "checkout.nested.list.request", cwd },
+      message: { type: "checkout.nested.list.request", cwd, depth },
       responseType: "checkout.nested.list.response",
       requestId,
     });
+  }
+
+  /**
+   * Changes of every Git repository inside a folder. The snapshot lists the repositories; each
+   * status then arrives as a `checkout.nested.changes.update` to the subscription's observers.
+   */
+  observeNestedChanges(input: {
+    cwd: string;
+    depth: number;
+    signal?: AbortSignal;
+  }): OwnedSubscription<CorrelatedResponsePayload<"checkout.nested.subscribe_changes.response">> {
+    return this.observe(
+      "checkout.nested.subscribe_changes.response",
+      { type: "checkout.nested.subscribe_changes.request", cwd: input.cwd, depth: input.depth },
+      { signal: input.signal },
+    );
+  }
+
+  async getCheckoutFileBase(input: {
+    cwd: string;
+    path: string;
+  }): Promise<CorrelatedResponsePayload<"checkout.file.get_base.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest<"checkout.file.get_base.response">({
+      message: { type: "checkout.file.get_base.request", ...input },
+    });
+  }
+
+  async refreshNestedChanges(input: {
+    subscriptionId: string;
+    root: string | null;
+  }): Promise<CorrelatedResponsePayload<"checkout.nested.refresh.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest<"checkout.nested.refresh.response">({
+      message: { type: "checkout.nested.refresh.request", ...input },
+    });
+  }
+
+  async setNestedChangesWatchedRoots(input: {
+    subscriptionId: string;
+    roots: string[];
+  }): Promise<CorrelatedResponsePayload<"checkout.nested.set_watched_roots.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest<"checkout.nested.set_watched_roots.response">(
+      { message: { type: "checkout.nested.set_watched_roots.request", ...input } },
+    );
   }
 
   observeCheckoutDiff(

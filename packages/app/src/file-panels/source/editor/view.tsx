@@ -10,6 +10,7 @@ export function FileEditorView(_props: {
   location: WorkspaceFileLocation;
   navigationRevision: number;
   vimEnabled: boolean;
+  base: string | null;
   theme: {
     background: string;
     foreground: string;
@@ -18,6 +19,9 @@ export function FileEditorView(_props: {
     selection: string;
     monoFont: string;
     codeFontSize: number;
+    changeAdded: string;
+    changeModified: string;
+    changeDeleted: string;
     syntax: Record<HighlightStyle, string>;
   };
   onCursorChange(position: { line: number; column: number }): void;

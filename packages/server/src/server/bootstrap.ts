@@ -210,6 +210,8 @@ import {
   type WorkspaceArchiveContext,
 } from "./workspace-registry.js";
 import { CheckoutDiffManager } from "./checkout-diff-manager.js";
+import { NestedChangesService } from "./checkout/nested-changes.js";
+import { workspaceFileObserver } from "./file-explorer/observer.js";
 import { AutomationService } from "./automation/service.js";
 import { GateVerdictBoard } from "./automation/gate-verdicts.js";
 import { FlowService } from "./flow/service.js";
@@ -1197,6 +1199,12 @@ export async function createPimiDaemon(
       forgeOverrides: { github },
     },
   });
+  const nestedChanges = new NestedChangesService({
+    logger: logger.child({ module: "nested-changes" }),
+    observeFile: (input, listener) => workspaceFileObserver.subscribe(input, listener),
+    observeWorkingTree: (root, listener) =>
+      workspaceGitService.requestWorkingTreeWatch(root, listener),
+  });
   const workspaceRuntimeStore = createWorkspaceRuntimeStore();
   // Set once the task service exists; a linked checkout's PR change refreshes task projections.
   let onCheckoutPullRequestChanged: () => void = () => {};
@@ -1295,6 +1303,10 @@ export async function createPimiDaemon(
     appendSystemPrompt: config.appendSystemPrompt,
     onWorkspaceStateMayHaveChanged: ({ cwd }) => {
       workspaceGitService.onWorkspaceStateMayHaveChanged(cwd);
+      nestedChanges.noteWorkspaceStateMayHaveChanged(cwd);
+    },
+    onAgentFileEdited: ({ cwd, filePath }) => {
+      nestedChanges.noteFileEdited(path.resolve(cwd, filePath));
     },
     isAutoNamingEnabled: () => daemonConfigStore.get().metadataGeneration.autoNaming !== false,
     resolveChatRecordTitle: async (workspaceId) => {
@@ -2406,6 +2418,7 @@ export async function createPimiDaemon(
               usageLedger,
               actionItemsService,
               recapService,
+              nestedChanges,
             );
             pluginRuntime.bindPimiSessionHost(wsServer);
             await pluginRuntime.start();

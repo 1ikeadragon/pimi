@@ -123,9 +123,9 @@ const WATCH_RECOVERY_BASE_DELAY_MS = 30_000;
 const WATCH_RECOVERY_MAX_DELAY_MS = 300_000;
 const WATCH_RECOVERY_MAX_BACKOFF_STEPS = 4;
 // Auxiliary reads may reuse cached values within this window; snapshots do not expire on read.
-const WORKSPACE_GIT_AUXILIARY_READ_TTL_MS = 15_000;
+export const WORKSPACE_GIT_AUXILIARY_READ_TTL_MS = 15_000;
 // Non-forced refresh triggers share this minimum gap to absorb watcher/self-heal bursts; force bypasses it.
-const WORKSPACE_GIT_INTERNAL_MIN_GAP_MS = 2_000;
+export const WORKSPACE_GIT_INTERNAL_MIN_GAP_MS = 2_000;
 // Small values (booleans, short strings, small arrays); generous cap.
 const WORKSPACE_GIT_AUXILIARY_CACHE_MAX = 256;
 

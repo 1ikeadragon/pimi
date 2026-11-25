@@ -17,6 +17,9 @@ import { Compartment, EditorState } from "@codemirror/state";
 
 export const editorHistory = new Compartment();
 
+/** Width of the change bar; the removed-lines triangle is drawn with borders of the same size. */
+const CHANGE_BAR_WIDTH = "4px";
+
 export interface EditorVisualTheme {
   colorScheme: "light" | "dark";
   background: string;
@@ -27,6 +30,10 @@ export interface EditorVisualTheme {
   selection: string;
   monoFont: string;
   codeFontSize: number;
+  /** Gutter markers for lines added, modified or removed relative to HEAD. */
+  changeAdded: string;
+  changeModified: string;
+  changeDeleted: string;
   syntax: Record<HighlightStyle, string>;
 }
 
@@ -79,6 +86,19 @@ export function editorTheme(theme: EditorVisualTheme) {
           backgroundColor: theme.background,
           color: theme.foregroundMuted,
           borderRight: `1px solid ${theme.border}`,
+        },
+        ".cm-change-gutter": { width: CHANGE_BAR_WIDTH },
+        ".cm-change-gutter .cm-gutterElement": { padding: "0", position: "relative" },
+        ".cm-change-gutter .cm-change-added": { backgroundColor: theme.changeAdded },
+        ".cm-change-gutter .cm-change-modified": { backgroundColor: theme.changeModified },
+        ".cm-change-gutter .cm-change-deleted::before": {
+          content: '""',
+          position: "absolute",
+          left: "0",
+          top: "0",
+          borderTop: `${CHANGE_BAR_WIDTH} solid transparent`,
+          borderBottom: `${CHANGE_BAR_WIDTH} solid transparent`,
+          borderLeft: `${CHANGE_BAR_WIDTH} solid ${theme.changeDeleted}`,
         },
         ".cm-activeLine": { backgroundColor: "transparent" },
         ".cm-activeLineGutter": { backgroundColor: "transparent", color: theme.foreground },

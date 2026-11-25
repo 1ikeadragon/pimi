@@ -1,9 +1,6 @@
 import type pino from "pino";
-import pLimit from "p-limit";
 import type { SessionDelivery } from "../owned-subscriptions/index.js";
-import { constants } from "node:fs";
-import { lstat, open, readdir, stat } from "node:fs/promises";
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute } from "node:path";
 import { getErrorMessage } from "@pimi/protocol/error-utils";
 import { getForgeDefinitionOrNeutral } from "@pimi/protocol/forge-manifest";
 import { validateBranchSlug } from "@pimi/protocol/branch-slug";
@@ -12,6 +9,10 @@ import type {
   CheckoutCommitsListRequest,
   CheckoutCommitFileDiffRequest,
   CheckoutBlameRequest,
+  CheckoutFileGetBaseRequest,
+  CheckoutNestedRefreshRequest,
+  CheckoutNestedSetWatchedRootsRequest,
+  CheckoutNestedSubscribeChangesRequest,
   CheckoutRefreshRequest,
   CheckoutRenameBranchRequest,
   CheckoutStatusRequest,
@@ -28,6 +29,13 @@ import type {
   CheckoutDiffSubscriptionRequest,
 } from "../../checkout-diff-manager.js";
 import { toCheckoutError } from "../../checkout-git-utils.js";
+import {
+  discoverNestedRepositories,
+  type NestedChangesService,
+  type NestedChangesSubscription,
+  type NestedChangesUpdate,
+} from "../../checkout/nested-changes.js";
+import { readFileBase } from "../../checkout/file-base.js";
 import {
   buildCheckoutPrStatusPayloadFromSnapshot,
   buildCheckoutStatusPayloadFromSnapshot,
@@ -117,59 +125,11 @@ export interface CheckoutSessionOptions {
   gitMutation: Pick<GitMutationService, "checkoutExistingBranch" | "notifyGitMutation">;
   workspaceGitService: WorkspaceGitService;
   checkoutDiffManager: CheckoutDiffSubscriber;
+  nestedChanges: NestedChangesService;
   gitMetadataGenerator: GitMetadataGenerator;
   pimiHome: string;
   worktreesRoot: string | undefined;
   logger: pino.Logger;
-}
-
-const MAX_NESTED_CHECKOUTS = 200;
-const MAX_GIT_POINTER_BYTES = 1024;
-// Shared by every session so several folder scans at once stay bounded.
-const nestedCheckoutProbeLimit = pLimit(16);
-
-async function readGitPointer(path: string): Promise<string> {
-  // Non-blocking so a FIFO cannot stall the scan; only a regular file is read.
-  const file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
-  try {
-    if (!(await file.stat()).isFile()) throw new Error(`${path} is not a file`);
-    const buffer = Buffer.alloc(MAX_GIT_POINTER_BYTES);
-    const { bytesRead } = await file.read(buffer, 0, MAX_GIT_POINTER_BYTES, 0);
-    return buffer.toString("utf8", 0, bytesRead);
-  } finally {
-    await file.close();
-  }
-}
-
-/**
- * When the checkout at `path` was last used: its index's modified time, which Git rewrites on add,
- * commit and checkout. A linked worktree's `.git` file points at the directory holding its index.
- * Null when `path` is not a checkout.
- */
-async function readCheckoutUsedAt(path: string): Promise<number | null> {
-  const dotGit = join(path, ".git");
-  let gitDir = dotGit;
-  try {
-    if ((await lstat(dotGit)).isFile()) {
-      const pointer = /^gitdir: (.+)$/m.exec(await readGitPointer(dotGit))?.[1]?.trim();
-      if (!pointer) return null;
-      gitDir = resolve(path, pointer);
-    }
-  } catch {
-    return null;
-  }
-  // A Git directory has HEAD, and its repository (a linked worktree's lives in commondir) has
-  // objects; an empty, unrelated or orphaned folder lacks one of them.
-  if (!(await stat(join(gitDir, "HEAD")).catch(() => null))?.isFile()) return null;
-  const commonDir = await readGitPointer(join(gitDir, "commondir")).then(
-    (pointer) => resolve(gitDir, pointer.trim()),
-    () => gitDir,
-  );
-  if (!(await stat(join(commonDir, "objects")).catch(() => null))?.isDirectory()) return null;
-  const index = await stat(join(gitDir, "index")).catch(() => null);
-  if (index) return index.mtimeMs;
-  // A repository with nothing staged yet has no index.
-  return (await stat(gitDir).catch(() => null))?.mtimeMs ?? null;
 }
 
 /**
@@ -192,6 +152,8 @@ export class CheckoutSession {
   >;
   private readonly workspaceGitService: WorkspaceGitService;
   private readonly checkoutDiffManager: CheckoutDiffSubscriber;
+  private readonly nestedChanges: NestedChangesService;
+  private readonly nestedChangesSubscriptions = new Map<string, NestedChangesSubscription>();
   private readonly gitMetadataGenerator: GitMetadataGenerator;
   private readonly pimiHome: string;
   private readonly worktreesRoot: string | undefined;
@@ -203,6 +165,7 @@ export class CheckoutSession {
     this.gitMutation = options.gitMutation;
     this.workspaceGitService = options.workspaceGitService;
     this.checkoutDiffManager = options.checkoutDiffManager;
+    this.nestedChanges = options.nestedChanges;
     this.gitMetadataGenerator = options.gitMetadataGenerator;
     this.pimiHome = options.pimiHome;
     this.worktreesRoot = options.worktreesRoot;
@@ -482,37 +445,162 @@ export class CheckoutSession {
   }
 
   /**
-   * Lists the Git checkouts directly inside a folder, most recently used first, without running
-   * Git or watching them.
+   * Lists the Git checkouts inside a folder, most recently used first, without running Git or
+   * watching them.
    */
   async handleListNestedCheckoutsRequest(
     msg: Extract<SessionInboundMessage, { type: "checkout.nested.list.request" }>,
   ): Promise<void> {
     const cwd = expandTilde(msg.cwd);
     let checkouts: string[] = [];
+    let truncated = false;
     let error: string | null = null;
     try {
-      const entries = await readdir(cwd, { withFileTypes: true });
-      const found = await Promise.all(
-        entries
-          .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
-          .map(async (entry) => {
-            const path = join(cwd, entry.name);
-            const usedAt = await nestedCheckoutProbeLimit(() => readCheckoutUsedAt(path));
-            return usedAt === null ? null : { path, usedAt };
-          }),
-      );
-      checkouts = found
-        .filter((checkout) => checkout !== null)
-        .sort((a, b) => b.usedAt - a.usedAt)
-        .slice(0, MAX_NESTED_CHECKOUTS)
-        .map((checkout) => checkout.path);
+      const discovery = await discoverNestedRepositories(cwd, { depth: msg.depth });
+      checkouts = discovery.repositories.map((repository) => repository.root);
+      truncated = discovery.truncated;
     } catch (err) {
       error = getErrorMessage(err);
     }
     this.host.emit({
       type: "checkout.nested.list.response",
-      payload: { cwd, checkouts, error, requestId: msg.requestId },
+      payload: { cwd, checkouts, truncated, error, requestId: msg.requestId },
+    });
+  }
+
+  /**
+   * Streams the changes of every repository inside a folder: the response carries the repositories
+   * (statuses still pending), `checkout.nested.changes.update` messages carry each result.
+   * Released through the generic `subscription.release.request`.
+   */
+  async handleNestedChangesSubscribeRequest(
+    msg: CheckoutNestedSubscribeChangesRequest,
+    ownership: SessionDelivery,
+  ): Promise<void> {
+    let bootstrap: Promise<NestedChangesSubscription> | undefined;
+    const owner = ownership.begin("nested-changes", async () => {
+      this.nestedChangesSubscriptions.delete(owner.id);
+      await bootstrap?.then(
+        (subscription) => subscription.unsubscribe(),
+        () => undefined,
+      );
+    });
+    let ready = false;
+    const pending: NestedChangesUpdate[] = [];
+    const emitUpdate = (update: NestedChangesUpdate) =>
+      owner.emit({
+        type: "checkout.nested.changes.update",
+        payload: { subscriptionId: owner.id, ...update },
+      });
+    const cwd = expandTilde(msg.cwd);
+    try {
+      bootstrap = this.nestedChanges.subscribe(cwd, { depth: msg.depth }, (update) => {
+        if (owner.signal.aborted) return;
+        if (ready) emitUpdate(update);
+        else pending.push(update);
+      });
+      const subscription = await bootstrap;
+      if (owner.signal.aborted) {
+        await subscription.unsubscribe();
+        return;
+      }
+      this.nestedChangesSubscriptions.set(owner.id, subscription);
+      this.host.emit({
+        type: "checkout.nested.subscribe_changes.response",
+        payload: {
+          subscriptionId: owner.id,
+          cwd,
+          repositories: subscription.initial.repositories,
+          truncated: subscription.initial.truncated,
+          error: null,
+          requestId: msg.requestId,
+        },
+      });
+      ready = true;
+      for (const update of pending) emitUpdate(update);
+    } catch (error) {
+      await owner.release();
+      this.host.emit({
+        type: "checkout.nested.subscribe_changes.response",
+        payload: {
+          subscriptionId: owner.id,
+          cwd,
+          repositories: [],
+          truncated: false,
+          error: getErrorMessage(error),
+          requestId: msg.requestId,
+        },
+      });
+    }
+  }
+
+  /** A file's content at HEAD, the base the editor diffs its buffer against. */
+  async handleFileGetBaseRequest(msg: CheckoutFileGetBaseRequest): Promise<void> {
+    const cwd = expandTilde(msg.cwd);
+    try {
+      const base = await readFileBase({ cwd, path: msg.path });
+      this.host.emit({
+        type: "checkout.file.get_base.response",
+        payload: {
+          cwd,
+          path: msg.path,
+          status: base.status,
+          content: base.content,
+          error: null,
+          requestId: msg.requestId,
+        },
+      });
+    } catch (err) {
+      this.host.emit({
+        type: "checkout.file.get_base.response",
+        payload: {
+          cwd,
+          path: msg.path,
+          status: "missing",
+          content: null,
+          error: getErrorMessage(err),
+          requestId: msg.requestId,
+        },
+      });
+    }
+  }
+
+  async handleNestedChangesRefreshRequest(msg: CheckoutNestedRefreshRequest): Promise<void> {
+    const subscription = this.nestedChangesSubscriptions.get(msg.subscriptionId);
+    let error: string | null = null;
+    if (!subscription) {
+      error = `Unknown nested changes subscription ${msg.subscriptionId}`;
+    } else {
+      try {
+        await subscription.refresh(msg.root);
+      } catch (err) {
+        error = getErrorMessage(err);
+      }
+    }
+    this.host.emit({
+      type: "checkout.nested.refresh.response",
+      payload: { error, requestId: msg.requestId },
+    });
+  }
+
+  async handleNestedChangesSetWatchedRootsRequest(
+    msg: CheckoutNestedSetWatchedRootsRequest,
+  ): Promise<void> {
+    const subscription = this.nestedChangesSubscriptions.get(msg.subscriptionId);
+    let watched: string[] = [];
+    let error: string | null = null;
+    if (!subscription) {
+      error = `Unknown nested changes subscription ${msg.subscriptionId}`;
+    } else {
+      try {
+        watched = await subscription.setWatchedRoots(msg.roots);
+      } catch (err) {
+        error = getErrorMessage(err);
+      }
+    }
+    this.host.emit({
+      type: "checkout.nested.set_watched_roots.response",
+      payload: { watched, error, requestId: msg.requestId },
     });
   }
 

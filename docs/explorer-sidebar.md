@@ -109,6 +109,12 @@ between compatible panes, but the dock cannot be split or maximized. Selecting a
 does not change workspace focus. Web dragging shares the workspace drag scope; compact layouts
 accept only reordering inside the source pane.
 
+### Changes for a folder of repositories
+
+A chat opened on a plain folder (`workspaceKind: "directory"`) has no Git state of its own, so its Changes tab is Source Control: one group per Git repository or linked worktree found up to `NESTED_CHECKOUT_SCAN_DEPTH` levels below the folder (`packages/server/src/server/checkout/nested-changes.ts`). Checkouts and worktrees keep the single-checkout Changes surface. The panel subscribes through `checkout.nested.subscribe_changes.request` only while it is active, so a hidden panel costs the daemon no polling or watching.
+
+Freshness is deliberately uneven, and the header says so: "checked Ns ago" is the age of the oldest repository. Index and HEAD of every repository are observed, expanded groups (the first three changed repositories by default, then the three most recently expanded) add a recursive working-tree watch, and everything else refreshes on a poll, at an agent turn end, or on manual refresh. A working-tree edit in a collapsed group can wait for the poll. Do not hide the age to make the list look live.
+
 Cmd+E shows or hides Explorer without changing its selected view. All layouts use the same
 workspace tabs, launcher, and panel host. Below 600 points the shell is the swipeable Explorer
 overlay; at 600 points and above it reserves width beside the workspace. Native docking keeps its

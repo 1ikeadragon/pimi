@@ -17,7 +17,8 @@ import { useAppSettings } from "@/hooks/use-settings";
 import { usePaneContext } from "@/panels/pane-context";
 import { definePanel, type PanelDescriptor, type PanelPresentation } from "@/panels/panel-registry";
 import { useAddFileToChat } from "@/panels/use-add-file-to-chat";
-import { useWorkspaceDirectory } from "@/stores/session-store-hooks";
+import { SourceControlPanel } from "@/git/source-control/panel";
+import { useWorkspaceDirectory, useWorkspaceFields } from "@/stores/session-store-hooks";
 import type { WorkspaceTabTarget } from "@/workspace-tabs/model";
 import { defaultChangesState, changesStateSchema } from "@/panels/changes/state";
 import { usePanelState } from "@/panels/use-panel-state";
@@ -77,13 +78,31 @@ function PanelState({
   );
 }
 
+/**
+ * `root` as a path relative to the workspace directory, or null when it is not inside it.
+ * Files of a repository opened from a plain folder are addressed from the folder.
+ */
+function relativeToWorkspace(workspaceDirectory: string, root: string): string | null {
+  const directory = workspaceDirectory.replace(/\\/g, "/").replace(/\/$/, "");
+  const normalizedRoot = root.replace(/\\/g, "/");
+  if (normalizedRoot === directory) return "";
+  return normalizedRoot.startsWith(`${directory}/`)
+    ? normalizedRoot.slice(directory.length + 1)
+    : null;
+}
+
 function ChangesPanel() {
   const { t } = useTranslation();
   const { serverId, workspaceId, tabId, target, openPreferredTarget, openTargetToSide } =
     usePaneContext();
   const [changesState, setChangesState] = usePanelState(changesStateSchema, defaultChangesState);
   const { preferences } = useChangesPreferences();
-  const cwd = useWorkspaceDirectory(serverId, workspaceId);
+  const workspaceDirectory = useWorkspaceDirectory(serverId, workspaceId);
+  const isPlainFolder = useWorkspaceFields(
+    serverId,
+    workspaceId,
+    (workspace) => workspace.workspaceKind === "directory",
+  );
   const isActive = useRetainedPanelActive();
   const { addFile, canAddToChat } = useAddFileToChat({ serverId, workspaceId });
   invariant(
@@ -92,16 +111,46 @@ function ChangesPanel() {
   );
   const isTree = target.kind === "changes_tree";
   const isCompact = useIsCompactFormFactor();
+  // A diff of a repository inside a plain folder runs against that repository; its files are
+  // still addressed from the folder.
+  const root = target.kind === "working_diff" ? target.root : undefined;
+  const cwd = root ?? workspaceDirectory;
+  const rootPrefix = useMemo(() => {
+    if (!root || !workspaceDirectory) return "";
+    const relative = relativeToWorkspace(workspaceDirectory, root);
+    return relative ? `${relative}/` : "";
+  }, [root, workspaceDirectory]);
 
   const handleOpenFile = useCallback(
-    (path: string) => openPreferredTarget({ kind: "file", path }, isTree ? "diffs" : "diffFiles"),
-    [isTree, openPreferredTarget],
+    (path: string) =>
+      openPreferredTarget(
+        { kind: "file", path: `${rootPrefix}${path}` },
+        isTree ? "diffs" : "diffFiles",
+      ),
+    [isTree, openPreferredTarget, rootPrefix],
+  );
+  const handleAddFile = useCallback(
+    (path: string) => addFile(`${rootPrefix}${path}`),
+    [addFile, rootPrefix],
   );
 
   const handleSelectDiffFile = useCallback(
     (path: string) =>
       openPreferredTarget(
         { kind: "working_diff", focusPath: path, focusRequestId: Date.now() },
+        "diffs",
+      ),
+    [openPreferredTarget],
+  );
+  const handleOpenRepositoryDiff = useCallback(
+    (repositoryRoot: string, path: string) =>
+      openPreferredTarget(
+        {
+          kind: "working_diff",
+          root: repositoryRoot,
+          focusPath: path,
+          focusRequestId: Date.now(),
+        },
         "diffs",
       ),
     [openPreferredTarget],
@@ -114,6 +163,19 @@ function ChangesPanel() {
 
   if (!cwd) {
     return <PanelState message={t("panels.diff.directoryMissing")} />;
+  }
+
+  if (isPlainFolder && isTree) {
+    return (
+      <View style={styles.container} testID="changes-tree-panel">
+        <SourceControlPanel
+          serverId={serverId}
+          cwd={cwd}
+          enabled={isActive}
+          onOpenDiff={handleOpenRepositoryDiff}
+        />
+      </View>
+    );
   }
 
   const presentation = resolveChangesPresentation({
@@ -139,7 +201,7 @@ function ChangesPanel() {
           onSelectDiffFile={isTree ? handleSelectDiffFile : undefined}
           onOpenFile={handleOpenFile}
           onOpenToSide={isTree && openTargetToSide ? handleOpenDiffToSide : undefined}
-          onAddToChat={canAddToChat ? addFile : undefined}
+          onAddToChat={canAddToChat ? handleAddFile : undefined}
           state={changesState}
           onStateChange={setChangesState}
         />
