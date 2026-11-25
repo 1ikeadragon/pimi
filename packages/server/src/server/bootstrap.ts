@@ -167,6 +167,7 @@ import { openPimiDatabase, openPimiTimelineDatabase } from "./db/pimi-db.js";
 import { splitMultiChatWorkspaces } from "./db/split-multi-chat-workspaces.js";
 import { UsageReader } from "./usage/aggregate.js";
 import { UsageScanner } from "./usage/scanner.js";
+import { launchConfigDirs } from "./provider-config-dirs.js";
 import { importCarriedTimelines } from "./agent/carried-timeline.js";
 import { SqliteTimelineStore } from "./agent/sqlite-timeline-store.js";
 import { createHandoffServices, listOpenTasksForAgent } from "./agent/handoff/services.js";
@@ -1083,7 +1084,13 @@ export async function createPimiDaemon(
   const pimiDatabase = await openPimiDatabase({ pimiHome: config.pimiHome, logger });
   const usageLedger = {
     reader: new UsageReader(pimiDatabase),
-    scanner: new UsageScanner({ database: pimiDatabase, logger }),
+    scanner: new UsageScanner({
+      database: pimiDatabase,
+      logger,
+      // Read on each scan, after the provider runtime below exists: profiles register and leave
+      // while the daemon runs.
+      configDirs: () => launchConfigDirs(providerSnapshotManager.listProviderAccountScopes()),
+    }),
   };
   const agentStorage = new AgentStorage(pimiDatabase, config.agentStoragePath, logger);
   const agentImages = new FileAgentImageStore(

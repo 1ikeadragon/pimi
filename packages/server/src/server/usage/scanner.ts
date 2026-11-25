@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
-import { open, opendir, stat } from "node:fs/promises";
+import { open, opendir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve as absolutePath } from "node:path";
 import type { Transform } from "node:stream";
 import * as zlib from "node:zlib";
 import type { Logger } from "pino";
@@ -40,6 +40,20 @@ export interface UsageScannerOptions {
   codexRoot?: string;
   codexArchivedRoot?: string;
   openCodeDb?: string;
+  // Config directories of the extra Claude and Codex logins this daemon launches with (a provider
+  // profile's CLAUDE_CONFIG_DIR or CODEX_HOME). Called on every scan: profiles come and go while
+  // the daemon runs.
+  configDirs?: () => ProviderConfigDir[];
+}
+
+export interface ProviderConfigDir {
+  provider: "claude" | "codex";
+  dir: string;
+}
+
+interface ScanRoot {
+  provider: UsageProvider;
+  root: string;
 }
 
 interface DiscoveredFile {
@@ -88,7 +102,8 @@ export function defaultCodexArchivedRoot(): string {
 export class UsageScanner {
   private readonly database: PimiDatabase;
   private readonly logger: Logger;
-  private readonly roots: { provider: UsageProvider; root: string }[];
+  private readonly defaultRoots: ScanRoot[];
+  private readonly configDirs: () => ProviderConfigDir[];
   private readonly openCodeDb: string;
   private running: Promise<UsageScanSummary> | null = null;
   private startTimer: ReturnType<typeof setTimeout> | null = null;
@@ -97,7 +112,8 @@ export class UsageScanner {
   constructor(options: UsageScannerOptions) {
     this.database = options.database;
     this.logger = options.logger.child({ module: "usage-scanner" });
-    this.roots = [
+    this.configDirs = options.configDirs ?? (() => []);
+    this.defaultRoots = [
       { provider: "claude", root: options.claudeRoot ?? defaultClaudeProjectsRoot() },
       { provider: "codex", root: options.codexRoot ?? defaultCodexSessionsRoot() },
       { provider: "codex", root: options.codexArchivedRoot ?? defaultCodexArchivedRoot() },
@@ -145,7 +161,9 @@ export class UsageScanner {
     const startedAt = Date.now();
     this.repriceIfPricesChanged();
     const files: DiscoveredFile[] = [];
-    for (const { provider, root } of this.roots) await discover(root, provider, files, 0);
+    for (const { provider, root } of await this.resolveRoots()) {
+      await discover(root, provider, files, 0);
+    }
     const cursors = this.loadCursors();
     const summary: UsageScanSummary = {
       files: files.length,
@@ -180,6 +198,31 @@ export class UsageScanner {
       "usage.scan.done",
     );
     return summary;
+  }
+
+  // The default roots plus the roots of every extra login, each once: two profiles can point at
+  // one directory, and a symlinked root would otherwise be scanned twice under different paths.
+  private async resolveRoots(): Promise<ScanRoot[]> {
+    const candidates = [...this.defaultRoots];
+    for (const { provider, dir } of this.configDirs()) {
+      if (provider === "claude") {
+        candidates.push({ provider, root: join(dir, "projects") });
+      } else {
+        candidates.push({ provider, root: join(dir, "sessions") });
+        candidates.push({ provider, root: join(dir, "archived_sessions") });
+      }
+    }
+    const seen = new Set<string>();
+    const roots: ScanRoot[] = [];
+    for (const candidate of candidates) {
+      const root = absolutePath(candidate.root);
+      // A root that does not exist has no real path yet; its own path still identifies it.
+      const key = await realpath(root).catch(() => root);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      roots.push({ provider: candidate.provider, root });
+    }
+    return roots;
   }
 
   // Stored costs come from the price table of the build that wrote them. Transcripts are deleted
