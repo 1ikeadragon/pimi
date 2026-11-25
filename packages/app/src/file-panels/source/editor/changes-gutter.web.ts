@@ -26,7 +26,8 @@ const ADDED = new ChangeMarker("added");
 const MODIFIED = new ChangeMarker("modified");
 const DELETED = new ChangeMarker("deleted");
 
-const LINE_BREAK = /\r\n|\r|\n/;
+/** Every line ending Git may hand back; the editor's own document has none of them. */
+export const LINE_BREAK = /\r\n|\r|\n/;
 
 const baseLines = StateField.define<string[] | null>({
   create: () => null,

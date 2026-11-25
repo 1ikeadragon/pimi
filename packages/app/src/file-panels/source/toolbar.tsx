@@ -1,6 +1,6 @@
 import { useCallback, useRef, type ReactNode } from "react";
 import { Text, View } from "react-native";
-import { FileDiff } from "lucide-react-native";
+import { Diff, FileDiff } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "@/i18n/use-translation";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -19,6 +19,7 @@ import type { FileEditorStatus } from "./editor/model";
 
 const ThemedSpinner = withUnistyles(LoadingSpinner);
 const ThemedFileDiff = withUnistyles(FileDiff);
+const ThemedDiff = withUnistyles(Diff);
 const spinnerMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 export type TextFileView = "preview" | "source";
@@ -37,6 +38,7 @@ export function TextFileToolbar({
   vimMode,
   conflict,
   blame,
+  inlineDiff,
   children,
 }: {
   size: number;
@@ -48,6 +50,8 @@ export function TextFileToolbar({
   vimMode?: string | null;
   conflict?: FileConflictAlertState | null;
   blame?: ReactNode;
+  /** The inline-diff toggle; omitted when the file has no HEAD version to compare against. */
+  inlineDiff?: { enabled: boolean; onToggle(): void };
   children?: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -142,6 +146,24 @@ export function TextFileToolbar({
               testID="file-preview-mode"
               options={views}
             />
+          ) : null}
+          {inlineDiff ? (
+            <ToolbarButton
+              label={t(
+                inlineDiff.enabled
+                  ? "panels.file.editor.hideInlineDiff"
+                  : "panels.file.editor.showInlineDiff",
+              )}
+              selected={inlineDiff.enabled}
+              onPress={inlineDiff.onToggle}
+              testID="file-toggle-inline-diff"
+            >
+              <ThemedDiff
+                size={paneContentToolbarIconSize(false)}
+                strokeWidth={1.5}
+                uniProps={extraMutedIconColorMapping}
+              />
+            </ToolbarButton>
           ) : null}
           {target.kind === "file" ? (
             <ToolbarButton

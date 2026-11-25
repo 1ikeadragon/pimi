@@ -11,6 +11,7 @@ export function FileEditorView(_props: {
   navigationRevision: number;
   vimEnabled: boolean;
   base: string | null;
+  inlineDiff: boolean;
   theme: {
     background: string;
     foreground: string;

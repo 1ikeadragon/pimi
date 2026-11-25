@@ -3230,6 +3230,9 @@ export const en = {
         reload: "Reload",
         reloadTitle: "Reload from disk?",
         reloadMessage: "Your local changes will be lost.",
+        showInlineDiff: "Show changes inline",
+        hideInlineDiff: "Hide inline changes",
+        revertChange: "Revert",
       },
     },
     files: {

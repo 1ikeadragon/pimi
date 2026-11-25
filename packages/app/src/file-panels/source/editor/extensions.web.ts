@@ -20,6 +20,18 @@ export const editorHistory = new Compartment();
 /** Width of the change bar; the removed-lines triangle is drawn with borders of the same size. */
 const CHANGE_BAR_WIDTH = "4px";
 
+/**
+ * How much of the change colour tints a whole line in the inline diff. Chosen, not derived: low
+ * enough that syntax colours stay readable on it, near the merge package's own 8% default.
+ */
+const INLINE_DIFF_LINE_TINT = "10%";
+/** The tint on the words that changed inside a line; chosen to stand out over the line tint. */
+const INLINE_DIFF_WORD_TINT = "28%";
+
+function tint(color: string, amount: string): string {
+  return `color-mix(in srgb, ${color} ${amount}, transparent)`;
+}
+
 export interface EditorVisualTheme {
   colorScheme: "light" | "dark";
   background: string;
@@ -100,6 +112,28 @@ export function editorTheme(theme: EditorVisualTheme) {
           borderBottom: `${CHANGE_BAR_WIDTH} solid transparent`,
           borderLeft: `${CHANGE_BAR_WIDTH} solid ${theme.changeDeleted}`,
         },
+        // The inline diff (inline-diff.web.ts). The merge package's base theme uses fixed
+        // red/green; these rules repeat its selectors so they take over with the theme's colours.
+        "&.cm-merge-b .cm-changedLine": {
+          backgroundColor: tint(theme.changeAdded, INLINE_DIFF_LINE_TINT),
+        },
+        "&.cm-merge-b .cm-changedText": {
+          background: tint(theme.changeAdded, INLINE_DIFF_WORD_TINT),
+        },
+        ".cm-deletedChunk": {
+          backgroundColor: tint(theme.changeDeleted, INLINE_DIFF_LINE_TINT),
+        },
+        ".cm-deletedChunk .cm-deletedText": {
+          background: tint(theme.changeDeleted, INLINE_DIFF_WORD_TINT),
+        },
+        ".cm-deletedChunk button[name=reject]": {
+          background: theme.background,
+          color: theme.foregroundMuted,
+          border: `1px solid ${theme.border}`,
+          fontFamily: "inherit",
+          fontSize: "inherit",
+        },
+        ".cm-deletedChunk button[name=reject]:hover": { color: theme.foreground },
         ".cm-activeLine": { backgroundColor: "transparent" },
         ".cm-activeLineGutter": { backgroundColor: "transparent", color: theme.foreground },
         "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {

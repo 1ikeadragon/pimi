@@ -107,6 +107,8 @@ export interface AppSettings {
   chatOutlineEnabled: boolean;
   pimiVoiceButton: boolean;
   vimKeybindings: boolean;
+  /** The source editor shows lines removed since HEAD inline, above the lines that replaced them. */
+  editorInlineDiff: boolean;
   sendShortcut: SendShortcut;
   filePanelAssociations: Record<string, string>;
   /** Desktop-only preferences for implicit opens into the ordinary side pane. */
@@ -167,6 +169,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   chatOutlineEnabled: true,
   pimiVoiceButton: true,
   vimKeybindings: false,
+  editorInlineDiff: false,
   sendShortcut: "enter",
   filePanelAssociations: {},
   openInSidePane: DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES,
@@ -252,6 +255,7 @@ const StoredAppSettingsSchema = z
     chatOutlineEnabled: z.boolean().catch(true),
     pimiVoiceButton: z.boolean().catch(true),
     vimKeybindings: z.boolean().catch(false),
+    editorInlineDiff: z.boolean().catch(false),
     sendShortcut: z.enum(["enter", "mod-enter"]).catch("enter"),
     filePanelAssociations: z.record(z.string(), z.string()).catch({}),
     openInSidePane: z

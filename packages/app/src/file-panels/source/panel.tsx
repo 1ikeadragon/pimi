@@ -168,6 +168,22 @@ function ReadonlyTextFile({
   );
 }
 
+/** The persisted inline-diff setting, and the toolbar toggle for it when the editor can draw it. */
+function useInlineDiffToggle(input: { base: string | null; previewShown: boolean }) {
+  const { settings, updateSettings } = useAppSettings();
+  const enabled = settings.editorInlineDiff;
+  // Only the web editor draws it, only in Source view, and only against a HEAD version.
+  const available = isWeb && !input.previewShown && input.base !== null;
+  const toggle = useMemo(
+    () =>
+      available
+        ? { enabled, onToggle: () => void updateSettings({ editorInlineDiff: !enabled }) }
+        : undefined,
+    [available, enabled, updateSettings],
+  );
+  return { enabled, toggle };
+}
+
 function EditableTextFile({
   file,
   tab,
@@ -212,6 +228,10 @@ function EditableTextFile({
       if (confirmed) void model.reload();
     })();
   }, [model, snapshot.modified, t]);
+  const inlineDiff = useInlineDiffToggle({
+    base,
+    previewShown: Preview !== undefined && view === "preview",
+  });
   const handleOverwrite = useCallback(() => void model.overwrite(), [model]);
   const handleRetry = useCallback(() => void model.reload(), [model]);
   const editorLocation = useMemo(
@@ -271,6 +291,7 @@ function EditableTextFile({
         vimMode={showPreview ? null : vimMode}
         conflict={conflict}
         blame={footer ? blame : undefined}
+        inlineDiff={inlineDiff.toggle}
       >
         {showPreview ? (
           <Preview text={snapshot.content} params={params} workspaceId={workspaceId} host={host} />
@@ -282,6 +303,7 @@ function EditableTextFile({
             navigationRevision={revision}
             vimEnabled={settings.vimKeybindings}
             base={base}
+            inlineDiff={inlineDiff.enabled}
             onCursorChange={setCursor}
             onVimModeChange={setVimMode}
           />

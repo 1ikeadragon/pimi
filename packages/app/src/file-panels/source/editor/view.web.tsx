@@ -19,6 +19,8 @@ import { EditorView } from "@codemirror/view";
 import { history } from "@codemirror/commands";
 import { getLanguageForFile } from "@pimi/highlight";
 import { changesGutter, setChangesBase } from "./changes-gutter.web";
+import { inlineDiffSlot, syncInlineDiff } from "./inline-diff.web";
+import { useTranslation } from "@/i18n/use-translation";
 import { getCM, vim } from "@replit/codemirror-vim";
 import type { WorkspaceFileLocation } from "@/workspace/file-open";
 import type { FileEditorModel } from "./model";
@@ -40,6 +42,8 @@ interface FileEditorViewProps {
   theme: EditorVisualTheme;
   /** The file's text at HEAD to mark changes against; null shows no markers. */
   base: string | null;
+  /** Show the lines removed since `base` inline; needs a base. */
+  inlineDiff: boolean;
   onCursorChange(position: { line: number; column: number }): void;
   onVimModeChange(mode: string | null): void;
   /** The editor shows the file's content. */
@@ -67,10 +71,13 @@ export function FileEditorView({
   vimEnabled,
   theme,
   base,
+  inlineDiff,
   onCursorChange,
   onVimModeChange,
   onReady,
 }: FileEditorViewProps) {
+  const { t } = useTranslation();
+  const revertLabel = t("panels.file.editor.revertChange");
   const { serverId, workspaceId, tabId } = usePaneContext();
   const annotationTarget = useFileAnnotationTarget(serverId, workspaceId);
   // State, not just the ref: the annotation layer subscribes to each editor as it is created.
@@ -137,6 +144,7 @@ export function FileEditorView({
       annotationEditorExtension,
       ...editorBaseExtensions(() => void values.model.save()),
       changesGutter(),
+      inlineDiffSlot(),
       languageCompartment.of(getLanguageForFile(values.filename)?.extension ?? []),
       wrappingCompartment.of(wrappingForFile(values.filename)),
       themeCompartment.of(editorTheme(values.theme)),
@@ -247,6 +255,11 @@ export function FileEditorView({
   useEffect(() => {
     viewRef.current?.dispatch({ effects: setChangesBase.of(base) });
   }, [base, model, retentionKey]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (view) syncInlineDiff(view, { enabled: inlineDiff, base, revertLabel });
+  }, [base, inlineDiff, model, retentionKey, revertLabel]);
 
   useEffect(() => {
     const view = viewRef.current;
