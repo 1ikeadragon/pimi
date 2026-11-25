@@ -3560,6 +3560,8 @@ export const en = {
     },
     timing: {
       lastUpdated: "Last updated {{relativeTime}}",
+      asOf: "Not live. As of {{time}}.",
+      asOfFrom: "Not live. As of {{time}}, from the {{origin}}.",
       noSuccessfulUpdate: "No successful update",
       resetTimePassed: "Reset time passed",
       resettingNow: "resetting now",

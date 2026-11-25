@@ -7410,6 +7410,8 @@ export const UsageProblemSchema = z.discriminatedUnion("kind", [
     refreshedBy: z.string().optional(),
   }),
   z.object({ kind: z.literal("no_quota"), detail: z.string() }),
+  // A login exists but its credentials could not be read (a locked keychain, a bad file).
+  z.object({ kind: z.literal("login_unreadable"), detail: z.string() }),
 ]);
 const AvailableUsageReportSchema = z.object({
   status: z.literal("available"),
@@ -7418,10 +7420,27 @@ const AvailableUsageReportSchema = z.object({
   balances: z.array(ProviderUsageBalanceSchema).optional(),
   details: z.array(ProviderUsageDetailSchema).optional(),
 });
+// Numbers recorded earlier by something other than a live fetch, such as the last Codex session's
+// own rate-limit readings. Always shown with `capturedAt`, never as the current state.
+export const UsageSnapshotSchema = z.object({
+  capturedAt: z.iso.datetime(),
+  origin: z.string(),
+  report: AvailableUsageReportSchema,
+});
+const UnavailableUsageReportSchema = z.object({
+  status: z.literal("unavailable"),
+  problem: UsageProblemSchema,
+  snapshot: UsageSnapshotSchema.optional(),
+});
+const ErrorUsageReportSchema = z.object({
+  status: z.literal("error"),
+  error: z.string(),
+  snapshot: UsageSnapshotSchema.optional(),
+});
 export const UsageReportSchema = z.discriminatedUnion("status", [
   AvailableUsageReportSchema,
-  z.object({ status: z.literal("unavailable"), problem: UsageProblemSchema }),
-  z.object({ status: z.literal("error"), error: z.string() }),
+  UnavailableUsageReportSchema,
+  ErrorUsageReportSchema,
 ]);
 export const UsageReportEntrySchema = z.object({
   id: z.string(),
@@ -7433,16 +7452,22 @@ export const UsageReportEntrySchema = z.object({
   report: UsageReportSchema,
   // Successful completion time; fetchedAt remains the attempt timestamp for ordering.
   successfulAt: z.string().optional(),
+  // The numbers behind a failed card, with when they were recorded. `origin` is set when they were
+  // read from a local record (the last Codex session) rather than fetched live.
   lastSuccessful: z
-    .object({ fetchedAt: z.string(), report: AvailableUsageReportSchema })
+    .object({
+      fetchedAt: z.string(),
+      report: AvailableUsageReportSchema,
+      origin: z.string().optional(),
+    })
     .optional(),
   loginErrors: z
     .array(
       z.object({
         harness: z.string(),
         report: z.discriminatedUnion("status", [
-          z.object({ status: z.literal("unavailable"), problem: UsageProblemSchema }),
-          z.object({ status: z.literal("error"), error: z.string() }),
+          UnavailableUsageReportSchema,
+          ErrorUsageReportSchema,
         ]),
       }),
     )

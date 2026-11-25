@@ -1,28 +1,34 @@
 import { discoverOmp, piAuthPath, readHarness, readJson, type StoreLookup } from "./stores.js";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   balanceToneFromRemaining,
   hashAccountKey,
   unavailable,
   type UsageAccount,
+  type UsageBalance,
   type UsageScope,
   toneFromUsedPct,
   windowFromReportedDuration,
   type UsageReport,
+  type UsageSnapshot,
   type UsageWindow,
 } from "@pimi/plugin/server/usage";
 import { z } from "zod";
 import type { CodexUsageInput } from "../shared/input.js";
+import { newestRolloutSnapshot, type RolloutSnapshot } from "./rollouts.js";
 
 const authSchema = z.object({
+  auth_mode: z.string().nullish(),
+  OPENAI_API_KEY: z.string().nullish(),
   tokens: z
     .object({
       access_token: z.string().optional(),
       account_id: z.string().optional(),
       id_token: z.string().optional(),
     })
-    .optional(),
+    // An API-key login writes no tokens, or a null in their place.
+    .nullish(),
 });
 const number = z.coerce.number().finite();
 const windowSchema = z.object({
@@ -48,10 +54,14 @@ const responseSchema = z.object({
     )
     .nullish(),
   code_review_rate_limit: rateLimitSchema.nullish(),
-  credits: z.object({ balance: number.optional() }).nullish(),
+  // `balance` is null when the account has no credit balance to report; coercing that null would
+  // read it as zero credits.
+  credits: z.object({ balance: number.nullish() }).nullish(),
 });
 
 interface Auth {
+  // An API-key login has no plan limits to read; its token is empty.
+  kind: "oauth" | "api_key";
   token: string;
   accountId?: string;
   idToken?: string;
@@ -138,16 +148,32 @@ export async function readAuth(
   if (route.store !== "codex") {
     const oauth = await readHarness(route, lookup);
     return oauth
-      ? { token: oauth.access, accountId: oauth.accountId, expires: oauth.expires }
+      ? { kind: "oauth", token: oauth.access, accountId: oauth.accountId, expires: oauth.expires }
       : null;
   }
   const auth = authSchema.safeParse(await readJson(route.path));
-  if (!auth.success || !auth.data.tokens?.access_token) return null;
+  if (!auth.success) return null;
+  const token = auth.data.tokens?.access_token;
+  if (!token) {
+    // Codex signed in with an API key: the account exists but bills per use, with no plan limits.
+    const apiKey = auth.data.auth_mode === "apikey" || Boolean(auth.data.OPENAI_API_KEY);
+    return apiKey ? { kind: "api_key", token: "" } : null;
+  }
   return {
-    token: auth.data.tokens.access_token,
-    accountId: auth.data.tokens.account_id,
-    idToken: auth.data.tokens.id_token,
+    kind: "oauth",
+    token,
+    accountId: auth.data.tokens?.account_id,
+    idToken: auth.data.tokens?.id_token,
+    expires: jwtExpiryMs(token),
   };
+}
+
+// The access token is a JWT and `exp` is its expiry in seconds since the epoch (RFC 7519 4.1.4).
+// Codex rewrites auth.json with a new token whenever it refreshes, so an expired one means no
+// Codex session has run since.
+function jwtExpiryMs(token: string): number | undefined {
+  const exp = jwtClaims(token)?.["exp"];
+  return typeof exp === "number" && Number.isFinite(exp) ? exp * 1000 : undefined;
 }
 
 function usageWindows({
@@ -191,13 +217,53 @@ export async function fetchUsage(
 ): Promise<UsageReport> {
   const auth = await readAuth(input, lookup);
   if (!auth) throw new Error("Codex login store no longer exists");
-  const refreshedBy = input.route.store;
-  if (auth.expires !== undefined && auth.expires <= (lookup.now ?? Date.now)())
+  if (auth.kind === "api_key") {
     return unavailable({
-      kind: "expired",
-      expiresAt: new Date(auth.expires).toISOString(),
-      refreshedBy,
+      kind: "no_quota",
+      detail: "Signed in with an API key. API keys are billed per use and have no plan limits.",
     });
+  }
+  const refreshedBy = input.route.store;
+  if (auth.expires !== undefined && auth.expires <= (lookup.now ?? Date.now)()) {
+    // The token is dead, so the call below could only fail. The last session's own readings are
+    // offered instead, labeled with when they were taken.
+    return withSnapshot(
+      unavailable({
+        kind: "expired",
+        expiresAt: new Date(auth.expires).toISOString(),
+        refreshedBy,
+      }),
+      input,
+      lookup,
+    );
+  }
+  try {
+    return await fetchLive({ input, auth, fetchApi, lookup, refreshedBy });
+  } catch (error) {
+    // Without a snapshot the failure is the answer; with one it is reported next to it.
+    const failed = await withSnapshot(
+      { status: "error", error: error instanceof Error ? error.message : String(error) },
+      input,
+      lookup,
+    );
+    if (!failed.snapshot) throw error;
+    return failed;
+  }
+}
+
+async function fetchLive({
+  input,
+  auth,
+  fetchApi,
+  lookup,
+  refreshedBy,
+}: {
+  input: CodexUsageInput;
+  auth: Auth;
+  fetchApi: typeof fetch;
+  lookup: StoreLookup;
+  refreshedBy: CodexUsageInput["route"]["store"];
+}): Promise<UsageReport> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${auth.token}`,
     Accept: "application/json",
@@ -208,8 +274,13 @@ export async function fetchUsage(
     headers,
     signal: AbortSignal.timeout(15_000),
   });
-  if (response.status === 401 || response.status === 403)
-    return unavailable({ kind: "rejected", status: response.status, refreshedBy });
+  if (response.status === 401 || response.status === 403) {
+    return withSnapshot(
+      unavailable({ kind: "rejected", status: response.status, refreshedBy }),
+      input,
+      lookup,
+    );
+  }
   if (!response.ok) throw new Error(`Codex usage API returned ${response.status}`);
   const text = await response.text();
   if (text.trim().startsWith("<")) throw new Error("Codex usage API returned HTML");
@@ -232,24 +303,101 @@ export async function fetchUsage(
       scope: { id: "code_review", label: "Code review" },
     }),
   ];
-  const balance = usage.credits?.balance;
   return {
     status: "available",
     planLabel: usage.plan_type,
     windows,
-    balances:
-      balance === undefined
-        ? []
-        : [
-            {
-              id: "credits",
-              label: "Credits",
-              remaining: balance,
-              unit: "credits",
-              tone: balanceToneFromRemaining(balance),
-            },
-          ],
+    balances: creditBalances(usage.credits ? { balance: usage.credits.balance ?? null } : null),
     details: [],
+  };
+}
+
+// A credits object without a balance means the account has credits but the amount is unknown,
+// which is not the same as none left: `remaining` stays null and the card shows a dash.
+function creditBalances(credits: { balance: number | null } | null): UsageBalance[] {
+  if (!credits) return [];
+  const { balance } = credits;
+  return [
+    {
+      id: "credits",
+      label: "Credits",
+      remaining: balance,
+      unit: "credits",
+      ...(balance === null ? {} : { tone: balanceToneFromRemaining(balance) }),
+    },
+  ];
+}
+
+// ---
+// A failed report with the last Codex session's rate-limit readings attached. They are what the
+// account's limits were when that session last made a request, not what they are now, so they are
+// offered as a snapshot with their time and never as an available report.
+type FailedReport = Extract<UsageReport, { status: "unavailable" | "error" }>;
+
+async function withSnapshot(
+  report: FailedReport,
+  input: CodexUsageInput,
+  lookup: StoreLookup,
+): Promise<FailedReport> {
+  // Only the Codex CLI writes rollouts; the other harnesses' logins have none to read.
+  if (input.route.store !== "codex") return report;
+  let found: RolloutSnapshot | null;
+  try {
+    found = await newestRolloutSnapshot(dirname(input.route.path));
+  } catch (error) {
+    throw new Error(
+      `Codex usage is unavailable and the last session's limits could not be read: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error },
+    );
+  }
+  if (!found) return report;
+  return { ...report, snapshot: snapshotFromRollout(found, (lookup.now ?? Date.now)()) };
+}
+
+function snapshotFromRollout(found: RolloutSnapshot, now: number): UsageSnapshot {
+  const { limits } = found;
+  const slots = (["primary", "secondary"] as const).map((slot) => limits[slot]);
+  const [primary, secondary] = slots.map((window) =>
+    window
+      ? {
+          used_percent: window.used_percent,
+          reset_at: window.resets_at ?? undefined,
+          limit_window_seconds: window.window_minutes != null ? window.window_minutes * 60 : null,
+        }
+      : null,
+  );
+  const built = usageWindows({
+    rateLimit: { primary_window: primary, secondary_window: secondary },
+    summary: true,
+  });
+  // A window that reset after the snapshot was taken no longer has the recorded percentage.
+  const current = built.filter((window) => !window.resetsAt || Date.parse(window.resetsAt) > now);
+  const reset = built.filter((window) => window.resetsAt && Date.parse(window.resetsAt) <= now);
+  const balance = limits.credits?.balance;
+  return {
+    capturedAt: new Date(found.capturedAt).toISOString(),
+    origin: "last Codex session",
+    report: {
+      status: "available",
+      ...(limits.plan_type ? { planLabel: limits.plan_type } : {}),
+      windows: current,
+      balances:
+        limits.credits && (limits.credits.has_credits || balance != null)
+          ? creditBalances({ balance: balance ?? null })
+          : [],
+      details:
+        reset.length === 0
+          ? []
+          : [
+              {
+                id: "snapshot_reset",
+                label: "Reset since this snapshot",
+                value: reset.map((window) => window.label).join(", "),
+              },
+            ],
+    },
   };
 }
 

@@ -192,20 +192,20 @@ export function resolveUsageHostId(choice: UsageHostChoice): string | null {
   );
 }
 
+/** What a failed entry says about each login that failed, one line per login. */
+function loginFailureMessages(entry: UsageReportEntry, t: TFunction): string[] {
+  if (entry.report.status === "available") return [];
+  return (entry.loginErrors ?? []).map(
+    (login) => `${login.harness}: ${usageProblemText(login.report, t)}`,
+  );
+}
+
 /** Current outcome owns messages; only a successful poll owns values and freshness. */
 export function resolveUsageReport(entry: UsageReportEntry, t: TFunction) {
   const available = entry.report.status === "available";
   // A failed attempt is never a successful update.
   const snapshot = available ? null : (entry.lastSuccessful ?? null);
   const content = entry.report.status === "available" ? entry.report : (snapshot?.report ?? null);
-  const messages: string[] = [];
-  if (!available) {
-    messages.push(
-      ...(entry.loginErrors ?? []).map(
-        (login) => `${login.harness}: ${usageProblemText(login.report, t)}`,
-      ),
-    );
-  }
   return {
     windows: content?.windows ?? [],
     balances: content?.balances ?? [],
@@ -216,7 +216,9 @@ export function resolveUsageReport(entry: UsageReportEntry, t: TFunction) {
       ? (entry.successfulAt ?? entry.fetchedAt)
       : (snapshot?.fetchedAt ?? null),
     retained: snapshot !== null,
-    messages,
+    // Set when the retained numbers came from a local record, not an earlier live fetch.
+    snapshotOrigin: snapshot?.origin ?? null,
+    messages: loginFailureMessages(entry, t),
   };
 }
 

@@ -476,21 +476,30 @@ interface UsageSourceRegistration {
   fetch(input: unknown): Promise<UsageReport>;
 }
 
+interface AvailableUsageReport {
+  status: "available";
+  planLabel?: string;
+  windows: UsageWindow[];
+  balances?: UsageBalance[];
+  details?: UsageDetail[];
+}
+
 type UsageReport =
-  | {
-      status: "available";
-      planLabel?: string;
-      windows: UsageWindow[];
-      balances?: UsageBalance[];
-      details?: UsageDetail[];
-    }
-  | { status: "unavailable"; problem: UsageProblem }
-  | { status: "error"; error: string };
+  | AvailableUsageReport
+  | { status: "unavailable"; problem: UsageProblem; snapshot?: UsageSnapshot }
+  | { status: "error"; error: string; snapshot?: UsageSnapshot };
 
 type UsageProblem =
   | { kind: "expired"; expiresAt: string; refreshedBy?: string }
   | { kind: "rejected"; status: number; refreshedBy?: string }
-  | { kind: "no_quota"; detail: string };
+  | { kind: "no_quota"; detail: string }
+  | { kind: "login_unreadable"; detail: string };
+
+interface UsageSnapshot {
+  capturedAt: string; // ISO timestamp the numbers were recorded
+  origin: string; // where they came from, e.g. "last Codex session"
+  report: AvailableUsageReport;
+}
 ```
 
 Session discovery returns only the login that agent runs on. The agent popover uses only those
@@ -567,7 +576,13 @@ Use `unavailable(problem)` to explain why an existing login cannot supply quota.
 problem; there is no zero-argument form. `expiresAt` is an ISO timestamp. A rejected login carries
 the upstream HTTP status. `refreshedBy` is a CLI name, such as `claude`, `codex`, `opencode`, `omp`, or
 `pi`. Pimi owns the remedy sentence. Do not put instructions or user-facing sentences in that
-field. For `no_quota`, `detail` is displayed verbatim.
+field. For `no_quota` and `login_unreadable`, `detail` is displayed verbatim. Use
+`login_unreadable` for a login that exists but whose store cannot be read right now (a locked
+keychain); return the account from discovery so the card stays and says why.
+
+A failed report can carry a `snapshot`: numbers a local record took earlier, such as a CLI's own
+rate-limit readings. The app shows them under the failure with `capturedAt` and `origin`, marked as
+not live. Never return a snapshot as an `available` report.
 
 ```ts
 import { z } from "zod";

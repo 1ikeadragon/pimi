@@ -61,8 +61,16 @@ export function UsageCard({
   const usage = entry.report;
   const status = statusText(usage, t);
   const footer = entry.account.label ?? null;
-  const { windows, balances, details, planLabel, successfulAt, retained, messages } =
-    resolveUsageReport(entry, t);
+  const {
+    windows,
+    balances,
+    details,
+    planLabel,
+    successfulAt,
+    retained,
+    snapshotOrigin,
+    messages,
+  } = resolveUsageReport(entry, t);
 
   const containerStyle = useMemo(
     () => [styles.container, compact ? styles.containerCompact : styles.containerPadded],
@@ -108,6 +116,10 @@ export function UsageCard({
         <Text style={styles.error} testID="usage-login-error">
           {messages.join("\n")}
         </Text>
+      ) : null}
+
+      {retained && successfulAt ? (
+        <RetainedNote capturedAt={successfulAt} origin={snapshotOrigin} />
       ) : null}
 
       {windows.length > 0 || balances.length > 0 ? (
@@ -199,6 +211,25 @@ function CardWindowBar({
       pinLabel={`${t("providerUsage.pin")} ${entry.sourceLabel} ${formatProviderUsageLabel(window.id, window.label, t)}`}
       pinTestID={`usage-pin-${entry.sourceId}-${window.id}`}
     />
+  );
+}
+
+/**
+ * Says the numbers below are an earlier record, with when it was taken. Printed on the card
+ * itself because a tooltip does not exist on touch screens and these numbers are not live.
+ */
+function RetainedNote({ capturedAt, origin }: { capturedAt: string; origin: string | null }) {
+  const { t, i18n } = useTranslation();
+  const time = new Date(capturedAt).toLocaleString(i18n.resolvedLanguage, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  return (
+    <Text style={styles.retainedNote} testID="usage-retained-note">
+      {origin
+        ? t("providerUsage.timing.asOfFrom", { time, origin })
+        : t("providerUsage.timing.asOf", { time })}
+    </Text>
   );
 }
 
@@ -357,6 +388,11 @@ const styles = StyleSheet.create((theme) => ({
   },
   error: {
     color: theme.colors.palette.red[300],
+    fontSize: theme.fontSize.sm,
+    lineHeight: theme.fontSize.sm * 1.4,
+  },
+  retainedNote: {
+    color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     lineHeight: theme.fontSize.sm * 1.4,
   },

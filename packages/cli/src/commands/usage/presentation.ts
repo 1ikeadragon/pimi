@@ -16,7 +16,7 @@ function percent(input: number | null | undefined): string {
 }
 
 function problemText(problem: UsageProblem): string {
-  if (problem.kind === "no_quota") return problem.detail;
+  if (problem.kind === "no_quota" || problem.kind === "login_unreadable") return problem.detail;
   const remedy = problem.refreshedBy
     ? `Run ${problem.refreshedBy} to refresh login.`
     : "Sign in again.";
@@ -45,7 +45,12 @@ function summary(entry: UsageReportEntry): string[] {
     for (const login of entry.loginErrors ?? [])
       lines.push(`${login.harness}: ${failureText(login.report)}`);
     if (entry.lastSuccessful) {
-      lines.push(`Last successful: ${entry.lastSuccessful.fetchedAt}`);
+      const { fetchedAt, origin } = entry.lastSuccessful;
+      lines.push(
+        origin
+          ? `Not live. As of ${fetchedAt}, from the ${origin}`
+          : `Last successful: ${fetchedAt}`,
+      );
       lines.push(
         ...availableSummary(entry.lastSuccessful.report).map((line) => `Retained: ${line}`),
       );
@@ -93,7 +98,10 @@ function inspect(entry: UsageReportEntry): string {
   ];
   const report = entry.report.status === "available" ? entry.report : entry.lastSuccessful?.report;
   const successfulAt = successfulTime(entry);
-  lines.push(successfulAt ? `Last successful: ${successfulAt}` : "No successful update");
+  const origin = entry.report.status === "available" ? undefined : entry.lastSuccessful?.origin;
+  if (!successfulAt) lines.push("No successful update");
+  else if (origin) lines.push(`Not live. As of ${successfulAt}, from the ${origin}`);
+  else lines.push(`Last successful: ${successfulAt}`);
   if (entry.report.status !== "available") lines.push(`Reason: ${failureText(entry.report)}`);
   if (report) {
     if (entry.report.status !== "available") lines.push("Retained usage:");

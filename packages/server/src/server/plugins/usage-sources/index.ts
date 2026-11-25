@@ -283,7 +283,7 @@ export class UsageSourceRegistry {
       if (entry.report.status === "available") {
         entry.successfulAt = completedAt;
       } else {
-        entry.lastSuccessful = this.successful.get(cacheKey);
+        entry.lastSuccessful = newerRecord(this.successful.get(cacheKey), snapshotOf(entry));
       }
       if (
         this.sources.get(known.source.id) === known.source &&
@@ -355,6 +355,35 @@ export class UsageSourceRegistry {
       return { status: "error", error: error instanceof Error ? error.message : String(error) };
     }
   }
+}
+
+type LastSuccessful = NonNullable<UsageReportEntry["lastSuccessful"]>;
+
+/**
+ * The newest snapshot a failed fetch offered, from the entry's own report or any login's. A
+ * snapshot is a local record from before the failure, so it never counts as a successful fetch
+ * (`successfulAt`) and keeps its origin for the card to say so.
+ */
+function snapshotOf(entry: UsageReportEntry): LastSuccessful | undefined {
+  const reports = [entry.report, ...(entry.loginErrors ?? []).map((login) => login.report)];
+  let newest: LastSuccessful | undefined;
+  for (const report of reports) {
+    if (report.status === "available" || !report.snapshot) continue;
+    const { capturedAt, origin, report: content } = report.snapshot;
+    if (!newest || Date.parse(capturedAt) > Date.parse(newest.fetchedAt)) {
+      newest = { fetchedAt: capturedAt, report: content, origin };
+    }
+  }
+  return newest;
+}
+
+/** Whichever record of the two was taken later; a live fetch wins a tie. */
+function newerRecord(
+  live: LastSuccessful | undefined,
+  snapshot: LastSuccessful | undefined,
+): LastSuccessful | undefined {
+  if (!live || !snapshot) return live ?? snapshot;
+  return Date.parse(snapshot.fetchedAt) > Date.parse(live.fetchedAt) ? snapshot : live;
 }
 
 // Inputs are opaque JSON locators. Canonical equality deduplicates discovery across scopes.
