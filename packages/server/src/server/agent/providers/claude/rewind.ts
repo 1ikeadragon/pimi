@@ -77,12 +77,25 @@ export class ClaudeRewindTooLargeError extends Error {
 
 function projectFolderSessionStore(projectFolder: string, upToMessageId: string): SessionStore {
   const transcriptPath = (sessionId: string) => path.join(projectFolder, `${sessionId}.jsonl`);
+  // The SDK stamps the fork's last entry with the fork time, which the chat then shows as the end
+  // of that turn. Give the copy of the target the timestamp it had.
+  let targetTimestamp: string | null = null;
+  const keepTargetTimestamp = (entries: readonly SessionStoreEntry[]): SessionStoreEntry[] =>
+    entries.map((entry) => {
+      const from = entry.forkedFrom as { messageUuid?: unknown } | undefined;
+      return targetTimestamp && from?.messageUuid === upToMessageId
+        ? { ...entry, timestamp: targetTimestamp }
+        : entry;
+    });
   return {
     async load({ sessionId }) {
-      return loadForkEntries(transcriptPath(sessionId), upToMessageId);
+      const entries = await loadForkEntries(transcriptPath(sessionId), upToMessageId);
+      const target = entries?.find((entry) => entry.uuid === upToMessageId);
+      targetTimestamp = typeof target?.timestamp === "string" ? target.timestamp : null;
+      return entries;
     },
     async append({ sessionId }, entries) {
-      await appendEntriesInChunks(transcriptPath(sessionId), entries);
+      await appendEntriesInChunks(transcriptPath(sessionId), keepTargetTimestamp(entries));
     },
   };
 }
