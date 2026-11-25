@@ -1,5 +1,6 @@
 import { probeHarnessInstallation } from "../../harness-updates.js";
 import { setImmediate } from "node:timers/promises";
+import { prependInPlace, pushAll } from "../../../../utils/array-in-place.js";
 import { ClaudeRuntimeSafety } from "./runtime-safety.js";
 import { validateProviderOptions } from "../../provider-options.js";
 import type { ChildProcess } from "node:child_process";
@@ -54,6 +55,7 @@ import {
 import { expandTilde } from "../../../../utils/path.js";
 import { parsePartialJsonObject } from "./partial-json.js";
 import {
+  CLAUDE_FULL_REPLAY_MAX_BYTES,
   CLAUDE_WINDOWED_REPLAY_MIN_BYTES,
   openClaudeSidechainSources,
   readClaudeTranscriptWindow,
@@ -418,6 +420,11 @@ type ClaudeConversationRewindTarget =
 
 /** User turns replayed when a large transcript is opened, and per older block read afterwards. */
 const CLAUDE_HISTORY_TAIL_PROMPTS = 20;
+/**
+ * Records converted between yields to the event loop. A record converts in well under a
+ * millisecond, so 64 keeps each slice near the 8 ms the search and replay loops already use.
+ */
+const HISTORY_CONVERT_YIELD_RECORDS = 64;
 const CLAUDE_HISTORY_OLDER_PROMPTS = 40;
 
 const CLAUDE_CAPABILITIES: AgentCapabilityFlags = {
@@ -5789,7 +5796,10 @@ class ClaudeAgentSession implements AgentSession {
         await this.loadContinuedSessionState(historyPath, this.continueFrom, replayStartedAt);
         return;
       }
-      if (this.windowedHistory && (await this.loadHistoryWindow(historyPath))) {
+      if (
+        (this.windowedHistory || (await this.exceedsFullReplayLimit(historyPath))) &&
+        (await this.loadHistoryWindow(historyPath))
+      ) {
         this.logger.info(
           {
             sessionId,
@@ -5871,7 +5881,6 @@ class ClaudeAgentSession implements AgentSession {
     this.sidechainSources = await openClaudeSidechainSources(historyPath);
     const window = await readClaudeTranscriptWindow(historyPath, {
       prompts: CLAUDE_HISTORY_TAIL_PROMPTS,
-      partial: true,
     });
     if (window) {
       try {
@@ -5904,16 +5913,21 @@ class ClaudeAgentSession implements AgentSession {
    * when a Task or Workflow call inside the window owns them; the rest of the sidechain
    * directory is listed, never read. Returns false when the full replay must run instead.
    */
+  /** A transcript this big is windowed even when the caller did not ask: see the constant. */
+  private async exceedsFullReplayLimit(historyPath: string): Promise<boolean> {
+    return (await fs.promises.stat(historyPath)).size >= CLAUDE_FULL_REPLAY_MAX_BYTES;
+  }
+
   private async loadHistoryWindow(historyPath: string): Promise<boolean> {
     const stat = await fs.promises.stat(historyPath);
     if (stat.size < CLAUDE_WINDOWED_REPLAY_MIN_BYTES) return false;
     const window = await readClaudeTranscriptWindow(historyPath, {
       prompts: CLAUDE_HISTORY_TAIL_PROMPTS,
-      partial: true,
     });
     if (!window) return false;
     this.sidechainSources = await openClaudeSidechainSources(historyPath);
     const converted = await this.convertHistoryWindow(window.entries, { newest: true });
+    this.noteSkippedHistory(converted.timeline, window.skippedBytes, true);
     if (converted.timeline.length > 0) {
       this.persistedHistory = [...this.persistedHistory, ...converted.timeline];
       this.historyPending = true;
@@ -5924,9 +5938,29 @@ class ClaudeAgentSession implements AgentSession {
     return true;
   }
 
+  /** Say in the chat that records were too large to show, at the edge where they would have been. */
+  private noteSkippedHistory(
+    timeline: PersistedTimelineEntry[],
+    skippedBytes: number,
+    atStart: boolean,
+  ): void {
+    if (skippedBytes === 0) return;
+    const megabytes = Math.round(skippedBytes / (1024 * 1024));
+    this.logger.warn({ skippedBytes }, "claude.history_records_skipped");
+    const entry: PersistedTimelineEntry = {
+      item: {
+        type: "notification",
+        level: "warning",
+        message: `Older history was not loaded: ${megabytes} MB of records were too large to read.`,
+      },
+    };
+    if (atStart) timeline.unshift(entry);
+    else timeline.push(entry);
+  }
+
   private commitSidechainEvents(events: readonly ClaudeProviderSubagentEvent[]): void {
     if (events.length === 0) return;
-    this.persistedProviderSubagentEvents.push(...events);
+    pushAll(this.persistedProviderSubagentEvents, events);
     this.historyPending = true;
   }
 
@@ -5959,17 +5993,20 @@ class ClaudeAgentSession implements AgentSession {
     const pendingBefore = this.persistedProviderSubagentEvents;
     this.persistedProviderSubagentEvents = [];
     try {
+      let converted = 0;
       for (const entry of buffered) {
         await this.ingestPersistedHistoryEntry(entry, timeline, replay, toolUseCache, anchors);
+        // Converting a block of tens of thousands of records must not hold the event loop.
+        if (++converted % HISTORY_CONVERT_YIELD_RECORDS === 0) await setImmediate();
       }
     } finally {
       // Owned notifications are routed to their child during ingestion.
-      sidechains.events.push(...this.persistedProviderSubagentEvents);
+      pushAll(sidechains.events, this.persistedProviderSubagentEvents);
       this.persistedProviderSubagentEvents = pendingBefore;
     }
     if (anchors) {
       this.userMessageIds = [...anchors.userMessageIds, ...this.userMessageIds];
-      this.rewindTurnAnchors.unshift(...anchors.rewindAnchors);
+      prependInPlace(this.rewindTurnAnchors, anchors.rewindAnchors);
     }
     return { timeline, subagentEvents: sidechains.events };
   }
@@ -6038,10 +6075,9 @@ class ClaudeAgentSession implements AgentSession {
       const window = await readClaudeTranscriptWindow(older.path, {
         prompts: CLAUDE_HISTORY_OLDER_PROMPTS,
         endOffset: older.endOffset,
-        partial: true,
       });
       if (!window) {
-        // Not even one turn fits in the scan limit: stop offering older history rather than stall the daemon.
+        // The path is not a readable file; there is nothing older to offer.
         this.olderHistory = null;
         return [];
       }
@@ -6052,6 +6088,7 @@ class ClaudeAgentSession implements AgentSession {
       } finally {
         this.replayingHistory = false;
       }
+      this.noteSkippedHistory(converted.timeline, window.skippedBytes, false);
       this.olderHistory =
         window.startOffset > 0 ? { path: older.path, endOffset: window.startOffset } : null;
       this.logger.info(

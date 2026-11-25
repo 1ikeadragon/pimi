@@ -4,6 +4,7 @@ import { timelineItemIdentity } from "@pimi/protocol/timeline-identity";
 import { readToolCallStartedAt, withToolCallStartedAt } from "@pimi/protocol/tool-call-timing";
 
 import type { AgentTimelineRow } from "./agent-timeline-store-types.js";
+import { prependInPlace } from "../../utils/array-in-place.js";
 
 export type TimelineProjectionMode = "canonical" | "projected";
 
@@ -356,9 +357,9 @@ export class TimelineProjection {
     }
     for (const span of this.spans) span.start += shift;
     for (const range of this.sourceRanges) range.rowIndex += shift;
-    this.rows.splice(0, 0, ...older.rows);
-    this.spans.splice(0, 0, ...older.spans);
-    this.sourceRanges.splice(0, 0, ...older.sourceRanges);
+    prependInPlace(this.rows, older.rows);
+    prependInPlace(this.spans, older.spans);
+    prependInPlace(this.sourceRanges, older.sourceRanges);
     if (this.lastAssistantRowIndex !== null) this.lastAssistantRowIndex += shift;
     else this.lastAssistantRowIndex = older.lastAssistantRowIndex;
   }
