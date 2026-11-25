@@ -1,5 +1,6 @@
 import { createReadStream } from "node:fs";
-import { appendFile, readFile } from "node:fs/promises";
+import { open } from "node:fs/promises";
+import { setImmediate } from "node:timers/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import {
@@ -23,44 +24,153 @@ export const realClaudeRewindSdk: ClaudeRewindSdk = {
   forkSession: (sessionId, options) =>
     claudeForkSession(sessionId, {
       upToMessageId: options.upToMessageId,
-      sessionStore: projectFolderSessionStore(path.dirname(options.transcriptPath)),
+      sessionStore: projectFolderSessionStore(
+        path.dirname(options.transcriptPath),
+        options.upToMessageId,
+      ),
     }),
 };
 
-function projectFolderSessionStore(projectFolder: string): SessionStore {
+/**
+ * Most the entries the fork keeps in memory may take, as the bytes of their transcript lines.
+ * The SDK parses them and then copies every one into the fork, so memory is a few times this
+ * (the SDK's fork contract needs the whole entry list; see loadForkEntries). 256 MiB keeps the
+ * peak near 1 GB inside the 3 GB worker heap; a chat past it gets ClaudeRewindTooLargeError
+ * instead of an out-of-memory crash of the daemon that owns every other chat.
+ */
+export const REWIND_MAX_RETAINED_BYTES = 256 * 1024 * 1024;
+/** Bytes of fork entries serialized and written per append, so no write holds the whole fork. */
+export const REWIND_APPEND_CHUNK_BYTES = 8 * 1024 * 1024;
+/** Longest the transcript read runs before yielding to timers and sockets. */
+const REWIND_YIELD_MS = 8;
+// The CLI writes each API request body as its own record; the SDK ignores them, and they are
+// most of a large transcript, so they are skipped by prefix without parsing.
+const API_REQUEST_PREFIX = '{"type":"api-request';
+// Everything the SDK's fork reads from a transcript, by record type (sdk.mjs `F4`): conversation
+// entries with a uuid, plus four bookkeeping records. Any other record is ignored by the SDK.
+const FORK_CONVERSATION_TYPES: ReadonlySet<string> = new Set([
+  "user",
+  "assistant",
+  "attachment",
+  "system",
+  "progress",
+]);
+const FORK_BOOKKEEPING_TYPES: ReadonlySet<string> = new Set([
+  "history-suppression",
+  "atis-latch",
+  "content-replacement",
+  "relocated",
+]);
+
+export class ClaudeRewindTooLargeError extends Error {
+  constructor(
+    readonly retainedBytes: number,
+    readonly limitBytes: number,
+  ) {
+    super(
+      `This conversation is too large to rewind: ${Math.round(retainedBytes / 1048576)} MB of ` +
+        `messages up to that point, and the limit is ${Math.round(limitBytes / 1048576)} MB.`,
+    );
+    this.name = "ClaudeRewindTooLargeError";
+  }
+}
+
+function projectFolderSessionStore(projectFolder: string, upToMessageId: string): SessionStore {
   const transcriptPath = (sessionId: string) => path.join(projectFolder, `${sessionId}.jsonl`);
   return {
     async load({ sessionId }) {
-      let text: string;
-      try {
-        text = await readFile(transcriptPath(sessionId), "utf8");
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-        throw error;
-      }
-      return parseTranscriptEntries(text);
+      return loadForkEntries(transcriptPath(sessionId), upToMessageId);
     },
     async append({ sessionId }, entries) {
-      const lines = entries.map((entry) => `${JSON.stringify(entry)}\n`).join("");
-      await appendFile(transcriptPath(sessionId), lines, "utf8");
+      await appendEntriesInChunks(transcriptPath(sessionId), entries);
     },
   };
 }
 
-function parseTranscriptEntries(text: string): SessionStoreEntry[] {
+function hasTitle(entry: Record<string, unknown>): boolean {
+  return typeof entry.customTitle === "string" || typeof entry.aiTitle === "string";
+}
+
+/**
+ * The entries the SDK's fork of `upToMessageId` reads, streamed from the transcript instead of
+ * read whole. The SDK slices the conversation at the target and ignores every record it does not
+ * list, so the same fork results from dropping api-request records, other record types,
+ * sidechain entries, and conversation entries after the target. Bookkeeping records and titles
+ * are kept wherever they sit, because the SDK reads those from the whole file. The SDK's own
+ * contract (`SessionStore.load`) returns the entry list, so what remains is held in memory:
+ * hence REWIND_MAX_RETAINED_BYTES.
+ */
+async function loadForkEntries(
+  file: string,
+  upToMessageId: string,
+): Promise<SessionStoreEntry[] | null> {
+  const input = createReadStream(file, { encoding: "utf8" });
+  const lines = createInterface({ input, crlfDelay: Infinity });
   const entries: SessionStoreEntry[] = [];
-  for (const line of text.split("\n")) {
-    if (!line.trim()) continue;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(line);
-    } catch {
-      // Skip a line that is not JSON, as the SDK's own transcript reader does.
-      continue;
+  let retainedBytes = 0;
+  let reachedTarget = false;
+  let lastYield = performance.now();
+  try {
+    for await (const line of lines) {
+      if (line.startsWith(API_REQUEST_PREFIX) || !line.trim()) continue;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(line);
+      } catch {
+        // Skip a line that is not JSON, as the SDK's own transcript reader does.
+        continue;
+      }
+      if (!isSessionStoreEntry(parsed)) continue;
+      const record: Record<string, unknown> = parsed;
+      if (FORK_CONVERSATION_TYPES.has(parsed.type) && typeof record.uuid === "string") {
+        if (record.isSidechain === true || reachedTarget) continue;
+        if (record.uuid === upToMessageId) reachedTarget = true;
+      } else if (!FORK_BOOKKEEPING_TYPES.has(parsed.type) && !hasTitle(record)) {
+        continue;
+      }
+      retainedBytes += line.length;
+      if (retainedBytes > REWIND_MAX_RETAINED_BYTES) {
+        throw new ClaudeRewindTooLargeError(retainedBytes, REWIND_MAX_RETAINED_BYTES);
+      }
+      entries.push(parsed);
+      if (performance.now() - lastYield >= REWIND_YIELD_MS) {
+        await setImmediate();
+        lastYield = performance.now();
+      }
     }
-    if (isSessionStoreEntry(parsed)) entries.push(parsed);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  } finally {
+    lines.close();
+    input.destroy();
   }
   return entries;
+}
+
+async function appendEntriesInChunks(
+  file: string,
+  entries: readonly SessionStoreEntry[],
+): Promise<void> {
+  const handle = await open(file, "a");
+  try {
+    let pending: string[] = [];
+    let pendingBytes = 0;
+    for (const entry of entries) {
+      const line = `${JSON.stringify(entry)}\n`;
+      pending.push(line);
+      pendingBytes += line.length;
+      if (pendingBytes >= REWIND_APPEND_CHUNK_BYTES) {
+        await handle.appendFile(pending.join(""), "utf8");
+        pending = [];
+        pendingBytes = 0;
+        await setImmediate();
+      }
+    }
+    if (pending.length > 0) await handle.appendFile(pending.join(""), "utf8");
+  } finally {
+    await handle.close();
+  }
 }
 
 function isSessionStoreEntry(value: unknown): value is SessionStoreEntry {
@@ -120,9 +230,6 @@ export async function findSteeredMessageParent(
   return null;
 }
 
-// The Claude CLI writes each API request body as its own record; none is conversation state.
-const API_REQUEST_RECORD_PREFIX = '{"type":"api-request';
-
 /**
  * Where a conversation rewind to `userMessageId` must fork, read from the transcript when the
  * session did not track that turn (it was never replayed into memory). `forkAt` is the last
@@ -138,7 +245,7 @@ export async function findRewindForkPoint(
   let lastAssistantId: string | null = null;
   try {
     for await (const line of lines) {
-      if (line.startsWith(API_REQUEST_RECORD_PREFIX)) continue;
+      if (line.startsWith(API_REQUEST_PREFIX)) continue;
       const isTarget = line.includes(userMessageId);
       if (!isTarget && !line.includes('"type":"assistant"')) continue;
       let record: { type?: unknown; uuid?: unknown; isSidechain?: unknown };
