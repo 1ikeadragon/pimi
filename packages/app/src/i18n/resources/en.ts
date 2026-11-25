@@ -4035,6 +4035,7 @@ export const en = {
           "Secrets are stored encrypted on this host. If you lose the passphrase they cannot be recovered. Agents cannot read the vault or change it.",
         submit: "Create vault",
         minimum: "At least {{count}} characters.",
+        mismatch: "The passphrases do not match.",
       },
       requests: {
         title: "Waiting for approval",

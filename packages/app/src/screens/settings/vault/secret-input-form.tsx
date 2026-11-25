@@ -57,6 +57,8 @@ export function SecretInputForm({
   const { t } = useTranslation();
   const [state, dispatch] = useReducer(reduce, { value: "", confirmation: "", resetKey: 0 });
   const matches = confirmLabel === undefined || state.value === state.confirmation;
+  const tooShort = state.value.length > 0 && state.value.length < minLength;
+  const mismatch = !matches && state.confirmation.length > 0;
   const canSubmit = state.value.length >= minLength && matches && !pending;
   const changeValue = useCallback((value: string) => dispatch({ type: "value", value }), []);
   const changeConfirmation = useCallback(
@@ -70,7 +72,10 @@ export function SecretInputForm({
   }, [canSubmit, onSubmit, state.value]);
   return (
     <View style={styles.form} testID={testID}>
-      <Field label={label}>
+      <Field
+        label={label}
+        error={tooShort ? t("settings.vault.create.minimum", { count: minLength }) : undefined}
+      >
         <FormTextInput
           initialValue=""
           resetKey={state.resetKey}
@@ -85,7 +90,10 @@ export function SecretInputForm({
         />
       </Field>
       {confirmLabel === undefined ? null : (
-        <Field label={confirmLabel}>
+        <Field
+          label={confirmLabel}
+          error={mismatch ? t("settings.vault.create.mismatch") : undefined}
+        >
           <FormTextInput
             initialValue=""
             resetKey={state.resetKey}
