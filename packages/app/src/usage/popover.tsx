@@ -4,7 +4,7 @@ import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
 import { MenuRoot, MenuSurface, useMenuContext } from "@/components/ui/menu";
-import { openPimiUsage } from "@/navigation/pimi-usage";
+import { useOpenUsageScreen } from "./sidebar-item";
 import { builtinSidebarNavLabelKey } from "@/sidebar-nav/model";
 import { useUsageDisplay } from "./display";
 import { useUsageHostSelection } from "./hosts";
@@ -77,10 +77,11 @@ function HostUsagePopoverBody({ serverId }: { serverId: string }) {
   const { rescan } = useUsageRescan(serverId);
   useEffect(rescan, [rescan]);
   const { setOpen } = ctx;
+  const openUsageScreen = useOpenUsageScreen();
   const openFull = useCallback(() => {
     setOpen(false);
-    openPimiUsage();
-  }, [setOpen]);
+    openUsageScreen();
+  }, [setOpen, openUsageScreen]);
   return (
     <View style={styles.body} testID="usage-popover-body">
       {view.kind === "ready" && reports.length > 0 ? (

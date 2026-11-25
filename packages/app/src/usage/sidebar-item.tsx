@@ -18,6 +18,8 @@ import {
 import { StyleSheet } from "react-native-unistyles";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { openPimiUsage } from "@/navigation/pimi-usage";
+import { useIsCompactFormFactor } from "@/constants/layout";
+import { usePanelStore } from "@/stores/panel-store";
 import { useAppVisible } from "@/hooks/use-app-visible";
 import { builtinSidebarNavLabelKey } from "@/sidebar-nav/model";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -128,6 +130,16 @@ function HostUsageHoverDetails({ serverId }: { serverId: string }) {
 
 export const usageHoverDetails = <UsageHoverDetails />;
 
+/** Opens the Usage screen; on a compact layout it first closes the sidebar drawer it was opened from. */
+export function useOpenUsageScreen(): () => void {
+  const isCompact = useIsCompactFormFactor();
+  const showMobileAgent = usePanelStore((state) => state.showMobileAgent);
+  return useCallback(() => {
+    if (isCompact) showMobileAgent();
+    openPimiUsage();
+  }, [isCompact, showMobileAgent]);
+}
+
 const OpenSidebarUsageContext = createContext<(() => void) | null>(null);
 
 /**
@@ -136,8 +148,9 @@ const OpenSidebarUsageContext = createContext<(() => void) | null>(null);
  * row go straight to the screen.
  */
 export function UsageSidebarRoot({ children }: { children: ReactNode }) {
+  const openUsage = useOpenUsageScreen();
   return (
-    <OpenSidebarUsageContext.Provider value={openPimiUsage}>
+    <OpenSidebarUsageContext.Provider value={openUsage}>
       {children}
     </OpenSidebarUsageContext.Provider>
   );
