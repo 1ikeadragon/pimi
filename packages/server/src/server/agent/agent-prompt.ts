@@ -2,7 +2,7 @@ import { prepareAgentMessage, type AgentPromptSource } from "./agent-messages/in
 import type { Logger } from "pino";
 
 import type { AgentPromptInput, AgentRunOptions } from "./agent-sdk-types.js";
-import type { AgentManager, ManagedAgent } from "./agent-manager.js";
+import type { AgentManager, ManagedAgent, SessionReloadReason } from "./agent-manager.js";
 import type { AgentStorage } from "./agent-storage.js";
 import { ensureAgentLoaded } from "./agent-loading.js";
 import { isStaleProviderSessionError } from "./stale-provider-session-error.js";
@@ -20,7 +20,7 @@ export type AgentRunController = Pick<
   | "steerOrReplaceActiveTurn"
   | "streamAgent"
 > & {
-  reloadAgentSession(agentId: string): Promise<unknown>;
+  reloadAgentSession(agentId: string, reason: SessionReloadReason): Promise<unknown>;
 };
 
 export interface StartAgentRunOptions {
@@ -123,7 +123,7 @@ export async function startAgentRun(
     logger.info({ agentId, err: error }, "Provider session went stale; reopening from persistence");
     // The live session belongs to a retired plugin runtime. Reload swaps in a
     // fresh session on the current runtime while preserving history and labels.
-    await agentManager.reloadAgentSession(agentId);
+    await agentManager.reloadAgentSession(agentId, "stale_provider_session");
     return await startAgentRunInner(agentManager, agentId, prompt, logger, options);
   }
 }
@@ -164,7 +164,7 @@ async function startAgentRunInner(
           { agentId, err: error },
           "Provider session went stale; reopening from persistence",
         );
-        await agentManager.reloadAgentSession(agentId);
+        await agentManager.reloadAgentSession(agentId, "stale_provider_session");
         const retry = await startOrReplaceRun(agentManager, agentId, prompt, options);
         await drainAgentRunIterator(retry.iterator);
       }

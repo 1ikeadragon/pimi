@@ -68,17 +68,34 @@ function resolveDevWorkerEntry(): string {
   return candidate;
 }
 
-function resolveWorkerExecArgv(workerEntry: string, devMode: boolean): string[] {
+/**
+ * Old-space limit of the worker, in MiB. One synthetic 350 MiB Claude chat peaked at 1.1 GB RSS in
+ * a full replay and a rewind of a big chat holds up to REWIND_MAX_RETAINED_BYTES (256 MiB) of
+ * parsed entries several times over; Node's default (about 2 GB on a 64-bit machine with enough
+ * RAM, less on a small one) ends the daemon that owns every chat. The development launch already
+ * used this value.
+ */
+const WORKER_MAX_OLD_SPACE_MB = 3072;
+
+/** V8 flags every worker gets: a larger heap, and a diagnostic report when it still runs out. */
+function workerHeapArgs(pimiHome: string): string[] {
+  return [
+    `--max-old-space-size=${WORKER_MAX_OLD_SPACE_MB}`,
+    "--report-on-fatalerror",
+    `--report-directory=${path.join(pimiHome, "crash-reports")}`,
+  ];
+}
+
+function resolveWorkerExecArgv(
+  workerEntry: string,
+  devMode: boolean,
+  heapArgs: readonly string[],
+): string[] {
   const execArgv = workerEntry.endsWith(".ts") ? ["--import", "tsx"] : [];
   if (!devMode) {
-    return execArgv;
+    return [...heapArgs, ...execArgv];
   }
-  const devArgs = [
-    "--heapsnapshot-near-heap-limit=3",
-    "--max-old-space-size=3072",
-    "--report-on-fatalerror",
-    "--report-directory=/tmp/pimi-reports",
-  ];
+  const devArgs = ["--heapsnapshot-near-heap-limit=3", ...heapArgs];
   const inspectArg = process.env.PIMI_NODE_INSPECT ?? "--inspect";
   if (inspectArg !== "0" && inspectArg !== "false" && inspectArg !== "off") {
     devArgs.push(inspectArg);
@@ -101,14 +118,15 @@ function resolvePackagedNodeEntrypointRunnerPath(currentScriptPath: string): str
 async function main(): Promise<void> {
   const config = parseConfig(process.argv.slice(2));
   const workerEntry = config.devMode ? resolveDevWorkerEntry() : resolveWorkerEntry();
-  const workerExecArgv = resolveWorkerExecArgv(workerEntry, config.devMode);
   const workerEnv: NodeJS.ProcessEnv = { ...process.env };
+  const pimiHome = resolvePimiHome(workerEnv);
+  const heapArgs = workerHeapArgs(pimiHome);
+  const workerExecArgv = resolveWorkerExecArgv(workerEntry, config.devMode, heapArgs);
   const packagedNodeEntrypointRunner =
     process.env.ELECTRON_RUN_AS_NODE === "1"
       ? resolvePackagedNodeEntrypointRunnerPath(fileURLToPath(import.meta.url))
       : null;
 
-  const pimiHome = resolvePimiHome(workerEnv);
   const persistedConfig = loadPersistedConfig(pimiHome);
   const supervisorLogFile = resolveSupervisorLogFile(pimiHome, persistedConfig, workerEnv);
 
@@ -156,7 +174,9 @@ async function main(): Promise<void> {
     resolveWorkerSpawnSpec: packagedNodeEntrypointRunner
       ? (resolvedWorkerEntry) => ({
           command: process.execPath,
+          // The packaged launch does not go through fork(), so execArgv never reaches it.
           args: [
+            ...heapArgs,
             packagedNodeEntrypointRunner,
             "node-script",
             resolvedWorkerEntry,

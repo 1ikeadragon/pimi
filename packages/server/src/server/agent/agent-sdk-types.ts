@@ -203,6 +203,11 @@ export interface AgentCapabilityFlags {
   supportsRewindConversation?: boolean;
   supportsRewindFiles?: boolean;
   supportsRewindBoth?: boolean;
+  /**
+   * A replacement resumed with `continueFrom` takes over this session's unread older history, so
+   * the manager need not read it into memory before swapping sessions.
+   */
+  continuesOlderHistory?: boolean;
 }
 
 export interface AgentPersistenceHandle {
@@ -742,6 +747,13 @@ export interface AgentResumeSessionOptions {
    * hasOlderHistory and loadOlderHistory so the rest can be read on demand.
    */
   windowedHistory?: boolean;
+  /**
+   * The session this one replaces while the manager keeps the rows that session already
+   * delivered. The new session loads only the state a live turn needs, keeps no replay buffer
+   * and answers hasOlderHistory for what `continueFrom` had not read. Honored only when the
+   * provider's capabilities set `continuesOlderHistory`.
+   */
+  continueFrom?: AgentSession;
 }
 
 /**

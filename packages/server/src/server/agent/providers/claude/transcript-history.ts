@@ -136,17 +136,43 @@ function parseRecord(line: string): TranscriptEntry | null {
   }
 }
 
+/** Null only when the file does not exist; any other read failure must reach the caller. */
 async function readOptionalFile(file: string): Promise<string | null> {
   try {
     return await fs.readFile(file, "utf8");
-  } catch {
-    return null;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
   }
 }
 
 const WINDOW_READ_BYTES = 1024 * 1024;
-/** A window that cannot find its turn boundary inside this much transcript falls back to a full replay. */
+/** Longest the window scan runs before yielding to timers and sockets; matches the search loop. */
+const WINDOW_YIELD_MS = 8;
+/**
+ * Bytes of conversation records (everything except api-request records) one window may parse.
+ * Reaching it ends the window at the oldest point where no tool call is left open.
+ */
 const WINDOW_MAX_SCAN_BYTES = 64 * 1024 * 1024;
+/**
+ * Bytes one window may read in total, api-request records included. The CLI writes a request body
+ * per API call, so they are most of a large transcript and are only skipped, never parsed; the
+ * budget is four times the parsed one so skipping them does not end a window that has little to
+ * parse. Skipping runs at disk speed, so 256 MiB is well under a second.
+ */
+const WINDOW_MAX_TOTAL_SCAN_BYTES = 4 * WINDOW_MAX_SCAN_BYTES;
+/**
+ * A single record larger than this is skipped, not parsed. 16 MiB is eight times the 2 MiB base64
+ * image block that routine records carry, and JSON.parse of it stays near 100 ms; a bigger
+ * record would hold the event loop for seconds and its content is not a readable chat row.
+ */
+const WINDOW_MAX_RECORD_BYTES = 16 * 1024 * 1024;
+/**
+ * Transcripts at or above this size are never replayed whole: the replay keeps every converted
+ * item in memory (about 2x the file measured on a synthetic 350 MiB chat, 1.1 GB RSS with a
+ * 150 MiB record) and re-reads the parent transcript several times. Half of WINDOW_MAX_SCAN_BYTES.
+ */
+export const CLAUDE_FULL_REPLAY_MAX_BYTES = WINDOW_MAX_SCAN_BYTES / 2;
 /** Transcripts smaller than this replay in full; the window only pays for itself on big files. */
 export const CLAUDE_WINDOWED_REPLAY_MIN_BYTES = 1024 * 1024;
 // The Claude CLI writes every API request body as its own record. They are never replay input and
@@ -158,45 +184,65 @@ export interface ClaudeTranscriptWindow {
   entries: AsyncIterable<TranscriptEntry>;
   /** Byte offset of the first record of this window; 0 means no older records exist. */
   startOffset: number;
+  /** Bytes of records dropped because one record exceeded WINDOW_MAX_RECORD_BYTES. */
+  skippedBytes: number;
 }
 
-/** Lines of the file before `end`, last line first, with each line's byte offset. */
+type ReverseLine = { kind: "line"; line: Buffer; offset: number } | { kind: "budget" };
+
+/**
+ * Lines of the file before `end`, last line first, with each line's byte offset. Ends with a
+ * `budget` marker when `totalScanLimit` bytes have been read. A line is assembled from its pieces
+ * once, so a record of any size costs a single copy.
+ */
 async function* reverseLines(
   fd: FileHandle,
   end: number,
-  scanLimit: number,
-): AsyncGenerator<{ line: Buffer; offset: number }> {
+  totalScanLimit: number,
+): AsyncGenerator<ReverseLine> {
   let position = end;
-  let carry: Buffer = Buffer.alloc(0);
+  // Later parts of the line that continues into the block read next, in file order.
+  let carry: Buffer[] = [];
   let scanned = 0;
+  let first = true;
   while (position > 0) {
+    if (scanned >= totalScanLimit) {
+      yield { kind: "budget" };
+      return;
+    }
     const length = Math.min(WINDOW_READ_BYTES, position);
     position -= length;
     scanned += length;
-    if (scanned > scanLimit) throw new WindowTooLargeError();
     const block = Buffer.allocUnsafe(length);
     let read = 0;
     while (read < length) {
       const { bytesRead } = await fd.read(block, read, length - read, position + read);
-      if (bytesRead === 0) throw new WindowTooLargeError();
+      if (bytesRead === 0) {
+        throw new Error(`Claude transcript was truncated during replay: ${position + read}`);
+      }
       read += bytesRead;
     }
-    const data = carry.length > 0 ? Buffer.concat([block, carry]) : block;
-    let cursor = data.length;
-    if (data[cursor - 1] === 10) cursor -= 1;
-    let newline = cursor > 0 ? data.lastIndexOf(10, cursor - 1) : -1;
+    let cursor = block.length;
+    if (first) {
+      first = false;
+      if (block[cursor - 1] === 10) cursor -= 1;
+    }
+    let newline = cursor > 0 ? block.lastIndexOf(10, cursor - 1) : -1;
     while (newline !== -1) {
-      yield { line: data.subarray(newline + 1, cursor), offset: position + newline + 1 };
+      yield {
+        kind: "line",
+        line: Buffer.concat([block.subarray(newline + 1, cursor), ...carry]),
+        offset: position + newline + 1,
+      };
+      carry = [];
       cursor = newline;
-      newline = cursor > 0 ? data.lastIndexOf(10, cursor - 1) : -1;
+      newline = cursor > 0 ? block.lastIndexOf(10, cursor - 1) : -1;
     }
     // The first line of this block may continue into the previous one.
-    carry = Buffer.from(data.subarray(0, cursor));
+    if (cursor > 0) carry = [block.subarray(0, cursor), ...carry];
   }
-  if (carry.length > 0) yield { line: carry, offset: 0 };
+  if (carry.length > 0) yield { kind: "line", line: Buffer.concat(carry), offset: 0 };
 }
-
-class WindowTooLargeError extends Error {}
 
 function isNoiseRecord(line: Buffer): boolean {
   return line.subarray(0, NOISE_RECORD_PREFIX.length).equals(NOISE_RECORD_PREFIX);
@@ -234,55 +280,107 @@ function isTurnBoundary(entry: TranscriptEntry, unmatchedResults: Set<string>): 
 }
 
 /**
+ * Where a window cut short by the scan budget starts: the oldest turn boundary, else the oldest
+ * record with no tool call open, else (no clean cut) everything read, resuming the unread rest
+ * from the oldest line seen.
+ */
+function chooseTruncatedCut(
+  oldestBoundary: { length: number; offset: number } | null,
+  oldestClosed: { length: number; offset: number } | null,
+  oldestSeenOffset: number,
+): { length: number; offset: number } {
+  return (
+    oldestBoundary ?? oldestClosed ?? { length: Number.POSITIVE_INFINITY, offset: oldestSeenOffset }
+  );
+}
+
+/**
  * Read the newest `prompts` user turns that end before `endOffset` (default end of file) by
  * scanning the file backwards, so the cost follows the window and not the transcript size.
  * A turn boundary is a real user prompt (not a tool result, not an `isMeta` injection) with no
- * tool_use before it whose result lands after it. When the scan limit is reached first, returns
- * null, or with `partial` the turns found so far (null when none were found).
+ * tool_use before it whose result lands after it.
+ *
+ * A scan budget (WINDOW_MAX_SCAN_BYTES parsed, WINDOW_MAX_TOTAL_SCAN_BYTES read) bounds the work.
+ * When it ends before enough turns are found the window starts at the oldest turn boundary seen;
+ * when none was seen (one turn bigger than the budget, or a tool result whose call is missing) it
+ * starts at the oldest record at which no tool call is open, which may be inside a turn. Either
+ * way `startOffset` says where the unread rest begins, so a caller can keep offering it.
  */
 export async function readClaudeTranscriptWindow(
   historyPath: string,
-  options: { prompts: number; endOffset?: number; partial?: boolean },
+  options: { prompts: number; endOffset?: number },
 ): Promise<ClaudeTranscriptWindow | null> {
   const fd = await fs.open(historyPath, "r");
   try {
     const stat = await fd.stat();
     if (stat.isDirectory()) return null;
     const end = Math.min(options.endOffset ?? stat.size, stat.size);
-    let found: TranscriptEntry[] = [];
+    const found: TranscriptEntry[] = [];
     let prompts = 0;
     let startOffset = 0;
+    let parsedBytes = 0;
+    let skippedBytes = 0;
     // Tool results seen in the window whose tool_use has not been reached yet.
     const unmatchedResults = new Set<string>();
     let oldestBoundary: { length: number; offset: number } | null = null;
-    try {
-      for await (const { line, offset } of reverseLines(fd, end, WINDOW_MAX_SCAN_BYTES)) {
-        if (line.length === 0 || isNoiseRecord(line)) continue;
-        const entry = parseRecord(line.toString("utf8"));
-        if (!entry || entry.isSidechain === true) continue;
-        found.push(entry);
-        if (!isTurnBoundary(entry, unmatchedResults)) continue;
-        prompts += 1;
-        oldestBoundary = { length: found.length, offset };
-        if (prompts >= options.prompts) {
-          startOffset = offset;
-          break;
-        }
+    // The oldest point where no tool result is waiting for its call.
+    let oldestClosed: { length: number; offset: number } | null = null;
+    let oldestSeenOffset = end;
+    let reachedStart = true;
+    let lastYield = performance.now();
+    for await (const item of reverseLines(fd, end, WINDOW_MAX_TOTAL_SCAN_BYTES)) {
+      if (item.kind === "budget") {
+        reachedStart = false;
+        break;
       }
-    } catch (error) {
-      if (!(error instanceof WindowTooLargeError)) throw error;
-      if (!options.partial || !oldestBoundary) return null;
-      found = found.slice(0, oldestBoundary.length);
-      startOffset = oldestBoundary.offset;
+      const { line, offset } = item;
+      const skippable = line.length === 0 || isNoiseRecord(line);
+      if (!skippable && line.length > WINDOW_MAX_RECORD_BYTES) {
+        // Never parsed, so it does not count against the parsed budget either.
+        skippedBytes += line.length;
+        oldestSeenOffset = offset;
+        continue;
+      }
+      if (!skippable && parsedBytes + line.length > WINDOW_MAX_SCAN_BYTES && found.length > 0) {
+        reachedStart = false;
+        break;
+      }
+      // Everything from here to the end of the file has been consumed, parsed or skipped.
+      oldestSeenOffset = offset;
+      if (skippable) continue;
+      parsedBytes += line.length;
+      const entry = parseRecord(line.toString("utf8"));
+      if (performance.now() - lastYield >= WINDOW_YIELD_MS) {
+        await setImmediate();
+        lastYield = performance.now();
+      }
+      if (!entry || entry.isSidechain === true) continue;
+      found.push(entry);
+      const boundary = isTurnBoundary(entry, unmatchedResults);
+      if (unmatchedResults.size === 0) oldestClosed = { length: found.length, offset };
+      if (!boundary) continue;
+      prompts += 1;
+      oldestBoundary = { length: found.length, offset };
+      if (prompts >= options.prompts) {
+        startOffset = offset;
+        break;
+      }
     }
-    found.reverse();
+    const truncated = !reachedStart && prompts < options.prompts;
+    const cut = truncated
+      ? chooseTruncatedCut(oldestBoundary, oldestClosed, oldestSeenOffset)
+      : { length: Number.POSITIVE_INFINITY, offset: startOffset };
+    const entries = found.slice(0, cut.length);
+    startOffset = cut.offset;
+    entries.reverse();
     return {
       entries: assignTaskNotificationReplayIds(
         (async function* () {
-          yield* found;
+          yield* entries;
         })(),
       ),
       startOffset,
+      skippedBytes,
     };
   } finally {
     await fd.close();

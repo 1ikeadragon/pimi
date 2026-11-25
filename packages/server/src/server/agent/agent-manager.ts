@@ -145,6 +145,14 @@ import { canMessageProviderSubagent } from "@pimi/protocol/provider-subagent-mes
 import { storeProviderImage, type AgentImageStore } from "./agent-images.js";
 import { SlashCommandsCache } from "./slash-commands-cache.js";
 import { SqliteTimelineStore, timelineSessionKey } from "./sqlite-timeline-store.js";
+import { prependInPlace } from "../../utils/array-in-place.js";
+import {
+  buildTimelinePromptIndex,
+  buildTimelinePromptPage,
+  PROMPT_PAGE_MAX_LIMIT,
+  type TimelinePromptIndex,
+  type TimelinePromptPage,
+} from "./timeline-prompt-index.js";
 import type { ChatIndexBackfill } from "./timeline-search/backfill.js";
 import type { ChatSearchService } from "./timeline-search/search-service.js";
 
@@ -375,9 +383,37 @@ interface SessionReplacementPlan {
   fallback?: SessionReplacementPlan;
 }
 
+/**
+ * A rehydrating reload replays like a first open, windowed so a big transcript is not read
+ * whole. A reload that keeps the timeline continues the released session instead.
+ */
+function replacementResumeOptions(
+  plan: SessionReplacementPlan,
+  progress: SessionReplacementProgress,
+): AgentResumeSessionOptions | undefined {
+  if (plan.rehydrateFromDisk) return { windowedHistory: true };
+  if (progress.continueFrom) return { windowedHistory: true, continueFrom: progress.continueFrom };
+  return undefined;
+}
+
 interface SessionReplacementProgress {
   closed?: ManagedAgentClosed;
+  /** The released session whose unread older history the replacement takes over. */
+  continueFrom?: AgentSession;
 }
+
+/** Why a session was reopened on the thread it already had; logged with every reload. */
+export type SessionReloadReason =
+  /** The user chose Reload agent. */
+  | "user_reload"
+  /** A voice mode or other config change needs a new session. */
+  | "config_override"
+  /** A send found the live session retired by its plugin runtime. */
+  | "stale_provider_session"
+  /** The plugin runtime changed since this session opened. */
+  | "stale_plugin_session"
+  /** A prompt arrived on a session that was opened only to read history. */
+  | "history_session_upgrade";
 
 interface ReplacementLaunch {
   storedConfig: AgentSessionConfig;
@@ -437,6 +473,17 @@ export class AgentManagerShuttingDownError extends Error {
   constructor() {
     super("Agent manager is shutting down");
     this.name = "AgentManagerShuttingDownError";
+  }
+}
+
+/** The provider replayed no history for a chat whose stored timeline still holds messages. */
+export class StoredTimelineKeptError extends Error {
+  constructor(agentId: string) {
+    super(
+      `The provider returned no history for chat ${agentId}, but its saved messages are still ` +
+        "stored. They were kept; open the chat again once the provider transcript is readable.",
+    );
+    this.name = "StoredTimelineKeptError";
   }
 }
 
@@ -1405,7 +1452,7 @@ export class AgentManager {
     await this.trackAgentRegistrationOperation(
       this.runLifecycleMutation(agentId, async () => {
         if (!this.needsPluginSessionReload(agentId)) return;
-        await this.reloadAgentSessionInternal(agentId);
+        await this.reloadAgentSessionInternal(agentId, "stale_plugin_session");
       }),
     );
   }
@@ -1875,6 +1922,39 @@ export class AgentManager {
       this.logger.warn({ err: error, agentId }, "Failed to read stored timeline page");
       return null;
     }
+  }
+
+  /**
+   * The prompt outline from the stored copy, without loading the chat's rows or its provider
+   * session. Null unless the stored copy holds the whole chat and belongs to the loaded timeline
+   * (or, for a chat that is not loaded, would open as it is).
+   */
+  peekStoredPrompts(
+    agentId: string,
+    handle: AgentPersistenceHandle | null,
+    page: { beforeSeq?: number; limit: number } | undefined,
+  ): TimelinePromptIndex | TimelinePromptPage | null {
+    const archive = this.timelineArchive;
+    if (!archive) return null;
+    let epoch: string;
+    if (this.timelineStore.has(agentId)) {
+      epoch = this.timelineStore.getEpoch(agentId);
+      if (!archive.getAgent(agentId)?.complete || archive.getBoundEpoch(agentId) !== epoch) {
+        return null;
+      }
+    } else {
+      const opened = archive.peekOpen(agentId, { sessionKey: timelineSessionKey(handle) });
+      if ("refusal" in opened) return null;
+      epoch = opened.agent.epoch;
+    }
+    if (!page) return buildTimelinePromptIndex(epoch, archive.readPrompts(agentId));
+    // One more than the page, so the builder can tell whether older prompts exist.
+    const limit = Math.min(page.limit, PROMPT_PAGE_MAX_LIMIT) + 1;
+    return buildTimelinePromptPage(
+      epoch,
+      archive.readPrompts(agentId, { beforeSeq: page.beforeSeq, limit }),
+      page,
+    );
   }
 
   fetchTimeline(id: string, options?: AgentTimelineFetchOptions): AgentTimelineFetchResult {
@@ -2492,12 +2572,13 @@ export class AgentManager {
   // mutated outside Pimi.
   reloadAgentSession(
     agentId: string,
+    reason: SessionReloadReason,
     overrides?: Partial<AgentSessionConfig>,
     options?: { rehydrateFromDisk?: boolean },
   ): Promise<ManagedAgent> {
     return this.trackAgentRegistrationOperation(
       this.runLifecycleMutation(agentId, () =>
-        this.reloadAgentSessionInternal(agentId, overrides, options),
+        this.reloadAgentSessionInternal(agentId, reason, overrides, options),
       ),
     );
   }
@@ -2521,6 +2602,7 @@ export class AgentManager {
 
   private async reloadAgentSessionInternal(
     agentId: string,
+    reason: SessionReloadReason,
     overrides?: Partial<AgentSessionConfig>,
     options?: { rehydrateFromDisk?: boolean },
   ): Promise<ManagedAgent> {
@@ -2531,6 +2613,20 @@ export class AgentManager {
       existing = this.requireSessionAgent(agentId);
     }
     const rehydrateFromDisk = options?.rehydrateFromDisk ?? false;
+    this.logger.info(
+      {
+        agentId,
+        reason,
+        provider: existing.provider,
+        sessionId: existing.persistence?.sessionId ?? undefined,
+        rehydrateFromDisk,
+        lifecycle: existing.lifecycle,
+        nextTimelineSeq: this.timelineStore.has(agentId)
+          ? this.timelineStore.getNextSeq(agentId)
+          : null,
+      },
+      "agent.session_reload",
+    );
     const plan = this.planSessionResume(existing);
     return this.replaceAgentSession(existing, {
       ...plan,
@@ -2868,9 +2964,15 @@ export class AgentManager {
     plan: SessionReplacementPlan,
   ): Promise<ManagedAgent> {
     const progress: SessionReplacementProgress = {};
-    // The resumed session is opened without a windowed history, so it cannot serve the older
-    // rows the stored timeline is still missing. Read them from the session that holds the cursor.
-    if (!plan.rehydrateFromDisk) {
+    const continues = this.canContinueOlderHistory(agent, plan);
+    if (continues) {
+      // An older block in flight reads from the session about to be released.
+      await this.olderTimelineLoads.get(agent.id)?.catch(() => undefined);
+      progress.continueFrom = agent.session;
+    }
+    // A resumed session that cannot take over the older-history cursor cannot serve the rows the
+    // stored timeline is still missing. Read them from the session that holds the cursor.
+    if (!plan.rehydrateFromDisk && !continues) {
       try {
         await this.ensureTimelineRowsBefore(agent.id, { all: true });
       } catch (error) {
@@ -2900,6 +3002,24 @@ export class AgentManager {
       }
       throw error;
     }
+  }
+
+  /**
+   * The replacement resumes the same provider thread and the timeline already in memory is kept,
+   * so the new session only needs the live state of the newest turns and the old session's
+   * cursor into the older ones.
+   */
+  private canContinueOlderHistory(
+    agent: ActiveManagedAgent,
+    plan: SessionReplacementPlan,
+  ): boolean {
+    return (
+      plan.handle !== null &&
+      plan.handle.provider === agent.provider &&
+      !plan.rehydrateFromDisk &&
+      plan.historyPrimed &&
+      agent.session.capabilities.continuesOlderHistory === true
+    );
   }
 
   /** Everything a replacement needs that can be decided while the current session still runs. */
@@ -3010,9 +3130,10 @@ export class AgentManager {
       this.assertAcceptingAgentRegistrations();
 
       this.recordPimiToolPolicy(agentId, storedConfig.provider, pimiToolPolicy, attackRun);
+      const resumeOptions = replacementResumeOptions(plan, progress);
       session = await withLaunchAgent(agentId, () =>
         plan.handle
-          ? client.resumeSession(plan.handle!, providerLaunchConfig, launchContext)
+          ? client.resumeSession(plan.handle!, providerLaunchConfig, launchContext, resumeOptions)
           : client.createSession(providerLaunchConfig, launchContext),
       );
       await this.requireExternalMcpSupport(session, providerLaunchConfig, launchContext);
@@ -4226,7 +4347,7 @@ export class AgentManager {
           if (this.historySessions.has(current.session)) {
             // Recheck inside the lane: another prompt may already have upgraded it.
             // Reload validates the directory before releasing readable history.
-            await this.reloadAgentSessionInternal(agentId);
+            await this.reloadAgentSessionInternal(agentId, "history_session_upgrade");
           }
         }),
       );
@@ -6061,8 +6182,8 @@ export class AgentManager {
       return true;
     }
     const older = await this.readAllOlderHistory(agent);
-    historyEvents.unshift(...older.timeline);
-    historySubagentEvents.unshift(...older.subagents);
+    prependInPlace(historyEvents, older.timeline);
+    prependInPlace(historySubagentEvents, older.subagents);
     return false;
   }
 
@@ -6145,6 +6266,9 @@ export class AgentManager {
         );
         if (stored.rows.length > 0) {
           this.timelineStore.prependRows(agentId, stored.rows);
+          // Loading every stored block is a loop of synchronous reads; let the daemon serve
+          // other work between them.
+          await new Promise<void>((next) => setImmediate(next));
           continue;
         }
       }
@@ -6326,6 +6450,21 @@ export class AgentManager {
     return timestamp ? { timestamp } : undefined;
   }
 
+  /**
+   * An empty replay of the provider's own history is not evidence that the chat is empty: its
+   * transcript can be missing or unreachable. Replacing the stored copy then loses messages that
+   * exist nowhere else, so the stored rows are kept and the open fails until the read works.
+   */
+  private assertReplayMayReplaceStoredCopy(
+    agent: ActiveManagedAgent,
+    replay: { provided: boolean; events: number },
+  ): void {
+    // A caller-provided history (an import, startup rows) is the new truth even when empty.
+    if (replay.provided || replay.events > 0 || agent.internal) return;
+    if (!this.timelineArchive?.hasReplaceableRows(agent.id)) return;
+    throw new StoredTimelineKeptError(agent.id);
+  }
+
   /** Start the stored copy of a timeline that was just rebuilt from the provider. */
   private beginArchivedTimeline(agent: ActiveManagedAgent, complete: boolean): void {
     if (!this.timelineArchive || agent.internal) return;
@@ -6356,8 +6495,8 @@ export class AgentManager {
     // A forced rebuild replaces the whole timeline, so a windowed replay is read to its start.
     if (agent.session.hasOlderHistory?.()) {
       const older = await this.readAllOlderHistory(agent);
-      historyEvents.unshift(...older.timeline);
-      providerSubagentEvents.unshift(...older.subagents);
+      prependInPlace(historyEvents, older.timeline);
+      prependInPlace(providerSubagentEvents, older.subagents);
     }
     await this.completeHistoryEvents(agent.id, historyEvents, { fresh: true });
     const prior = this.priorRowTimestamps(agent, historyEvents);
@@ -6412,10 +6551,9 @@ export class AgentManager {
   private async primeTimelineFromLegacyProviderHistory(
     agent: ActiveManagedAgent,
     broadcast: boolean | (() => boolean),
-    history:
-      | AsyncIterable<AgentStreamEvent>
-      | Iterable<AgentStreamEvent> = agent.session.streamHistory(),
+    importedHistory?: AsyncIterable<AgentStreamEvent> | Iterable<AgentStreamEvent>,
   ): Promise<void> {
+    const history = importedHistory ?? agent.session.streamHistory();
     const deferredBroadcast = typeof broadcast === "function";
     const historyEvents: Extract<AgentStreamEvent, { type: "timeline" }>[] = [];
     const historySubagentEvents: Extract<AgentStreamEvent, { type: "provider_subagent" }>[] = [];
@@ -6443,6 +6581,10 @@ export class AgentManager {
     }
 
     const collectedMs = performance.now() - primeStartedAt;
+    this.assertReplayMayReplaceStoredCopy(agent, {
+      provided: importedHistory !== undefined,
+      events: historyEvents.length + historySubagentEvents.length,
+    });
     // A windowed replay read only the newest turns. An empty timeline numbers them from a high
     // base so older blocks can be added below; a timeline that already holds carried rows needs
     // the whole history before it can be recorded.

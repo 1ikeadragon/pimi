@@ -1312,7 +1312,7 @@ export class Session {
               logger: this.sessionLogger,
             }),
           reloadAgentSession: (agentId, overrides) =>
-            this.agentManager.reloadAgentSession(agentId, overrides),
+            this.agentManager.reloadAgentSession(agentId, "config_override", overrides),
           sendSpokenInput: async (agentId, text) => {
             await this.handleSendAgentMessage(
               agentId,
@@ -5058,7 +5058,7 @@ export class Session {
       const existing = this.agentManager.getAgent(agentId);
       if (existing) {
         await this.interruptAgentIfRunning(agentId);
-        snapshot = await this.agentManager.reloadAgentSession(agentId, undefined, {
+        snapshot = await this.agentManager.reloadAgentSession(agentId, "user_reload", undefined, {
           rehydrateFromDisk: true,
         });
       } else {
@@ -8547,19 +8547,23 @@ export class Session {
     source?: object,
   ): Promise<void> {
     try {
-      await ensureAgentLoaded(msg.agentId, {
-        agentManager: this.agentManager,
-        agentStorage: this.agentStorage,
-        logger: this.sessionLogger,
-      });
-      const rows = await this.agentManager.getTimelineRows(msg.agentId);
-      const timeline = this.agentManager.fetchTimeline(msg.agentId, {
-        direction: "tail",
-        limit: 1,
-      });
-      const index = msg.page
-        ? buildTimelinePromptPage(timeline.epoch, rows, msg.page)
-        : buildTimelinePromptIndex(timeline.epoch, rows);
+      // The stored copy answers without loading the chat or reading its rows into memory.
+      let index = await this.peekStoredPrompts(msg.agentId, msg.page);
+      if (!index) {
+        await ensureAgentLoaded(msg.agentId, {
+          agentManager: this.agentManager,
+          agentStorage: this.agentStorage,
+          logger: this.sessionLogger,
+        });
+        const rows = await this.agentManager.getTimelineRows(msg.agentId);
+        const timeline = this.agentManager.fetchTimeline(msg.agentId, {
+          direction: "tail",
+          limit: 1,
+        });
+        index = msg.page
+          ? buildTimelinePromptPage(timeline.epoch, rows, msg.page)
+          : buildTimelinePromptIndex(timeline.epoch, rows);
+      }
       this.emitForSource(
         {
           type: "agent.timeline.list_prompts.response",
@@ -8591,6 +8595,21 @@ export class Session {
         source,
       );
     }
+  }
+
+  private async peekStoredPrompts(
+    agentId: string,
+    page: { beforeSeq?: number; limit: number } | undefined,
+  ): Promise<ReturnType<AgentManager["peekStoredPrompts"]>> {
+    if (this.agentManager.getAgent(agentId)) {
+      return this.agentManager.peekStoredPrompts(agentId, null, page);
+    }
+    const record = await this.agentStorage.get(agentId);
+    if (!record || record.archivedAt) return null;
+    const registered = this.agentManager.getRegisteredProviderIds();
+    if (!isStoredAgentProviderAvailable(record, registered)) return null;
+    const handle = toAgentPersistenceHandle(registered, record.persistence);
+    return handle ? this.agentManager.peekStoredPrompts(agentId, handle, page) : null;
   }
 
   private async hasNoStoredProviderSubagents(agentId: string): Promise<boolean> {

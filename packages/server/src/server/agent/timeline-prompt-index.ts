@@ -1,7 +1,7 @@
 import type { AgentTimelineRow } from "./agent-timeline-store-types.js";
 
 const PROMPT_PREVIEW_MAX_LENGTH = 120;
-const PROMPT_PAGE_MAX_LIMIT = 100;
+export const PROMPT_PAGE_MAX_LIMIT = 100;
 
 export interface TimelinePromptIndexEntry {
   seq: number;
