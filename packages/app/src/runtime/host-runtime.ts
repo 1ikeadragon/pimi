@@ -41,7 +41,7 @@ import { isWeb } from "@/constants/platform";
 import { connectToDaemon, getConnectionAuthFailureReason } from "@/utils/test-daemon-connection";
 import { getOrCreateClientId } from "@/utils/client-id";
 import { z } from "zod";
-import { readValidatedJson, readValidatedString } from "@/storage/validated-storage";
+import { readValidatedString } from "@/storage/validated-storage";
 import {
   selectBestConnection,
   type ConnectionCandidate,
@@ -1786,38 +1786,56 @@ export class HostRuntimeStore {
     return this.registryLoad;
   }
 
+  // Never deletes the stored registry: unreadable data stays in place for recovery.
+  private async readStoredRegistryEntries(): Promise<unknown[]> {
+    const raw = await this.storage.getItem(REGISTRY_STORAGE_KEY);
+    if (raw === null || raw === undefined) {
+      return [];
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      console.error(
+        "[HostRuntime] Stored host registry is not valid JSON; leaving it untouched",
+        error,
+      );
+      return [];
+    }
+    if (!Array.isArray(parsed)) {
+      console.error("[HostRuntime] Stored host registry is not an array; leaving it untouched");
+      return [];
+    }
+    return parsed;
+  }
+
   private async loadFromStorage(): Promise<void> {
     let shouldPersistHosts = false;
     let profiles: HostProfile[] = [];
     try {
-      const stored = await readValidatedJson(
-        this.storage,
-        REGISTRY_STORAGE_KEY,
-        StoredHostRegistrySchema,
-      );
-      if (stored) {
-        const normalizedProfiles: HostProfile[] = [];
-        for (const entry of stored) {
-          const profile = normalizeStoredHostProfile(entry);
-          if (!profile) {
-            await this.storage.removeItem(REGISTRY_STORAGE_KEY);
-            normalizedProfiles.length = 0;
-            break;
-          }
-          // COMPAT(connectionPassword): added in v0.9.1, remove after 2027-03-24 with stored-password migration.
-          if (
-            entry.connections.some(
-              (connection) => connection.type === "directTcp" && connection.password,
-            )
-          ) {
-            shouldPersistHosts = true;
-          }
-          normalizedProfiles.push(profile);
+      const stored = await this.readStoredRegistryEntries();
+      const normalizedProfiles: HostProfile[] = [];
+      for (const entry of stored) {
+        const profile = normalizeStoredHostProfile(entry);
+        if (!profile) {
+          console.warn("[HostRuntime] Skipping invalid stored host entry");
+          continue;
         }
-        profiles = normalizedProfiles.filter((entry) => !isPlaceholderServerId(entry.serverId));
-        if (profiles.length !== normalizedProfiles.length) {
+        // COMPAT(connectionPassword): added in v0.9.1, remove after 2027-03-24 with stored-password migration.
+        const parsedEntry = StoredHostRegistrySchema.element.safeParse(entry);
+        if (
+          parsedEntry.success &&
+          parsedEntry.data.connections.some(
+            (connection) => connection.type === "directTcp" && connection.password,
+          )
+        ) {
           shouldPersistHosts = true;
         }
+        normalizedProfiles.push(profile);
+      }
+      profiles = normalizedProfiles.filter((entry) => !isPlaceholderServerId(entry.serverId));
+      if (profiles.length !== normalizedProfiles.length) {
+        shouldPersistHosts = true;
       }
       this.hosts = profiles;
       this.replicaCache.setHosts(profiles.map((profile) => profile.serverId));
