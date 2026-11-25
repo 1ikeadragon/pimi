@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/component
 import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/i18n/use-translation";
+import { useSessionStore } from "@/stores/session-store";
 import { settingsStyles } from "@/styles/settings";
 import { formatArgv } from "./format-argv";
 import { useVaultAction, vaultErrorMessage } from "./use-vault";
@@ -45,6 +46,7 @@ export function RequestsSection({ serverId, requests, operator }: RequestsSectio
         {requests.map((request) => (
           <RequestRow
             key={request.id}
+            serverId={serverId}
             request={request}
             operator={operator}
             pending={resolve.isPending}
@@ -57,14 +59,28 @@ export function RequestsSection({ serverId, requests, operator }: RequestsSectio
 }
 
 interface RequestRowProps {
+  serverId: string;
   request: VaultRequest;
   operator: boolean;
   pending: boolean;
   onResolve: (input: ResolveInput) => void;
 }
 
-function RequestRow({ request, operator, pending, onResolve }: RequestRowProps) {
+/** An untitled chat is named by the start of its id. */
+const UNTITLED_CHAT_ID_LENGTH = 8;
+
+function useRequestAgentLabel(serverId: string, agentId: string | null): string | null {
+  return useSessionStore((state) => {
+    if (!agentId) return null;
+    const session = state.sessions[serverId];
+    const agent = session?.agents?.get(agentId) ?? session?.agentDetails?.get(agentId);
+    return agent?.title || agentId.slice(0, UNTITLED_CHAT_ID_LENGTH);
+  });
+}
+
+function RequestRow({ serverId, request, operator, pending, onResolve }: RequestRowProps) {
   const { t } = useTranslation();
+  const agentLabel = useRequestAgentLabel(serverId, request.agentId);
   const args = request.argv.slice(1);
   const [prefixLength, setPrefixLength] = useState(args.length);
   const [scopeToProject, setScopeToProject] = useState(request.projectId !== null);
@@ -90,7 +106,7 @@ function RequestRow({ request, operator, pending, onResolve }: RequestRowProps) 
       <Text style={settingsStyles.rowHint}>
         {t("settings.vault.requests.detail", {
           cwd: request.cwd,
-          agent: request.agentId ?? t("settings.vault.requests.unknownAgent"),
+          agent: agentLabel ?? t("settings.vault.requests.unknownAgent"),
           secrets: request.secrets.map((s) => `${s.secret} → ${s.envName}`).join(", "),
         })}
       </Text>
