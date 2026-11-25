@@ -9,7 +9,7 @@ import {
   type ActionItemsUsage,
   type StoredActionItems,
 } from "@pimi/protocol/action-items/types";
-import { PARENT_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
+import { AUTOMATION_RUN_LABEL, PARENT_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
 import type { AgentManager, ManagedAgent } from "../agent/agent-manager.js";
 import { loggableError } from "../agent/agent-response-loop.js";
 import type { AgentTimelineItem } from "../agent/agent-sdk-types.js";
@@ -47,7 +47,6 @@ const MESSAGE_TAIL_CHARS = 2000;
 const EMPTY_USAGE: ActionItemsUsage = { runs: 0, inputTokens: 0, outputTokens: 0 };
 
 // Set by automation/service.ts on every agent an automation run creates.
-const AUTOMATION_RUN_LABEL = "pimi.automation-run";
 
 const NO_SMALL_MODEL =
   "This chat's provider has no small model. Choose a model for Action items in Settings.";

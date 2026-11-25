@@ -119,6 +119,12 @@ first 2 KB of its input. Tool output, reasoning and compaction summaries are not
 are never passed to FTS raw; see `agent/timeline-search/query.ts`. The `chat.search.*` RPCs expose
 every chat to any client that can fetch timelines.
 
+## Saved prompts and suggestions
+
+Saved prompts are `records` rows of kind `saved_prompt` in `pimi.db`, one per prompt, host-wide with an optional `projectId`. A name is unique among prompts that share a scope: the same project, or a host-wide prompt against any project's. Dismissed suggestions are rows of kind `prompt_suggestion_dismissal`, keyed by a hash of the project and the normalized phrase.
+
+Suggestions are never stored. `prompt/suggestions.ts` reads the project's chat timelines on each request, counts a phrase once per chat, and weights each chat by how recently it used the phrase. Nothing leaves the host and no model is called. Chats started by automations, flows, Attack runs and subagents are skipped, because their prompts repeat by construction.
+
 ## Directory layout
 
 ```

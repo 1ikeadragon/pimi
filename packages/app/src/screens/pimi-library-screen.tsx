@@ -6,6 +6,7 @@ import { ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { PimiSkillsLibrary } from "@/agent-skills/pimi-skills-library";
 import { FlowsLibrary } from "@/flows/flows-library";
+import { PromptsLibrary } from "@/prompts/prompts-library";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { SettingsCard, SettingsSelect } from "@/components/settings";
 import { DensityIcon } from "@/components/ui/density-icon";
@@ -22,6 +23,7 @@ const LIBRARY_TITLES: Record<PimiLibrarySection, string> = {
   skills: "Skills",
   hooks: "Hooks",
   flows: "Flows",
+  prompts: "Prompts",
 };
 
 export function PimiLibraryScreen({ section }: { section: PimiLibrarySection }) {
@@ -63,6 +65,9 @@ export function PimiLibraryScreen({ section }: { section: PimiLibrarySection }) 
             ) : null}
             {section === "flows" ? (
               <FlowsLibrary key={host.serverId} serverId={host.serverId} />
+            ) : null}
+            {section === "prompts" ? (
+              <PromptsLibrary key={host.serverId} serverId={host.serverId} />
             ) : null}
             {section === "hooks" ? (
               <TerminalHooksSection key={host.serverId} serverId={host.serverId} />

@@ -206,6 +206,7 @@ import { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import { AutomationService } from "./automation/service.js";
 import { GateVerdictBoard } from "./automation/gate-verdicts.js";
 import { FlowService } from "./flow/service.js";
+import { PromptService } from "./prompt/service.js";
 import { compileAutomation } from "./automation/compile.js";
 import { homedir } from "node:os";
 import { HeartbeatService } from "./heartbeat/service.js";
@@ -1713,6 +1714,16 @@ export async function createPimiDaemon(
     verdicts: gateVerdicts,
   });
   await flowService.start();
+  const promptService = new PromptService({
+    database: pimiDatabase,
+    logger,
+    listFlowNames: async () => (await flowService.list()).map((flow) => flow.name),
+    suggestionSources: {
+      pimiDatabase,
+      timelineDatabase,
+      flushTimeline: () => timelineArchive.flush(),
+    },
+  });
   const agentRecordExists = async (agentId: string): Promise<boolean> =>
     Boolean(agentManager.getAgent(agentId) ?? (await agentStorage.get(agentId)));
   const labelService = new LabelService({
@@ -2285,7 +2296,14 @@ export async function createPimiDaemon(
               },
               projectRegistry,
               workspaceRegistry,
-              { automationService, flowService, heartbeatService, attackService, attackScheduler },
+              {
+                promptService,
+                automationService,
+                flowService,
+                heartbeatService,
+                attackService,
+                attackScheduler,
+              },
               checkoutDiffManager,
               serviceProxy,
               scriptRuntimeStore,

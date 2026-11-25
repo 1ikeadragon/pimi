@@ -1,5 +1,13 @@
 import { router, useGlobalSearchParams, usePathname } from "expo-router";
-import { Rocket, History, Plus, Search, SquarePen, Workflow } from "lucide-react-native";
+import {
+  MessageSquareText,
+  Rocket,
+  History,
+  Plus,
+  Search,
+  SquarePen,
+  Workflow,
+} from "lucide-react-native";
 import { memo, useCallback, useMemo, useRef, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "@/i18n/use-translation";
 import { View, type StyleProp, type ViewStyle } from "react-native";
@@ -90,7 +98,10 @@ export function SidebarNavRows({
           </View>
         ) : (
           visibleItems
-            .filter((item) => !["new-workspace", "search", "history", "flows"].includes(item.key))
+            .filter(
+              (item) =>
+                !["new-workspace", "search", "history", "flows", "prompts"].includes(item.key),
+            )
             .map(renderItem)
         )}
       </View>
@@ -289,12 +300,36 @@ function SidebarFlowsRow({ onBeforeNavigate }: SidebarNavRowProps) {
   );
 }
 
+// Prompts live in the Library screen too, on their own section.
+function SidebarPromptsRow({ onBeforeNavigate }: SidebarNavRowProps) {
+  const { t } = useTranslation();
+  const pathname = usePathname();
+  const { section } = useGlobalSearchParams<{ section?: string }>();
+  const inLibrary = pathname === PIMI_LIBRARY_ROUTE;
+  const handlePress = useCallback(() => {
+    onBeforeNavigate?.();
+    openPimiLibrary("prompts", inLibrary);
+  }, [inLibrary, onBeforeNavigate]);
+
+  return (
+    <SidebarHeaderRow
+      icon={MessageSquareText}
+      label={t(builtinSidebarNavLabelKey("prompts"))}
+      onPress={handlePress}
+      isActive={inLibrary && section === "prompts"}
+      testID="sidebar-prompts"
+      variant="compact"
+    />
+  );
+}
+
 const BUILTIN_ROWS: Record<BuiltinSidebarNavId, ComponentType<SidebarNavRowProps>> = {
   "new-workspace": SidebarNewWorkspaceRow,
   history: SidebarHistoryRow,
   search: SidebarSearchRow,
   automations: SidebarAutomationsRow,
   flows: SidebarFlowsRow,
+  prompts: SidebarPromptsRow,
 };
 
 const styles = StyleSheet.create((theme) => ({

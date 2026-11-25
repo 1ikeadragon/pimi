@@ -12,11 +12,19 @@ export interface ProviderPreferences {
 
 export type LaunchTarget = { kind: "chat" } | { kind: "terminal"; profileId: string };
 
+export interface ProjectDefaults {
+  isolation?: "local" | "worktree";
+  /** Exact ref (`refs/heads/x`, `refs/remotes/origin/x`) a new worktree branches off. */
+  baseRefName?: string;
+}
+
 export interface FormPreferences {
   provider?: string;
   providerPreferences?: Record<string, ProviderPreferences>;
   favoriteModels?: Array<{ provider: string; modelId: string }>;
   isolation?: "local" | "worktree";
+  /** Keyed by `projectDefaultsKey(serverId, projectId)`. */
+  projectDefaults?: Record<string, ProjectDefaults>;
   launchTarget?: LaunchTarget;
 }
 
@@ -31,6 +39,11 @@ const launchTargetSchema: z.ZodType<LaunchTarget> = z.discriminatedUnion("kind",
   z.strictObject({ kind: z.literal("chat") }),
   z.strictObject({ kind: z.literal("terminal"), profileId: z.string() }),
 ]);
+
+const projectDefaultsSchema: z.ZodType<ProjectDefaults> = z.strictObject({
+  isolation: z.enum(["local", "worktree"]).optional(),
+  baseRefName: z.string().optional(),
+});
 
 export const FormPreferencesSchema = z.strictObject({
   provider: z.string().optional(),
@@ -47,6 +60,7 @@ export const FormPreferencesSchema = z.strictObject({
     )
     .optional(),
   isolation: z.enum(["local", "worktree"]).optional(),
+  projectDefaults: z.record(z.string(), projectDefaultsSchema).optional(),
   // What the New workspace composer submits to: the chat agent (default) or a
   // terminal profile. See `@/new-workspace-launch` for resolution/fallback.
   launchTarget: launchTargetSchema.optional(),
@@ -153,6 +167,41 @@ export function mergeProviderPreferences(args: {
       [provider]: applyProviderPreferenceUpdates(existing, updates),
     },
   };
+}
+
+// Host-local project ids are only unique per daemon, so the host is part of the key.
+export function projectDefaultsKey(serverId: string, projectId: string): string {
+  return `${serverId}:${projectId}`;
+}
+
+export function mergeProjectDefaults(args: {
+  preferences: FormPreferences;
+  projectKey: string;
+  updates: { isolation?: "local" | "worktree"; baseRefName?: string | null };
+}): FormPreferences {
+  const { preferences, projectKey, updates } = args;
+  const all = preferences.projectDefaults ?? {};
+  const next: ProjectDefaults = { ...all[projectKey] };
+  if (updates.isolation !== undefined) {
+    next.isolation = updates.isolation;
+  }
+  if (updates.baseRefName === null) {
+    delete next.baseRefName;
+  } else if (updates.baseRefName !== undefined) {
+    next.baseRefName = updates.baseRefName;
+  }
+
+  const projectDefaults = { ...all };
+  if (Object.keys(next).length > 0) {
+    projectDefaults[projectKey] = next;
+  } else {
+    delete projectDefaults[projectKey];
+  }
+  const merged: FormPreferences = { ...preferences, projectDefaults };
+  if (Object.keys(projectDefaults).length === 0) {
+    delete merged.projectDefaults;
+  }
+  return merged;
 }
 
 export function applyAgentProfilePreferences(args: {

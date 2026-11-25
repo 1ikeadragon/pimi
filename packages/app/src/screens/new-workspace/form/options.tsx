@@ -106,6 +106,18 @@ export function IsolationOption({
   );
 }
 
+export function UseCurrentBranchOption({ onPress }: { onPress: () => void }): ReactElement {
+  const { t } = useTranslation();
+  return (
+    <ComboboxItem
+      testID="new-workspace-ref-picker-use-current-branch"
+      label={t("newWorkspace.refPicker.useCurrentBranch")}
+      onPress={onPress}
+      leadingSlot={branchLeading}
+    />
+  );
+}
+
 const branchLeading = <IconBox>{branchIcon}</IconBox>;
 const pullRequestLeading = <IconBox>{pullRequestIcon}</IconBox>;
 

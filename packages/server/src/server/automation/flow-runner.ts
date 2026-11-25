@@ -1,3 +1,4 @@
+import { AUTOMATION_NODE_LABEL } from "@pimi/protocol/agent-labels";
 import type {
   AutomationAgentNode,
   AutomationFlow,
@@ -242,7 +243,7 @@ export async function runFlow(
       runId: run.id,
       nodeId: node.id,
       title: stepTitle(node),
-      labels: { ...input.agentLabels, "pimi.automation-node": node.id },
+      labels: { ...input.agentLabels, [AUTOMATION_NODE_LABEL]: node.id },
       handle: handleForStep,
     };
   }

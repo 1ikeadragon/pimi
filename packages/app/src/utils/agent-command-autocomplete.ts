@@ -5,7 +5,7 @@ import {
   scoreTextFields,
 } from "@pimi/protocol/search/text-match";
 
-type CommandAutocompleteSource = "provider" | "plugin" | "flow" | "client";
+type CommandAutocompleteSource = "provider" | "plugin" | "flow" | "prompt" | "client";
 
 interface CommandAutocompleteEntry {
   source: CommandAutocompleteSource;
@@ -22,8 +22,9 @@ interface CommandAutocompleteEntry {
 const EMPTY_QUERY_SOURCE_ORDER: Record<CommandAutocompleteSource, number> = {
   provider: 0,
   flow: 1,
-  plugin: 2,
-  client: 3,
+  prompt: 2,
+  plugin: 3,
+  client: 4,
 };
 
 export type SlashCommandPosition = "start" | "inline";
@@ -129,6 +130,25 @@ export function findActiveSlashCommand(
   }
 
   return null;
+}
+
+interface ApplyPromptReplacementInput {
+  text: string;
+  command: SlashCommandRange;
+  promptText: string;
+}
+
+/** Puts a saved prompt's text where the `/name` token was and the caret after it. */
+export function applyPromptReplacement(input: ApplyPromptReplacementInput): {
+  text: string;
+  cursor: number;
+} {
+  const before = input.text.slice(0, input.command.start);
+  const after = input.text.slice(input.command.end);
+  return {
+    text: `${before}${input.promptText}${after}`,
+    cursor: before.length + input.promptText.length,
+  };
 }
 
 export function applySlashCommandReplacement(input: ApplySlashCommandReplacementInput): string {

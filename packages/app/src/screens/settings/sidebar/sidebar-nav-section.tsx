@@ -9,6 +9,7 @@ import {
   Blocks,
   Rocket,
   Workflow,
+  MessageSquareText,
   History,
   Plus,
   Search,
@@ -46,6 +47,7 @@ const BUILTIN_ICONS: Record<BuiltinSidebarItemId, LucideIcon> = {
   search: Search,
   automations: Rocket,
   flows: Workflow,
+  prompts: MessageSquareText,
   usage: UsageIcon,
 };
 

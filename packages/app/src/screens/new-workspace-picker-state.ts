@@ -13,7 +13,8 @@ export type PickerSelectionEvent =
   | { type: "pr-detected" }
   | { type: "pr-added"; item: Extract<PickerItem, { kind: "github-pr" }> }
   | { type: "picker-selected"; item: PickerItem }
-  | { type: "target-changed" };
+  | { type: "target-changed" }
+  | { type: "selection-cleared" };
 
 export const initialPickerSelectionState: PickerSelectionState = {
   selectedItem: null,
@@ -34,6 +35,7 @@ export function reducePickerSelection(
     case "picker-selected":
       return { selectedItem: event.item, allowAutoPrSelection: false };
     case "target-changed":
+    case "selection-cleared":
       return initialPickerSelectionState;
   }
 }

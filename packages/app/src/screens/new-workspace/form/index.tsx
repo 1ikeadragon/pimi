@@ -18,7 +18,13 @@ import {
 } from "./field-trigger";
 import { branchIcon, folderIcon, ProjectIcon, pullRequestIcon } from "./icons";
 import { LaunchControl } from "./launch-control";
-import { AddProjectOption, IsolationOption, ProjectOption, RefOption } from "./options";
+import {
+  AddProjectOption,
+  IsolationOption,
+  ProjectOption,
+  RefOption,
+  UseCurrentBranchOption,
+} from "./options";
 
 type Isolation = "local" | "worktree";
 type RenderOption = NonNullable<ComboboxProps["renderOption"]>;
@@ -68,6 +74,8 @@ export interface NewWorkspaceFormProps {
     setSearchQuery: (query: string) => void;
     emptyText: string;
     showRefPicker: boolean;
+    hasRememberedBase: boolean;
+    onUseCurrentBranch: () => void;
   };
   launch: {
     serverId: string;
@@ -134,6 +142,16 @@ function useIsolationPicker(
   return { options, onSelect: handleSelect, renderOption };
 }
 
+function useBasePickerFooter(base: NewWorkspaceFormProps["base"]): ReactNode {
+  const { selectedItem, hasRememberedBase, onUseCurrentBranch } = base;
+  // A picked or remembered base is in effect, so there is something to reset.
+  const canUseCurrentBranch = selectedItem !== null || hasRememberedBase;
+  return useMemo(
+    () => (canUseCurrentBranch ? <UseCurrentBranchOption onPress={onUseCurrentBranch} /> : null),
+    [canUseCurrentBranch, onUseCurrentBranch],
+  );
+}
+
 function useRefRenderOption(itemById: Map<string, PickerItem>, isPending: boolean): RenderOption {
   return useCallback<RenderOption>(
     (row) => <RefOption {...row} item={itemById.get(row.option.id)} disabled={isPending} />,
@@ -154,6 +172,7 @@ export function useNewWorkspaceForm(props: NewWorkspaceFormProps): ReactElement 
   const projectPicker = useProjectPicker(project, isPending);
   const isolationPicker = useIsolationPicker(isolation, isPending);
   const renderRefOption = useRefRenderOption(base.itemById, isPending);
+  const baseFooter = useBasePickerFooter(base);
 
   const selectedHostLabel =
     host.allHosts.find((h) => h.serverId === host.selectedServerId)?.label ?? "Host";
@@ -310,6 +329,7 @@ export function useNewWorkspaceForm(props: NewWorkspaceFormProps): ReactElement 
         anchorRef={base.anchorRef}
         emptyText={base.emptyText}
         renderOption={renderRefOption}
+        footer={baseFooter}
       />
     </>
   );

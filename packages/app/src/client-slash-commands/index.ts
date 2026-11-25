@@ -92,6 +92,20 @@ export function getClientSlashCommands(): readonly ClientSlashCommand[] {
   return CLIENT_SLASH_COMMANDS.filter((command) => !command.desktopOnly || isElectron);
 }
 
+/**
+ * Every built-in command name and alias on any platform. A saved prompt cannot take one: a desktop
+ * only command would otherwise shadow a prompt saved on a phone as soon as the daemon is opened
+ * from the desktop app.
+ */
+export function reservedClientSlashCommandNames(): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const command of CLIENT_SLASH_COMMANDS) {
+    names.add(command.name);
+    for (const alias of command.aliases) names.add(alias);
+  }
+  return names;
+}
+
 const SLASH_INPUT = /^\/([^\s]+)(?:\s+([\s\S]*))?$/;
 
 export interface ResolvedClientSlashCommand {

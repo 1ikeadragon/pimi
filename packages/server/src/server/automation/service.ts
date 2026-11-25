@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { AUTOMATION_RUN_LABEL } from "@pimi/protocol/agent-labels";
 import type { AgentProfile } from "@pimi/protocol/agent-profile";
 import { requireAgentProfile } from "../agent/profiles/resolve.js";
 import { rm } from "node:fs/promises";
@@ -939,7 +940,7 @@ export class AutomationService {
         runTitle: runTitle(automation, run),
         agentLabels: {
           "pimi.automation-id": automation.id,
-          "pimi.automation-run": run.id,
+          [AUTOMATION_RUN_LABEL]: run.id,
         },
         openWorkspace: (node, prompt) =>
           openRunWorkspace(this.engine, {

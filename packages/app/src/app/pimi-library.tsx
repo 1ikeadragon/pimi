@@ -12,9 +12,10 @@ const Library = overridable("screen.library", PimiLibraryScreen, {
 
 export default function PimiLibraryRoute() {
   const { section } = useLocalSearchParams<{ section?: string }>();
-  // Flows run from any chat, so their library opens in the browser and on a phone too.
-  if (section !== "flows" && !getDesktopHost()?.showPimiWorkspace) {
+  // Flows and prompts run from any chat, so their libraries open in the browser and on a phone too.
+  const isChatLibrary = section === "flows" || section === "prompts";
+  if (!isChatLibrary && !getDesktopHost()?.showPimiWorkspace) {
     return <Redirect href={buildOpenProjectRoute()} />;
   }
-  return <Library section={section === "hooks" || section === "flows" ? section : "skills"} />;
+  return <Library section={isChatLibrary || section === "hooks" ? section : "skills"} />;
 }

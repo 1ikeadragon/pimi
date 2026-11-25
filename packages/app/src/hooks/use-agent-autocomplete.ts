@@ -20,8 +20,10 @@ import { resolveProviderLabel } from "@/utils/provider-definitions";
 import { getClientSlashCommands, type ClientSlashCommand } from "@/client-slash-commands";
 import type { PluginClientSlashCommand } from "@/plugins/client-slash-commands";
 import { useFlowSlashCommands, type FlowSlashCommand } from "@/flows/flow-slash-commands";
+import { usePromptSlashCommands, type PromptSlashCommand } from "@/prompts/prompt-slash-commands";
 import { mergeSlashCommandSources } from "@/plugins/client-slash-commands/model";
 import {
+  applyPromptReplacement,
   applySlashCommandReplacement,
   filterAndRankCommandAutocompleteEntries,
   filterInlineSkillCommandEntries,
@@ -37,9 +39,11 @@ import {
 interface UseAgentAutocompleteInput {
   userInput: string;
   cursorIndex: number;
-  setUserInput: (nextValue: string) => void;
+  setUserInput: (nextValue: string, selection?: { start: number; end: number }) => void;
   serverId: string;
   agentId: string;
+  /** The project the composer belongs to; saved prompts scoped to another project are hidden. */
+  projectId: string | null;
   draft?: DraftCommandTarget;
   onAutocompleteApplied?: () => void;
   /** Runs the command and returns true, or false when it must be inserted for the user to finish. */
@@ -65,6 +69,7 @@ type AgentAutocompleteOption =
       command: PluginClientSlashCommand;
     })
   | (AutocompleteOption & { type: "flow_command" })
+  | (AutocompleteOption & { type: "prompt_command"; text: string })
   | (AutocompleteOption & { type: "provider_command" })
   | (AutocompleteOption & {
       type: "workspace_entry";
@@ -121,6 +126,7 @@ type AvailableCommand =
   | { source: "client"; command: ClientSlashCommand }
   | { source: "plugin"; command: PluginClientSlashCommand }
   | { source: "flow"; command: FlowSlashCommand }
+  | { source: "prompt"; command: PromptSlashCommand }
   | { source: "provider"; command: AgentSlashCommand };
 
 export function resolveDraftQueryConfig(
@@ -203,6 +209,16 @@ function mapCommandToOption(
       tag: context.t("flows.slashTag"),
     };
   }
+  if (entry.source === "prompt") {
+    return {
+      ...base,
+      type: "prompt_command",
+      icon: "command",
+      description: entry.command.description,
+      tag: context.t("prompts.slashTag"),
+      text: entry.command.text,
+    };
+  }
   const isSkill = entry.command.kind === "skill";
   return {
     ...base,
@@ -220,6 +236,7 @@ interface BuildAutocompleteOptionsInput {
   commands: AgentSlashCommand[];
   pluginCommands: readonly PluginClientSlashCommand[];
   flowCommands: readonly FlowSlashCommand[];
+  promptCommands: readonly PromptSlashCommand[];
   pluginNames: ReadonlyMap<string, string>;
   isDraftContext: boolean;
   /** False where no handler runs client commands, such as the new-workspace screen. */
@@ -241,6 +258,7 @@ function buildAutocompleteOptions(input: BuildAutocompleteOptionsInput): AgentAu
       builtIn: getClientSlashCommands(),
       plugins: input.pluginCommands,
       flows: input.flowCommands,
+      prompts: input.promptCommands,
       provider: input.commands,
       onPluginCollision(command, winner) {
         console.warn(
@@ -498,6 +516,7 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
     setUserInput,
     serverId,
     agentId,
+    projectId,
     draft,
     onAutocompleteApplied,
     onClientSlashCommand,
@@ -566,6 +585,9 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
     draftConfig: queryDraftConfig,
   });
   const flowCommands = useFlowSlashCommands(serverId, { enabled: mode === "command" });
+  const promptCommands = usePromptSlashCommands(serverId, projectId, {
+    enabled: mode === "command",
+  });
   const commandsState = resolveCommandsState({
     canListCommands,
     isLoading: commandsQuery.isLoading,
@@ -638,6 +660,7 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
         commands: commandsQuery.commands,
         pluginCommands: pluginClientSlashCommands,
         flowCommands,
+        promptCommands,
         pluginNames,
         activeSlashCommand,
         fileSuggestions: fileSuggestionsQuery.data ?? [],
@@ -677,6 +700,7 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
     fileSuggestionsQuery.isLoading,
     fileSuggestionsQuery.isPending,
     flowCommands,
+    promptCommands,
     isDraftContext,
     isVisible,
     mode,
@@ -702,6 +726,7 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
         selected.type === "client_command" ||
         selected.type === "plugin_command" ||
         selected.type === "flow_command" ||
+        selected.type === "prompt_command" ||
         selected.type === "provider_command";
       if (snapshot && selectedIsCommand && !current.slashCommand) return;
       if (
@@ -715,6 +740,17 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
       if (selectedIsCommand) {
         if (!current.slashCommand) {
           setUserInput(`/${selected.id} `);
+          onAutocompleteApplied?.();
+          return;
+        }
+
+        if (selected.type === "prompt_command") {
+          const next = applyPromptReplacement({
+            text: current.text,
+            command: current.slashCommand,
+            promptText: selected.text,
+          });
+          setUserInput(next.text, { start: next.cursor, end: next.cursor });
           onAutocompleteApplied?.();
           return;
         }

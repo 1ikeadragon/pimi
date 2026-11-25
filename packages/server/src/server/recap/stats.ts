@@ -3,6 +3,7 @@ import type { RecapStats } from "@pimi/protocol/recap";
 import type { Task } from "@pimi/protocol/task/types";
 import { parseStoredAgentRecord, type StoredAgentRecord } from "../agent/agent-storage.js";
 import type { PimiDatabase } from "../db/pimi-db.js";
+import { normalizePrompt } from "../prompt/normalize.js";
 import type { ProjectLookup } from "../usage/aggregate.js";
 
 export interface RecapRange {
@@ -146,14 +147,6 @@ function tallyChange(change: ChangeTally, detailType: string, values: unknown[])
   }
   change.added += countLines(newString);
   change.removed += countLines(oldString);
-}
-
-function normalizePrompt(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .replace(/[.!?]+$/, "")
-    .trim();
 }
 
 function tallyPrompt(prompts: PromptTally, text: string, at: number, offsetMs: number): void {

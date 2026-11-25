@@ -157,10 +157,25 @@ function refQualifier(refName: string): string | null {
 // row, the trigger label, and the created ref all read this; computing it twice is how the
 // picker once showed local main while branching off something else.
 //
-// The upstream wins when the branch has one, because branching off the local ref silently
-// carries unpushed commits into the new workspace. The daemon sends the resolved ref rather
-// than a remote name, so a fork tracking upstream/main branches from upstream/main.
-export function defaultBasePickerItem(status: BaseRefCheckoutStatus): PickerItem | null {
+// A ref the user remembered for this project wins, but only once the caller has confirmed it
+// still exists: a deleted branch must not become a base the picker shows and creation rejects.
+// Otherwise the upstream wins when the branch has one, because branching off the local ref
+// silently carries unpushed commits into the new workspace. The daemon sends the resolved ref
+// rather than a remote name, so a fork tracking upstream/main branches from upstream/main.
+export function defaultBasePickerItem(
+  status: BaseRefCheckoutStatus,
+  rememberedRefName?: string | null,
+): PickerItem | null {
+  if (rememberedRefName) {
+    const name = branchNameFromRef(rememberedRefName);
+    const qualifier = refQualifier(rememberedRefName);
+    return {
+      kind: "branch",
+      name,
+      refName: rememberedRefName,
+      accessibilityLabel: qualifier ? `${name}, ${qualifier} branch` : `${name}, branch`,
+    };
+  }
   const currentBranch = status.currentBranch;
   if (!currentBranch) return null;
   // A branch with no upstream has no upstreamRef and lands on the local ref.
