@@ -311,7 +311,8 @@ export class AgentStorage {
     if (persistence?.sessionId) {
       prepared(
         `INSERT INTO agent_provider_sessions (provider, session_id, agent_id) VALUES (?, ?, ?)
-         ON CONFLICT(provider, session_id) DO UPDATE SET agent_id = excluded.agent_id`,
+         ON CONFLICT(provider, session_id) DO UPDATE SET agent_id = excluded.agent_id
+         WHERE agent_id != excluded.agent_id`,
       ).run(persistence.provider, persistence.sessionId, record.id);
     }
     if (persistence === undefined) {
