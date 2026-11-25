@@ -5619,11 +5619,20 @@ class OpenCodeAgentSession implements AgentSession {
     }
 
     try {
-      await this.client.permission.reply({
+      // The SDK returns an HTTP failure as `error` instead of throwing. Treating it as approved
+      // would hide the prompt while OpenCode keeps waiting for a reply.
+      const response = await this.client.permission.reply({
         requestID: request.id,
         directory,
         reply: "once",
       });
+      if (response.error) {
+        this.logger.warn(
+          { err: response.error, requestId: request.id },
+          "OpenCode rejected the auto-approval of a tool permission; asking the user",
+        );
+        return false;
+      }
       return true;
     } catch (error) {
       this.logger.warn(
