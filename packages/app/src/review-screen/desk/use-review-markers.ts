@@ -8,12 +8,14 @@ import { useTranslation } from "@/i18n/use-translation";
 import type { ParsedDiffFile } from "@pimi/protocol/messages";
 import {
   buildReviewDraftKey,
+  groupInlineReviewCommentsByTarget,
   useInlineReviewController,
   type InlineForgeThreadMarker,
   type InlineReviewActions,
   type InlineReviewSubmitActions,
 } from "@/review";
 import { resolveNotes } from "@/review/anchor";
+import { rangeBarKeys } from "@/review/surface";
 import {
   relocateReviewDraftComments,
   useReviewCommentCount,
@@ -130,6 +132,16 @@ export function useReviewMarkers(input: {
   useEffect(() => {
     if (relocations.length > 0) relocateReviewDraftComments({ key: reviewDraftKey, relocations });
   }, [relocations, reviewDraftKey]);
+  // An outdated note has no line in the diff; its stored line numbers would pin it to whatever
+  // text sits there now, so it is listed instead of drawn.
+  const { commentsByTarget, rangeBars } = useMemo(() => {
+    const outdatedIds = new Set(noteResolution.outdated.map((note) => note.id));
+    const placed = notes.filter((note) => !outdatedIds.has(note.id));
+    return {
+      commentsByTarget: groupInlineReviewCommentsByTarget(placed),
+      rangeBars: rangeBarKeys(placed),
+    };
+  }, [noteResolution.outdated, notes]);
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
 
   const { threadsByTarget, detached } = useMemo(() => {
@@ -222,8 +234,8 @@ export function useReviewMarkers(input: {
   const reviewActions = useMemo<InlineReviewActions>(
     () => ({
       submit,
-      commentsByTarget: controller.commentsByTarget,
-      rangeBars: controller.rangeBars,
+      commentsByTarget,
+      rangeBars,
       threadsByTarget,
       onOpenThread,
       editor: controller.editor,
@@ -234,7 +246,7 @@ export function useReviewMarkers(input: {
       onSaveEditor: controller.onSaveEditor,
       onDeleteComment: controller.onDeleteComment,
     }),
-    [controller, onOpenThread, submit, threadsByTarget],
+    [commentsByTarget, controller, onOpenThread, rangeBars, submit, threadsByTarget],
   );
 
   return {
