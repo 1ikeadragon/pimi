@@ -19,6 +19,7 @@ import { useDeskCopy } from "./copy";
 import type { PatchEntry } from "./patch-cache";
 import { chooseDiffMode, stubFile, useDeskThreads, type DeskThreads } from "./use-desk-data";
 import { reviewDraftKeyFor } from "./use-review-markers";
+import { REVIEW_DIFF_SCOPE } from "../warm";
 import { useDeskPatches, type DeskMode } from "./use-patches";
 
 /** What the view has decided: which file is active and whether the user chose one file at a time. */
@@ -215,9 +216,11 @@ export function useCheckoutDiff(source: CheckoutSource | null) {
     mode: source?.compare.mode ?? "uncommitted",
     baseRef,
     ignoreWhitespace: preferences.hideWhitespace,
-    enabled: source !== null && gitStatus !== null,
+    // A route that names its base ref (a chat's review offer) subscribes at once; the status
+    // still decides the ref when it arrives, and a different one resubscribes.
+    enabled: source !== null && (gitStatus !== null || Boolean(source.compare.baseRef)),
     // The chat Changes pane subscribes the same diff; a scope keeps the two subscriptions apart.
-    queryScope: "pimi-review",
+    queryScope: REVIEW_DIFF_SCOPE,
   });
   return {
     gitStatusPayload,
@@ -281,7 +284,8 @@ export function useCheckoutFilesModel(source: CheckoutSource, view: FilesView): 
   else if (gitStatusPayload?.error) {
     status = { state: "error", message: gitStatusPayload.error.message };
   } else if (diff.payloadError) status = { state: "error", message: diff.payloadError.message };
-  else if (gitStatus && !diff.isLoading) {
+  else if ((gitStatus || source.compare.baseRef) && !diff.isLoading) {
+    // The diff payload settles the page; status only adds the not-a-checkout and error cases above.
     status = ordered.length === 0 ? { state: "empty" } : { state: "ready" };
   }
 

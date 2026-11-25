@@ -3,6 +3,7 @@ import { router, type Href } from "expo-router";
 import { getDesktopHost } from "@/desktop/host";
 import { buildOpenProjectRoute } from "@/utils/host-routes";
 import type { ReviewDeskFocus, ReviewSource } from "@/review-screen/types";
+import { prefetchCheckoutStatus } from "@/review-screen/warm";
 
 export const PIMI_REVIEW_ROUTE = "/pimi-review";
 
@@ -127,6 +128,8 @@ export function openPimiReview(
   focus?: Omit<ReviewDeskFocus, "nonce">,
 ): void {
   getDesktopHost()?.dismissPimiWorkspace?.();
+  // Without a base ref in hand the screen waits for the checkout status; start reading it now.
+  if (source?.kind === "checkout" && !source.compare.baseRef) prefetchCheckoutStatus(source);
   let params: Record<string, string> = {};
   if (source) params = reviewSourceToParams(source);
   else if (serverId) params = { serverId };

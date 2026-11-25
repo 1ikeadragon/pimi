@@ -1,4 +1,5 @@
 import { LRUCache } from "lru-cache";
+import { CHECKOUT_DIFF_CACHE_TTL_MS } from "@pimi/protocol/checkout-diff";
 import type { CheckoutDiffCompare, CheckoutDiffResult } from "../utils/checkout-git.js";
 
 interface ActiveRead {
@@ -45,7 +46,7 @@ export class CheckoutDiffCache {
     if (
       !force &&
       cached &&
-      (now - cached.loadedAt <= 15_000 || now - cached.lastReadStarted < 2_000)
+      (now - cached.loadedAt <= CHECKOUT_DIFF_CACHE_TTL_MS || now - cached.lastReadStarted < 2_000)
     )
       return Promise.resolve(cached.value);
     const pending = this.active.get(key);

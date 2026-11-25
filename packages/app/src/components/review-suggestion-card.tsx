@@ -21,6 +21,7 @@ import { useCheckoutStatusCacheOnly } from "@/git/use-status-query";
 import { useContainerWidthBelow } from "@/hooks/use-container-width";
 import { useTranslation } from "@/i18n/use-translation";
 import { checkoutReviewSource, openPimiReview } from "@/navigation/pimi-review";
+import { warmCheckoutReview } from "@/review-screen/warm";
 
 export function readPimiReviewSuggestion(output: unknown): PimiReviewSuggestion | null {
   return readPimiToolOutput(output, PimiReviewSuggestionResult)?.pimiReviewSuggestion ?? null;
@@ -42,25 +43,28 @@ interface ReviewOffer {
 
 function useReviewOffer(offer: ReviewOffer) {
   const { serverId, path, baseRef, originAgentId } = offer;
-  const openReview = useCallback(
+  const source = useMemo(
     () =>
-      openPimiReview(
-        checkoutReviewSource({
-          serverId,
-          cwd: path,
-          originAgentId,
-          ...(baseRef ? { baseRef } : {}),
-        }),
-      ),
+      checkoutReviewSource({
+        serverId,
+        cwd: path,
+        originAgentId,
+        ...(baseRef ? { baseRef } : {}),
+      }),
     [serverId, path, baseRef, originAgentId],
   );
+  const openReview = useCallback(() => openPimiReview(source), [source]);
+  // Pointing at or pressing Review starts the diff read the screen is about to need.
+  const warm = useCallback(() => {
+    if (source.kind === "checkout") void warmCheckoutReview(source);
+  }, [source]);
   // Cache only: a timeline can hold many offers, and none of them is worth a status fetch.
   const status = useCheckoutStatusCacheOnly({ serverId, cwd: path }).data;
   // Known, clean, and level with its base: nothing is left to review. A missing base
   // (`aheadBehind` null) or a status never fetched stays unknown, so the offer's numbers stand.
   const nothingLeft =
     status?.isGit === true && status.isDirty === false && status.aheadBehind?.ahead === 0;
-  return { openReview, nothingLeft };
+  return { openReview, warm, nothingLeft };
 }
 
 /** The offer as one card: what changed, where it will be compared, and the button to review it. */
@@ -74,7 +78,7 @@ const ReviewSuggestionCardView = memo(function ReviewSuggestionCardView({
   const { onLayout, isBelow: isCompactLayout } = useContainerWidthBelow(COMPACT_CONTENT_WIDTH, {
     initialIsBelow: isCompactFormFactor,
   });
-  const { openReview, nothingLeft } = useReviewOffer(offer);
+  const { openReview, warm, nothingLeft } = useReviewOffer(offer);
   const { stats, summary, branch, baseRef } = offer;
 
   let detail = summary ?? null;
@@ -113,7 +117,7 @@ const ReviewSuggestionCardView = memo(function ReviewSuggestionCardView({
     <View style={styles.detailSpacer} />
   );
   const action = (
-    <Button variant="secondary" size="sm" onPress={openReview}>
+    <Button variant="secondary" size="sm" onPress={openReview} onHoverIn={warm} onPressIn={warm}>
       {t("agentStream.reviewSuggestion.open")}
     </Button>
   );
