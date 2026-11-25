@@ -134,7 +134,7 @@ class PreviewKeyStore(context: Context) {
     private const val PREFS = "pimi_push_preview"
     private const val ALIAS = "pimi-push-preview-v1"
     private const val KEY_PREFIX = "key."
-    private const val TS_PREFIX = "ts."
+    private const val TS_PREFIX = "seen."
     private const val HIDE_WHEN_LOCKED = "hideWhenLocked"
     private const val PREVIEWS_ENABLED = "previewsEnabled"
     private const val TTL_MS = 60L * 60 * 1000
