@@ -179,6 +179,7 @@ import { SqlSentAttachmentStore } from "./agent/sent-attachments.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
+import { readEnvScrubNames, removeEnvNames } from "./vault/env-scrub.js";
 import { resolveProjectReference } from "./resolve-project-reference.js";
 import { createPimiMemoryHandler } from "./pimi-memory-route.js";
 import { PimiSpaces } from "./pimi-spaces.js";
@@ -681,6 +682,26 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
   return initialConfig;
 }
 
+// Before anything can spawn a process: names the vault manages must not reach agents or
+// terminals through the daemon's inherited environment. Config values read from the environment
+// earlier (for example speech API keys) are already captured in `config`.
+async function removeVaultManagedEnvironment(pimiHome: string, logger: Logger): Promise<void> {
+  try {
+    const removed = removeEnvNames(process.env, await readEnvScrubNames(pimiHome));
+    if (removed.length > 0) {
+      logger.info(
+        { names: removed },
+        "Removed vault-managed variables from the daemon environment",
+      );
+    }
+  } catch (error) {
+    logger.error(
+      { err: error },
+      "Could not read the vault header; vault-managed variables stay in the daemon environment",
+    );
+  }
+}
+
 export async function createPimiDaemon(
   config: PimiDaemonConfig,
   rootLogger: Logger,
@@ -688,6 +709,7 @@ export async function createPimiDaemon(
 ): Promise<PimiDaemon> {
   configureGitProcessPolicy(config.git ?? resolveGitProcessPolicy({ env: process.env }));
   const logger = rootLogger.child({ module: "bootstrap" });
+  await removeVaultManagedEnvironment(config.pimiHome, logger);
   await rm(path.join(config.pimiHome, "push-tokens.json"), { force: true }).catch((error) => {
     logger.warn({ err: error }, "Failed to remove the retired push token cache");
   });

@@ -55,6 +55,11 @@
       "source": "./src/utils/process-launch.ts",
       "default": "./dist/server/utils/process-launch.js"
     },
+    "./vault-env": {
+      "types": "./dist/server/server/vault/env-scrub.d.ts",
+      "source": "./src/server/vault/env-scrub.ts",
+      "default": "./dist/server/server/vault/env-scrub.js"
+    },
     "./process-launch-recorder": {
       "types": "./dist/server/server/network/process-launch-recorder.d.ts",
       "source": "./src/server/network/process-launch-recorder.ts",
