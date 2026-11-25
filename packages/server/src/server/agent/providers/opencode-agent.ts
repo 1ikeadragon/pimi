@@ -3475,6 +3475,7 @@ class OpenCodeAgentSession implements AgentSession {
   private ingress = Promise.resolve();
   private gapRepairRevision = 0;
   private lastOwnedEventAt = 0;
+  private modelWaiting = false;
   private quietTurnTimer: ReturnType<typeof setTimeout> | null = null;
   private recoveryAbortController = new AbortController();
   private unsubscribeEvents: (() => void) | null = null;
@@ -3964,6 +3965,9 @@ class OpenCodeAgentSession implements AgentSession {
     this.turnState = { status: "running", turnId };
     this.armQuietTurnWatchdog();
     this.notifySubscribers({ type: "turn_started", provider: "opencode" }, turnId);
+    // A new turn starts a new wait even if the last one was left open by a path that skips close.
+    this.modelWaiting = false;
+    this.setModelWait(true);
 
     const slashCommand = await this.resolveSlashCommandInvocation(prompt);
     if (slashCommand) {
@@ -4744,6 +4748,7 @@ class OpenCodeAgentSession implements AgentSession {
       if (e.type === "timeline" && e.item.type === "tool_call") {
         this.trackToolCall(e.item);
       }
+      this.observeModelWait(e);
       const terminalEvent = toTerminalTurnEvent(e);
       if (terminalEvent) {
         this.traceOpenCode("provider.opencode.event.terminal", {
@@ -4843,6 +4848,7 @@ class OpenCodeAgentSession implements AgentSession {
     this.pendingSteerSubmissions = [];
     this.turnState = { status: "idle" };
     this.abortController = null;
+    this.setModelWait(false);
     this.notifySubscribers(event, turnId);
   }
 
@@ -4934,7 +4940,38 @@ class OpenCodeAgentSession implements AgentSession {
     const contextWindowMaxTokens = this.resolveSelectedModelContextWindowMaxTokens();
     this.accumulatedUsage = contextWindowMaxTokens !== undefined ? { contextWindowMaxTokens } : {};
     this.turnState = { status: "idle" };
+    this.setModelWait(false);
     stop.terminal.resolve();
+  }
+
+  /**
+   * v1 has no event for a model request, so the wait is inferred from the turn: it opens when the
+   * prompt is sent and again when the last running tool finishes (the next request follows), and
+   * closes on the first assistant text, reasoning, or tool call. A retry notice is not output.
+   * Unlike v2 this is only an inference: a turn that ends a step without tools reads as waiting
+   * until its terminal event.
+   */
+  private observeModelWait(event: AgentStreamEvent): void {
+    if (event.type !== "timeline") return;
+    const { item } = event;
+    if (item.type === "tool_call") {
+      this.setModelWait(item.status !== "running" && this.runningToolCalls.size === 0);
+    } else if (item.type === "assistant_message" || item.type === "reasoning") {
+      this.setModelWait(false);
+    }
+  }
+
+  private setModelWait(waiting: boolean): void {
+    if (this.modelWaiting === waiting) return;
+    this.modelWaiting = waiting;
+    this.notifySubscribers(
+      {
+        type: "model_wait_changed",
+        provider: "opencode",
+        since: waiting ? new Date().toISOString() : null,
+      },
+      null,
+    );
   }
 
   private trackToolCall(item: ToolCallTimelineItem): void {
